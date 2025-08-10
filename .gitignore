@@ -52,6 +52,6 @@ Thumbs.db
 .env.*.local
 
 # Kompoxops specific
-kompoxops
-kompoxops.exe
-kompoxops.yml
+/kompoxops
+/kompoxops.exe
+/kompoxops.yml
