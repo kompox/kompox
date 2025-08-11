@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/yaegashi/kompoxops/cluster"
 	"github.com/yaegashi/kompoxops/models/cfgops"
+	"github.com/yaegashi/kompoxops/resources/cluster"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

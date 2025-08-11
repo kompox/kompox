@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/yaegashi/kompoxops/cluster"
 	"github.com/yaegashi/kompoxops/models/cfgops"
+	"github.com/yaegashi/kompoxops/resources/cluster"
 )
 
 // newCmdClusterDeploy installs cluster-level components like ingress controller.

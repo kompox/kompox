@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/yaegashi/kompoxops/cluster"
 	"github.com/yaegashi/kompoxops/models/cfgops"
+	"github.com/yaegashi/kompoxops/resources/cluster"
 )
 
 // newCmdClusterPing connects to the cluster and prints the API server version as a liveness check.

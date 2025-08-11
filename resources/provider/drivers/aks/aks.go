@@ -6,7 +6,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-	"github.com/yaegashi/kompoxops/provider"
+	"github.com/yaegashi/kompoxops/resources/provider"
 )
 
 // driver implements the AKS provider driver.

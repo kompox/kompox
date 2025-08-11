@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 
 	"github.com/yaegashi/kompoxops/models/cfgops"
-	"github.com/yaegashi/kompoxops/provider"
-	_ "github.com/yaegashi/kompoxops/provider/drivers/aks"
-	_ "github.com/yaegashi/kompoxops/provider/drivers/k3s"
+	"github.com/yaegashi/kompoxops/resources/provider"
+	_ "github.com/yaegashi/kompoxops/resources/provider/drivers/aks"
+	_ "github.com/yaegashi/kompoxops/resources/provider/drivers/k3s"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"

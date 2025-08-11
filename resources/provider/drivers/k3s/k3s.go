@@ -3,7 +3,7 @@ package k3s
 import (
 	"fmt"
 
-	"github.com/yaegashi/kompoxops/provider"
+	"github.com/yaegashi/kompoxops/resources/provider"
 )
 
 // driver implements the K3s provider driver.
