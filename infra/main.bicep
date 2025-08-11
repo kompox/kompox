@@ -20,6 +20,14 @@ param location string
 // }
 param resourceGroupName string = ''
 
+param keyVaultName string = ''
+param containerRegistryName string = ''
+param logAnalyticsName string = ''
+param applicationInsightsName string = ''
+param applicationInsightsDashboardName string = ''
+param aksName string = ''
+param principalId string = deployer().objectId
+
 var abbrs = loadJsonContent('./abbreviations.json')
 
 // tags that should be applied to all resources.
@@ -52,7 +60,59 @@ resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
 // A full example that leverages azd bicep modules can be seen in the todo-python-mongo template:
 // https://github.com/Azure-Samples/todo-python-mongo/tree/main/infra
 
+module keyVault './core/security/keyvault.bicep' = {
+  name: 'keyVault'
+  scope: rg
+  params: {
+    location: location
+    tags: tags
+    name: !empty(keyVaultName) ? keyVaultName : '${abbrs.keyVaultVaults}${resourceToken}'
+    principalId: principalId
+  }
+}
 
+module containerRegistry './core/host/container-registry.bicep' = {
+  name: 'containerRegistry'
+  scope: rg
+  params: {
+    location: location
+    tags: tags
+    name: !empty(containerRegistryName) ? containerRegistryName : '${abbrs.containerRegistryRegistries}${resourceToken}'
+    workspaceId: monitoring.outputs.logAnalyticsWorkspaceId
+  }
+}
+
+module monitoring './core/monitor/monitoring.bicep' = {
+  name: 'monitoring'
+  scope: rg
+  params: {
+    location: location
+    tags: tags
+    logAnalyticsName: !empty(logAnalyticsName)
+      ? logAnalyticsName
+      : '${abbrs.operationalInsightsWorkspaces}${resourceToken}'
+    applicationInsightsName: !empty(applicationInsightsName)
+      ? applicationInsightsName
+      : '${abbrs.insightsComponents}${resourceToken}'
+    applicationInsightsDashboardName: !empty(applicationInsightsDashboardName)
+      ? applicationInsightsDashboardName
+      : '${abbrs.portalDashboards}${resourceToken}'
+  }
+}
+
+module aks './core/host/aks.bicep' = {
+  name: 'aks'
+  scope: rg
+  params: {
+    name: !empty(aksName) ? aksName : '${abbrs.containerServiceManagedClusters}${resourceToken}'
+    location: location
+    tags: tags
+    containerRegistryName: containerRegistry.outputs.name
+    logAnalyticsName: monitoring.outputs.logAnalyticsWorkspaceName
+    keyVaultName: keyVault.outputs.name
+    kubernetesVersion: '1.33'
+  }
+}
 
 // Add outputs from the deployment here, if needed.
 //
@@ -64,3 +124,8 @@ resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
 // To see these outputs, run `azd env get-values`,  or `azd env get-values --output json` for json output.
 output AZURE_LOCATION string = location
 output AZURE_TENANT_ID string = tenant().tenantId
+output AZURE_SUBSCRIPTION_ID string = subscription().subscriptionId
+output AZURE_RESOURCE_GROUP_NAME string = rg.name
+output AZURE_AKS_CLUSTER_NAME string = aks.outputs.clusterName
+output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.outputs.loginServer
+output AZURE_CONTAINER_REGISTRY_NAME string = containerRegistry.outputs.name
