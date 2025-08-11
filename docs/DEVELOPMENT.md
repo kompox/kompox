@@ -4,18 +4,21 @@
 
 ```
 .
-├── cmd/
-│   └── kompoxops/           # Main CLI application
-│       └── main.go          # Entry point
-├── cluster/                 # Kubernetes cluster handling
-│   └── providers/           # Kubernetes and cloud service providers
-│       ├── aks/             # AKS and Azure provider
-│       └── k3s/             # K3s provider
-├── docs/                    # Documentation
-├── .devcontainer/           # VS Code Dev Container configuration
-│   └── devcontainer.json
-├── go.mod                   # Go module definition
-├── Makefile                 # Build automation
+├── .devcontainer/ # Dev Container configuration
+├── docs/          # Documentation
+├── cmd/           # CLI command implementations
+│   └── kompoxops/ # kompoxops command
+├── cluster/       # Cluster operation logic
+├── provider/      # Cluster provider abstraction
+│   └── drivers/   # Cluster provider drivers
+│       ├── aks/   # AKS driver
+│       └── k3s/   # K3s driver
+├── models/        # Data model definitions
+│   └── cfgops/    # kompoxops.yml configuration file
+├── infra/         # Azure Developer CLI IaC templates
+├── azure.yaml     # Azure Developer CLI configuration
+├── go.mod
+├── go.sum
 └── README.md
 ```
 
