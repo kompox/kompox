@@ -10,6 +10,7 @@ import (
 	"github.com/yaegashi/kompoxops/resources/provider"
 	_ "github.com/yaegashi/kompoxops/resources/provider/drivers/aks"
 	_ "github.com/yaegashi/kompoxops/resources/provider/drivers/k3s"
+	"github.com/yaegashi/kompoxops/resources/service"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -29,12 +30,11 @@ type Cluster struct {
 }
 
 // New constructs a Cluster from kompoxops cfg. It builds rest.Config using kubeconfig/context when provided.
-func New(cfg *cfgops.Root) (*Cluster, error) {
+func New(cfg *cfgops.Root, svc *service.Service) (*Cluster, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("nil config")
 	}
-	// Select provider via registry and fail fast on unknown/invalid provider
-	prov, err := provider.New(cfg.Cluster.Provider, cfg.Cluster.Settings)
+	prov, err := provider.New(cfg.Cluster.Provider, cfg.Cluster.Settings, svc)
 	if err != nil {
 		return nil, err
 	}

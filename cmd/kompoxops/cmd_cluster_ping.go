@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/yaegashi/kompoxops/resources/service"
+
 	"github.com/spf13/cobra"
 	"github.com/yaegashi/kompoxops/models/cfgops"
 	"github.com/yaegashi/kompoxops/resources/cluster"
@@ -24,7 +26,8 @@ func newCmdClusterPing() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			cl, err := cluster.New(cfg)
+			svc := &service.Service{Name: "default"}
+			cl, err := cluster.New(cfg, svc)
 			if err != nil {
 				return err
 			}

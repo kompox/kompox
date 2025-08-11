@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/yaegashi/kompoxops/resources/service"
+
 	"github.com/spf13/cobra"
 	"github.com/yaegashi/kompoxops/models/cfgops"
 	"github.com/yaegashi/kompoxops/resources/cluster"
@@ -56,7 +58,8 @@ func newCmdClusterInfo() *cobra.Command {
 			traefikLBIP := ""
 			traefikLBHostname := ""
 			// Try to connect to cluster and read service status
-			if c, err := cluster.New(cfg); err == nil {
+			svc := &service.Service{Name: "default"}
+			if c, err := cluster.New(cfg, svc); err == nil {
 				ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 				defer cancel()
 				// Attempt to get Service/traefik in configured namespace

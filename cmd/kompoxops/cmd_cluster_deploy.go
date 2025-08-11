@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yaegashi/kompoxops/resources/service"
+
 	"github.com/spf13/cobra"
 	"github.com/yaegashi/kompoxops/models/cfgops"
 	"github.com/yaegashi/kompoxops/resources/cluster"
@@ -49,7 +51,8 @@ func newCmdClusterDeploy() *cobra.Command {
 			}
 
 			// Ensure cluster connectivity early (also picks kubeconfig/context)
-			if _, err := cluster.New(cfg); err != nil {
+			svc := &service.Service{Name: "default"}
+			if _, err := cluster.New(cfg, svc); err != nil {
 				return err
 			}
 
