@@ -10,7 +10,7 @@ import (
 type driver struct{}
 
 // ID returns the provider identifier.
-func (d driver) ID() string { return "k3s" }
+func (d *driver) ID() string { return "k3s" }
 
 // init registers the K3s driver.
 func init() {
@@ -18,6 +18,6 @@ func init() {
 		if settings != nil && settings["disabled"] == "true" {
 			return nil, fmt.Errorf("k3s provider disabled by settings")
 		}
-		return driver{}, nil
+		return &driver{}, nil
 	})
 }
