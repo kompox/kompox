@@ -1,4 +1,4 @@
-package config
+package cfgops
 
 import (
 	"os"
@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestOpsRead_Success(t *testing.T) {
+func TestLoad_Success(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "kompoxops.yml")
 
@@ -32,9 +32,9 @@ app:
 		t.Fatalf("failed to write temp yaml: %v", err)
 	}
 
-	cfg, err := OpsRead(path)
+	cfg, err := Load(path)
 	if err != nil {
-		t.Fatalf("OpsRead returned error: %v", err)
+		t.Fatalf("Load returned error: %v", err)
 	}
 
 	if cfg.Version != 1 {
@@ -54,13 +54,13 @@ app:
 	}
 }
 
-func TestOpsRead_FileNotFound(t *testing.T) {
-	if _, err := OpsRead("/path/does/not/exist.yml"); err == nil {
+func TestLoad_FileNotFound(t *testing.T) {
+	if _, err := Load("/path/does/not/exist.yml"); err == nil {
 		t.Fatalf("expected error for missing file, got nil")
 	}
 }
 
-func TestOpsRead_InvalidYAML(t *testing.T) {
+func TestLoad_InvalidYAML(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "bad.yml")
 
@@ -70,7 +70,7 @@ func TestOpsRead_InvalidYAML(t *testing.T) {
 		t.Fatalf("failed to write temp yaml: %v", err)
 	}
 
-	if _, err := OpsRead(path); err == nil {
+	if _, err := Load(path); err == nil {
 		t.Fatalf("expected error for invalid YAML, got nil")
 	}
 }

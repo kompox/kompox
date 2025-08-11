@@ -1,15 +1,15 @@
-// Package config defines the configuration schema (structs) for kompoxops.yml.
+// Package cfgops defines the configuration schema (structs) for kompoxops.yml.
 // This package is intended for YAML -> struct deserialization.
 // Loading helpers and validations will be implemented separately.
-package config
+package cfgops
 
-// OpsConfig is the root structure of kompoxops.yml.
+// Root is the root structure of kompoxops.yml.
 // Example:
 // version: 1
 // service: { name: ops, domain: ops.kompox.dev }
 // cluster: { ... }
 // app: { ... }
-type OpsConfig struct {
+type Root struct {
 	Version int     `yaml:"version"`
 	Service Service `yaml:"service"`
 	Cluster Cluster `yaml:"cluster"`
