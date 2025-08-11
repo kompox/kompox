@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/yaegashi/kompoxops/cluster"
 	"github.com/yaegashi/kompoxops/models/cfgops"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // newCmdClusterInfo shows the cluster information from kompoxops.yml
@@ -42,6 +46,44 @@ func newCmdClusterInfo() *cobra.Command {
 				appDefault8080 = fmt.Sprintf("%s-8080.%s", cfg.App.Name, baseDomain)
 			}
 
+			// Best-effort Traefik detection and LB IP/hostname retrieval
+			traefikNS := cl.Ingress.Namespace
+			if traefikNS == "" {
+				traefikNS = "traefik"
+			}
+			traefikChecked := false
+			traefikInstalled := false
+			traefikLBIP := ""
+			traefikLBHostname := ""
+			// Try to connect to cluster and read service status
+			if c, err := cluster.New(cfg); err == nil {
+				ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
+				defer cancel()
+				// Attempt to get Service/traefik in configured namespace
+				if svc, err := c.Client.CoreV1().Services(traefikNS).Get(ctx, "traefik", metav1.GetOptions{}); err == nil {
+					traefikChecked = true
+					traefikInstalled = true
+					if len(svc.Status.LoadBalancer.Ingress) > 0 {
+						ing := svc.Status.LoadBalancer.Ingress[0]
+						traefikLBIP = ing.IP
+						traefikLBHostname = ing.Hostname
+					}
+				} else {
+					// Fallback: also try default namespace "traefik" if different
+					if traefikNS != "traefik" {
+						if svc, err2 := c.Client.CoreV1().Services("traefik").Get(ctx, "traefik", metav1.GetOptions{}); err2 == nil {
+							traefikChecked = true
+							traefikInstalled = true
+							if len(svc.Status.LoadBalancer.Ingress) > 0 {
+								ing := svc.Status.LoadBalancer.Ingress[0]
+								traefikLBIP = ing.IP
+								traefikLBHostname = ing.Hostname
+							}
+						}
+					}
+				}
+			}
+
 			// When --json is specified, output a structured JSON
 			if asJSON {
 				out := map[string]any{
@@ -60,6 +102,16 @@ func newCmdClusterInfo() *cobra.Command {
 						"ingress": map[string]any{
 							"controller": cl.Ingress.Controller,
 							"namespace":  cl.Ingress.Namespace,
+							"traefik": map[string]any{
+								"checked":   traefikChecked,
+								"installed": traefikInstalled,
+								"service":   "traefik",
+								"namespace": traefikNS,
+								"loadBalancer": map[string]any{
+									"ip":       traefikLBIP,
+									"hostname": traefikLBHostname,
+								},
+							},
 						},
 					},
 					"dns": map[string]any{
@@ -96,6 +148,17 @@ func newCmdClusterInfo() *cobra.Command {
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "ingress.controller=%s\n", cl.Ingress.Controller)
 			fmt.Fprintf(cmd.OutOrStdout(), "ingress.namespace=%s\n", cl.Ingress.Namespace)
+			if traefikChecked {
+				fmt.Fprintf(cmd.OutOrStdout(), "ingress.traefik.installed=%t\n", traefikInstalled)
+				fmt.Fprintf(cmd.OutOrStdout(), "ingress.traefik.service=traefik\n")
+				fmt.Fprintf(cmd.OutOrStdout(), "ingress.traefik.namespace=%s\n", traefikNS)
+				if traefikLBIP != "" {
+					fmt.Fprintf(cmd.OutOrStdout(), "ingress.traefik.lb.ip=%s\n", traefikLBIP)
+				}
+				if traefikLBHostname != "" {
+					fmt.Fprintf(cmd.OutOrStdout(), "ingress.traefik.lb.hostname=%s\n", traefikLBHostname)
+				}
+			}
 			if baseDomain != "" {
 				fmt.Fprintf(cmd.OutOrStdout(), "dns.base=%s\n", baseDomain)
 				fmt.Fprintf(cmd.OutOrStdout(), "dns.wildcard=%s\n", wildcard)
