@@ -23,6 +23,7 @@ func newRootCmd() *cobra.Command {
 	// Add subcommands
 	cmd.AddCommand(newCmdVersion())
 	cmd.AddCommand(newCmdConfig())
+	cmd.AddCommand(newCmdCluster())
 	return cmd
 }
 
