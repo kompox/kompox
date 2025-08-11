@@ -6,9 +6,10 @@ import (
 	"os"
 	"path/filepath"
 
-	aksprov "github.com/yaegashi/kompoxops/cluster/providers/aks"
-	k3sprov "github.com/yaegashi/kompoxops/cluster/providers/k3s"
 	"github.com/yaegashi/kompoxops/models/cfgops"
+	"github.com/yaegashi/kompoxops/provider"
+	_ "github.com/yaegashi/kompoxops/provider/drivers/aks"
+	_ "github.com/yaegashi/kompoxops/provider/drivers/k3s"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -24,7 +25,7 @@ type Cluster struct {
 	Context  string
 	Kubeconf string
 	// Provider implementation selected from cfg.Cluster.Provider
-	Provider Provider
+	Provider *provider.Provider
 }
 
 // New constructs a Cluster from kompoxops cfg. It builds rest.Config using kubeconfig/context when provided.
@@ -32,25 +33,10 @@ func New(cfg *cfgops.Root) (*Cluster, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("nil config")
 	}
-	// Select provider early and fail fast on unknown provider
-	var prov Provider
-	switch cfg.Cluster.Provider {
-	case "aks":
-		if p := aksprov.New(cfg.Cluster.Settings); p != nil {
-			prov = p
-		} else {
-			return nil, fmt.Errorf("invalid settings for provider aks")
-		}
-	case "k3s":
-		if p := k3sprov.New(cfg.Cluster.Settings); p != nil {
-			prov = p
-		} else {
-			return nil, fmt.Errorf("invalid settings for provider k3s")
-		}
-	case "":
-		// optional: try to infer or leave nil
-	default:
-		return nil, fmt.Errorf("unknown cluster provider: %s", cfg.Cluster.Provider)
+	// Select provider via registry and fail fast on unknown/invalid provider
+	prov, err := provider.New(cfg.Cluster.Provider, cfg.Cluster.Settings)
+	if err != nil {
+		return nil, err
 	}
 
 	ca := cfg.Cluster.Auth
@@ -76,7 +62,6 @@ func New(cfg *cfgops.Root) (*Cluster, error) {
 
 	// Build rest.Config from kubeconfig; if file not present, try in-cluster
 	var restCfg *rest.Config
-	var err error
 	if fi, errStat := os.Stat(kubeconfig); errStat == nil && !fi.IsDir() {
 		loadingRules := &clientcmd.ClientConfigLoadingRules{ExplicitPath: kubeconfig}
 		overrides := &clientcmd.ConfigOverrides{ClusterInfo: api.Cluster{}}

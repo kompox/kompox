@@ -55,13 +55,20 @@ kompoxops snapshot export ... スナップショットリソースのエクス�
 kompoxops snapshot delete ... スナップショットリソースの削除
 ```
 
-設定ファイル `kompoxops.yml` 仕様 (`cluster.settings` および `app.settings` で設定すべき内容は `cluster.provider` により異なる)
+設定ファイル `kompoxops.yml` 仕様 (`cluster.settings` および `app.settings` で設定すべき内容は `provider.driver` により異なる)
 
 ```yaml
 version: 1
 service:
   name: ops
-  domain: ops.kompox.dev
+provider:
+  name: aks1
+  driver: aks
+  settings:
+    AZURE_TOKEN_CREDENTIALS: dev
+    AZURE_TENANT_ID: xxxxxx
+    AZURE_SUBSCRIPTION_ID: xxxxxx
+    AZURE_LOCATION: japaneast          
 cluster:
   name: my-aks
   auth:
@@ -71,13 +78,9 @@ cluster:
   ingress:
     controller: traefik  
     namespace: traefik
-  provider: aks
+  domain: ops.kompox.dev
   settings:
-    AZURE_TOKEN_CREDENTIALS: dev
-    AZURE_TENANT_ID: xxxxxx
-    AZURE_SUBSCRIPTION_ID: xxxxxx
-    AZURE_RESOURCE_GROUP_NAME: rg-myapp
-    AZURE_LOCATION: japaneast          
+    AZURE_RESOURCE_GROUP_NAME: rg-CLU
 app:
   name: my-app
   compose: compose.yml
@@ -88,6 +91,7 @@ app:
     cpu: 500m
     memory: 1Gi
   settings:
+    AZURE_RESOURCE_GROUP_NAME: rg-APP
     AZURE_DISK_SIZE: 50
     AZURE_DISK_TYPE: Standard_LRS
 ```
@@ -105,7 +109,7 @@ app:
 基本的なステートは K8s の Namespace リソースのアノテーションで保持する。
 
 ```yaml
-kompox.dev/app: ops/my-aks/my-app
+kompox.dev/app: ops/aks1/my-aks/my-app
 kompox.dev/provider: aks
 kompox.dev/disk-current-id: /subscriptions/....
 kompox.dev/disk-previous-id: /subscriptions/....
@@ -114,7 +118,7 @@ kompox.dev/disk-previous-id: /subscriptions/....
 disk や snapshot の列挙は、クラウドリソースのタグにより識別する。
 
 ```yaml
-kompox-app: ops/my-aks/my-app
+kompox-app: ops/aks1/my-aks/my-app
 kompox-created-at: 2025-08-11T12:34:56Z
 ```
 
@@ -125,24 +129,31 @@ Kompox PaaS REST API リソースモデル
 ```go
 // サービス (シングルトンリソース)
 type Service struct {
-  Name string    // DNSホスト名の制約
-  Domain string  // デフォルトDNSドメイン
+  Name string // DNSホスト名の制約
+}
+
+// プロバイダ
+type Provider struct {
+  Name string
+  Service string             // Service.Name の参照
+  Driver string              // aks, k3s, oke, etc.
+  Settings map[string]string // Provider固有の設定値
 }
 
 // Kubernetesクラスタ (Serviceに所属する)
 type Cluster struct {
   Name string                // DNSホスト名の制約
-  Service string             // Serviceの参照
-  Auth ClusterAUth
+  Provider string            // Provider.Name の参照
+  Auth ClusterAuth
   Ingress ClusterIngress
-  Provider string            // aks, k3s, oke, etc.
-  Settings map[string]string // Provider依存の設定値
+  Domain string              // デフォルトDNSドメイン
+  Settings map[string]string // Cluster固有の設定値
 }
 
 type ClusterAuth struct {
-  Type string        // kubectl, etc.
-  Kubeconfig string  // "~/.kube/config"
-  Context string     // "my-aks"
+  Type string       // kubectl, etc.
+  Kubeconfig string // "~/.kube/config"
+  Context string    // "my-aks"
 }
 
 type ClusterIngress struct {
@@ -153,11 +164,11 @@ type ClusterIngress struct {
 // アプリケーション (Clusterに所属する)
 type App struct {
   Name string                 // DNSホスト名の制約
-  Cluster string              // Clusterの参照
+  Cluster string              // Cluster.Nameの参照
   Compose string              // Docker Compose 設定テキスト
   Ingress map[string]string   // カスタムDNSホスト名 Ingress 設定
   Resources map[string]string // Podリソース設定 (cpu, memory, etc.)
-  Settings map[string]string  // Cluster.Provider依存の設定
+  Settings map[string]string  // App固有の設定値
 }          
 ```
 
@@ -170,15 +181,20 @@ Kompox PaaS REST API 実装仕様
 - Service
   - 管理者が設定するシングルトンのリソース
   - NameはRFC1123準拠のDNSラベル名
-  - Domainは "kompox-apps.com" のようなデフォルトドメイン階層のFQDN
+- Provider
+  - 管理者が設定するクラスタプロバイダのリソース
+  - NameはRFC1123準拠のDNSラベル名
+  - Serviceに所属する
+  - Driverでクラスタの種類を指定する aks,k3s,oke など
+  - SettingsでProvider固有の設定を指定する
 - Cluster
   - 管理者が設定するKubernetesクラスタのリソース
   - NameはRFC1123準拠のDNSラベル名
-  - Serviceに所属する
+  - Providerに所属する
   - Authでクラスタ接続方法を指定する
   - IngressでTraefik Proxyのインストール方法を指定する
-  - Providerでクラスタとクラウドの種類を指定する aks,k3s,eksなど
-  - SettingsでProvider固有の設定を指定する
+  - SettingsでCluster固有の設定を指定する
+    - DEFULAT_DOMAIN は "kompox-apps.com" のようなデフォルトドメイン階層のFQDN
 - App
   - ユーザーが所有するアプリのリソース
   - NameはRFC1123準拠のDNSラベル名
@@ -188,22 +204,21 @@ Kompox PaaS REST API 実装仕様
   - ResourcesでPodの割り当てを指定する  
   - SettingsでCluster.Provider固有の設定を指定する  
 - 各 Cluster では Traefik Proxy をイングレスコントローラとしてデプロイする。
-- 各 Cluster ごとにデフォルト DNS として \*.{Cluster.Name}.{Service.Domain} のワイルドカードSSL証明書を Traefik Proxy に設定する。 証明書の取得・保持方法は Cluster.Provider により異なる。
+- 各 Cluster ごとにデフォルト DNS として \*.{Cluster.Domain} のワイルドカードSSL証明書を Traefik Proxy に設定する。 証明書の取得・保持方法は Provider により異なる。
 - ユーザーは App を作成・所有・デプロイできる。
 - ユーザーが App をデプロイすることで次のようなことが起きる。
   - App.Compose が Kompose によって Kubernetes マニフェストに変換され App.Cluster で指定したクラスタに適用される。
   - App.Composeではボリュームを1つだけ参照でき、その実態としてディスクのクラウドリソースを割り当てるPVCが自動的に作成される。
   - Compose の ports でエクスポーズされた各ポート指定に対応する ServiceリソースとIngressリソースが自動的に作成される。IngresリソースにはTraefik Proxyが読み取るアノテーションが設定され、DNSバーチャルホストによる各サービスへのアクセスが可能になる。
   - エクスポーズされた各ポートには固有のDNSホスト名が自動的に割り当てられる。
-    - {App.Name}.{Cluster.Name}.{Service.Domain} → ポート80
-    - {App.Name}-8080.{cluster.name}.{Service.Domain} → ポート8080  
+    - {App.Name}.{Cluster.Domain} → ポート80
+    - {App.Name}-8080.{cluster.Domain} → ポート8080  
   - エクスポーズされた各ポートには次のような App.Ingress によりカスタムDNSホスト名が割り当てられる。
       http_80: www.custom-apps.com
       http_8080: admin.custom-apps.com
 - ユーザーはClusterのパブリックFQDNとIPアドレスを取得できる。カスタムDNSホストのCNAMEやAレコードにこれを設定することはユーザーの責任とする。Traefik ProxyはLet's EncryptのTLS-ALPN-01チャレンジによりSSL証明書を自動取得する。
 - ユーザーはAppに属するディスクのリスト、インポート、エクスポート、削除、切り替えができる。
 - ユーザーはAppに属するスナップショットのリスト、作成、復元、エクスポート、削除ができる。
-- Appに属するディスクやスナップショットなどのクラウドリソースの列挙の方法は Cluster.Provider に依存する。通常は "{Service.Name}/{Cluster.Name}/{App.Name}" という値を持つタグをリソースに設定することで識別する。    
+- Appに属するディスクやスナップショットなどのクラウドリソースの列挙の方法は Provider/Cluster/App に依存する。通常は "{Service.Name}/{Provider.Name}/{Cluster.Name}/{App.Name}" という値を持つタグをリソースに設定することで識別する。    
 - ユーザーは所有する App の K8s ネームスペースに限定した権限を持つ K8s API トークンが得られる。これによりユーザーはコンテナの稼働状況やログを取得でき、コマンド実行やシェル接続もできる。リソースの更新や削除は許可しない。
 - AKS においては OIDC 連携に対応する。指定した Entra ID ユーザー・サービスプリンシパルは上記の権限を持つK8s API トークンが得られる。
-

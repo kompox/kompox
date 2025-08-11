@@ -7,8 +7,10 @@
 ├── cmd/
 │   └── kompoxops/           # Main CLI application
 │       └── main.go          # Entry point
-├── pkg/
-│   └── cli/                 # CLI package (for future expansion)
+├── cluster/                 # Kubernetes cluster handling
+│   └── providers/           # Kubernetes and cloud service providers
+│       ├── aks/             # AKS and Azure provider
+│       └── k3s/             # K3s provider
 ├── docs/                    # Documentation
 ├── .devcontainer/           # VS Code Dev Container configuration
 │   └── devcontainer.json
@@ -30,20 +32,30 @@
 Based on `docs/Kompox-Spec-Draft.ja.md`, the kompoxops CLI should implement:
 
 ### Core Commands
+
 - `kompoxops init` - Create kompoxops.yml template
+
+### Cluster Commands
+
+- `kompoxops cluster info` - Show cluster information
 - `kompoxops cluster deploy` - Deploy traefik ingress controller
+
+### App Commands
+
 - `kompoxops app validate` - Validate compose.yml and output K8s manifests
 - `kompoxops app deploy` - Deploy compose.yml
 - `kompoxops app destroy` - Delete deployment (disk remains)
 
-### Disk Management
+### Disk Management (handled by providers)
+
 - `kompoxops disk list` - List disk resources
 - `kompoxops disk attach` - Replace disk resource
 - `kompoxops disk import` - Import disk resource
 - `kompoxops disk export` - Export disk resource
 - `kompoxops disk delete` - Delete disk resource
 
-### Snapshot Management
+### Snapshot Management (handled by providers)
+
 - `kompoxops snapshot list` - List snapshot resources
 - `kompoxops snapshot create` - Create snapshot resource
 - `kompoxops snapshot restore` - Restore snapshot resource
