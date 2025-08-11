@@ -17,5 +17,6 @@ func newCmdCluster() *cobra.Command {
 		SilenceErrors: true,
 	}
 	c.AddCommand(newCmdClusterInfo())
+	c.AddCommand(newCmdClusterPing())
 	return c
 }
