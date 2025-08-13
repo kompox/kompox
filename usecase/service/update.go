@@ -1,0 +1,36 @@
+package service
+
+import (
+	"context"
+	"time"
+
+	"github.com/yaegashi/kompoxops/domain/model"
+)
+
+type UpdateServiceCommand struct {
+	ID   string
+	Name *string
+}
+
+func (u *ServiceUseCase) Update(ctx context.Context, cmd UpdateServiceCommand) (*model.Service, error) {
+	if cmd.ID == "" {
+		return nil, model.ErrServiceInvalid
+	}
+	existing, err := u.Services.Get(ctx, cmd.ID)
+	if err != nil {
+		return nil, err
+	}
+	changed := false
+	if cmd.Name != nil && *cmd.Name != "" && existing.Name != *cmd.Name {
+		existing.Name = *cmd.Name
+		changed = true
+	}
+	if !changed {
+		return existing, nil
+	}
+	existing.UpdatedAt = time.Now().UTC()
+	if err := u.Services.Update(ctx, existing); err != nil {
+		return nil, err
+	}
+	return existing, nil
+}
