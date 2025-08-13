@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	mem "github.com/yaegashi/kompoxops/adapters/store/memory"
+	rdb "github.com/yaegashi/kompoxops/adapters/store/rdb"
 	"github.com/yaegashi/kompoxops/domain"
 	"github.com/yaegashi/kompoxops/usecase/service"
 	"gopkg.in/yaml.v3"
@@ -64,6 +65,15 @@ func buildServiceUseCase(cmd *cobra.Command) (*service.ServiceUseCase, error) {
 	switch {
 	case strings.HasPrefix(dbURL, "memory:"):
 		repo = mem.NewInMemoryServiceRepository()
+	case strings.HasPrefix(dbURL, "sqlite:") || strings.HasPrefix(dbURL, "sqlite3:"):
+		db, err := rdb.OpenFromURL(dbURL)
+		if err != nil {
+			return nil, err
+		}
+		if err := rdb.AutoMigrate(db); err != nil {
+			return nil, err
+		}
+		repo = rdb.NewServiceRepository(db)
 	default:
 		return nil, fmt.Errorf("unsupported db scheme: %s", dbURL)
 	}
@@ -119,16 +129,22 @@ func newCmdAdminServiceGet() *cobra.Command {
 	}
 }
 
-func readServiceSpec(path string) (*serviceSpec, error) {
+func readServiceSpec(cmd *cobra.Command, path string) (*serviceSpec, error) {
 	if path == "" {
 		return nil, errors.New("spec file required (-f)")
 	}
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
+	var r io.Reader
+	if path == "-" {
+		r = cmd.InOrStdin()
+	} else {
+		f, err := os.Open(path)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		r = f
 	}
-	defer f.Close()
-	b, err := io.ReadAll(f)
+	b, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +165,7 @@ func newCmdAdminServiceCreate() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			spec, err := readServiceSpec(file)
+			spec, err := readServiceSpec(cmd, file)
 			if err != nil {
 				return err
 			}
@@ -164,7 +180,7 @@ func newCmdAdminServiceCreate() *cobra.Command {
 			return enc.Encode(out)
 		},
 	}
-	c.Flags().StringVarP(&file, "file", "f", "", "Path to service spec (YAML)")
+	c.Flags().StringVarP(&file, "file", "f", "", "Path to service spec (YAML), or '-' for stdin")
 	_ = c.MarkFlagRequired("file")
 	return c
 }
@@ -180,7 +196,7 @@ func newCmdAdminServiceUpdate() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			spec, err := readServiceSpec(file)
+			spec, err := readServiceSpec(cmd, file)
 			if err != nil {
 				return err
 			}
@@ -199,7 +215,7 @@ func newCmdAdminServiceUpdate() *cobra.Command {
 			return enc.Encode(out)
 		},
 	}
-	c.Flags().StringVarP(&file, "file", "f", "", "Path to service spec (YAML)")
+	c.Flags().StringVarP(&file, "file", "f", "", "Path to service spec (YAML), or '-' for stdin")
 	_ = c.MarkFlagRequired("file")
 	return c
 }

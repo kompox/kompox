@@ -1,6 +1,10 @@
 package main
 
-import "github.com/spf13/cobra"
+import (
+	"os"
+
+	"github.com/spf13/cobra"
+)
 
 // newCmdAdmin returns the parent command for admin operations.
 func newCmdAdmin() *cobra.Command {
@@ -13,7 +17,11 @@ func newCmdAdmin() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
-	c.PersistentFlags().String("db-url", "memory:", "Database URL (memory: | sqlite:... | postgres:// | mysql://)")
+	defaultDB := os.Getenv("KOMPOX_DB_URL")
+	if defaultDB == "" {
+		defaultDB = "memory:"
+	}
+	c.PersistentFlags().String("db-url", defaultDB, "Database URL (env KOMPOX_DB_URL) (memory: | sqlite:/path/to.db | sqlite::memory: | postgres:// | mysql://)")
 	c.AddCommand(newCmdAdminService())
 	return c
 }
