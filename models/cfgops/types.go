@@ -5,43 +5,38 @@ package cfgops
 
 // Root is the root structure of kompoxops.yml.
 // Example:
-// version: 1
-// service: { name: ops, domain: ops.kompox.dev }
-// cluster: { ... }
-// app: { ... }
+// version: v1
+// service: { name: ops }
+// provider: { name: aks1, driver: aks, settings: {...} }
+// cluster: { name: my-aks, existing: false, domain: ops.kompox.dev, ... }
+// app: { name: my-app, compose: compose.yml, ... }
 type Root struct {
-	Version int     `yaml:"version"`
-	Service Service `yaml:"service"`
-	Cluster Cluster `yaml:"cluster"`
-	App     App     `yaml:"app"`
+	Version  string   `yaml:"version"`
+	Service  Service  `yaml:"service"`
+	Provider Provider `yaml:"provider"`
+	Cluster  Cluster  `yaml:"cluster"`
+	App      App      `yaml:"app"`
 }
 
-// Service represents global service settings including default DNS domain.
+// Service represents global service settings.
 type Service struct {
-	Name   string `yaml:"name"`   // RFC1123-compliant DNS label
-	Domain string `yaml:"domain"` // e.g., "ops.kompox.dev"
+	Name string `yaml:"name"` // RFC1123-compliant DNS label
 }
 
-// Cluster represents target Kubernetes cluster and provider-specific settings.
+// Provider represents infrastructure provider configuration.
+type Provider struct {
+	Name     string            `yaml:"name"`     // provider name
+	Driver   string            `yaml:"driver"`   // e.g., "aks", "k3s"
+	Settings map[string]string `yaml:"settings"` // provider-specific settings
+}
+
+// Cluster represents target Kubernetes cluster configuration.
 type Cluster struct {
-	Name     string            `yaml:"name"`
-	Auth     ClusterAuth       `yaml:"auth"`
-	Ingress  ClusterIngress    `yaml:"ingress"`
-	Provider string            `yaml:"provider"`           // e.g., aks, k3s, eks
-	Settings map[string]string `yaml:"settings,omitempty"` // provider-specific settings
-}
-
-// ClusterAuth describes how to connect to the cluster.
-type ClusterAuth struct {
-	Type       string `yaml:"type"`                 // e.g., kubectl
-	Kubeconfig string `yaml:"kubeconfig,omitempty"` // e.g., ~/.kube/config
-	Context    string `yaml:"context,omitempty"`    // e.g., my-aks
-}
-
-// ClusterIngress specifies the ingress controller deployment settings.
-type ClusterIngress struct {
-	Controller string `yaml:"controller"` // e.g., traefik
-	Namespace  string `yaml:"namespace"`  // e.g., traefik
+	Name     string                 `yaml:"name"`
+	Existing bool                   `yaml:"existing"` // whether to use existing cluster
+	Domain   string                 `yaml:"domain"`   // e.g., "ops.kompox.dev"
+	Ingress  map[string]interface{} `yaml:"ingress"`  // ingress configuration
+	Settings map[string]string      `yaml:"settings"` // cluster-specific settings
 }
 
 // App represents the target application to deploy.
@@ -50,5 +45,5 @@ type App struct {
 	Compose   string            `yaml:"compose"`             // path to Docker Compose file (relative/absolute)
 	Ingress   map[string]string `yaml:"ingress,omitempty"`   // per-port custom DNS (e.g., http_80, http_8080)
 	Resources map[string]string `yaml:"resources,omitempty"` // pod resources (e.g., cpu, memory)
-	Settings  map[string]string `yaml:"settings,omitempty"`  // provider-specific settings (e.g., AZURE_DISK_SIZE)
+	Settings  map[string]string `yaml:"settings,omitempty"`  // app-specific settings
 }

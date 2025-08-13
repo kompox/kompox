@@ -1,4 +1,4 @@
-package memory
+package inmem
 
 import (
 	"context"
@@ -10,23 +10,23 @@ import (
 	"github.com/yaegashi/kompoxops/domain/model"
 )
 
-// InMemoryAppRepository is a thread-safe in-memory implementation.
-type InMemoryAppRepository struct {
+// AppRepository is a thread-safe in-memory implementation.
+type AppRepository struct {
 	mu    sync.RWMutex
 	items map[string]*model.App
 	seq   int64
 }
 
-func NewInMemoryAppRepository() *InMemoryAppRepository {
-	return &InMemoryAppRepository{items: make(map[string]*model.App)}
+func NewAppRepository() *AppRepository {
+	return &AppRepository{items: make(map[string]*model.App)}
 }
 
-func (r *InMemoryAppRepository) nextID() string {
+func (r *AppRepository) nextID() string {
 	r.seq++
 	return fmt.Sprintf("app-%d-%d", time.Now().UnixNano(), r.seq)
 }
 
-func (r *InMemoryAppRepository) Create(_ context.Context, a *model.App) error {
+func (r *AppRepository) Create(_ context.Context, a *model.App) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if a.ID == "" {
@@ -37,7 +37,7 @@ func (r *InMemoryAppRepository) Create(_ context.Context, a *model.App) error {
 	return nil
 }
 
-func (r *InMemoryAppRepository) Get(_ context.Context, id string) (*model.App, error) {
+func (r *AppRepository) Get(_ context.Context, id string) (*model.App, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	v, ok := r.items[id]
@@ -48,7 +48,7 @@ func (r *InMemoryAppRepository) Get(_ context.Context, id string) (*model.App, e
 	return &cp, nil
 }
 
-func (r *InMemoryAppRepository) List(_ context.Context) ([]*model.App, error) {
+func (r *AppRepository) List(_ context.Context) ([]*model.App, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make([]*model.App, 0, len(r.items))
@@ -59,7 +59,7 @@ func (r *InMemoryAppRepository) List(_ context.Context) ([]*model.App, error) {
 	return out, nil
 }
 
-func (r *InMemoryAppRepository) Update(_ context.Context, a *model.App) error {
+func (r *AppRepository) Update(_ context.Context, a *model.App) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	_, ok := r.items[a.ID]
@@ -71,7 +71,7 @@ func (r *InMemoryAppRepository) Update(_ context.Context, a *model.App) error {
 	return nil
 }
 
-func (r *InMemoryAppRepository) Delete(_ context.Context, id string) error {
+func (r *AppRepository) Delete(_ context.Context, id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, ok := r.items[id]; !ok {
@@ -81,4 +81,4 @@ func (r *InMemoryAppRepository) Delete(_ context.Context, id string) error {
 	return nil
 }
 
-var _ domain.AppRepository = (*InMemoryAppRepository)(nil)
+var _ domain.AppRepository = (*AppRepository)(nil)

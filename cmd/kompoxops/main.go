@@ -22,6 +22,14 @@ func newRootCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
+
+	// Add global db-url flag
+	defaultDB := os.Getenv("KOMPOX_DB_URL")
+	if defaultDB == "" {
+		defaultDB = "file:kompoxops.yml"
+	}
+	cmd.PersistentFlags().String("db-url", defaultDB, "Database URL (env KOMPOX_DB_URL) (file:/path/to/kompoxops.yml | sqlite:/path/to.db | postgres:// | mysql://)")
+
 	// Add subcommands
 	cmd.AddCommand(newCmdVersion())
 	cmd.AddCommand(newCmdConfig())

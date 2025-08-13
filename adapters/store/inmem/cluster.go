@@ -1,4 +1,4 @@
-package memory
+package inmem
 
 import (
 	"context"
@@ -10,23 +10,23 @@ import (
 	"github.com/yaegashi/kompoxops/domain/model"
 )
 
-// InMemoryClusterRepository is a thread-safe in-memory implementation.
-type InMemoryClusterRepository struct {
+// ClusterRepository is a thread-safe in-memory implementation.
+type ClusterRepository struct {
 	mu    sync.RWMutex
 	items map[string]*model.Cluster
 	seq   int64
 }
 
-func NewInMemoryClusterRepository() *InMemoryClusterRepository {
-	return &InMemoryClusterRepository{items: make(map[string]*model.Cluster)}
+func NewClusterRepository() *ClusterRepository {
+	return &ClusterRepository{items: make(map[string]*model.Cluster)}
 }
 
-func (r *InMemoryClusterRepository) nextID() string {
+func (r *ClusterRepository) nextID() string {
 	r.seq++
 	return fmt.Sprintf("clus-%d-%d", time.Now().UnixNano(), r.seq)
 }
 
-func (r *InMemoryClusterRepository) Create(_ context.Context, c *model.Cluster) error {
+func (r *ClusterRepository) Create(_ context.Context, c *model.Cluster) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if c.ID == "" {
@@ -37,7 +37,7 @@ func (r *InMemoryClusterRepository) Create(_ context.Context, c *model.Cluster) 
 	return nil
 }
 
-func (r *InMemoryClusterRepository) Get(_ context.Context, id string) (*model.Cluster, error) {
+func (r *ClusterRepository) Get(_ context.Context, id string) (*model.Cluster, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	v, ok := r.items[id]
@@ -48,7 +48,7 @@ func (r *InMemoryClusterRepository) Get(_ context.Context, id string) (*model.Cl
 	return &cp, nil
 }
 
-func (r *InMemoryClusterRepository) List(_ context.Context) ([]*model.Cluster, error) {
+func (r *ClusterRepository) List(_ context.Context) ([]*model.Cluster, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make([]*model.Cluster, 0, len(r.items))
@@ -59,7 +59,7 @@ func (r *InMemoryClusterRepository) List(_ context.Context) ([]*model.Cluster, e
 	return out, nil
 }
 
-func (r *InMemoryClusterRepository) Update(_ context.Context, c *model.Cluster) error {
+func (r *ClusterRepository) Update(_ context.Context, c *model.Cluster) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	_, ok := r.items[c.ID]
@@ -71,7 +71,7 @@ func (r *InMemoryClusterRepository) Update(_ context.Context, c *model.Cluster) 
 	return nil
 }
 
-func (r *InMemoryClusterRepository) Delete(_ context.Context, id string) error {
+func (r *ClusterRepository) Delete(_ context.Context, id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, ok := r.items[id]; !ok {
@@ -81,4 +81,4 @@ func (r *InMemoryClusterRepository) Delete(_ context.Context, id string) error {
 	return nil
 }
 
-var _ domain.ClusterRepository = (*InMemoryClusterRepository)(nil)
+var _ domain.ClusterRepository = (*ClusterRepository)(nil)

@@ -7,22 +7,17 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	mem "github.com/yaegashi/kompoxops/adapters/store/memory"
-	rdb "github.com/yaegashi/kompoxops/adapters/store/rdb"
-	"github.com/yaegashi/kompoxops/domain"
 	"github.com/yaegashi/kompoxops/usecase/service"
 	"gopkg.in/yaml.v3"
 )
 
 // serviceSpec is the YAML/JSON on-disk representation for create/update.
 type serviceSpec struct {
-	Name       string `yaml:"name" json:"name"`
-	ProviderID string `yaml:"providerID,omitempty" json:"providerID,omitempty"`
+	Name string `yaml:"name" json:"name"`
 }
 
 func newCmdAdminService() *cobra.Command {
@@ -56,28 +51,11 @@ func findFlag(cmd *cobra.Command, name string) *pflag.Flag {
 
 // buildServiceUseCase selects repository based on db-url flag.
 func buildServiceUseCase(cmd *cobra.Command) (*service.ServiceUseCase, error) {
-	f := findFlag(cmd, "db-url")
-	dbURL := "memory:"
-	if f != nil && f.Value.String() != "" {
-		dbURL = f.Value.String()
+	serviceRepo, _, _, _, err := buildRepositories(cmd)
+	if err != nil {
+		return nil, err
 	}
-	var repo domain.ServiceRepository
-	switch {
-	case strings.HasPrefix(dbURL, "memory:"):
-		repo = mem.NewInMemoryServiceRepository()
-	case strings.HasPrefix(dbURL, "sqlite:") || strings.HasPrefix(dbURL, "sqlite3:"):
-		db, err := rdb.OpenFromURL(dbURL)
-		if err != nil {
-			return nil, err
-		}
-		if err := rdb.AutoMigrate(db); err != nil {
-			return nil, err
-		}
-		repo = rdb.NewServiceRepository(db)
-	default:
-		return nil, fmt.Errorf("unsupported db scheme: %s", dbURL)
-	}
-	return &service.ServiceUseCase{Services: repo}, nil
+	return &service.ServiceUseCase{Services: serviceRepo}, nil
 }
 
 func newCmdAdminServiceList() *cobra.Command {
@@ -171,7 +149,7 @@ func newCmdAdminServiceCreate() *cobra.Command {
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 			defer cancel()
-			out, err := uc.Create(ctx, service.CreateServiceCommand{Name: spec.Name, ProviderID: spec.ProviderID})
+			out, err := uc.Create(ctx, service.CreateServiceCommand{Name: spec.Name})
 			if err != nil {
 				return err
 			}

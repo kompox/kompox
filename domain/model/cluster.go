@@ -6,7 +6,11 @@ import "time"
 type Cluster struct {
 	ID         string
 	Name       string
-	ProviderID string
+	ProviderID string // references Provider
+	Existing   bool
+	Domain     string
+	Ingress    map[string]interface{}
+	Settings   map[string]string
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }

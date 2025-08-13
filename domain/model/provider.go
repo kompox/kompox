@@ -6,7 +6,9 @@ import "time"
 type Provider struct {
 	ID        string
 	Name      string
+	ServiceID string // references Service
 	Driver    string // e.g., "aks", "k3s"
+	Settings  map[string]string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }

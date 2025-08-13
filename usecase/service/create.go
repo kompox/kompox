@@ -15,8 +15,7 @@ type ServiceUseCase struct {
 
 // CreateServiceCommand carries input data for creation.
 type CreateServiceCommand struct {
-	Name       string
-	ProviderID string
+	Name string
 }
 
 func (u *ServiceUseCase) Create(ctx context.Context, cmd CreateServiceCommand) (*model.Service, error) {
@@ -25,11 +24,10 @@ func (u *ServiceUseCase) Create(ctx context.Context, cmd CreateServiceCommand) (
 	}
 	now := time.Now().UTC()
 	s := &model.Service{
-		ID:         "", // Will be assigned by repository if empty.
-		Name:       cmd.Name,
-		ProviderID: cmd.ProviderID,
-		CreatedAt:  now,
-		UpdatedAt:  now,
+		ID:        "", // Will be assigned by repository if empty.
+		Name:      cmd.Name,
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 	if err := u.Services.Create(ctx, s); err != nil {
 		return nil, err

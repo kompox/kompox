@@ -5,11 +5,10 @@ import "time"
 // ServiceRecord is the RDB persistence model for domain Service.
 // Table name: services
 type ServiceRecord struct {
-	ID         string    `gorm:"primaryKey;type:text;not null"`
-	Name       string    `gorm:"type:text;not null"`
-	ProviderID string    `gorm:"type:text"`
-	CreatedAt  time.Time `gorm:"not null"`
-	UpdatedAt  time.Time `gorm:"not null"`
+	ID        string    `gorm:"primaryKey;type:text;not null"`
+	Name      string    `gorm:"type:text;not null"`
+	CreatedAt time.Time `gorm:"not null"`
+	UpdatedAt time.Time `gorm:"not null"`
 }
 
 func (ServiceRecord) TableName() string { return "services" }
@@ -18,7 +17,9 @@ func (ServiceRecord) TableName() string { return "services" }
 type ProviderRecord struct {
 	ID        string    `gorm:"primaryKey;type:text;not null"`
 	Name      string    `gorm:"type:text;not null"`
+	ServiceID string    `gorm:"type:text;not null"` // references Service
 	Driver    string    `gorm:"type:text;not null"`
+	Settings  string    `gorm:"type:text"` // JSON encoded map[string]string
 	CreatedAt time.Time `gorm:"not null"`
 	UpdatedAt time.Time `gorm:"not null"`
 }
@@ -29,7 +30,11 @@ func (ProviderRecord) TableName() string { return "providers" }
 type ClusterRecord struct {
 	ID         string    `gorm:"primaryKey;type:text;not null"`
 	Name       string    `gorm:"type:text;not null"`
-	ProviderID string    `gorm:"type:text"`
+	ProviderID string    `gorm:"type:text;not null"` // references Provider
+	Existing   bool      `gorm:"not null"`
+	Domain     string    `gorm:"type:text"`
+	Ingress    string    `gorm:"type:text"` // JSON encoded map[string]interface{}
+	Settings   string    `gorm:"type:text"` // JSON encoded map[string]string
 	CreatedAt  time.Time `gorm:"not null"`
 	UpdatedAt  time.Time `gorm:"not null"`
 }
@@ -40,7 +45,11 @@ func (ClusterRecord) TableName() string { return "clusters" }
 type AppRecord struct {
 	ID        string    `gorm:"primaryKey;type:text;not null"`
 	Name      string    `gorm:"type:text;not null"`
-	ClusterID string    `gorm:"type:text"`
+	ClusterID string    `gorm:"type:text;not null"` // references Cluster
+	Compose   string    `gorm:"type:text"`
+	Ingress   string    `gorm:"type:text"` // JSON encoded map[string]string
+	Resources string    `gorm:"type:text"` // JSON encoded map[string]string
+	Settings  string    `gorm:"type:text"` // JSON encoded map[string]string
 	CreatedAt time.Time `gorm:"not null"`
 	UpdatedAt time.Time `gorm:"not null"`
 }

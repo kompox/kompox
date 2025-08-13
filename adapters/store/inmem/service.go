@@ -1,4 +1,4 @@
-package memory
+package inmem
 
 import (
 	"context"
@@ -10,25 +10,25 @@ import (
 	"github.com/yaegashi/kompoxops/domain/model"
 )
 
-// InMemoryServiceRepository is a thread-safe in-memory implementation.
-type InMemoryServiceRepository struct {
+// ServiceRepository is a thread-safe in-memory implementation.
+type ServiceRepository struct {
 	mu       sync.RWMutex
 	services map[string]*model.Service
 	seq      int64
 }
 
-func NewInMemoryServiceRepository() *InMemoryServiceRepository {
-	return &InMemoryServiceRepository{
+func NewServiceRepository() *ServiceRepository {
+	return &ServiceRepository{
 		services: make(map[string]*model.Service),
 	}
 }
 
-func (r *InMemoryServiceRepository) nextID() string {
+func (r *ServiceRepository) nextID() string {
 	r.seq++
 	return fmt.Sprintf("svc-%d-%d", time.Now().UnixNano(), r.seq)
 }
 
-func (r *InMemoryServiceRepository) Create(_ context.Context, s *model.Service) error {
+func (r *ServiceRepository) Create(_ context.Context, s *model.Service) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if s.ID == "" {
@@ -40,7 +40,7 @@ func (r *InMemoryServiceRepository) Create(_ context.Context, s *model.Service) 
 	return nil
 }
 
-func (r *InMemoryServiceRepository) Get(_ context.Context, id string) (*model.Service, error) {
+func (r *ServiceRepository) Get(_ context.Context, id string) (*model.Service, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	s, ok := r.services[id]
@@ -51,7 +51,7 @@ func (r *InMemoryServiceRepository) Get(_ context.Context, id string) (*model.Se
 	return &cp, nil
 }
 
-func (r *InMemoryServiceRepository) List(_ context.Context) ([]*model.Service, error) {
+func (r *ServiceRepository) List(_ context.Context) ([]*model.Service, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make([]*model.Service, 0, len(r.services))
@@ -62,7 +62,7 @@ func (r *InMemoryServiceRepository) List(_ context.Context) ([]*model.Service, e
 	return out, nil
 }
 
-func (r *InMemoryServiceRepository) Update(_ context.Context, s *model.Service) error {
+func (r *ServiceRepository) Update(_ context.Context, s *model.Service) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	existing, ok := r.services[s.ID]
@@ -76,7 +76,7 @@ func (r *InMemoryServiceRepository) Update(_ context.Context, s *model.Service) 
 	return nil
 }
 
-func (r *InMemoryServiceRepository) Delete(_ context.Context, id string) error {
+func (r *ServiceRepository) Delete(_ context.Context, id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, ok := r.services[id]; !ok {
@@ -87,4 +87,4 @@ func (r *InMemoryServiceRepository) Delete(_ context.Context, id string) error {
 }
 
 // Compile-time assertion.
-var _ domain.ServiceRepository = (*InMemoryServiceRepository)(nil)
+var _ domain.ServiceRepository = (*ServiceRepository)(nil)

@@ -1,4 +1,4 @@
-package memory
+package inmem
 
 import (
 	"context"
@@ -10,23 +10,23 @@ import (
 	"github.com/yaegashi/kompoxops/domain/model"
 )
 
-// InMemoryProviderRepository is a thread-safe in-memory implementation.
-type InMemoryProviderRepository struct {
+// ProviderRepository is a thread-safe in-memory implementation.
+type ProviderRepository struct {
 	mu    sync.RWMutex
 	items map[string]*model.Provider
 	seq   int64
 }
 
-func NewInMemoryProviderRepository() *InMemoryProviderRepository {
-	return &InMemoryProviderRepository{items: make(map[string]*model.Provider)}
+func NewProviderRepository() *ProviderRepository {
+	return &ProviderRepository{items: make(map[string]*model.Provider)}
 }
 
-func (r *InMemoryProviderRepository) nextID() string {
+func (r *ProviderRepository) nextID() string {
 	r.seq++
 	return fmt.Sprintf("prov-%d-%d", time.Now().UnixNano(), r.seq)
 }
 
-func (r *InMemoryProviderRepository) Create(_ context.Context, p *model.Provider) error {
+func (r *ProviderRepository) Create(_ context.Context, p *model.Provider) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if p.ID == "" {
@@ -37,7 +37,7 @@ func (r *InMemoryProviderRepository) Create(_ context.Context, p *model.Provider
 	return nil
 }
 
-func (r *InMemoryProviderRepository) Get(_ context.Context, id string) (*model.Provider, error) {
+func (r *ProviderRepository) Get(_ context.Context, id string) (*model.Provider, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	v, ok := r.items[id]
@@ -48,7 +48,7 @@ func (r *InMemoryProviderRepository) Get(_ context.Context, id string) (*model.P
 	return &cp, nil
 }
 
-func (r *InMemoryProviderRepository) List(_ context.Context) ([]*model.Provider, error) {
+func (r *ProviderRepository) List(_ context.Context) ([]*model.Provider, error) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	out := make([]*model.Provider, 0, len(r.items))
@@ -59,7 +59,7 @@ func (r *InMemoryProviderRepository) List(_ context.Context) ([]*model.Provider,
 	return out, nil
 }
 
-func (r *InMemoryProviderRepository) Update(_ context.Context, p *model.Provider) error {
+func (r *ProviderRepository) Update(_ context.Context, p *model.Provider) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	_, ok := r.items[p.ID]
@@ -71,7 +71,7 @@ func (r *InMemoryProviderRepository) Update(_ context.Context, p *model.Provider
 	return nil
 }
 
-func (r *InMemoryProviderRepository) Delete(_ context.Context, id string) error {
+func (r *ProviderRepository) Delete(_ context.Context, id string) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if _, ok := r.items[id]; !ok {
@@ -81,4 +81,4 @@ func (r *InMemoryProviderRepository) Delete(_ context.Context, id string) error 
 	return nil
 }
 
-var _ domain.ProviderRepository = (*InMemoryProviderRepository)(nil)
+var _ domain.ProviderRepository = (*ProviderRepository)(nil)

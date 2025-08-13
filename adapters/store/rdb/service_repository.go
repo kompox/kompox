@@ -20,21 +20,19 @@ func NewServiceRepository(db *gorm.DB) *ServiceRepository {
 
 func toRecord(s *model.Service) *ServiceRecord {
 	return &ServiceRecord{
-		ID:         s.ID,
-		Name:       s.Name,
-		ProviderID: s.ProviderID,
-		CreatedAt:  s.CreatedAt,
-		UpdatedAt:  s.UpdatedAt,
+		ID:        s.ID,
+		Name:      s.Name,
+		CreatedAt: s.CreatedAt,
+		UpdatedAt: s.UpdatedAt,
 	}
 }
 
 func toModel(r *ServiceRecord) *model.Service {
 	return &model.Service{
-		ID:         r.ID,
-		Name:       r.Name,
-		ProviderID: r.ProviderID,
-		CreatedAt:  r.CreatedAt,
-		UpdatedAt:  r.UpdatedAt,
+		ID:        r.ID,
+		Name:      r.Name,
+		CreatedAt: r.CreatedAt,
+		UpdatedAt: r.UpdatedAt,
 	}
 }
 

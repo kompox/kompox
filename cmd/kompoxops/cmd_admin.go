@@ -1,8 +1,6 @@
 package main
 
 import (
-	"os"
-
 	"github.com/spf13/cobra"
 )
 
@@ -17,11 +15,6 @@ func newCmdAdmin() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
-	defaultDB := os.Getenv("KOMPOX_DB_URL")
-	if defaultDB == "" {
-		defaultDB = "memory:"
-	}
-	c.PersistentFlags().String("db-url", defaultDB, "Database URL (env KOMPOX_DB_URL) (memory: | sqlite:/path/to.db | sqlite::memory: | postgres:// | mysql://)")
 	c.AddCommand(newCmdAdminService())
 	c.AddCommand(newCmdAdminProvider())
 	c.AddCommand(newCmdAdminCluster())

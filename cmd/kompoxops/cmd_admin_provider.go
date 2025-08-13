@@ -7,13 +7,9 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
-	mem "github.com/yaegashi/kompoxops/adapters/store/memory"
-	rdb "github.com/yaegashi/kompoxops/adapters/store/rdb"
-	"github.com/yaegashi/kompoxops/domain"
 	uc "github.com/yaegashi/kompoxops/usecase/provider"
 	"gopkg.in/yaml.v3"
 )
@@ -30,28 +26,11 @@ func newCmdAdminProvider() *cobra.Command {
 }
 
 func buildProviderUseCase(cmd *cobra.Command) (*uc.UseCase, error) {
-	f := findFlag(cmd, "db-url")
-	dbURL := "memory:"
-	if f != nil && f.Value.String() != "" {
-		dbURL = f.Value.String()
+	_, providerRepo, _, _, err := buildRepositories(cmd)
+	if err != nil {
+		return nil, err
 	}
-	var repo domain.ProviderRepository
-	switch {
-	case strings.HasPrefix(dbURL, "memory:"):
-		repo = mem.NewInMemoryProviderRepository()
-	case strings.HasPrefix(dbURL, "sqlite:") || strings.HasPrefix(dbURL, "sqlite3:"):
-		db, err := rdb.OpenFromURL(dbURL)
-		if err != nil {
-			return nil, err
-		}
-		if err := rdb.AutoMigrate(db); err != nil {
-			return nil, err
-		}
-		repo = rdb.NewProviderRepository(db)
-	default:
-		return nil, fmt.Errorf("unsupported db scheme: %s", dbURL)
-	}
-	return &uc.UseCase{Providers: repo}, nil
+	return &uc.UseCase{Providers: providerRepo}, nil
 }
 
 func newCmdAdminProviderList() *cobra.Command {

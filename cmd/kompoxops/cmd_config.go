@@ -22,8 +22,8 @@ func newCmdConfig() *cobra.Command {
 				return err
 			}
 			// Print a concise summary to stdout
-			fmt.Fprintf(cmd.OutOrStdout(), "version=%d service=%s domain=%s cluster=%s provider=%s app=%s\n",
-				cfg.Version, cfg.Service.Name, cfg.Service.Domain, cfg.Cluster.Name, cfg.Cluster.Provider, cfg.App.Name)
+			fmt.Fprintf(cmd.OutOrStdout(), "version=%s service=%s provider=%s(%s) cluster=%s domain=%s app=%s\n",
+				cfg.Version, cfg.Service.Name, cfg.Provider.Name, cfg.Provider.Driver, cfg.Cluster.Name, cfg.Cluster.Domain, cfg.App.Name)
 			return nil
 		},
 	}
