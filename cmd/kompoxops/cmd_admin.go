@@ -23,5 +23,8 @@ func newCmdAdmin() *cobra.Command {
 	}
 	c.PersistentFlags().String("db-url", defaultDB, "Database URL (env KOMPOX_DB_URL) (memory: | sqlite:/path/to.db | sqlite::memory: | postgres:// | mysql://)")
 	c.AddCommand(newCmdAdminService())
+	c.AddCommand(newCmdAdminProvider())
+	c.AddCommand(newCmdAdminCluster())
+	c.AddCommand(newCmdAdminApp())
 	return c
 }
