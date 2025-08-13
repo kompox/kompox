@@ -26,4 +26,4 @@ type Repositories struct {
 	Service ServiceRepository
 }
 
-var ErrUnitOfWorkNotSupported = errors.New("unit of work not supported (inmem)")
+var ErrUnitOfWorkNotSupported = errors.New("unit of work not supported (memory)")
