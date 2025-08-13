@@ -1,7 +1,7 @@
-package provider
+package providerdrv
 
 // Driver abstracts provider-specific behavior (identifier, hooks, etc.).
-// Implementations live under provider/drivers/<name> and should return a
+// Implementations live under adapters/drivers/provider/<name> and should return a
 // provider identifier such as "aks" via ID().
 type Driver interface {
 	// ID returns the provider identifier (e.g., "aks").

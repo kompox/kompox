@@ -3,7 +3,7 @@ package k3s
 import (
 	"fmt"
 
-	"github.com/yaegashi/kompoxops/resources/provider"
+	providerdrv "github.com/yaegashi/kompoxops/adapters/drivers/provider"
 )
 
 // driver implements the K3s provider driver.
@@ -14,7 +14,7 @@ func (d *driver) ID() string { return "k3s" }
 
 // init registers the K3s driver.
 func init() {
-	provider.Register("k3s", func(settings map[string]string) (provider.Driver, error) {
+	providerdrv.Register("k3s", func(settings map[string]string) (providerdrv.Driver, error) {
 		if settings != nil && settings["disabled"] == "true" {
 			return nil, fmt.Errorf("k3s provider disabled by settings")
 		}

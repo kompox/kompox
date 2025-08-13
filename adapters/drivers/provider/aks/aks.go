@@ -6,7 +6,7 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
-	"github.com/yaegashi/kompoxops/resources/provider"
+	providerdrv "github.com/yaegashi/kompoxops/adapters/drivers/provider"
 )
 
 // driver implements the AKS provider driver.
@@ -21,7 +21,7 @@ func (d *driver) ID() string { return "aks" }
 
 // init registers the AKS driver.
 func init() {
-	provider.Register("aks", func(settings map[string]string) (provider.Driver, error) {
+	providerdrv.Register("aks", func(settings map[string]string) (providerdrv.Driver, error) {
 		get := func(k string) string {
 			if settings == nil {
 				return ""

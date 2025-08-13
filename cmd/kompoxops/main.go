@@ -5,6 +5,8 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	_ "github.com/yaegashi/kompoxops/adapters/drivers/provider/aks"
+	_ "github.com/yaegashi/kompoxops/adapters/drivers/provider/k3s"
 )
 
 func newRootCmd() *cobra.Command {
@@ -23,7 +25,6 @@ func newRootCmd() *cobra.Command {
 	// Add subcommands
 	cmd.AddCommand(newCmdVersion())
 	cmd.AddCommand(newCmdConfig())
-	cmd.AddCommand(newCmdCluster())
 	cmd.AddCommand(newCmdAdmin())
 	return cmd
 }
