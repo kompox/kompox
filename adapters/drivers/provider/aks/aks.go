@@ -1,12 +1,18 @@
 package aks
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	providerdrv "github.com/yaegashi/kompoxops/adapters/drivers/provider"
+	"github.com/yaegashi/kompoxops/domain/model"
 )
 
 // driver implements the AKS provider driver.
@@ -96,4 +102,127 @@ func init() {
 			AzureLocation:       location,
 		}, nil
 	})
+}
+
+// ClusterProvision provisions an AKS cluster according to the cluster specification.
+func (d *driver) ClusterProvision(cluster *model.Cluster) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
+
+	// Get resource group name from cluster settings
+	resourceGroupName := cluster.Settings["AZURE_RESOURCE_GROUP_NAME"]
+	if resourceGroupName == "" {
+		return fmt.Errorf("AZURE_RESOURCE_GROUP_NAME is required in cluster settings")
+	}
+
+	// Create resource group client
+	rgClient, err := armresources.NewResourceGroupsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create resource group client: %w", err)
+	}
+
+	// Create or update resource group
+	rgParams := armresources.ResourceGroup{
+		Location: to.Ptr(d.AzureLocation),
+		Tags: map[string]*string{
+			"managed-by": to.Ptr("kompoxops"),
+		},
+	}
+	_, err = rgClient.CreateOrUpdate(ctx, resourceGroupName, rgParams, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create resource group %s: %w", resourceGroupName, err)
+	}
+
+	// Create AKS client
+	aksClient, err := armcontainerservice.NewManagedClustersClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create AKS client: %w", err)
+	}
+
+	// Check if cluster already exists
+	_, err = aksClient.Get(ctx, resourceGroupName, cluster.Name, nil)
+	if err == nil {
+		return fmt.Errorf("AKS cluster %s already exists in resource group %s", cluster.Name, resourceGroupName)
+	}
+
+	// Define AKS cluster parameters
+	aksParams := armcontainerservice.ManagedCluster{
+		Location: to.Ptr(d.AzureLocation),
+		Tags: map[string]*string{
+			"managed-by": to.Ptr("kompoxops"),
+		},
+		Identity: &armcontainerservice.ManagedClusterIdentity{
+			Type: to.Ptr(armcontainerservice.ResourceIdentityTypeSystemAssigned),
+		},
+		Properties: &armcontainerservice.ManagedClusterProperties{
+			DNSPrefix: to.Ptr(cluster.Name),
+			AgentPoolProfiles: []*armcontainerservice.ManagedClusterAgentPoolProfile{
+				{
+					Name:    to.Ptr("nodepool1"),
+					Count:   to.Ptr[int32](1),
+					VMSize:  to.Ptr("Standard_DS2_v2"),
+					OSType:  to.Ptr(armcontainerservice.OSTypeLinux),
+					Type:    to.Ptr(armcontainerservice.AgentPoolTypeVirtualMachineScaleSets),
+					Mode:    to.Ptr(armcontainerservice.AgentPoolModeSystem),
+					MaxPods: to.Ptr[int32](30),
+				},
+			},
+			ServicePrincipalProfile: &armcontainerservice.ManagedClusterServicePrincipalProfile{
+				ClientID: to.Ptr("msi"),
+			},
+		},
+	}
+
+	// Start cluster creation
+	poller, err := aksClient.BeginCreateOrUpdate(ctx, resourceGroupName, cluster.Name, aksParams, nil)
+	if err != nil {
+		return fmt.Errorf("failed to start AKS cluster creation: %w", err)
+	}
+
+	// Wait for completion
+	_, err = poller.PollUntilDone(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create AKS cluster %s: %w", cluster.Name, err)
+	}
+
+	return nil
+}
+
+// ClusterDeprovision deprovisions an AKS cluster according to the cluster specification.
+func (d *driver) ClusterDeprovision(cluster *model.Cluster) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
+
+	// Get resource group name from cluster settings
+	resourceGroupName := cluster.Settings["AZURE_RESOURCE_GROUP_NAME"]
+	if resourceGroupName == "" {
+		return fmt.Errorf("AZURE_RESOURCE_GROUP_NAME is required in cluster settings")
+	}
+
+	// Create AKS client
+	aksClient, err := armcontainerservice.NewManagedClustersClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create AKS client: %w", err)
+	}
+
+	// Check if cluster exists
+	_, err = aksClient.Get(ctx, resourceGroupName, cluster.Name, nil)
+	if err != nil {
+		// If cluster doesn't exist, consider it already deprovisioned
+		return nil
+	}
+
+	// Start cluster deletion
+	poller, err := aksClient.BeginDelete(ctx, resourceGroupName, cluster.Name, nil)
+	if err != nil {
+		return fmt.Errorf("failed to start AKS cluster deletion: %w", err)
+	}
+
+	// Wait for completion
+	_, err = poller.PollUntilDone(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to delete AKS cluster %s: %w", cluster.Name, err)
+	}
+
+	return nil
 }
