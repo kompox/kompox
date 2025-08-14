@@ -1,18 +1,16 @@
-# Contribution and Language Policy
+## Repository Copilot Instructions (English)
 
-- Code, comments, commit messages, PR titles/descriptions: English only.
-- Documentation under `docs/`: Japanese is allowed (existing policy); keep markdown there in Japanese unless specified otherwise.
-- User-facing CLI messages: English by default. Japanese may appear only in `docs/`.
-- Variable, function, and package names: English.
+This repository prefers English for natural-language communication, with Japanese allowed where noted in the repository instructions.
 
-## Rationale
-Consistency improves readability and reduces ambiguity. Japanese is reserved for end-user documents in `docs/` to serve the intended audience. Everything else remains in English for maintainability.
+1) Natural language
+- Use English by default for comments, PR descriptions, commit messages, and conversational output.
+- Japanese may be used when appropriate for files or documentation that are specifically Japanese; see the language guidance files in `.github/instructions` for exact rules and file-scope mappings.
 
-## Examples
-- Good: `// Validate RFC1123 label`
-- Avoid: `// RFC1123 ラベルを検証`
+2) Where to find scope and language rules
+- Repository-level language/instruction rules are defined in `.github/instructions/en.instructions.md` and `.github/instructions/ja.instructions.md`.
 
-## Notes for AI assistants (Copilot, etc.)
-- Generate code and comments in English.
-- If you need to cite or summarize content from `docs/`, keep the code/comments in English while referencing the Japanese text as needed.
-- When adding new documentation pages, prefer English unless it's explicitly under `docs/` where Japanese is acceptable.
+3) Project overview and purpose
+- Refer to `docs/Kompox-Spec-Draft.ja.md` for the project overview and goals. That document is the canonical source for the intended behavior and high-level requirements.
+
+4) Architecture guidance
+- Follow the architecture guidelines in `docs/Kompox-Arch-v1.ja.md` when proposing design changes, new packages, or infra patterns.
