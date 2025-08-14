@@ -232,10 +232,15 @@ func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster) err
 	if err != nil {
 		return fmt.Errorf("new kube client: %w", err)
 	}
-	installer := kube.NewInstaller(kc)
+	installer := kube.NewInstallerWithKubeconfig(kc, kubeconfig)
 
 	// Step 1: Ensure ingress namespace exists (idempotent)
 	if err := installer.EnsureIngressNamespace(ctx, cluster); err != nil {
+		return err
+	}
+
+	// Step 2: Install Traefik via manifests (idempotent)
+	if err := installer.InstallTraefik(ctx, cluster); err != nil {
 		return err
 	}
 	return nil
@@ -252,9 +257,14 @@ func (d *driver) ClusterUninstall(ctx context.Context, cluster *model.Cluster) e
 	if err != nil {
 		return fmt.Errorf("new kube client: %w", err)
 	}
-	installer := kube.NewInstaller(kc)
+	installer := kube.NewInstallerWithKubeconfig(kc, kubeconfig)
 
-	// Step 1: Delete ingress namespace (best-effort, idempotent)
+	// Step 1: Uninstall Traefik (best-effort)
+	if err := installer.UninstallTraefik(ctx, cluster); err != nil {
+		return err
+	}
+
+	// Step 2: Delete ingress namespace (best-effort, idempotent)
 	if err := installer.DeleteIngressNamespace(ctx, cluster); err != nil {
 		return err
 	}
