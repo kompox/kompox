@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -29,6 +30,7 @@ func newCmdCluster() *cobra.Command {
 		newCmdClusterDeprovision(),
 		newCmdClusterInstall(),
 		newCmdClusterUninstall(),
+		newCmdClusterStatus(),
 	)
 	return cmd
 }
@@ -38,7 +40,11 @@ func buildClusterUseCases(cmd *cobra.Command) (*uc.UseCase, *puc.UseCase, error)
 	if err != nil {
 		return nil, nil, err
 	}
-	clusterUC := &uc.UseCase{Clusters: clusterRepo}
+
+	clusterUC := &uc.UseCase{
+		Clusters:  clusterRepo,
+		Providers: providerRepo,
+	}
 	providerUC := &puc.UseCase{Providers: providerRepo}
 	return clusterUC, providerUC, nil
 }
@@ -221,6 +227,52 @@ func newCmdClusterUninstall() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("cluster uninstall command not implemented yet")
+		},
+	}
+}
+
+func newCmdClusterStatus() *cobra.Command {
+	return &cobra.Command{
+		Use:   "status <cluster-name>",
+		Short: "Show cluster status",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clusterUC, _, err := buildClusterUseCases(cmd)
+			if err != nil {
+				return err
+			}
+
+			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
+			defer cancel()
+
+			// Get cluster by name
+			clusterName := args[0]
+			clusters, err := clusterUC.List(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to list clusters: %w", err)
+			}
+
+			var cluster *model.Cluster
+			for _, c := range clusters {
+				if c.Name == clusterName {
+					cluster = c
+					break
+				}
+			}
+			if cluster == nil {
+				return fmt.Errorf("cluster %s not found", clusterName)
+			}
+
+			// Get status
+			status, err := clusterUC.Status(ctx, uc.StatusCommand{ID: cluster.ID})
+			if err != nil {
+				return fmt.Errorf("failed to get cluster status: %w", err)
+			}
+
+			// Output status as JSON
+			enc := json.NewEncoder(cmd.OutOrStdout())
+			enc.SetIndent("", "  ")
+			return enc.Encode(status)
 		},
 	}
 }

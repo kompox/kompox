@@ -23,6 +23,11 @@ func (d *driver) ClusterDeprovision(cluster *model.Cluster) error {
 	return fmt.Errorf("ClusterDeprovision is not implemented for k3s provider")
 }
 
+// ClusterStatus is not implemented for K3s provider.
+func (d *driver) ClusterStatus(cluster *model.Cluster) (*providerdrv.ClusterStatus, error) {
+	return nil, fmt.Errorf("ClusterStatus is not implemented for k3s provider")
+}
+
 // init registers the K3s driver.
 func init() {
 	providerdrv.Register("k3s", func(settings map[string]string) (providerdrv.Driver, error) {

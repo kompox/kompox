@@ -226,3 +226,68 @@ func (d *driver) ClusterDeprovision(cluster *model.Cluster) error {
 
 	return nil
 }
+
+// ClusterStatus returns the status of an AKS cluster.
+func (d *driver) ClusterStatus(cluster *model.Cluster) (*providerdrv.ClusterStatus, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	status := &providerdrv.ClusterStatus{
+		Existing:    cluster.Existing,
+		Provisioned: false,
+		Installed:   false,
+	}
+
+	// If cluster is marked as existing, check if it actually exists
+	if cluster.Existing {
+		// For existing clusters, we need to verify they actually exist
+		resourceGroupName := cluster.Settings["AZURE_RESOURCE_GROUP_NAME"]
+		if resourceGroupName == "" {
+			return status, fmt.Errorf("AZURE_RESOURCE_GROUP_NAME is required in cluster settings")
+		}
+
+		// Create AKS client
+		aksClient, err := armcontainerservice.NewManagedClustersClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+		if err != nil {
+			return status, fmt.Errorf("failed to create AKS client: %w", err)
+		}
+
+		// Check if cluster exists
+		aksCluster, err := aksClient.Get(ctx, resourceGroupName, cluster.Name, nil)
+		if err == nil && aksCluster.Properties != nil && aksCluster.Properties.ProvisioningState != nil {
+			// Cluster exists and is provisioned if state is Succeeded
+			if *aksCluster.Properties.ProvisioningState == "Succeeded" {
+				status.Provisioned = true
+				// TODO: Check if ingress controller and other components are installed
+				// For now, we'll assume installed = provisioned for AKS
+				status.Installed = true
+			}
+		}
+	} else {
+		// For non-existing clusters, check if they were provisioned by kompoxops
+		resourceGroupName := cluster.Settings["AZURE_RESOURCE_GROUP_NAME"]
+		if resourceGroupName == "" {
+			return status, fmt.Errorf("AZURE_RESOURCE_GROUP_NAME is required in cluster settings")
+		}
+
+		// Create AKS client
+		aksClient, err := armcontainerservice.NewManagedClustersClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+		if err != nil {
+			return status, fmt.Errorf("failed to create AKS client: %w", err)
+		}
+
+		// Check if cluster exists
+		aksCluster, err := aksClient.Get(ctx, resourceGroupName, cluster.Name, nil)
+		if err == nil && aksCluster.Properties != nil && aksCluster.Properties.ProvisioningState != nil {
+			// Cluster exists and is provisioned if state is Succeeded
+			if *aksCluster.Properties.ProvisioningState == "Succeeded" {
+				status.Provisioned = true
+				// TODO: Check if ingress controller and other components are installed
+				// For now, we'll assume installed = provisioned for AKS
+				status.Installed = true
+			}
+		}
+	}
+
+	return status, nil
+}
