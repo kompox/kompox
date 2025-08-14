@@ -29,6 +29,16 @@ func (d *driver) ClusterStatus(ctx context.Context, cluster *model.Cluster) (*mo
 	return nil, fmt.Errorf("ClusterStatus is not implemented for k3s provider")
 }
 
+// ClusterInstall is not implemented for K3s provider.
+func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster) error {
+	return fmt.Errorf("ClusterInstall is not implemented for k3s provider")
+}
+
+// ClusterUninstall is not implemented for K3s provider.
+func (d *driver) ClusterUninstall(ctx context.Context, cluster *model.Cluster) error {
+	return fmt.Errorf("ClusterUninstall is not implemented for k3s provider")
+}
+
 // init registers the K3s driver.
 func init() {
 	providerdrv.Register("k3s", func(settings map[string]string) (providerdrv.Driver, error) {

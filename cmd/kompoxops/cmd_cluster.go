@@ -161,7 +161,43 @@ func newCmdClusterInstall() *cobra.Command {
 		Short: "Install cluster resources (Ingress Controller, etc.)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return fmt.Errorf("cluster install command not implemented yet")
+			clusterUC, err := buildClusterUseCase(cmd)
+			if err != nil {
+				return err
+			}
+
+			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
+			defer cancel()
+
+			// Get cluster by name
+			clusterName := args[0]
+			clusters, err := clusterUC.List(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to list clusters: %w", err)
+			}
+
+			// Find cluster by name
+			var cluster *model.Cluster
+			for _, c := range clusters {
+				if c.Name == clusterName {
+					cluster = c
+					break
+				}
+			}
+
+			if cluster == nil {
+				return fmt.Errorf("cluster %s not found", clusterName)
+			}
+
+			fmt.Printf("Installing cluster resources for %s...\n", clusterName)
+
+			// Install cluster resources via usecase
+			if err := clusterUC.Install(ctx, uc.InstallInput{ID: cluster.ID}); err != nil {
+				return fmt.Errorf("failed to install cluster resources for %s: %w", clusterName, err)
+			}
+
+			fmt.Printf("Successfully installed cluster resources for %s\n", clusterName)
+			return nil
 		},
 	}
 }
@@ -172,7 +208,43 @@ func newCmdClusterUninstall() *cobra.Command {
 		Short: "Uninstall cluster resources (Ingress Controller, etc.)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return fmt.Errorf("cluster uninstall command not implemented yet")
+			clusterUC, err := buildClusterUseCase(cmd)
+			if err != nil {
+				return err
+			}
+
+			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
+			defer cancel()
+
+			// Get cluster by name
+			clusterName := args[0]
+			clusters, err := clusterUC.List(ctx)
+			if err != nil {
+				return fmt.Errorf("failed to list clusters: %w", err)
+			}
+
+			// Find cluster by name
+			var cluster *model.Cluster
+			for _, c := range clusters {
+				if c.Name == clusterName {
+					cluster = c
+					break
+				}
+			}
+
+			if cluster == nil {
+				return fmt.Errorf("cluster %s not found", clusterName)
+			}
+
+			fmt.Printf("Uninstalling cluster resources for %s...\n", clusterName)
+
+			// Uninstall cluster resources via usecase
+			if err := clusterUC.Uninstall(ctx, uc.UninstallInput{ID: cluster.ID}); err != nil {
+				return fmt.Errorf("failed to uninstall cluster resources for %s: %w", clusterName, err)
+			}
+
+			fmt.Printf("Successfully uninstalled cluster resources for %s\n", clusterName)
+			return nil
 		},
 	}
 }

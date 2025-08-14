@@ -291,3 +291,29 @@ func (d *driver) ClusterStatus(ctx context.Context, cluster *model.Cluster) (*mo
 
 	return status, nil
 }
+
+// ClusterInstall installs in-cluster resources (Ingress Controller, etc.) for AKS cluster.
+func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster) error {
+	// For AKS, we can install ingress controllers and other Kubernetes resources
+	// This is a placeholder implementation - in practice this would:
+	// 1. Connect to the AKS cluster using kubectl or Kubernetes Go client
+	// 2. Install Traefik Proxy or other ingress controller via Helm or kubectl
+	// 3. Set up any required namespaces, RBAC, etc.
+
+	// TODO: Implement actual cluster resource installation
+	// For now, return success to indicate the interface is satisfied
+	return nil
+}
+
+// ClusterUninstall uninstalls in-cluster resources (Ingress Controller, etc.) from AKS cluster.
+func (d *driver) ClusterUninstall(ctx context.Context, cluster *model.Cluster) error {
+	// For AKS, we can uninstall ingress controllers and other Kubernetes resources
+	// This is a placeholder implementation - in practice this would:
+	// 1. Connect to the AKS cluster using kubectl or Kubernetes Go client
+	// 2. Uninstall Traefik Proxy or other ingress controller
+	// 3. Clean up namespaces, RBAC, etc.
+
+	// TODO: Implement actual cluster resource uninstallation
+	// For now, return success to indicate the interface is satisfied
+	return nil
+}

@@ -23,6 +23,8 @@ type ClusterPort interface {
 	Status(ctx context.Context, cluster *Cluster) (*ClusterStatus, error)
 	Provision(ctx context.Context, cluster *Cluster) error
 	Deprovision(ctx context.Context, cluster *Cluster) error
+	Install(ctx context.Context, cluster *Cluster) error
+	Uninstall(ctx context.Context, cluster *Cluster) error
 }
 
 // ClusterStatus represents the status of a cluster.

@@ -91,6 +91,52 @@ func (a *clusterPortAdapter) Deprovision(ctx context.Context, cluster *model.Clu
 	return driver.ClusterDeprovision(ctx, cluster)
 }
 
+func (a *clusterPortAdapter) Install(ctx context.Context, cluster *model.Cluster) error {
+	// Get provider
+	provider, err := a.providers.Get(ctx, cluster.ProviderID)
+	if err != nil {
+		return fmt.Errorf("failed to get provider %s: %w", cluster.ProviderID, err)
+	}
+
+	// Get driver factory
+	factory, exists := GetDriverFactory(provider.Driver)
+	if !exists {
+		return fmt.Errorf("unknown provider driver: %s", provider.Driver)
+	}
+
+	// Create driver with provider settings
+	driver, err := factory(provider.Settings)
+	if err != nil {
+		return fmt.Errorf("failed to create driver %s: %w", provider.Driver, err)
+	}
+
+	// Install in-cluster resources via driver
+	return driver.ClusterInstall(ctx, cluster)
+}
+
+func (a *clusterPortAdapter) Uninstall(ctx context.Context, cluster *model.Cluster) error {
+	// Get provider
+	provider, err := a.providers.Get(ctx, cluster.ProviderID)
+	if err != nil {
+		return fmt.Errorf("failed to get provider %s: %w", cluster.ProviderID, err)
+	}
+
+	// Get driver factory
+	factory, exists := GetDriverFactory(provider.Driver)
+	if !exists {
+		return fmt.Errorf("unknown provider driver: %s", provider.Driver)
+	}
+
+	// Create driver with provider settings
+	driver, err := factory(provider.Settings)
+	if err != nil {
+		return fmt.Errorf("failed to create driver %s: %w", provider.Driver, err)
+	}
+
+	// Uninstall in-cluster resources via driver
+	return driver.ClusterUninstall(ctx, cluster)
+}
+
 // GetClusterPort returns a model.ClusterPort implemented via provider drivers.
 func GetClusterPort(providers domain.ProviderRepository) model.ClusterPort {
 	return &clusterPortAdapter{providers: providers}

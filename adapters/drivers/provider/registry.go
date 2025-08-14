@@ -21,6 +21,12 @@ type Driver interface {
 
 	// ClusterStatus returns the status of a Kubernetes cluster.
 	ClusterStatus(ctx context.Context, cluster *model.Cluster) (*model.ClusterStatus, error)
+
+	// ClusterInstall installs in-cluster resources (Ingress Controller, etc.).
+	ClusterInstall(ctx context.Context, cluster *model.Cluster) error
+
+	// ClusterUninstall uninstalls in-cluster resources (Ingress Controller, etc.).
+	ClusterUninstall(ctx context.Context, cluster *model.Cluster) error
 }
 
 // driverFactory is a constructor function for a provider driver.
