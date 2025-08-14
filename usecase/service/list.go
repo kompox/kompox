@@ -9,6 +9,6 @@ import (
 // ListServicesQuery placeholder (add filters later).
 type ListServicesQuery struct{}
 
-func (u *ServiceUseCase) List(ctx context.Context, _ ListServicesQuery) ([]*model.Service, error) {
+func (u *UseCase) List(ctx context.Context, _ ListServicesQuery) ([]*model.Service, error) {
 	return u.Services.List(ctx)
 }

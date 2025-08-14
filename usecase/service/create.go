@@ -4,21 +4,15 @@ import (
 	"context"
 	"time"
 
-	"github.com/yaegashi/kompoxops/domain"
 	"github.com/yaegashi/kompoxops/domain/model"
 )
-
-// ServiceUseCase wires repositories needed for service use cases.
-type ServiceUseCase struct {
-	Services domain.ServiceRepository
-}
 
 // CreateServiceCommand carries input data for creation.
 type CreateServiceCommand struct {
 	Name string
 }
 
-func (u *ServiceUseCase) Create(ctx context.Context, cmd CreateServiceCommand) (*model.Service, error) {
+func (u *UseCase) Create(ctx context.Context, cmd CreateServiceCommand) (*model.Service, error) {
 	if cmd.Name == "" {
 		return nil, model.ErrServiceInvalid
 	}

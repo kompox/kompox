@@ -7,7 +7,7 @@ import (
 )
 
 // Get retrieves a service by ID.
-func (u *ServiceUseCase) Get(ctx context.Context, id string) (*model.Service, error) {
+func (u *UseCase) Get(ctx context.Context, id string) (*model.Service, error) {
 	if id == "" {
 		return nil, model.ErrServiceInvalid
 	}

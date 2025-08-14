@@ -4,11 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/yaegashi/kompoxops/domain"
 	"github.com/yaegashi/kompoxops/domain/model"
 )
-
-type UseCase struct{ Apps domain.AppRepository }
 
 type CreateCommand struct {
 	Name      string

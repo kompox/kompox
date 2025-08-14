@@ -8,7 +8,7 @@ type DeleteServiceCommand struct {
 	ID string
 }
 
-func (u *ServiceUseCase) Delete(ctx context.Context, cmd DeleteServiceCommand) error {
+func (u *UseCase) Delete(ctx context.Context, cmd DeleteServiceCommand) error {
 	if cmd.ID == "" {
 		return nil // idempotent no-op
 	}

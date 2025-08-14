@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -18,22 +17,16 @@ type Cluster struct {
 	UpdatedAt  time.Time
 }
 
-// ClusterStatusProvider is an interface for getting cluster status from a provider driver.
-type ClusterStatusProvider interface {
-	GetClusterStatus(cluster *Cluster) (*ClusterStatus, error)
+// ClusterStatusPort is an interface (domain port) for obtaining cluster status.
+type ClusterStatusPort interface {
+	Status(cluster *Cluster) (*ClusterStatus, error)
 }
 
 // ClusterStatus represents the status of a cluster.
 type ClusterStatus struct {
-	Existing    bool `json:"existing"`    // cluster.existing の設定値
-	Provisioned bool `json:"provisioned"` // K8s クラスタが存在するとき true
-	Installed   bool `json:"installed"`   // K8s クラスタ内のリソースが存在するとき true
+	Existing    bool `json:"existing"`    // Value of cluster.existing configuration
+	Provisioned bool `json:"provisioned"` // True when the Kubernetes cluster exists
+	Installed   bool `json:"installed"`   // True when in-cluster resources are installed
 }
 
-// GetStatus returns the status of the cluster using the provided status provider.
-func (c *Cluster) GetStatus(provider ClusterStatusProvider) (*ClusterStatus, error) {
-	if provider == nil {
-		return nil, fmt.Errorf("status provider is required")
-	}
-	return provider.GetClusterStatus(c)
-}
+// Note: Status retrieval should be invoked from use cases through a ClusterStatusPort.

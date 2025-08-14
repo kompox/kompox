@@ -12,7 +12,7 @@ type UpdateServiceCommand struct {
 	Name *string
 }
 
-func (u *ServiceUseCase) Update(ctx context.Context, cmd UpdateServiceCommand) (*model.Service, error) {
+func (u *UseCase) Update(ctx context.Context, cmd UpdateServiceCommand) (*model.Service, error) {
 	if cmd.ID == "" {
 		return nil, model.ErrServiceInvalid
 	}

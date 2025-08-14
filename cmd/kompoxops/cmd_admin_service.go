@@ -50,12 +50,12 @@ func findFlag(cmd *cobra.Command, name string) *pflag.Flag {
 }
 
 // buildServiceUseCase selects repository based on db-url flag.
-func buildServiceUseCase(cmd *cobra.Command) (*service.ServiceUseCase, error) {
+func buildServiceUseCase(cmd *cobra.Command) (*service.UseCase, error) {
 	serviceRepo, _, _, _, err := buildRepositories(cmd)
 	if err != nil {
 		return nil, err
 	}
-	return &service.ServiceUseCase{Services: serviceRepo}, nil
+	return &service.UseCase{Services: serviceRepo}, nil
 }
 
 func newCmdAdminServiceList() *cobra.Command {

@@ -42,8 +42,9 @@ func buildClusterUseCases(cmd *cobra.Command) (*uc.UseCase, *puc.UseCase, error)
 	}
 
 	clusterUC := &uc.UseCase{
-		Clusters:  clusterRepo,
-		Providers: providerRepo,
+		Clusters:   clusterRepo,
+		Providers:  providerRepo,
+		StatusPort: providerdrv.GetClusterStatusPort(providerRepo),
 	}
 	providerUC := &puc.UseCase{Providers: providerRepo}
 	return clusterUC, providerUC, nil
