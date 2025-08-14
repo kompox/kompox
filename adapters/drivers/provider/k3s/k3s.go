@@ -1,6 +1,7 @@
 package k3s
 
 import (
+	"context"
 	"fmt"
 
 	providerdrv "github.com/yaegashi/kompoxops/adapters/drivers/provider"
@@ -14,17 +15,17 @@ type driver struct{}
 func (d *driver) ID() string { return "k3s" }
 
 // ClusterProvision is not implemented for K3s provider.
-func (d *driver) ClusterProvision(cluster *model.Cluster) error {
+func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster) error {
 	return fmt.Errorf("ClusterProvision is not implemented for k3s provider")
 }
 
 // ClusterDeprovision is not implemented for K3s provider.
-func (d *driver) ClusterDeprovision(cluster *model.Cluster) error {
+func (d *driver) ClusterDeprovision(ctx context.Context, cluster *model.Cluster) error {
 	return fmt.Errorf("ClusterDeprovision is not implemented for k3s provider")
 }
 
 // ClusterStatus is not implemented for K3s provider.
-func (d *driver) ClusterStatus(cluster *model.Cluster) (*model.ClusterStatus, error) {
+func (d *driver) ClusterStatus(ctx context.Context, cluster *model.Cluster) (*model.ClusterStatus, error) {
 	return nil, fmt.Errorf("ClusterStatus is not implemented for k3s provider")
 }
 

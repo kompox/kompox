@@ -105,8 +105,8 @@ func init() {
 }
 
 // ClusterProvision provisions an AKS cluster according to the cluster specification.
-func (d *driver) ClusterProvision(cluster *model.Cluster) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster) error {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
 
 	// Get resource group name from cluster settings
@@ -189,8 +189,8 @@ func (d *driver) ClusterProvision(cluster *model.Cluster) error {
 }
 
 // ClusterDeprovision deprovisions an AKS cluster according to the cluster specification.
-func (d *driver) ClusterDeprovision(cluster *model.Cluster) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+func (d *driver) ClusterDeprovision(ctx context.Context, cluster *model.Cluster) error {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
 
 	// Get resource group name from cluster settings
@@ -228,8 +228,8 @@ func (d *driver) ClusterDeprovision(cluster *model.Cluster) error {
 }
 
 // ClusterStatus returns the status of an AKS cluster.
-func (d *driver) ClusterStatus(cluster *model.Cluster) (*model.ClusterStatus, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+func (d *driver) ClusterStatus(ctx context.Context, cluster *model.Cluster) (*model.ClusterStatus, error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 
 	status := &model.ClusterStatus{

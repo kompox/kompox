@@ -31,7 +31,7 @@ func (u *UseCase) Status(ctx context.Context, cmd StatusInput) (*StatusOutput, e
 	}
 
 	// Use injected status port directly
-	cStatus, err := u.StatusPort.Status(c)
+	cStatus, err := u.StatusPort.Status(ctx, c)
 	if err != nil {
 		return nil, err
 	}

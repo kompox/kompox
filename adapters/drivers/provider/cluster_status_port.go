@@ -13,9 +13,9 @@ type clusterStatusPortAdapter struct {
 	providers domain.ProviderRepository
 }
 
-func (a *clusterStatusPortAdapter) Status(cluster *model.Cluster) (*model.ClusterStatus, error) {
+func (a *clusterStatusPortAdapter) Status(ctx context.Context, cluster *model.Cluster) (*model.ClusterStatus, error) {
 	// Get provider
-	provider, err := a.providers.Get(context.Background(), cluster.ProviderID)
+	provider, err := a.providers.Get(ctx, cluster.ProviderID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get provider %s: %w", cluster.ProviderID, err)
 	}
@@ -33,7 +33,7 @@ func (a *clusterStatusPortAdapter) Status(cluster *model.Cluster) (*model.Cluste
 	}
 
 	// Get status from driver
-	ds, err := driver.ClusterStatus(cluster)
+	ds, err := driver.ClusterStatus(ctx, cluster)
 	if err != nil {
 		return nil, err
 	}

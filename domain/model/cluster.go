@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"time"
 )
 
@@ -19,7 +20,7 @@ type Cluster struct {
 
 // ClusterStatusPort is an interface (domain port) for obtaining cluster status.
 type ClusterStatusPort interface {
-	Status(cluster *Cluster) (*ClusterStatus, error)
+	Status(ctx context.Context, cluster *Cluster) (*ClusterStatus, error)
 }
 
 // ClusterStatus represents the status of a cluster.

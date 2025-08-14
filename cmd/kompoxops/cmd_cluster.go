@@ -130,7 +130,7 @@ func newCmdClusterProvision() *cobra.Command {
 				clusterName, provider.Name, provider.Driver)
 
 			// Provision the cluster
-			if err := driver.ClusterProvision(cluster); err != nil {
+			if err := driver.ClusterProvision(ctx, cluster); err != nil {
 				return fmt.Errorf("failed to provision cluster %s: %w", clusterName, err)
 			}
 
@@ -200,7 +200,7 @@ func newCmdClusterDeprovision() *cobra.Command {
 				clusterName, provider.Name, provider.Driver)
 
 			// Deprovision the cluster
-			if err := driver.ClusterDeprovision(cluster); err != nil {
+			if err := driver.ClusterDeprovision(ctx, cluster); err != nil {
 				return fmt.Errorf("failed to deprovision cluster %s: %w", clusterName, err)
 			}
 

@@ -1,6 +1,10 @@
 package providerdrv
 
-import "github.com/yaegashi/kompoxops/domain/model"
+import (
+	"context"
+
+	"github.com/yaegashi/kompoxops/domain/model"
+)
 
 // Driver abstracts provider-specific behavior (identifier, hooks, etc.).
 // Implementations live under adapters/drivers/provider/<name> and should return a
@@ -10,13 +14,13 @@ type Driver interface {
 	ID() string
 
 	// ClusterProvision provisions a Kubernetes cluster according to the cluster specification.
-	ClusterProvision(cluster *model.Cluster) error
+	ClusterProvision(ctx context.Context, cluster *model.Cluster) error
 
 	// ClusterDeprovision deprovisions a Kubernetes cluster according to the cluster specification.
-	ClusterDeprovision(cluster *model.Cluster) error
+	ClusterDeprovision(ctx context.Context, cluster *model.Cluster) error
 
 	// ClusterStatus returns the status of a Kubernetes cluster.
-	ClusterStatus(cluster *model.Cluster) (*model.ClusterStatus, error)
+	ClusterStatus(ctx context.Context, cluster *model.Cluster) (*model.ClusterStatus, error)
 }
 
 // driverFactory is a constructor function for a provider driver.
