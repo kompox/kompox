@@ -42,9 +42,9 @@ func buildClusterUseCases(cmd *cobra.Command) (*uc.UseCase, *puc.UseCase, error)
 	}
 
 	clusterUC := &uc.UseCase{
-		Clusters:   clusterRepo,
-		Providers:  providerRepo,
-		StatusPort: providerdrv.GetClusterStatusPort(providerRepo),
+		Clusters:    clusterRepo,
+		Providers:   providerRepo,
+		ClusterPort: providerdrv.GetClusterPort(providerRepo),
 	}
 	providerUC := &puc.UseCase{Providers: providerRepo}
 	return clusterUC, providerUC, nil
@@ -76,7 +76,7 @@ func newCmdClusterProvision() *cobra.Command {
 		Short: "Provision a Kubernetes cluster",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			clusterUC, providerUC, err := buildClusterUseCases(cmd)
+			clusterUC, _, err := buildClusterUseCases(cmd)
 			if err != nil {
 				return err
 			}
@@ -108,29 +108,10 @@ func newCmdClusterProvision() *cobra.Command {
 				return nil
 			}
 
-			// Get provider
-			provider, err := providerUC.Get(ctx, cluster.ProviderID)
-			if err != nil {
-				return fmt.Errorf("failed to get provider %s: %w", cluster.ProviderID, err)
-			}
+			fmt.Printf("Provisioning cluster %s...\n", clusterName)
 
-			// Get driver factory from registry
-			factory, exists := getDriverFactory(provider.Driver)
-			if !exists {
-				return fmt.Errorf("unknown provider driver: %s", provider.Driver)
-			}
-
-			// Create driver instance
-			driver, err := factory(provider.Settings)
-			if err != nil {
-				return fmt.Errorf("failed to create driver %s: %w", provider.Driver, err)
-			}
-
-			fmt.Printf("Provisioning cluster %s using provider %s (%s)...\n",
-				clusterName, provider.Name, provider.Driver)
-
-			// Provision the cluster
-			if err := driver.ClusterProvision(ctx, cluster); err != nil {
+			// Provision the cluster via usecase
+			if err := clusterUC.Provision(ctx, uc.ProvisionInput{ID: cluster.ID}); err != nil {
 				return fmt.Errorf("failed to provision cluster %s: %w", clusterName, err)
 			}
 
@@ -146,7 +127,7 @@ func newCmdClusterDeprovision() *cobra.Command {
 		Short: "Deprovision a Kubernetes cluster",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			clusterUC, providerUC, err := buildClusterUseCases(cmd)
+			clusterUC, _, err := buildClusterUseCases(cmd)
 			if err != nil {
 				return err
 			}
@@ -178,29 +159,10 @@ func newCmdClusterDeprovision() *cobra.Command {
 				return nil
 			}
 
-			// Get provider
-			provider, err := providerUC.Get(ctx, cluster.ProviderID)
-			if err != nil {
-				return fmt.Errorf("failed to get provider %s: %w", cluster.ProviderID, err)
-			}
+			fmt.Printf("Deprovisioning cluster %s...\n", clusterName)
 
-			// Get driver factory from registry
-			factory, exists := getDriverFactory(provider.Driver)
-			if !exists {
-				return fmt.Errorf("unknown provider driver: %s", provider.Driver)
-			}
-
-			// Create driver instance
-			driver, err := factory(provider.Settings)
-			if err != nil {
-				return fmt.Errorf("failed to create driver %s: %w", provider.Driver, err)
-			}
-
-			fmt.Printf("Deprovisioning cluster %s using provider %s (%s)...\n",
-				clusterName, provider.Name, provider.Driver)
-
-			// Deprovision the cluster
-			if err := driver.ClusterDeprovision(ctx, cluster); err != nil {
+			// Deprovision the cluster via usecase
+			if err := clusterUC.Deprovision(ctx, uc.DeprovisionInput{ID: cluster.ID}); err != nil {
 				return fmt.Errorf("failed to deprovision cluster %s: %w", clusterName, err)
 			}
 
@@ -276,11 +238,4 @@ func newCmdClusterStatus() *cobra.Command {
 			return enc.Encode(status)
 		},
 	}
-}
-
-// getDriverFactory is a helper function to access the driver registry
-func getDriverFactory(driverName string) (func(map[string]string) (providerdrv.Driver, error), bool) {
-	// This function needs access to the internal registry
-	// We'll implement this by exposing a function in the registry package
-	return providerdrv.GetDriverFactory(driverName)
 }

@@ -18,9 +18,11 @@ type Cluster struct {
 	UpdatedAt  time.Time
 }
 
-// ClusterStatusPort is an interface (domain port) for obtaining cluster status.
-type ClusterStatusPort interface {
+// ClusterPort is an interface (domain port) for cluster operations.
+type ClusterPort interface {
 	Status(ctx context.Context, cluster *Cluster) (*ClusterStatus, error)
+	Provision(ctx context.Context, cluster *Cluster) error
+	Deprovision(ctx context.Context, cluster *Cluster) error
 }
 
 // ClusterStatus represents the status of a cluster.
@@ -30,4 +32,4 @@ type ClusterStatus struct {
 	Installed   bool `json:"installed"`   // True when in-cluster resources are installed
 }
 
-// Note: Status retrieval should be invoked from use cases through a ClusterStatusPort.
+// Note: Status retrieval should be invoked from use cases through a ClusterPort.

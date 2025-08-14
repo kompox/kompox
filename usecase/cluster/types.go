@@ -7,7 +7,7 @@ import (
 
 // UseCase wires repositories and ports needed for cluster use cases.
 type UseCase struct {
-	Clusters   domain.ClusterRepository
-	Providers  domain.ProviderRepository
-	StatusPort model.ClusterStatusPort
+	Clusters    domain.ClusterRepository
+	Providers   domain.ProviderRepository
+	ClusterPort model.ClusterPort
 }

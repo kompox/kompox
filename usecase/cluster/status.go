@@ -30,8 +30,8 @@ func (u *UseCase) Status(ctx context.Context, cmd StatusInput) (*StatusOutput, e
 		return nil, err
 	}
 
-	// Use injected status port directly
-	cStatus, err := u.StatusPort.Status(ctx, c)
+	// Use injected cluster port directly
+	cStatus, err := u.ClusterPort.Status(ctx, c)
 	if err != nil {
 		return nil, err
 	}

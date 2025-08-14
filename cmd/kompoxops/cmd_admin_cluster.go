@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	providerdrv "github.com/yaegashi/kompoxops/adapters/drivers/provider"
 	uc "github.com/yaegashi/kompoxops/usecase/cluster"
 	"gopkg.in/yaml.v3"
 )
@@ -21,16 +22,20 @@ type clusterSpec struct {
 
 func newCmdAdminCluster() *cobra.Command {
 	cmd := &cobra.Command{Use: "cluster", Short: "Manage Cluster resources", RunE: func(cmd *cobra.Command, args []string) error { return cmd.Help() }, SilenceUsage: true, SilenceErrors: true}
-	cmd.AddCommand(newCmdAdminClusterList(), newCmdAdminClusterGet(), newCmdAdminClusterCreate(), newCmdAdminClusterUpdate(), newCmdAdminClusterDelete())
+	cmd.AddCommand(newCmdAdminClusterList(), newCmdAdminClusterGet(), newCmdAdminClusterCreate(), newCmdAdminClusterUpdate(), newCmdAdminClusterDelete(), newCmdAdminClusterProvision(), newCmdAdminClusterDeprovision())
 	return cmd
 }
 
 func buildClusterUseCase(cmd *cobra.Command) (*uc.UseCase, error) {
-	_, _, clusterRepo, _, err := buildRepositories(cmd)
+	_, providerRepo, clusterRepo, _, err := buildRepositories(cmd)
 	if err != nil {
 		return nil, err
 	}
-	return &uc.UseCase{Clusters: clusterRepo}, nil
+	return &uc.UseCase{
+		Clusters:    clusterRepo,
+		Providers:   providerRepo,
+		ClusterPort: providerdrv.GetClusterPort(providerRepo),
+	}, nil
 }
 
 func newCmdAdminClusterList() *cobra.Command {
@@ -170,6 +175,38 @@ func newCmdAdminClusterDelete() *cobra.Command {
 			return err
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "deleted %s\n", args[0])
+		return nil
+	}}
+}
+
+func newCmdAdminClusterProvision() *cobra.Command {
+	return &cobra.Command{Use: "provision <id>", Short: "Provision a cluster", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		u, err := buildClusterUseCase(cmd)
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Minute)
+		defer cancel()
+		if err := u.Provision(ctx, uc.ProvisionInput{ID: args[0]}); err != nil {
+			return err
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "provisioned %s\n", args[0])
+		return nil
+	}}
+}
+
+func newCmdAdminClusterDeprovision() *cobra.Command {
+	return &cobra.Command{Use: "deprovision <id>", Short: "Deprovision a cluster", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+		u, err := buildClusterUseCase(cmd)
+		if err != nil {
+			return err
+		}
+		ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Minute)
+		defer cancel()
+		if err := u.Deprovision(ctx, uc.DeprovisionInput{ID: args[0]}); err != nil {
+			return err
+		}
+		fmt.Fprintf(cmd.OutOrStdout(), "deprovisioned %s\n", args[0])
 		return nil
 	}}
 }
