@@ -9,19 +9,20 @@ import (
 
 // Store provides a unified interface for all in-memory repositories.
 type Store struct {
-	ServiceRepo  *ServiceRepository
-	ProviderRepo *ProviderRepository
-	ClusterRepo  *ClusterRepository
-	AppRepo      *AppRepository
+	ServiceRepository  *ServiceRepository
+	ProviderRepository *ProviderRepository
+	ClusterRepository  *ClusterRepository
+	AppRepository      *AppRepository
+	ConfigRoot         *cfgops.Root
 }
 
 // NewStore creates a new in-memory store with all repositories.
 func NewStore() *Store {
 	return &Store{
-		ServiceRepo:  NewServiceRepository(),
-		ProviderRepo: NewProviderRepository(),
-		ClusterRepo:  NewClusterRepository(),
-		AppRepo:      NewAppRepository(),
+		ServiceRepository:  NewServiceRepository(),
+		ProviderRepository: NewProviderRepository(),
+		ClusterRepository:  NewClusterRepository(),
+		AppRepository:      NewAppRepository(),
 	}
 }
 
@@ -34,21 +35,23 @@ func (s *Store) LoadFromConfig(ctx context.Context, cfg *cfgops.Root) error {
 	}
 
 	// Store models in dependency order: service → provider → cluster → app
-	if err := s.ServiceRepo.Create(ctx, service); err != nil {
+	if err := s.ServiceRepository.Create(ctx, service); err != nil {
 		return err
 	}
 
-	if err := s.ProviderRepo.Create(ctx, provider); err != nil {
+	if err := s.ProviderRepository.Create(ctx, provider); err != nil {
 		return err
 	}
 
-	if err := s.ClusterRepo.Create(ctx, cluster); err != nil {
+	if err := s.ClusterRepository.Create(ctx, cluster); err != nil {
 		return err
 	}
 
-	if err := s.AppRepo.Create(ctx, app); err != nil {
+	if err := s.AppRepository.Create(ctx, app); err != nil {
 		return err
 	}
+
+	s.ConfigRoot = cfg
 
 	return nil
 }

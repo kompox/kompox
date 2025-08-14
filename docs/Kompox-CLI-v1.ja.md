@@ -84,14 +84,14 @@ app:
 K8s クラスタ操作を行う。
 
 ```
-kompoxops cluster create        Cluster リソースを作成する
-kompoxops cluster delete        Cluster リソースを削除する
 kompoxops cluster provision     Cluster リソース準拠の K8s クラスタを作成開始 (existingがfalseの場合)
 kompoxops cluster deprovision   Cluster リソース準拠の K8s クラスタを削除開始 (existingがfalseの場合)
 kompoxops cluster install       K8s クラスタ内のリソースをインストール開始
 kompoxops cluster uninstall     K8s クラスタ内のリソースをアンインストール開始
 kompoxops cluster status        K8s クラスタのステータスを表示
 ```
+
+引数として Cluster リソースの名前を指定する。名前のデフォルトは cluster.name とする。
 
 provision/deprovision コマンドは service/provider/cluster リソースの設定に従って K8s クラスタを作成・削除する。
 既存のクラスタを参照する場合は cluster.existing を true に設定する。

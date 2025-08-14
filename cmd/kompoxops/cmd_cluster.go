@@ -22,8 +22,6 @@ func newCmdCluster() *cobra.Command {
 		SilenceErrors: true,
 	}
 	cmd.AddCommand(
-		newCmdClusterCreate(),
-		newCmdClusterDelete(),
 		newCmdClusterProvision(),
 		newCmdClusterDeprovision(),
 		newCmdClusterInstall(),
@@ -33,31 +31,22 @@ func newCmdCluster() *cobra.Command {
 	return cmd
 }
 
-func newCmdClusterCreate() *cobra.Command {
-	return &cobra.Command{
-		Use:   "create",
-		Short: "Create a cluster resource",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return fmt.Errorf("cluster create command not implemented yet")
-		},
+// getClusterName returns the cluster name from args if present, otherwise from loaded configuration file.
+func getClusterName(_ *cobra.Command, args []string) (string, error) {
+	if len(args) > 0 {
+		return args[0], nil
 	}
-}
-
-func newCmdClusterDelete() *cobra.Command {
-	return &cobra.Command{
-		Use:   "delete",
-		Short: "Delete a cluster resource",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return fmt.Errorf("cluster delete command not implemented yet")
-		},
+	if configRoot != nil && len(configRoot.Cluster.Name) > 0 {
+		return configRoot.Cluster.Name, nil
 	}
+	return "", fmt.Errorf("cluster name not specified and no default available; provide cluster-name or use --db-url=file:/path/to/kompoxops.yml")
 }
 
 func newCmdClusterProvision() *cobra.Command {
 	return &cobra.Command{
-		Use:   "provision <cluster-name>",
+		Use:   "provision [cluster-name]",
 		Short: "Provision a Kubernetes cluster",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clusterUC, err := buildClusterUseCase(cmd)
 			if err != nil {
@@ -67,8 +56,10 @@ func newCmdClusterProvision() *cobra.Command {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Minute)
 			defer cancel()
 
-			// Get cluster by name
-			clusterName := args[0]
+			clusterName, err := getClusterName(cmd, args)
+			if err != nil {
+				return err
+			}
 			clusters, err := clusterUC.List(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to list clusters: %w", err)
@@ -106,9 +97,9 @@ func newCmdClusterProvision() *cobra.Command {
 
 func newCmdClusterDeprovision() *cobra.Command {
 	return &cobra.Command{
-		Use:   "deprovision <cluster-name>",
+		Use:   "deprovision [cluster-name]",
 		Short: "Deprovision a Kubernetes cluster",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clusterUC, err := buildClusterUseCase(cmd)
 			if err != nil {
@@ -118,8 +109,10 @@ func newCmdClusterDeprovision() *cobra.Command {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Minute)
 			defer cancel()
 
-			// Get cluster by name
-			clusterName := args[0]
+			clusterName, err := getClusterName(cmd, args)
+			if err != nil {
+				return err
+			}
 			clusters, err := clusterUC.List(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to list clusters: %w", err)
@@ -157,9 +150,9 @@ func newCmdClusterDeprovision() *cobra.Command {
 
 func newCmdClusterInstall() *cobra.Command {
 	return &cobra.Command{
-		Use:   "install <cluster-name>",
+		Use:   "install [cluster-name]",
 		Short: "Install cluster resources (Ingress Controller, etc.)",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clusterUC, err := buildClusterUseCase(cmd)
 			if err != nil {
@@ -169,8 +162,10 @@ func newCmdClusterInstall() *cobra.Command {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
 			defer cancel()
 
-			// Get cluster by name
-			clusterName := args[0]
+			clusterName, err := getClusterName(cmd, args)
+			if err != nil {
+				return err
+			}
 			clusters, err := clusterUC.List(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to list clusters: %w", err)
@@ -204,9 +199,9 @@ func newCmdClusterInstall() *cobra.Command {
 
 func newCmdClusterUninstall() *cobra.Command {
 	return &cobra.Command{
-		Use:   "uninstall <cluster-name>",
+		Use:   "uninstall [cluster-name]",
 		Short: "Uninstall cluster resources (Ingress Controller, etc.)",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clusterUC, err := buildClusterUseCase(cmd)
 			if err != nil {
@@ -216,8 +211,10 @@ func newCmdClusterUninstall() *cobra.Command {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
 			defer cancel()
 
-			// Get cluster by name
-			clusterName := args[0]
+			clusterName, err := getClusterName(cmd, args)
+			if err != nil {
+				return err
+			}
 			clusters, err := clusterUC.List(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to list clusters: %w", err)
@@ -251,9 +248,9 @@ func newCmdClusterUninstall() *cobra.Command {
 
 func newCmdClusterStatus() *cobra.Command {
 	return &cobra.Command{
-		Use:   "status <cluster-name>",
+		Use:   "status [cluster-name]",
 		Short: "Show cluster status",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clusterUC, err := buildClusterUseCase(cmd)
 			if err != nil {
@@ -263,8 +260,10 @@ func newCmdClusterStatus() *cobra.Command {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
 			defer cancel()
 
-			// Get cluster by name
-			clusterName := args[0]
+			clusterName, err := getClusterName(cmd, args)
+			if err != nil {
+				return err
+			}
 			clusters, err := clusterUC.List(ctx)
 			if err != nil {
 				return fmt.Errorf("failed to list clusters: %w", err)

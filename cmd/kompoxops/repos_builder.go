@@ -17,6 +17,9 @@ import (
 	"github.com/yaegashi/kompoxops/usecase/service"
 )
 
+// configRoot holds the loaded configuration.
+var configRoot *cfgops.Root
+
 // getDBURL extracts the db-url flag value from command hierarchy.
 func getDBURL(cmd *cobra.Command) string {
 	f := findFlag(cmd, "db-url")
@@ -54,11 +57,13 @@ func buildRepos(cmd *cobra.Command) (*domain.Repositories, error) {
 			return nil, fmt.Errorf("failed to load config into store: %w", err)
 		}
 
+		configRoot = store.ConfigRoot
+
 		return &domain.Repositories{
-			Service:  store.ServiceRepo,
-			Provider: store.ProviderRepo,
-			Cluster:  store.ClusterRepo,
-			App:      store.AppRepo,
+			Service:  store.ServiceRepository,
+			Provider: store.ProviderRepository,
+			Cluster:  store.ClusterRepository,
+			App:      store.AppRepository,
 		}, nil
 
 	case strings.HasPrefix(dbURL, "sqlite:") || strings.HasPrefix(dbURL, "sqlite3:"):
