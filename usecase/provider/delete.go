@@ -8,5 +8,5 @@ func (u *UseCase) Delete(ctx context.Context, cmd DeleteInput) error {
 	if cmd.ID == "" {
 		return nil
 	}
-	return u.Providers.Delete(ctx, cmd.ID)
+	return u.Repos.Provider.Delete(ctx, cmd.ID)
 }

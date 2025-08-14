@@ -18,7 +18,7 @@ func (u *UseCase) Create(ctx context.Context, cmd CreateInput) (*model.App, erro
 	}
 	now := time.Now().UTC()
 	a := &model.App{ID: "", Name: cmd.Name, ClusterID: cmd.ClusterID, CreatedAt: now, UpdatedAt: now}
-	if err := u.Apps.Create(ctx, a); err != nil {
+	if err := u.Repos.App.Create(ctx, a); err != nil {
 		return nil, err
 	}
 	return a, nil

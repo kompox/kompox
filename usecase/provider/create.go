@@ -18,7 +18,7 @@ func (u *UseCase) Create(ctx context.Context, cmd CreateInput) (*model.Provider,
 	}
 	now := time.Now().UTC()
 	p := &model.Provider{ID: "", Name: cmd.Name, Driver: cmd.Driver, CreatedAt: now, UpdatedAt: now}
-	if err := u.Providers.Create(ctx, p); err != nil {
+	if err := u.Repos.Provider.Create(ctx, p); err != nil {
 		return nil, err
 	}
 	return p, nil

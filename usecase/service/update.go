@@ -16,7 +16,7 @@ func (u *UseCase) Update(ctx context.Context, cmd UpdateInput) (*model.Service, 
 	if cmd.ID == "" {
 		return nil, model.ErrServiceInvalid
 	}
-	existing, err := u.Services.Get(ctx, cmd.ID)
+	existing, err := u.Repos.Service.Get(ctx, cmd.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +29,7 @@ func (u *UseCase) Update(ctx context.Context, cmd UpdateInput) (*model.Service, 
 		return existing, nil
 	}
 	existing.UpdatedAt = time.Now().UTC()
-	if err := u.Services.Update(ctx, existing); err != nil {
+	if err := u.Repos.Service.Update(ctx, existing); err != nil {
 		return nil, err
 	}
 	return existing, nil

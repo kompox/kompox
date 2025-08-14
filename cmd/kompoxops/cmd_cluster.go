@@ -7,10 +7,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	providerdrv "github.com/yaegashi/kompoxops/adapters/drivers/provider"
 	"github.com/yaegashi/kompoxops/domain/model"
 	uc "github.com/yaegashi/kompoxops/usecase/cluster"
-	puc "github.com/yaegashi/kompoxops/usecase/provider"
 )
 
 func newCmdCluster() *cobra.Command {
@@ -33,21 +31,6 @@ func newCmdCluster() *cobra.Command {
 		newCmdClusterStatus(),
 	)
 	return cmd
-}
-
-func buildClusterUseCases(cmd *cobra.Command) (*uc.UseCase, *puc.UseCase, error) {
-	_, providerRepo, clusterRepo, _, err := buildRepositories(cmd)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	clusterUC := &uc.UseCase{
-		Clusters:    clusterRepo,
-		Providers:   providerRepo,
-		ClusterPort: providerdrv.GetClusterPort(providerRepo),
-	}
-	providerUC := &puc.UseCase{Providers: providerRepo}
-	return clusterUC, providerUC, nil
 }
 
 func newCmdClusterCreate() *cobra.Command {
@@ -76,7 +59,7 @@ func newCmdClusterProvision() *cobra.Command {
 		Short: "Provision a Kubernetes cluster",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			clusterUC, _, err := buildClusterUseCases(cmd)
+			clusterUC, err := buildClusterUseCase(cmd)
 			if err != nil {
 				return err
 			}
@@ -127,7 +110,7 @@ func newCmdClusterDeprovision() *cobra.Command {
 		Short: "Deprovision a Kubernetes cluster",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			clusterUC, _, err := buildClusterUseCases(cmd)
+			clusterUC, err := buildClusterUseCase(cmd)
 			if err != nil {
 				return err
 			}
@@ -200,7 +183,7 @@ func newCmdClusterStatus() *cobra.Command {
 		Short: "Show cluster status",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			clusterUC, _, err := buildClusterUseCases(cmd)
+			clusterUC, err := buildClusterUseCase(cmd)
 			if err != nil {
 				return err
 			}

@@ -10,8 +10,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	providerdrv "github.com/yaegashi/kompoxops/adapters/drivers/provider"
-	uc "github.com/yaegashi/kompoxops/usecase/cluster"
+	"github.com/yaegashi/kompoxops/usecase/cluster"
 	"gopkg.in/yaml.v3"
 )
 
@@ -24,18 +23,6 @@ func newCmdAdminCluster() *cobra.Command {
 	cmd := &cobra.Command{Use: "cluster", Short: "Manage Cluster resources", RunE: func(cmd *cobra.Command, args []string) error { return cmd.Help() }, SilenceUsage: true, SilenceErrors: true}
 	cmd.AddCommand(newCmdAdminClusterList(), newCmdAdminClusterGet(), newCmdAdminClusterCreate(), newCmdAdminClusterUpdate(), newCmdAdminClusterDelete(), newCmdAdminClusterProvision(), newCmdAdminClusterDeprovision())
 	return cmd
-}
-
-func buildClusterUseCase(cmd *cobra.Command) (*uc.UseCase, error) {
-	_, providerRepo, clusterRepo, _, err := buildRepositories(cmd)
-	if err != nil {
-		return nil, err
-	}
-	return &uc.UseCase{
-		Clusters:    clusterRepo,
-		Providers:   providerRepo,
-		ClusterPort: providerdrv.GetClusterPort(providerRepo),
-	}, nil
 }
 
 func newCmdAdminClusterList() *cobra.Command {
@@ -117,7 +104,7 @@ func newCmdAdminClusterCreate() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 		defer cancel()
-		out, err := u.Create(ctx, uc.CreateInput{Name: spec.Name, ProviderID: spec.ProviderID})
+		out, err := u.Create(ctx, cluster.CreateInput{Name: spec.Name, ProviderID: spec.ProviderID})
 		if err != nil {
 			return err
 		}
@@ -150,7 +137,7 @@ func newCmdAdminClusterUpdate() *cobra.Command {
 		if spec.ProviderID != "" {
 			providerPtr = &spec.ProviderID
 		}
-		out, err := u.Update(ctx, uc.UpdateInput{ID: args[0], Name: namePtr, ProviderID: providerPtr})
+		out, err := u.Update(ctx, cluster.UpdateInput{ID: args[0], Name: namePtr, ProviderID: providerPtr})
 		if err != nil {
 			return err
 		}
@@ -171,7 +158,7 @@ func newCmdAdminClusterDelete() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 		defer cancel()
-		if err := u.Delete(ctx, uc.DeleteInput{ID: args[0]}); err != nil {
+		if err := u.Delete(ctx, cluster.DeleteInput{ID: args[0]}); err != nil {
 			return err
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "deleted %s\n", args[0])
@@ -187,7 +174,7 @@ func newCmdAdminClusterProvision() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Minute)
 		defer cancel()
-		if err := u.Provision(ctx, uc.ProvisionInput{ID: args[0]}); err != nil {
+		if err := u.Provision(ctx, cluster.ProvisionInput{ID: args[0]}); err != nil {
 			return err
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "provisioned %s\n", args[0])
@@ -203,7 +190,7 @@ func newCmdAdminClusterDeprovision() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Minute)
 		defer cancel()
-		if err := u.Deprovision(ctx, uc.DeprovisionInput{ID: args[0]}); err != nil {
+		if err := u.Deprovision(ctx, cluster.DeprovisionInput{ID: args[0]}); err != nil {
 			return err
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "deprovisioned %s\n", args[0])

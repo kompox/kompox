@@ -18,7 +18,7 @@ func (u *UseCase) Create(ctx context.Context, cmd CreateInput) (*model.Cluster, 
 	}
 	now := time.Now().UTC()
 	c := &model.Cluster{ID: "", Name: cmd.Name, ProviderID: cmd.ProviderID, CreatedAt: now, UpdatedAt: now}
-	if err := u.Clusters.Create(ctx, c); err != nil {
+	if err := u.Repos.Cluster.Create(ctx, c); err != nil {
 		return nil, err
 	}
 	return c, nil

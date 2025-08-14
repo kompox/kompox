@@ -10,5 +10,5 @@ func (u *UseCase) Get(ctx context.Context, id string) (*model.App, error) {
 	if id == "" {
 		return nil, model.ErrAppInvalid
 	}
-	return u.Apps.Get(ctx, id)
+	return u.Repos.App.Get(ctx, id)
 }

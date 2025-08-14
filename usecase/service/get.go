@@ -11,5 +11,5 @@ func (u *UseCase) Get(ctx context.Context, id string) (*model.Service, error) {
 	if id == "" {
 		return nil, model.ErrServiceInvalid
 	}
-	return u.Services.Get(ctx, id)
+	return u.Repos.Service.Get(ctx, id)
 }

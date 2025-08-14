@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	uc "github.com/yaegashi/kompoxops/usecase/provider"
+	"github.com/yaegashi/kompoxops/usecase/provider"
 	"gopkg.in/yaml.v3"
 )
 
@@ -23,14 +23,6 @@ func newCmdAdminProvider() *cobra.Command {
 	cmd := &cobra.Command{Use: "provider", Short: "Manage Provider resources", RunE: func(cmd *cobra.Command, args []string) error { return cmd.Help() }, SilenceUsage: true, SilenceErrors: true}
 	cmd.AddCommand(newCmdAdminProviderList(), newCmdAdminProviderGet(), newCmdAdminProviderCreate(), newCmdAdminProviderUpdate(), newCmdAdminProviderDelete())
 	return cmd
-}
-
-func buildProviderUseCase(cmd *cobra.Command) (*uc.UseCase, error) {
-	_, providerRepo, _, _, err := buildRepositories(cmd)
-	if err != nil {
-		return nil, err
-	}
-	return &uc.UseCase{Providers: providerRepo}, nil
 }
 
 func newCmdAdminProviderList() *cobra.Command {
@@ -112,7 +104,7 @@ func newCmdAdminProviderCreate() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 		defer cancel()
-		out, err := u.Create(ctx, uc.CreateInput{Name: spec.Name, Driver: spec.Driver})
+		out, err := u.Create(ctx, provider.CreateInput{Name: spec.Name, Driver: spec.Driver})
 		if err != nil {
 			return err
 		}
@@ -145,7 +137,7 @@ func newCmdAdminProviderUpdate() *cobra.Command {
 		if spec.Driver != "" {
 			driverPtr = &spec.Driver
 		}
-		out, err := u.Update(ctx, uc.UpdateInput{ID: args[0], Name: namePtr, Driver: driverPtr})
+		out, err := u.Update(ctx, provider.UpdateInput{ID: args[0], Name: namePtr, Driver: driverPtr})
 		if err != nil {
 			return err
 		}
@@ -166,7 +158,7 @@ func newCmdAdminProviderDelete() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 		defer cancel()
-		if err := u.Delete(ctx, uc.DeleteInput{ID: args[0]}); err != nil {
+		if err := u.Delete(ctx, provider.DeleteInput{ID: args[0]}); err != nil {
 			return err
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "deleted %s\n", args[0])

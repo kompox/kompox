@@ -7,5 +7,5 @@ import (
 )
 
 func (u *UseCase) List(ctx context.Context) ([]*model.Provider, error) {
-	return u.Providers.List(ctx)
+	return u.Repos.Provider.List(ctx)
 }

@@ -10,5 +10,5 @@ func (u *UseCase) Get(ctx context.Context, id string) (*model.Cluster, error) {
 	if id == "" {
 		return nil, model.ErrClusterInvalid
 	}
-	return u.Clusters.Get(ctx, id)
+	return u.Repos.Cluster.Get(ctx, id)
 }

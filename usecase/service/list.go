@@ -10,5 +10,5 @@ import (
 type ListServicesQuery struct{}
 
 func (u *UseCase) List(ctx context.Context, _ ListServicesQuery) ([]*model.Service, error) {
-	return u.Services.List(ctx)
+	return u.Repos.Service.List(ctx)
 }

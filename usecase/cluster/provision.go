@@ -18,7 +18,7 @@ func (u *UseCase) Provision(ctx context.Context, cmd ProvisionInput) error {
 	}
 
 	// Get cluster
-	c, err := u.Clusters.Get(ctx, cmd.ID)
+	c, err := u.Repos.Cluster.Get(ctx, cmd.ID)
 	if err != nil {
 		return err
 	}

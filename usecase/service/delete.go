@@ -12,5 +12,5 @@ func (u *UseCase) Delete(ctx context.Context, cmd DeleteInput) error {
 	if cmd.ID == "" {
 		return nil // idempotent no-op
 	}
-	return u.Services.Delete(ctx, cmd.ID)
+	return u.Repos.Service.Delete(ctx, cmd.ID)
 }

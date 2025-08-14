@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	uc "github.com/yaegashi/kompoxops/usecase/app"
+	"github.com/yaegashi/kompoxops/usecase/app"
 	"gopkg.in/yaml.v3"
 )
 
@@ -23,14 +23,6 @@ func newCmdAdminApp() *cobra.Command {
 	cmd := &cobra.Command{Use: "app", Short: "Manage App resources", RunE: func(cmd *cobra.Command, args []string) error { return cmd.Help() }, SilenceUsage: true, SilenceErrors: true}
 	cmd.AddCommand(newCmdAdminAppList(), newCmdAdminAppGet(), newCmdAdminAppCreate(), newCmdAdminAppUpdate(), newCmdAdminAppDelete())
 	return cmd
-}
-
-func buildAppUseCase(cmd *cobra.Command) (*uc.UseCase, error) {
-	_, _, _, appRepo, err := buildRepositories(cmd)
-	if err != nil {
-		return nil, err
-	}
-	return &uc.UseCase{Apps: appRepo}, nil
 }
 
 func newCmdAdminAppList() *cobra.Command {
@@ -112,7 +104,7 @@ func newCmdAdminAppCreate() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 		defer cancel()
-		out, err := u.Create(ctx, uc.CreateInput{Name: spec.Name, ClusterID: spec.ClusterID})
+		out, err := u.Create(ctx, app.CreateInput{Name: spec.Name, ClusterID: spec.ClusterID})
 		if err != nil {
 			return err
 		}
@@ -145,7 +137,7 @@ func newCmdAdminAppUpdate() *cobra.Command {
 		if spec.ClusterID != "" {
 			clusterPtr = &spec.ClusterID
 		}
-		out, err := u.Update(ctx, uc.UpdateInput{ID: args[0], Name: namePtr, ClusterID: clusterPtr})
+		out, err := u.Update(ctx, app.UpdateInput{ID: args[0], Name: namePtr, ClusterID: clusterPtr})
 		if err != nil {
 			return err
 		}
@@ -166,7 +158,7 @@ func newCmdAdminAppDelete() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 		defer cancel()
-		if err := u.Delete(ctx, uc.DeleteInput{ID: args[0]}); err != nil {
+		if err := u.Delete(ctx, app.DeleteInput{ID: args[0]}); err != nil {
 			return err
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "deleted %s\n", args[0])

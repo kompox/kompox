@@ -23,7 +23,7 @@ func (u *UseCase) Create(ctx context.Context, cmd CreateInput) (*model.Service, 
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
-	if err := u.Services.Create(ctx, s); err != nil {
+	if err := u.Repos.Service.Create(ctx, s); err != nil {
 		return nil, err
 	}
 	return s, nil

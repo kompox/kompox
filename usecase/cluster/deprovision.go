@@ -18,7 +18,7 @@ func (u *UseCase) Deprovision(ctx context.Context, cmd DeprovisionInput) error {
 	}
 
 	// Get cluster
-	c, err := u.Clusters.Get(ctx, cmd.ID)
+	c, err := u.Repos.Cluster.Get(ctx, cmd.ID)
 	if err != nil {
 		return err
 	}

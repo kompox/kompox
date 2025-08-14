@@ -17,7 +17,7 @@ func (u *UseCase) Update(ctx context.Context, cmd UpdateInput) (*model.Cluster, 
 	if cmd.ID == "" {
 		return nil, model.ErrClusterInvalid
 	}
-	existing, err := u.Clusters.Get(ctx, cmd.ID)
+	existing, err := u.Repos.Cluster.Get(ctx, cmd.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +34,7 @@ func (u *UseCase) Update(ctx context.Context, cmd UpdateInput) (*model.Cluster, 
 		return existing, nil
 	}
 	existing.UpdatedAt = time.Now().UTC()
-	if err := u.Clusters.Update(ctx, existing); err != nil {
+	if err := u.Repos.Cluster.Update(ctx, existing); err != nil {
 		return nil, err
 	}
 	return existing, nil

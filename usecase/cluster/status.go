@@ -25,7 +25,7 @@ func (u *UseCase) Status(ctx context.Context, cmd StatusInput) (*StatusOutput, e
 	}
 
 	// Get cluster
-	c, err := u.Clusters.Get(ctx, cmd.ID)
+	c, err := u.Repos.Cluster.Get(ctx, cmd.ID)
 	if err != nil {
 		return nil, err
 	}
