@@ -52,10 +52,9 @@ provider:
   name: aks1
   driver: aks
   settings:
-    AZURE_TOKEN_CREDENTIALS: dev
-    AZURE_TENANT_ID: xxxxxx
-    AZURE_SUBSCRIPTION_ID: xxxxxx
-    AZURE_LOCATION: japaneast          
+    AZURE_AUTH_METHOD: azure_cli
+    AZURE_SUBSCRIPTION_ID: 34809bd3-31b4-4331-9376-49a32a9616f2
+    AZURE_LOCATION: japaneast
 cluster:
   name: my-aks
   existing: false
@@ -85,25 +84,43 @@ app:
 K8s クラスタ操作を行う。
 
 ```
-kompoxops cluster create        クラスタを作成する
-kompoxops cluster destroy       クラスタを削除する
-kompoxops cluster provision     クラスタ内のリソースを作成する
-kompoxops cluster deprovision   クラスタ内のリソースを削除する
+kompoxops cluster create        Cluster リソースを作成する
+kompoxops cluster delete        Cluster リソースを削除する
+kompoxops cluster provision     Cluster リソース準拠の K8s クラスタを作成開始 (existingがfalseの場合)
+kompoxops cluster deprovision   Cluster リソース準拠の K8s クラスタを削除開始 (existingがfalseの場合)
+kompoxops cluster install       K8s クラスタ内のリソースをインストール開始
+kompoxops cluster uninstall     K8s クラスタ内のリソースをアンインストール開始
+kompoxops cluster status        K8s クラスタのステータスを表示
 ```
 
-create コマンドは service/provider/cluster の settings を使用してクラスタを作成する。
-
-destroy コマンドは作成したクラスタを削除する。
-
-provision コマンドはクラスタ内のリソースを作成する。
-Traefik Proxy などの Ingress Controller を含む。
-
-deprovision コマンドは provision コマンドで作成されたクラスタ内のリソースを削除する。
-
+provision/deprovision コマンドは service/provider/cluster リソースの設定に従って K8s クラスタを作成・削除する。
 既存のクラスタを参照する場合は cluster.existing を true に設定する。
-cluster.existing が true の場合 create/destroy は何もしない。
-既存のクラスタの接続方法は cluster.settings で設定する。
-接続方法の設定内容は provider.driver により異なる。
+cluster.existing が true の場合 provision/deprovision は常に成功を返す。
+
+install/uninstall コマンドは K8s クラスタ内のリソースを作成・削除する。
+Namespace や Traefik Proxy などの Ingress Controller を含む。
+
+クラスタの作成方法や接続方法は cluster.settings で設定する。
+設定内容は provider.driver により異なる。
+
+status コマンドにより K8s クラスタと内部リソースの状態について次の項目が取得できる。
+
+```
+existing: bool          cluster.existing の設定値
+provisioned: bool       K8s クラスタが存在するとき true (existingがtrueの場合も実際に存在するか調べる)
+installed: bool         K8s クラスタ内のリソースが存在するとき true
+```
+
+provision/deprovision/install/uninstall は status により実行可否が変わる。
+これらのコマンドは時間のかかる操作であるため実行すると即座に終了する。
+冪等性を持つため複数回実行してもエラーにはならない。
+
+|コマンド|エラー発生条件|実行内容|
+|-|-|-|
+|provision||existing=trueなら何もしない<br>provisined=falseならK8sクラスタ作成開始|
+|deprovision|installed=true|existing=trueなら何もしない<br>provisioned=trueならK8sクラスタ削除開始|
+|install|provisioned=false|installed=falseならK8sクラスタ内リソース作成開始|
+|uninstall||installed=trueならK8sクラスタ内リソース削除開始|
 
 ### kompoxops admin
 
