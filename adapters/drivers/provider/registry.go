@@ -27,6 +27,10 @@ type Driver interface {
 
 	// ClusterUninstall uninstalls in-cluster resources (Ingress Controller, etc.).
 	ClusterUninstall(ctx context.Context, cluster *model.Cluster) error
+
+	// ClusterKubeconfig returns kubeconfig bytes for connecting to the target cluster.
+	// Implementations may fetch admin/user credentials depending on provider capability.
+	ClusterKubeconfig(ctx context.Context, cluster *model.Cluster) ([]byte, error)
 }
 
 // driverFactory is a constructor function for a provider driver.

@@ -39,6 +39,11 @@ func (d *driver) ClusterUninstall(ctx context.Context, cluster *model.Cluster) e
 	return fmt.Errorf("ClusterUninstall is not implemented for k3s provider")
 }
 
+// ClusterKubeconfig is not implemented for K3s provider.
+func (d *driver) ClusterKubeconfig(ctx context.Context, cluster *model.Cluster) ([]byte, error) {
+	return nil, fmt.Errorf("ClusterKubeconfig is not implemented for k3s provider")
+}
+
 // init registers the K3s driver.
 func init() {
 	providerdrv.Register("k3s", func(settings map[string]string) (providerdrv.Driver, error) {
