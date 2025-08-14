@@ -39,7 +39,8 @@
 
 /adapters/
   /kube/
-    runtime.go          (Kubernetes client runtime implementing cluster.Runtime if必要)
+    client.go           (Kubernetes client)
+    installer.go        (Kubernetes infrastructure installer)
   /drivers/
     /provider/          (package providerdrv)
       registry.go
@@ -136,26 +137,30 @@ type ClusterStatus struct { ... }
 - ディレクトリ `/usecase/<resource>/` でユースケース構造体とユースケースメソッドを定義する
 - ユースケース構造体
   - 構造体 `UseCase` を `types.go` で定義する
-  - api/cmd など上位層で構造体メンバをワイヤリングする
+  - 上位層 api/cmd で構造体メンバをワイヤリングする
 - ユースケースメソッド
   - 1 ユースケースメソッド = 1 ファイルで定義（肥大化時のみ細分化）
   - メソッドの引数型名・戻値型名の接尾語は `Input` / `Output` を使用する
 
 ```go
+// リポジトリ構造体 (types.go)
+type Repos struct {
+	Cluster  domain.ClusterRepository
+	Provider domain.ProviderRepository
+}
+
 // ユースケース構造体 (types.go)
 type UseCase struct {
-	Clusters    domain.ClusterRepository
-	Providers   domain.ProviderRepository
+	Repos       *Repos
 	ClusterPort model.ClusterPort
 }
 
 // ユースケースメソッド (create.go)
+type CreateInput struct { ... }
 func (u *UseCase) Create(ctx context.Context, in CreateInput) (*model.Service, error)
 
 // ユースケースメソッド (status.go)
+type StatusInput struct { ... }
+type StatusOutput struct { ... }
 func (u *UseCase) Status(ctx context.Context, in StatusInput) (*StatusOutput, error)
 ```
-
-## 主なレイヤ依存方向
-
-api(cmd) → usecase → domain ← adapters(drivers, store, kube)
