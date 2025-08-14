@@ -149,7 +149,7 @@ func newCmdAdminServiceCreate() *cobra.Command {
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 			defer cancel()
-			out, err := uc.Create(ctx, service.CreateServiceCommand{Name: spec.Name})
+			out, err := uc.Create(ctx, service.CreateInput{Name: spec.Name})
 			if err != nil {
 				return err
 			}
@@ -184,7 +184,7 @@ func newCmdAdminServiceUpdate() *cobra.Command {
 			if spec.Name != "" {
 				namePtr = &spec.Name
 			}
-			out, err := uc.Update(ctx, service.UpdateServiceCommand{ID: args[0], Name: namePtr})
+			out, err := uc.Update(ctx, service.UpdateInput{ID: args[0], Name: namePtr})
 			if err != nil {
 				return err
 			}
@@ -210,7 +210,7 @@ func newCmdAdminServiceDelete() *cobra.Command {
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 			defer cancel()
-			if err := uc.Delete(ctx, service.DeleteServiceCommand{ID: args[0]}); err != nil {
+			if err := uc.Delete(ctx, service.DeleteInput{ID: args[0]}); err != nil {
 				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "deleted %s\n", args[0])

@@ -112,7 +112,7 @@ func newCmdAdminAppCreate() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 		defer cancel()
-		out, err := u.Create(ctx, uc.CreateCommand{Name: spec.Name, ClusterID: spec.ClusterID})
+		out, err := u.Create(ctx, uc.CreateInput{Name: spec.Name, ClusterID: spec.ClusterID})
 		if err != nil {
 			return err
 		}
@@ -145,7 +145,7 @@ func newCmdAdminAppUpdate() *cobra.Command {
 		if spec.ClusterID != "" {
 			clusterPtr = &spec.ClusterID
 		}
-		out, err := u.Update(ctx, uc.UpdateCommand{ID: args[0], Name: namePtr, ClusterID: clusterPtr})
+		out, err := u.Update(ctx, uc.UpdateInput{ID: args[0], Name: namePtr, ClusterID: clusterPtr})
 		if err != nil {
 			return err
 		}
@@ -166,7 +166,7 @@ func newCmdAdminAppDelete() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 		defer cancel()
-		if err := u.Delete(ctx, uc.DeleteCommand{ID: args[0]}); err != nil {
+		if err := u.Delete(ctx, uc.DeleteInput{ID: args[0]}); err != nil {
 			return err
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "deleted %s\n", args[0])

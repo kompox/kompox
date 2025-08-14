@@ -2,9 +2,9 @@ package app
 
 import "context"
 
-type DeleteCommand struct{ ID string }
+type DeleteInput struct{ ID string }
 
-func (u *UseCase) Delete(ctx context.Context, cmd DeleteCommand) error {
+func (u *UseCase) Delete(ctx context.Context, cmd DeleteInput) error {
 	if cmd.ID == "" {
 		return nil
 	}

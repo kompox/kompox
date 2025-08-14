@@ -7,12 +7,12 @@ import (
 	"github.com/yaegashi/kompoxops/domain/model"
 )
 
-type CreateCommand struct {
+type CreateInput struct {
 	Name   string
 	Driver string
 }
 
-func (u *UseCase) Create(ctx context.Context, cmd CreateCommand) (*model.Provider, error) {
+func (u *UseCase) Create(ctx context.Context, cmd CreateInput) (*model.Provider, error) {
 	if cmd.Name == "" || cmd.Driver == "" {
 		return nil, model.ErrProviderInvalid
 	}

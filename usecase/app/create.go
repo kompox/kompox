@@ -7,12 +7,12 @@ import (
 	"github.com/yaegashi/kompoxops/domain/model"
 )
 
-type CreateCommand struct {
+type CreateInput struct {
 	Name      string
 	ClusterID string
 }
 
-func (u *UseCase) Create(ctx context.Context, cmd CreateCommand) (*model.App, error) {
+func (u *UseCase) Create(ctx context.Context, cmd CreateInput) (*model.App, error) {
 	if cmd.Name == "" {
 		return nil, model.ErrAppInvalid
 	}

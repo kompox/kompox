@@ -7,12 +7,12 @@ import (
 	"github.com/yaegashi/kompoxops/domain/model"
 )
 
-// CreateServiceCommand carries input data for creation.
-type CreateServiceCommand struct {
+// CreateInput carries input data for creation.
+type CreateInput struct {
 	Name string
 }
 
-func (u *UseCase) Create(ctx context.Context, cmd CreateServiceCommand) (*model.Service, error) {
+func (u *UseCase) Create(ctx context.Context, cmd CreateInput) (*model.Service, error) {
 	if cmd.Name == "" {
 		return nil, model.ErrServiceInvalid
 	}

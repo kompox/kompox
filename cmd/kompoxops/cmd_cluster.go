@@ -265,7 +265,7 @@ func newCmdClusterStatus() *cobra.Command {
 			}
 
 			// Get status
-			status, err := clusterUC.Status(ctx, uc.StatusCommand{ID: cluster.ID})
+			status, err := clusterUC.Status(ctx, uc.StatusInput{ID: cluster.ID})
 			if err != nil {
 				return fmt.Errorf("failed to get cluster status: %w", err)
 			}

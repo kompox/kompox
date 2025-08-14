@@ -4,11 +4,11 @@ import (
 	"context"
 )
 
-type DeleteServiceCommand struct {
+type DeleteInput struct {
 	ID string
 }
 
-func (u *UseCase) Delete(ctx context.Context, cmd DeleteServiceCommand) error {
+func (u *UseCase) Delete(ctx context.Context, cmd DeleteInput) error {
 	if cmd.ID == "" {
 		return nil // idempotent no-op
 	}

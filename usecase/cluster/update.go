@@ -7,13 +7,13 @@ import (
 	"github.com/yaegashi/kompoxops/domain/model"
 )
 
-type UpdateCommand struct {
+type UpdateInput struct {
 	ID         string
 	Name       *string
 	ProviderID *string
 }
 
-func (u *UseCase) Update(ctx context.Context, cmd UpdateCommand) (*model.Cluster, error) {
+func (u *UseCase) Update(ctx context.Context, cmd UpdateInput) (*model.Cluster, error) {
 	if cmd.ID == "" {
 		return nil, model.ErrClusterInvalid
 	}

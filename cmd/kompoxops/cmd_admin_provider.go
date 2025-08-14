@@ -112,7 +112,7 @@ func newCmdAdminProviderCreate() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 		defer cancel()
-		out, err := u.Create(ctx, uc.CreateCommand{Name: spec.Name, Driver: spec.Driver})
+		out, err := u.Create(ctx, uc.CreateInput{Name: spec.Name, Driver: spec.Driver})
 		if err != nil {
 			return err
 		}
@@ -145,7 +145,7 @@ func newCmdAdminProviderUpdate() *cobra.Command {
 		if spec.Driver != "" {
 			driverPtr = &spec.Driver
 		}
-		out, err := u.Update(ctx, uc.UpdateCommand{ID: args[0], Name: namePtr, Driver: driverPtr})
+		out, err := u.Update(ctx, uc.UpdateInput{ID: args[0], Name: namePtr, Driver: driverPtr})
 		if err != nil {
 			return err
 		}
@@ -166,7 +166,7 @@ func newCmdAdminProviderDelete() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 		defer cancel()
-		if err := u.Delete(ctx, uc.DeleteCommand{ID: args[0]}); err != nil {
+		if err := u.Delete(ctx, uc.DeleteInput{ID: args[0]}); err != nil {
 			return err
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "deleted %s\n", args[0])

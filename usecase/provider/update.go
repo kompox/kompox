@@ -7,13 +7,13 @@ import (
 	"github.com/yaegashi/kompoxops/domain/model"
 )
 
-type UpdateCommand struct {
+type UpdateInput struct {
 	ID     string
 	Name   *string
 	Driver *string
 }
 
-func (u *UseCase) Update(ctx context.Context, cmd UpdateCommand) (*model.Provider, error) {
+func (u *UseCase) Update(ctx context.Context, cmd UpdateInput) (*model.Provider, error) {
 	if cmd.ID == "" {
 		return nil, model.ErrProviderInvalid
 	}
