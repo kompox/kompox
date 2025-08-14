@@ -56,7 +56,7 @@ func NewClientFromKubeconfig(_ context.Context, kubeconfig []byte, opts *Options
 func NewClientFromKubeconfigPath(ctx context.Context, path string, opts *Options) (*Client, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("read kubeconfig file: %w")
+		return nil, fmt.Errorf("read kubeconfig file: %w", err)
 	}
 	return NewClientFromKubeconfig(ctx, data, opts)
 }
