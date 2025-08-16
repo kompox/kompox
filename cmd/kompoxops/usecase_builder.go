@@ -26,7 +26,7 @@ func buildClusterUseCase(cmd *cobra.Command) (*cluster.UseCase, error) {
 	}
 	return &cluster.UseCase{
 		Repos:       repos,
-		ClusterPort: providerdrv.GetClusterPort(repos.Provider),
+		ClusterPort: providerdrv.GetClusterPort(repos.Service, repos.Provider),
 	}, nil
 }
 

@@ -7,10 +7,13 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	providerdrv "github.com/yaegashi/kompoxops/adapters/drivers/provider"
+	"github.com/yaegashi/kompoxops/domain/model"
 )
 
 // driver implements the AKS provider driver.
 type driver struct {
+	serviceName         string
+	providerName        string
 	TokenCredential     azcore.TokenCredential
 	AzureSubscriptionId string
 	AzureLocation       string
@@ -19,9 +22,22 @@ type driver struct {
 // ID returns the provider identifier.
 func (d *driver) ID() string { return "aks" }
 
+// ServiceName returns the service name associated with this driver instance.
+func (d *driver) ServiceName() string { return d.serviceName }
+
+// ProviderName returns the provider name associated with this driver instance.
+func (d *driver) ProviderName() string { return d.providerName }
+
 // init registers the AKS driver.
 func init() {
-	providerdrv.Register("aks", func(settings map[string]string) (providerdrv.Driver, error) {
+	providerdrv.Register("aks", func(service *model.Service, provider *model.Provider) (providerdrv.Driver, error) {
+		// Determine ServiceName
+		serviceName := "(nil)"
+		if service != nil {
+			serviceName = service.Name
+		}
+
+		settings := provider.Settings
 		get := func(k string) string {
 			if settings == nil {
 				return ""
@@ -91,6 +107,8 @@ func init() {
 		}
 
 		return &driver{
+			serviceName:         serviceName,
+			providerName:        provider.Name,
 			TokenCredential:     cred,
 			AzureSubscriptionId: subscriptionID,
 			AzureLocation:       location,

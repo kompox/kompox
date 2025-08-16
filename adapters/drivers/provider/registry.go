@@ -8,10 +8,17 @@ import (
 
 // Driver abstracts provider-specific behavior (identifier, hooks, etc.).
 // Implementations live under adapters/drivers/provider/<name> and should return a
-// provider identifier such as "aks" via ID().
+// provider driver identifier such as "aks" via ID().
 type Driver interface {
-	// ID returns the provider identifier (e.g., "aks").
+	// ID returns the provider driver identifier (e.g., "aks").
 	ID() string
+
+	// ServiceName returns the service name associated with this driver instance.
+	// May return "(nil)" if no service is associated (e.g., for testing).
+	ServiceName() string
+
+	// ProviderName returns the provider name associated with this driver instance.
+	ProviderName() string
 
 	// ClusterProvision provisions a Kubernetes cluster according to the cluster specification.
 	ClusterProvision(ctx context.Context, cluster *model.Cluster) error
@@ -34,7 +41,7 @@ type Driver interface {
 }
 
 // driverFactory is a constructor function for a provider driver.
-type driverFactory func(settings map[string]string) (Driver, error)
+type driverFactory func(service *model.Service, provider *model.Provider) (Driver, error)
 
 // registry holds registered drivers by name.
 var registry = map[string]driverFactory{}

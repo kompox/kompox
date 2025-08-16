@@ -104,6 +104,7 @@ func buildClusterRepos(cmd *cobra.Command) (*cluster.Repos, error) {
 		return nil, err
 	}
 	return &cluster.Repos{
+		Service:  repos.Service,
 		Cluster:  repos.Cluster,
 		Provider: repos.Provider,
 	}, nil

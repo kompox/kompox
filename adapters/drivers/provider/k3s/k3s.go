@@ -9,10 +9,19 @@ import (
 )
 
 // driver implements the K3s provider driver.
-type driver struct{}
+type driver struct {
+	serviceName  string
+	providerName string
+}
 
 // ID returns the provider identifier.
 func (d *driver) ID() string { return "k3s" }
+
+// ServiceName returns the service name associated with this driver instance.
+func (d *driver) ServiceName() string { return d.serviceName }
+
+// ProviderName returns the provider name associated with this driver instance.
+func (d *driver) ProviderName() string { return d.providerName }
 
 // ClusterProvision is not implemented for K3s provider.
 func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster) error {
@@ -46,10 +55,19 @@ func (d *driver) ClusterKubeconfig(ctx context.Context, cluster *model.Cluster) 
 
 // init registers the K3s driver.
 func init() {
-	providerdrv.Register("k3s", func(settings map[string]string) (providerdrv.Driver, error) {
-		if settings != nil && settings["disabled"] == "true" {
+	providerdrv.Register("k3s", func(service *model.Service, provider *model.Provider) (providerdrv.Driver, error) {
+		// Determine ServiceName
+		serviceName := "(nil)"
+		if service != nil {
+			serviceName = service.Name
+		}
+
+		if provider.Settings != nil && provider.Settings["disabled"] == "true" {
 			return nil, fmt.Errorf("k3s provider disabled by settings")
 		}
-		return &driver{}, nil
+		return &driver{
+			serviceName:  serviceName,
+			providerName: provider.Name,
+		}, nil
 	})
 }
