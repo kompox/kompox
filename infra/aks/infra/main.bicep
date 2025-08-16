@@ -100,7 +100,29 @@ module monitoring './core/monitor/monitoring.bicep' = {
   }
 }
 
-module aks './core/host/aks.bicep' = {
+module userIdentity './app/user-identity.bicep' = {
+  name: 'userIdentity'
+  scope: rg
+  params: {
+    location: location
+    tags: tags
+    name: '${abbrs.managedIdentityUserAssignedIdentities}${resourceToken}'
+  }
+}
+
+module userIdentityFederation './app/user-identity-federation.bicep' = {
+  name: 'userIdentityFederation'
+  scope: rg
+  params: {
+    name: 'fic-traefik'
+    userIdentityName: userIdentity.outputs.name
+    issuerUrl: aks.outputs.oidcIssuerUrl
+    subject: 'system:serviceaccount:traefik:traefik'
+    audience: 'api://AzureADTokenExchange'
+  }
+}
+
+module aks './app/aks.bicep' = {
   name: 'aks'
   scope: rg
   params: {
@@ -111,21 +133,15 @@ module aks './core/host/aks.bicep' = {
     logAnalyticsName: monitoring.outputs.logAnalyticsWorkspaceName
     keyVaultName: keyVault.outputs.name
     kubernetesVersion: '1.33'
+    principalId: principalId
   }
 }
 
-// Add outputs from the deployment here, if needed.
-//
-// This allows the outputs to be referenced by other bicep deployments in the deployment pipeline,
-// or by the local machine as a way to reference created resources in Azure for local development.
-// Secrets should not be added here.
-//
-// Outputs are automatically saved in the local azd environment .env file.
-// To see these outputs, run `azd env get-values`,  or `azd env get-values --output json` for json output.
 output AZURE_LOCATION string = location
 output AZURE_TENANT_ID string = tenant().tenantId
 output AZURE_SUBSCRIPTION_ID string = subscription().subscriptionId
 output AZURE_RESOURCE_GROUP_NAME string = rg.name
 output AZURE_AKS_CLUSTER_NAME string = aks.outputs.clusterName
+output AZURE_AKS_OIDC_ISSUER_URL string = aks.outputs.oidcIssuerUrl
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.outputs.loginServer
 output AZURE_CONTAINER_REGISTRY_NAME string = containerRegistry.outputs.name
