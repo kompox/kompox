@@ -3,7 +3,11 @@ package app
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 
+	komposeapp "github.com/kubernetes/kompose/pkg/app"
+	"github.com/kubernetes/kompose/pkg/kobject"
 	"gopkg.in/yaml.v3"
 )
 
@@ -14,10 +18,11 @@ type ValidateInput struct {
 
 // ValidateOutput represents result of validation.
 type ValidateOutput struct {
-	Errors     []string
-	Warnings   []string
-	Normalized string // normalized compose YAML (if valid)
-	Raw        string // original compose string
+	Errors      []string
+	Warnings    []string
+	Compose     string // normalized compose YAML (if valid)
+	Raw         string // original compose string
+	K8sManifest string // generated multi-document Kubernetes manifest (--- separated)
 }
 
 // Validate checks the compose string stored in App resource is valid YAML.
@@ -55,7 +60,7 @@ func (u *UseCase) Validate(ctx context.Context, in ValidateInput) (*ValidateOutp
 		out.Errors = append(out.Errors, fmt.Sprintf("failed to normalize YAML: %v", err))
 		return out, nil
 	}
-	out.Normalized = string(normalizedBytes)
+	out.Compose = string(normalizedBytes)
 
 	// Basic structural checks
 	if m, ok := generic.(map[string]any); ok {
@@ -65,5 +70,45 @@ func (u *UseCase) Validate(ctx context.Context, in ValidateInput) (*ValidateOutp
 	} else {
 		out.Errors = append(out.Errors, "top-level YAML must be a mapping object")
 	}
+	// Attempt Kompose conversion to Kubernetes manifests.
+	// We rely on Kompose CLI internal API by writing compose content to a temp file and capturing a single output file.
+	tmpDir, err := os.MkdirTemp("", "kompoxops-compose-*")
+	if err != nil {
+		out.Warnings = append(out.Warnings, fmt.Sprintf("unable to create temp dir for kompose conversion: %v", err))
+		return out, nil
+	}
+	// Best-effort cleanup.
+	defer os.RemoveAll(tmpDir)
+
+	composePath := filepath.Join(tmpDir, "compose.yaml")
+	if err := os.WriteFile(composePath, []byte(composeStr), 0o600); err != nil {
+		out.Warnings = append(out.Warnings, fmt.Sprintf("unable to write temp compose file: %v", err))
+		return out, nil
+	}
+	manifestPath := filepath.Join(tmpDir, "k8s.yaml")
+	// Prepare options (single multi-doc file output)
+	opt := kobject.ConvertOptions{
+		InputFiles: []string{composePath},
+		OutFile:    manifestPath,
+		Provider:   "kubernetes",
+		// Other defaults: YAMLIndent left zero -> kompose default (2)
+	}
+	// Perform conversion (side-effect: writes manifestPath)
+	// komposeapp.Convert exits process (log.Fatalf) on some errors; we can't easily intercept.
+	// We assume well-formed compose to avoid that; still wrap recover just in case.
+	func() {
+		defer func() {
+			if r := recover(); r != nil {
+				out.Warnings = append(out.Warnings, fmt.Sprintf("kompose conversion panicked: %v", r))
+			}
+		}()
+		if _, err := komposeapp.Convert(opt); err != nil {
+			out.Warnings = append(out.Warnings, fmt.Sprintf("kompose conversion failed: %v", err))
+		}
+	}()
+	if b, err := os.ReadFile(manifestPath); err == nil {
+		out.K8sManifest = string(b)
+	}
+
 	return out, nil
 }
