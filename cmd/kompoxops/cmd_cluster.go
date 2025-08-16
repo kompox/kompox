@@ -8,6 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/yaegashi/kompoxops/domain/model"
+	"github.com/yaegashi/kompoxops/internal/logging"
 	uc "github.com/yaegashi/kompoxops/usecase/cluster"
 )
 
@@ -55,7 +56,7 @@ func newCmdClusterProvision() *cobra.Command {
 
 			ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Minute)
 			defer cancel()
-
+			logger := logging.FromContext(ctx)
 			clusterName, err := getClusterName(cmd, args)
 			if err != nil {
 				return err
@@ -75,21 +76,19 @@ func newCmdClusterProvision() *cobra.Command {
 			if cluster == nil {
 				return fmt.Errorf("cluster %s not found", clusterName)
 			}
-
-			// Check if cluster is existing
 			if cluster.Existing {
-				fmt.Printf("Cluster %s is marked as existing, skipping provision\n", clusterName)
+				logger.Info(ctx, "cluster marked as existing, skipping provision", "cluster", clusterName)
 				return nil
 			}
 
-			fmt.Printf("Provisioning cluster %s...\n", clusterName)
+			logger.Info(ctx, "provision start", "cluster", clusterName)
 
 			// Provision the cluster via usecase
 			if err := clusterUC.Provision(ctx, uc.ProvisionInput{ID: cluster.ID}); err != nil {
 				return fmt.Errorf("failed to provision cluster %s: %w", clusterName, err)
 			}
 
-			fmt.Printf("Successfully provisioned cluster %s\n", clusterName)
+			logger.Info(ctx, "provision success", "cluster", clusterName)
 			return nil
 		},
 	}
@@ -108,6 +107,7 @@ func newCmdClusterDeprovision() *cobra.Command {
 
 			ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Minute)
 			defer cancel()
+			logger := logging.FromContext(ctx)
 
 			clusterName, err := getClusterName(cmd, args)
 			if err != nil {
@@ -128,21 +128,19 @@ func newCmdClusterDeprovision() *cobra.Command {
 			if cluster == nil {
 				return fmt.Errorf("cluster %s not found", clusterName)
 			}
-
-			// Check if cluster is existing
 			if cluster.Existing {
-				fmt.Printf("Cluster %s is marked as existing, skipping deprovision\n", clusterName)
+				logger.Info(ctx, "cluster marked as existing, skipping deprovision", "cluster", clusterName)
 				return nil
 			}
 
-			fmt.Printf("Deprovisioning cluster %s...\n", clusterName)
+			logger.Info(ctx, "deprovision start", "cluster", clusterName)
 
 			// Deprovision the cluster via usecase
 			if err := clusterUC.Deprovision(ctx, uc.DeprovisionInput{ID: cluster.ID}); err != nil {
 				return fmt.Errorf("failed to deprovision cluster %s: %w", clusterName, err)
 			}
 
-			fmt.Printf("Successfully deprovisioned cluster %s\n", clusterName)
+			logger.Info(ctx, "deprovision success", "cluster", clusterName)
 			return nil
 		},
 	}
@@ -161,6 +159,7 @@ func newCmdClusterInstall() *cobra.Command {
 
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
 			defer cancel()
+			logger := logging.FromContext(ctx)
 
 			clusterName, err := getClusterName(cmd, args)
 			if err != nil {
@@ -183,15 +182,14 @@ func newCmdClusterInstall() *cobra.Command {
 			if cluster == nil {
 				return fmt.Errorf("cluster %s not found", clusterName)
 			}
-
-			fmt.Printf("Installing cluster resources for %s...\n", clusterName)
+			logger.Info(ctx, "install start", "cluster", clusterName)
 
 			// Install cluster resources via usecase
 			if err := clusterUC.Install(ctx, uc.InstallInput{ID: cluster.ID}); err != nil {
 				return fmt.Errorf("failed to install cluster resources for %s: %w", clusterName, err)
 			}
 
-			fmt.Printf("Successfully installed cluster resources for %s\n", clusterName)
+			logger.Info(ctx, "install success", "cluster", clusterName)
 			return nil
 		},
 	}
@@ -210,6 +208,7 @@ func newCmdClusterUninstall() *cobra.Command {
 
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
 			defer cancel()
+			logger := logging.FromContext(ctx)
 
 			clusterName, err := getClusterName(cmd, args)
 			if err != nil {
@@ -232,15 +231,14 @@ func newCmdClusterUninstall() *cobra.Command {
 			if cluster == nil {
 				return fmt.Errorf("cluster %s not found", clusterName)
 			}
-
-			fmt.Printf("Uninstalling cluster resources for %s...\n", clusterName)
+			logger.Info(ctx, "uninstall start", "cluster", clusterName)
 
 			// Uninstall cluster resources via usecase
 			if err := clusterUC.Uninstall(ctx, uc.UninstallInput{ID: cluster.ID}); err != nil {
 				return fmt.Errorf("failed to uninstall cluster resources for %s: %w", clusterName, err)
 			}
 
-			fmt.Printf("Successfully uninstalled cluster resources for %s\n", clusterName)
+			logger.Info(ctx, "uninstall success", "cluster", clusterName)
 			return nil
 		},
 	}
