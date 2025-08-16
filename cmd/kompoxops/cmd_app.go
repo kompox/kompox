@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -10,6 +12,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/yaegashi/kompoxops/internal/logging"
 	"github.com/yaegashi/kompoxops/usecase/app"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	serjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
 func newCmdApp() *cobra.Command {
@@ -110,11 +117,24 @@ func newCmdAppValidate() *cobra.Command {
 					return fmt.Errorf("failed to write compose output: %w", err)
 				}
 			}
-			if outManifestPath != "" && out.K8sManifest != "" {
-				yamlDocs := normalizeYAMLDocs(out.K8sManifest)
+			if outManifestPath != "" && len(out.K8sObjects) > 0 {
+				scheme := runtime.NewScheme()
+				utilruntime.Must(appsv1.AddToScheme(scheme))
+				utilruntime.Must(corev1.AddToScheme(scheme))
+				ser := serjson.NewSerializerWithOptions(
+					serjson.DefaultMetaFactory, scheme, scheme,
+					serjson.SerializerOptions{Yaml: true, Pretty: true, Strict: true},
+				)
+				var buf bytes.Buffer
+				for _, obj := range out.K8sObjects {
+					io.WriteString(&buf, "---\n")
+					if err := ser.Encode(obj, &buf); err != nil {
+						return fmt.Errorf("failed to encode kubernetes object: %w", err)
+					}
+				}
 				if outManifestPath == "-" {
-					fmt.Fprint(cmd.OutOrStdout(), yamlDocs)
-				} else if err := os.WriteFile(outManifestPath, []byte(yamlDocs), 0o644); err != nil {
+					fmt.Fprint(cmd.OutOrStdout(), buf.String())
+				} else if err := os.WriteFile(outManifestPath, buf.Bytes(), 0o644); err != nil {
 					return fmt.Errorf("failed to write manifest output: %w", err)
 				}
 			}
