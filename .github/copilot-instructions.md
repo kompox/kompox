@@ -22,6 +22,16 @@ The following is a list of Go language idioms and best practices to follow:
 - Use `any` instead of `interface{}`.
 - Refer to `docs/Kompox-Arch-v1.ja.md` for architecture guidance including package structure, module boundaries, design patterns, and naming conventions.
 
+## Comment & Documentation Scope Policy
+
+To preserve a clean public codebase, do NOT add meta or prompt-author oriented annotations into source comments, documentation, or commit messages. Examples of disallowed content:
+
+- References to prior prompt wording or specification deltas (e.g. "previous spec vs current" notes)
+- Explanations aimed at the person who wrote an instruction prompt rather than future maintainers or users
+- Internal process rationale unrelated to understanding or operating the software
+
+Allowed content focuses strictly on: behavior, rationale for technical decisions, usage examples, constraints, and future TODOs relevant to maintainers.
+
 ## Git Guidelines
 
 - Do not commit unless the user asks you to.
