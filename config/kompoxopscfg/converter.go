@@ -1,9 +1,13 @@
-package cfgops
+package kompoxopscfg
 
 import (
 	"crypto/rand"
 	"fmt"
+	"os"
+	"strings"
 	"time"
+
+	"gopkg.in/yaml.v3"
 
 	"github.com/yaegashi/kompoxops/domain/model"
 )
@@ -66,12 +70,18 @@ func (r *Root) ToModels() (*model.Service, *model.Provider, *model.Cluster, *mod
 		UpdatedAt:  now,
 	}
 
+	// Handle compose content based on prefix
+	composeContent, err := processCompose(r.App.Compose)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to process compose: %w", err)
+	}
+
 	// Create App (references Cluster)
 	app := &model.App{
 		ID:        appID,
 		Name:      r.App.Name,
 		ClusterID: clusterID,
-		Compose:   r.App.Compose,
+		Compose:   composeContent,
 		Ingress:   r.App.Ingress,
 		Resources: r.App.Resources,
 		Settings:  r.App.Settings,
@@ -89,4 +99,44 @@ func generateID() (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("%x", bytes), nil
+}
+
+// processCompose handles compose content based on the type and prefix
+func processCompose(compose any) (string, error) {
+	if compose == nil {
+		return "", fmt.Errorf("compose value is nil")
+	}
+
+	// Check if compose is a string
+	if str, ok := compose.(string); ok {
+		if strings.HasPrefix(str, "file:") {
+			// Extract file path by removing "file:" prefix
+			filePath := strings.TrimPrefix(str, "file:")
+			return readComposeFile(filePath)
+		}
+		// Return the string as-is for non-file: prefixes
+		return str, nil
+	}
+
+	// For non-string types, marshal to YAML
+	yamlBytes, err := yaml.Marshal(compose)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal compose to YAML: %w", err)
+	}
+
+	return string(yamlBytes), nil
+}
+
+// readComposeFile reads the compose file and returns its content
+func readComposeFile(path string) (string, error) {
+	if path == "" {
+		return "", fmt.Errorf("compose file path is empty")
+	}
+
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("failed to read compose file: %w", err)
+	}
+
+	return string(content), nil
 }

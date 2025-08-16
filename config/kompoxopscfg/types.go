@@ -1,15 +1,9 @@
-// Package cfgops defines the configuration schema (structs) for kompoxops.yml.
+// Package kompoxopscfg defines the configuration schema (structs) for kompoxops.yml.
 // This package is intended for YAML -> struct deserialization.
 // Loading helpers and validations will be implemented separately.
-package cfgops
+package kompoxopscfg
 
 // Root is the root structure of kompoxops.yml.
-// Example:
-// version: v1
-// service: { name: ops }
-// provider: { name: aks1, driver: aks, settings: {...} }
-// cluster: { name: my-aks, existing: false, domain: ops.kompox.dev, ... }
-// app: { name: my-app, compose: compose.yml, ... }
 type Root struct {
 	Version  string   `yaml:"version"`
 	Service  Service  `yaml:"service"`
@@ -42,7 +36,7 @@ type Cluster struct {
 // App represents the target application to deploy.
 type App struct {
 	Name      string            `yaml:"name"`
-	Compose   string            `yaml:"compose"`             // path to Docker Compose file (relative/absolute)
+	Compose   any               `yaml:"compose"`             // compose.yml content or URL to fetch
 	Ingress   map[string]string `yaml:"ingress,omitempty"`   // per-port custom DNS (e.g., http_80, http_8080)
 	Resources map[string]string `yaml:"resources,omitempty"` // pod resources (e.g., cpu, memory)
 	Settings  map[string]string `yaml:"settings,omitempty"`  // app-specific settings

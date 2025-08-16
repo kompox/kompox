@@ -3,8 +3,8 @@ package inmem
 import (
 	"context"
 
+	"github.com/yaegashi/kompoxops/config/kompoxopscfg"
 	"github.com/yaegashi/kompoxops/domain"
-	"github.com/yaegashi/kompoxops/models/cfgops"
 )
 
 // Store provides a unified interface for all in-memory repositories.
@@ -13,7 +13,7 @@ type Store struct {
 	ProviderRepository *ProviderRepository
 	ClusterRepository  *ClusterRepository
 	AppRepository      *AppRepository
-	ConfigRoot         *cfgops.Root
+	ConfigRoot         *kompoxopscfg.Root
 }
 
 // NewStore creates a new in-memory store with all repositories.
@@ -27,7 +27,7 @@ func NewStore() *Store {
 }
 
 // LoadFromConfig loads a kompoxops.yml configuration into the memory store.
-func (s *Store) LoadFromConfig(ctx context.Context, cfg *cfgops.Root) error {
+func (s *Store) LoadFromConfig(ctx context.Context, cfg *kompoxopscfg.Root) error {
 	// Convert configuration to domain models
 	service, provider, cluster, app, err := cfg.ToModels()
 	if err != nil {
@@ -58,7 +58,7 @@ func (s *Store) LoadFromConfig(ctx context.Context, cfg *cfgops.Root) error {
 
 // LoadFromFile loads a kompoxops.yml file into the memory store.
 func (s *Store) LoadFromFile(ctx context.Context, path string) error {
-	cfg, err := cfgops.Load(path)
+	cfg, err := kompoxopscfg.Load(path)
 	if err != nil {
 		return err
 	}

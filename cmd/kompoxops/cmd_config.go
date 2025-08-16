@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/yaegashi/kompoxops/models/cfgops"
+	"github.com/yaegashi/kompoxops/config/kompoxopscfg"
 )
 
 // newCmdConfig returns a command that reads and shows the current configuration.
@@ -18,9 +18,9 @@ func newCmdConfig() *cobra.Command {
 		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if file == "" {
-				file = cfgops.DefaultConfigPath
+				file = kompoxopscfg.DefaultConfigPath
 			}
-			cfg, err := cfgops.Load(file)
+			cfg, err := kompoxopscfg.Load(file)
 			if err != nil {
 				return err
 			}
@@ -30,6 +30,6 @@ func newCmdConfig() *cobra.Command {
 			return nil
 		},
 	}
-	c.Flags().StringVarP(&file, "file", "f", cfgops.DefaultConfigPath, "Path to kompoxops.yml")
+	c.Flags().StringVarP(&file, "file", "f", kompoxopscfg.DefaultConfigPath, "Path to kompoxops.yml")
 	return c
 }

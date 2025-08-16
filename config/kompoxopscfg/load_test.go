@@ -1,4 +1,4 @@
-package cfgops
+package kompoxopscfg
 
 import (
 	"os"

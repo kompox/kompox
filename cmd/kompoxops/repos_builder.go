@@ -9,8 +9,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/yaegashi/kompoxops/adapters/store/inmem"
 	"github.com/yaegashi/kompoxops/adapters/store/rdb"
+	"github.com/yaegashi/kompoxops/config/kompoxopscfg"
 	"github.com/yaegashi/kompoxops/domain"
-	"github.com/yaegashi/kompoxops/models/cfgops"
 	"github.com/yaegashi/kompoxops/usecase/app"
 	"github.com/yaegashi/kompoxops/usecase/cluster"
 	"github.com/yaegashi/kompoxops/usecase/provider"
@@ -18,7 +18,7 @@ import (
 )
 
 // configRoot holds the loaded configuration.
-var configRoot *cfgops.Root
+var configRoot *kompoxopscfg.Root
 
 // getDBURL extracts the db-url flag value from command hierarchy.
 func getDBURL(cmd *cobra.Command) string {
@@ -43,7 +43,7 @@ func buildRepos(cmd *cobra.Command) (*domain.Repositories, error) {
 		}
 
 		// Load configuration from file
-		cfg, err := cfgops.Load(filePath)
+		cfg, err := kompoxopscfg.Load(filePath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load config from %s: %w", filePath, err)
 		}
