@@ -14,16 +14,13 @@ import (
 
 func newRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "kompoxops",
-		Short:   "KompoxOps CLI",
-		Long:    "KompoxOps CLI",
-		Version: version,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			// Show help by default when no subcommand is provided.
-			return cmd.Help()
-		},
-		SilenceUsage:  true,
-		SilenceErrors: true,
+		Use:                "kompoxops",
+		Short:              "KompoxOps CLI",
+		Long:               "KompoxOps CLI",
+		Version:            version,
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
 	}
 
 	// Add global db-url flag
@@ -32,8 +29,6 @@ func newRootCmd() *cobra.Command {
 		defaultDB = "file:kompoxops.yml"
 	}
 	cmd.PersistentFlags().String("db-url", defaultDB, "Database URL (env KOMPOX_DB_URL) (file:/path/to/kompoxops.yml | sqlite:/path/to.db | postgres:// | mysql://)")
-
-	// global flags (db-url already exists)
 	cmd.PersistentFlags().String("log-format", "human", "Log format (human|text|json) (env KOMPOX_LOG_FORMAT)")
 
 	cmd.PersistentPreRunE = func(c *cobra.Command, _ []string) error {
@@ -50,7 +45,6 @@ func newRootCmd() *cobra.Command {
 		return nil
 	}
 
-	// Add subcommands
 	cmd.AddCommand(newCmdVersion())
 	cmd.AddCommand(newCmdConfig())
 	cmd.AddCommand(newCmdCluster())

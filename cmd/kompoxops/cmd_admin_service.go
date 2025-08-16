@@ -22,11 +22,14 @@ type serviceSpec struct {
 
 func newCmdAdminService() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:           "service",
-		Short:         "Manage Service resources",
-		RunE:          func(cmd *cobra.Command, args []string) error { return cmd.Help() },
-		SilenceUsage:  true,
-		SilenceErrors: true,
+		Use:                "service",
+		Short:              "Manage Service resources",
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return fmt.Errorf("invalid command")
+		},
 	}
 	cmd.AddCommand(newCmdAdminServiceList())
 	cmd.AddCommand(newCmdAdminServiceGet())
@@ -51,8 +54,11 @@ func findFlag(cmd *cobra.Command, name string) *pflag.Flag {
 
 func newCmdAdminServiceList() *cobra.Command {
 	return &cobra.Command{
-		Use:   "list",
-		Short: "List services",
+		Use:                "list",
+		Short:              "List services",
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			uc, err := buildServiceUseCase(cmd)
 			if err != nil {
@@ -77,9 +83,12 @@ func newCmdAdminServiceList() *cobra.Command {
 
 func newCmdAdminServiceGet() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get a service",
-		Args:  cobra.ExactArgs(1),
+		Use:                "get <id>",
+		Short:              "Get a service",
+		Args:               cobra.ExactArgs(1),
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			uc, err := buildServiceUseCase(cmd)
 			if err != nil {
@@ -127,8 +136,11 @@ func readServiceSpec(cmd *cobra.Command, path string) (*serviceSpec, error) {
 func newCmdAdminServiceCreate() *cobra.Command {
 	var file string
 	c := &cobra.Command{
-		Use:   "create",
-		Short: "Create a service (from spec file)",
+		Use:                "create",
+		Short:              "Create a service (from spec file)",
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			uc, err := buildServiceUseCase(cmd)
 			if err != nil {
@@ -157,9 +169,12 @@ func newCmdAdminServiceCreate() *cobra.Command {
 func newCmdAdminServiceUpdate() *cobra.Command {
 	var file string
 	c := &cobra.Command{
-		Use:   "update <id>",
-		Short: "Update a service (merge from spec)",
-		Args:  cobra.ExactArgs(1),
+		Use:                "update <id>",
+		Short:              "Update a service (merge from spec)",
+		Args:               cobra.ExactArgs(1),
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			uc, err := buildServiceUseCase(cmd)
 			if err != nil {
@@ -191,9 +206,12 @@ func newCmdAdminServiceUpdate() *cobra.Command {
 
 func newCmdAdminServiceDelete() *cobra.Command {
 	c := &cobra.Command{
-		Use:   "delete <id>",
-		Short: "Delete a service",
-		Args:  cobra.ExactArgs(1),
+		Use:                "delete <id>",
+		Short:              "Delete a service",
+		Args:               cobra.ExactArgs(1),
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			uc, err := buildServiceUseCase(cmd)
 			if err != nil {

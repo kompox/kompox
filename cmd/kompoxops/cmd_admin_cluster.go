@@ -20,31 +20,54 @@ type clusterSpec struct {
 }
 
 func newCmdAdminCluster() *cobra.Command {
-	cmd := &cobra.Command{Use: "cluster", Short: "Manage Cluster resources", RunE: func(cmd *cobra.Command, args []string) error { return cmd.Help() }, SilenceUsage: true, SilenceErrors: true}
-	cmd.AddCommand(newCmdAdminClusterList(), newCmdAdminClusterGet(), newCmdAdminClusterCreate(), newCmdAdminClusterUpdate(), newCmdAdminClusterDelete(), newCmdAdminClusterProvision(), newCmdAdminClusterDeprovision())
+	cmd := &cobra.Command{
+		Use:                "cluster",
+		Short:              "Manage Cluster resources",
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return fmt.Errorf("invalid command")
+		},
+	}
+	cmd.AddCommand(
+		newCmdAdminClusterList(),
+		newCmdAdminClusterGet(),
+		newCmdAdminClusterCreate(),
+		newCmdAdminClusterUpdate(),
+		newCmdAdminClusterDelete(),
+		newCmdAdminClusterProvision(),
+		newCmdAdminClusterDeprovision(),
+	)
 	return cmd
 }
 
 func newCmdAdminClusterList() *cobra.Command {
-	return &cobra.Command{Use: "list", Short: "List clusters", RunE: func(cmd *cobra.Command, args []string) error {
-		u, err := buildClusterUseCase(cmd)
-		if err != nil {
-			return err
-		}
-		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
-		defer cancel()
-		items, err := u.List(ctx)
-		if err != nil {
-			return err
-		}
-		enc := json.NewEncoder(cmd.OutOrStdout())
-		for _, it := range items {
-			if err := enc.Encode(it); err != nil {
+	return &cobra.Command{
+		Use:                "list",
+		Short:              "List clusters",
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			u, err := buildClusterUseCase(cmd)
+			if err != nil {
 				return err
 			}
-		}
-		return nil
-	}}
+			ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
+			defer cancel()
+			items, err := u.List(ctx)
+			if err != nil {
+				return err
+			}
+			enc := json.NewEncoder(cmd.OutOrStdout())
+			for _, it := range items {
+				if err := enc.Encode(it); err != nil {
+					return err
+				}
+			}
+			return nil
+		}}
 }
 
 func newCmdAdminClusterGet() *cobra.Command {

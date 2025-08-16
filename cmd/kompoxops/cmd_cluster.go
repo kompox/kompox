@@ -14,13 +14,14 @@ import (
 
 func newCmdCluster() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "cluster",
-		Short: "Manage clusters",
+		Use:                "cluster",
+		Short:              "Manage clusters",
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return cmd.Help()
+			return fmt.Errorf("invalid command")
 		},
-		SilenceUsage:  true,
-		SilenceErrors: true,
 	}
 	cmd.AddCommand(
 		newCmdClusterProvision(),
@@ -45,9 +46,12 @@ func getClusterName(_ *cobra.Command, args []string) (string, error) {
 
 func newCmdClusterProvision() *cobra.Command {
 	return &cobra.Command{
-		Use:   "provision [cluster-name]",
-		Short: "Provision a Kubernetes cluster",
-		Args:  cobra.MaximumNArgs(1),
+		Use:                "provision [cluster-name]",
+		Short:              "Provision a Kubernetes cluster",
+		Args:               cobra.MaximumNArgs(1),
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clusterUC, err := buildClusterUseCase(cmd)
 			if err != nil {
@@ -96,9 +100,12 @@ func newCmdClusterProvision() *cobra.Command {
 
 func newCmdClusterDeprovision() *cobra.Command {
 	return &cobra.Command{
-		Use:   "deprovision [cluster-name]",
-		Short: "Deprovision a Kubernetes cluster",
-		Args:  cobra.MaximumNArgs(1),
+		Use:                "deprovision [cluster-name]",
+		Short:              "Deprovision a Kubernetes cluster",
+		Args:               cobra.MaximumNArgs(1),
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clusterUC, err := buildClusterUseCase(cmd)
 			if err != nil {
@@ -148,9 +155,12 @@ func newCmdClusterDeprovision() *cobra.Command {
 
 func newCmdClusterInstall() *cobra.Command {
 	return &cobra.Command{
-		Use:   "install [cluster-name]",
-		Short: "Install cluster resources (Ingress Controller, etc.)",
-		Args:  cobra.MaximumNArgs(1),
+		Use:                "install [cluster-name]",
+		Short:              "Install cluster resources (Ingress Controller, etc.)",
+		Args:               cobra.MaximumNArgs(1),
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clusterUC, err := buildClusterUseCase(cmd)
 			if err != nil {
@@ -197,9 +207,12 @@ func newCmdClusterInstall() *cobra.Command {
 
 func newCmdClusterUninstall() *cobra.Command {
 	return &cobra.Command{
-		Use:   "uninstall [cluster-name]",
-		Short: "Uninstall cluster resources (Ingress Controller, etc.)",
-		Args:  cobra.MaximumNArgs(1),
+		Use:                "uninstall [cluster-name]",
+		Short:              "Uninstall cluster resources (Ingress Controller, etc.)",
+		Args:               cobra.MaximumNArgs(1),
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clusterUC, err := buildClusterUseCase(cmd)
 			if err != nil {
@@ -246,9 +259,12 @@ func newCmdClusterUninstall() *cobra.Command {
 
 func newCmdClusterStatus() *cobra.Command {
 	return &cobra.Command{
-		Use:   "status [cluster-name]",
-		Short: "Show cluster status",
-		Args:  cobra.MaximumNArgs(1),
+		Use:                "status [cluster-name]",
+		Short:              "Show cluster status",
+		Args:               cobra.MaximumNArgs(1),
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			clusterUC, err := buildClusterUseCase(cmd)
 			if err != nil {

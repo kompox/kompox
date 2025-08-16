@@ -11,8 +11,11 @@ import (
 func newCmdConfig() *cobra.Command {
 	var file string
 	c := &cobra.Command{
-		Use:   "config",
-		Short: "Read and validate configuration",
+		Use:                "config",
+		Short:              "Read and validate configuration",
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if file == "" {
 				file = cfgops.DefaultConfigPath

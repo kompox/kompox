@@ -20,31 +20,52 @@ type providerSpec struct {
 }
 
 func newCmdAdminProvider() *cobra.Command {
-	cmd := &cobra.Command{Use: "provider", Short: "Manage Provider resources", RunE: func(cmd *cobra.Command, args []string) error { return cmd.Help() }, SilenceUsage: true, SilenceErrors: true}
-	cmd.AddCommand(newCmdAdminProviderList(), newCmdAdminProviderGet(), newCmdAdminProviderCreate(), newCmdAdminProviderUpdate(), newCmdAdminProviderDelete())
+	cmd := &cobra.Command{
+		Use:                "provider",
+		Short:              "Manage Provider resources",
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return fmt.Errorf("invalid command")
+		},
+	}
+	cmd.AddCommand(
+		newCmdAdminProviderList(),
+		newCmdAdminProviderGet(),
+		newCmdAdminProviderCreate(),
+		newCmdAdminProviderUpdate(),
+		newCmdAdminProviderDelete(),
+	)
 	return cmd
 }
 
 func newCmdAdminProviderList() *cobra.Command {
-	return &cobra.Command{Use: "list", Short: "List providers", RunE: func(cmd *cobra.Command, args []string) error {
-		u, err := buildProviderUseCase(cmd)
-		if err != nil {
-			return err
-		}
-		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
-		defer cancel()
-		items, err := u.List(ctx)
-		if err != nil {
-			return err
-		}
-		enc := json.NewEncoder(cmd.OutOrStdout())
-		for _, it := range items {
-			if err := enc.Encode(it); err != nil {
+	return &cobra.Command{
+		Use:                "list",
+		Short:              "List providers",
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			u, err := buildProviderUseCase(cmd)
+			if err != nil {
 				return err
 			}
-		}
-		return nil
-	}}
+			ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
+			defer cancel()
+			items, err := u.List(ctx)
+			if err != nil {
+				return err
+			}
+			enc := json.NewEncoder(cmd.OutOrStdout())
+			for _, it := range items {
+				if err := enc.Encode(it); err != nil {
+					return err
+				}
+			}
+			return nil
+		}}
 }
 
 func newCmdAdminProviderGet() *cobra.Command {
