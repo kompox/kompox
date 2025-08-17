@@ -3,12 +3,8 @@ package app
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 
-	"github.com/kubernetes/kompose/pkg/kobject"
-	"github.com/kubernetes/kompose/pkg/loader"
-	"github.com/kubernetes/kompose/pkg/transformer/kubernetes"
+	"github.com/yaegashi/kompoxops/adapters/kube"
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -23,7 +19,6 @@ type ValidateOutput struct {
 	Errors     []string
 	Warnings   []string
 	Compose    string           // normalized compose YAML (if valid)
-	Raw        string           // original compose string
 	K8sObjects []runtime.Object // converted Kubernetes objects (nil if conversion failed)
 }
 
@@ -44,7 +39,6 @@ func (u *UseCase) Validate(ctx context.Context, in ValidateInput) (*ValidateOutp
 		return out, nil
 	}
 	composeStr := a.Compose
-	out.Raw = composeStr
 	if composeStr == "" {
 		out.Errors = append(out.Errors, "compose definition empty")
 		return out, nil
@@ -73,42 +67,15 @@ func (u *UseCase) Validate(ctx context.Context, in ValidateInput) (*ValidateOutp
 		out.Errors = append(out.Errors, "top-level YAML must be a mapping object")
 	}
 
-	tmpDir, err := os.MkdirTemp("", "kompoxops-kompose-*")
-	if err != nil {
-		return out, fmt.Errorf("failed to create temp dir for kompose: %w", err)
+	if u.KubeConverter != nil {
+		objs, warns, err := u.KubeConverter.ComposeToObjects(ctx, normalizedBytes, kube.ConvertOption{Replicas: 1, Controller: "deployment", WithAnnotations: true})
+		if err != nil {
+			out.Warnings = append(out.Warnings, fmt.Sprintf("kompose conversion failed: %v", err))
+		} else {
+			out.K8sObjects = objs
+			out.Warnings = append(out.Warnings, warns...)
+		}
 	}
-	defer os.RemoveAll(tmpDir)
-
-	composePath := filepath.Join(tmpDir, "compose.yaml")
-	err = os.WriteFile(composePath, normalizedBytes, 0o600)
-	if err != nil {
-		return out, fmt.Errorf("write temp compose file failed: %w", err)
-	}
-
-	kLoader, err := loader.GetLoader("compose")
-	if err != nil {
-		return out, fmt.Errorf("failed to get kompose loader: %w", err)
-	}
-	profiles := []string{}
-	kObjects, err := kLoader.LoadFile([]string{composePath}, profiles)
-	if err != nil {
-		return out, fmt.Errorf("kompose load file failed: %w", err)
-	}
-
-	convertOptions := kobject.ConvertOptions{
-		Provider:   "kubernetes",
-		Controller: "deployment",
-		Replicas:   1,
-		YAMLIndent: 2,
-		Profiles:   profiles,
-	}
-	kTransformer := &kubernetes.Kubernetes{}
-	rObjects, err := kTransformer.Transform(kObjects, convertOptions)
-	if err != nil {
-		return out, fmt.Errorf("transform failed: %w", err)
-	}
-
-	out.K8sObjects = rObjects
 
 	return out, nil
 }
