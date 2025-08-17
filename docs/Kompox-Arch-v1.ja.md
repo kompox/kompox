@@ -3,79 +3,68 @@
 ## Package / Directory Hierarchy
 
 ```
-/cmd/
-  kompoxops/            (main for CLI: wiring + DI)
+cmd/
+  kompoxops/            main for CLI: wiring + DI
 
-/api/
-  server.go             (HTTP server bootstrap)
-  router.go             (mux/router setup)
+api/
+  server.go             HTTP server bootstrap
+  router.go             mux/router setup
   handlers/
     app_handler.go
     cluster_handler.go
     provider_handler.go
     service_handler.go
 
-/usecase/               (ユースケース層。I/O 依存なし)
-  /service/
-    list.go
-    get.go
-    create.go
-    update.go
-    delete.go
-  /cluster/
-    create.go
-    provision.go
-  /provider/
-    create.go
-    validate.go
-  /app/
-    register.go
-  errors.go             (ユースケース層エラーマッピング)
+usecase/                Use case layer
+  service/              Service resource
+    list.go             List method
+    get.go              Get method
+    create.go           Create method
+    update.go           Update method
+    delete.go           Delete method
+  cluster/              Cluster resource
+  provider/             Provider resource
+  app/                  App resource
 
-/domain/                (ドメイン層。ビジネスロジック)
-  /model/               (ドメインモデル)
-  repository.go         (interfaces: AppRepository, ClusterRepository, ProviderRepository, ServiceRepository, UnitOfWork)
-  errors.go             (domain errors)
+domain/                 Domain layer
+  model/                Domain models: entity definitions, port interfaces
+  repository.go         Dmain model repository interfaces
 
-/adapters/
-  /kube/
-    client.go           (Kubernetes client)
-    installer.go        (Kubernetes infrastructure installer)
-  /drivers/
-    /provider/          (package providerdrv)
+adapters/
+  kube/
+    kompose/            Converter implementation (kompose)
+    client.go           Kubernetes client
+    installer.go        Kubernetes infrastructure installer
+    convert.go          Compose to Manifest converter
+  drivers/              Drivers
+    provider/           Provider drivers (providerdrv)
+      aks/
+      k3s/
+      cluster_port.go   model.ClusterPort implementation
+      registry.go       Driver interface and registration factory
+    ingress/            ingress drivers (ingressdrv)
+      traefik/
+      nginx/
       registry.go
-      types.go
-      /aks/
-      /k3s/
-    /ingress/           (package ingressdrv)
-      registry.go
-      types.go
-      /traefik/
-      /nginx/
-  /store/               (persistent storage)
-    /inmem/             (in-memory)
-      service.go
-      provider.go
-      cluster.go
-      app.go
-    /rdb/               (gorm)
-      uow.go            (UnitOfWork + Tx)
-      service.go
-      provider.go
-      cluster.go
-      app.go
-  /logging/
-    logger.go           (adapter; optional)
+  store/                Domain model repository implementations
+    inmem/              in-memory
+    rdb/                gorm
 
-/models/
-  cfgops/               (設定読み込みモデル。domain へ直接持ち込まないラッパ層)
+internal/
+  logging/              Logging infrastructure (slog)
+  compose/              Compose loader and validator (compose-go)
 
-/docs/
-  *.ja.md               (日本語可)
+config/
+  kompoxopscfg/         komposops.cfg loader
 
-/infra/                 (Azure Developer CLI IaC)
+infra/
+  aks/
+    infra/              Azure Bicep IaC
+      main.json         AKS ARM template output
+    azure.yaml          Azure Developer CLI config
 
-azure.yaml              (Azure Developer CLI configuration)
+docs/
+  *.ja.md               日本語可
 ```
 
 ## リソース

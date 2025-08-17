@@ -66,7 +66,12 @@ cluster:
     AZURE_RESOURCE_GROUP_NAME: rg-CLU
 app:
   name: my-app
-  compose: compose.yml
+  compose:
+    services:
+      whoami:
+        image: traefik/whoami
+      ports:
+        - 80:80
   ingress:
     http_80: www.my-app.kompox.dev
     http_8080: admin.my-app.kompox.dev     
@@ -121,6 +126,21 @@ provision/deprovision/install/uninstall は status により実行可否が変�
 |deprovision|installed=true|existing=trueなら何もしない<br>provisioned=trueならK8sクラスタ削除開始|
 |install|provisioned=false|installed=falseならK8sクラスタ内リソース作成開始|
 |uninstall||installed=trueならK8sクラスタ内リソース削除開始|
+
+### kompoxops app
+
+アプリの操作を行う。
+
+```
+kompoxops app validate
+kompoxops app deploy
+kompoxops app destroy
+```
+
+validate コマンドは app.compose の内容を検証し Kompose により K8s マニフェストに変換する。
+YAML 構文エラーや制約違反が検出された場合はエラーを返す。
+- `--out-compose FILE` を指定すると正規化した Docker Compose の YAML ドキュメントを出力する (`-` は stdout)
+- `--out-manifest FILE` を指定すると K8s マニフェストの YAML ドキュメントを出力する (`-` は stdout)
 
 ### kompoxops admin
 
