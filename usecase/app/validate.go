@@ -5,14 +5,12 @@ import (
 	"fmt"
 
 	"github.com/yaegashi/kompoxops/adapters/kube"
+	"github.com/yaegashi/kompoxops/domain/model"
 	"github.com/yaegashi/kompoxops/internal/compose"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
 // ValidateInput represents parameters to Validate.
-type ValidateInput struct {
-	ID string
-}
 
 // ValidateOutput represents result of validation.
 type ValidateOutput struct {
@@ -23,7 +21,7 @@ type ValidateOutput struct {
 }
 
 // Validate checks the compose string stored in App resource is valid YAML.
-// Future enhancements: semantic checks, Kompose transform, policy checks.
+// Future enhancements: semantic checks, policy checks.
 func (u *UseCase) Validate(ctx context.Context, in ValidateInput) (*ValidateOutput, error) {
 	out := &ValidateOutput{}
 	if in.ID == "" {
@@ -49,13 +47,22 @@ func (u *UseCase) Validate(ctx context.Context, in ValidateInput) (*ValidateOutp
 	}
 	out.Compose = string(b)
 
-	if u.KubeConverter != nil {
-		objs, warns, err := u.KubeConverter.ComposeToObjects(ctx, []byte(out.Compose), kube.ConvertOption{Replicas: 1, Controller: "deployment", WithAnnotations: false})
-		if err != nil {
-			out.Warnings = append(out.Warnings, fmt.Sprintf("kompose conversion failed: %v", err))
-		} else {
-			out.K8sObjects = objs
-			out.Warnings = append(out.Warnings, warns...)
+	// Fetch related resources for hash & conversion
+	cls, err := u.Repos.Cluster.Get(ctx, a.ClusterID)
+	if err == nil && cls != nil {
+		prv, _ := u.Repos.Provider.Get(ctx, cls.ProviderID)
+		var svc *model.Service
+		if prv != nil {
+			svc, _ = u.Repos.Service.Get(ctx, prv.ServiceID)
+		}
+		if svc != nil && prv != nil {
+			objs, warns, convErr := kube.ComposeAppToObjects(ctx, svc, prv, cls, a)
+			if convErr != nil {
+				out.Warnings = append(out.Warnings, fmt.Sprintf("compose conversion failed: %v", convErr))
+			} else {
+				out.K8sObjects = objs
+				out.Warnings = append(out.Warnings, warns...)
+			}
 		}
 	}
 

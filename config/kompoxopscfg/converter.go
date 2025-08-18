@@ -82,7 +82,7 @@ func (r *Root) ToModels() (*model.Service, *model.Provider, *model.Cluster, *mod
 		Name:      r.App.Name,
 		ClusterID: clusterID,
 		Compose:   composeContent,
-		Ingress:   r.App.Ingress,
+		Ingress:   toModelIngress(r.App.Ingress),
 		Resources: r.App.Resources,
 		Settings:  r.App.Settings,
 		CreatedAt: now,
@@ -139,4 +139,16 @@ func readComposeFile(path string) (string, error) {
 	}
 
 	return string(content), nil
+}
+
+// toModelIngress converts config slice to domain slice.
+func toModelIngress(rules []AppIngressRule) []model.AppIngressRule {
+	if len(rules) == 0 {
+		return nil
+	}
+	out := make([]model.AppIngressRule, 0, len(rules))
+	for _, r := range rules {
+		out = append(out, model.AppIngressRule{Name: r.Name, Port: r.Port, Hosts: append([]string{}, r.Hosts...)})
+	}
+	return out
 }

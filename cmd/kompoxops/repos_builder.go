@@ -93,7 +93,10 @@ func buildAppRepos(cmd *cobra.Command) (*app.Repos, error) {
 		return nil, err
 	}
 	return &app.Repos{
-		App: repos.App,
+		App:      repos.App,
+		Service:  repos.Service,
+		Provider: repos.Provider,
+		Cluster:  repos.Cluster,
 	}, nil
 }
 

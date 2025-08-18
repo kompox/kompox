@@ -36,8 +36,15 @@ type Cluster struct {
 // App represents the target application to deploy.
 type App struct {
 	Name      string            `yaml:"name"`
-	Compose   any               `yaml:"compose"`             // compose.yml content or URL to fetch
-	Ingress   map[string]string `yaml:"ingress,omitempty"`   // per-port custom DNS (e.g., http_80, http_8080)
+	Compose   any               `yaml:"compose"` // compose.yml content or URL to fetch
+	Ingress   []AppIngressRule  `yaml:"ingress,omitempty"`
 	Resources map[string]string `yaml:"resources,omitempty"` // pod resources (e.g., cpu, memory)
 	Settings  map[string]string `yaml:"settings,omitempty"`  // app-specific settings
+}
+
+// AppIngressRule matches docs/Kompox-Convert-Draft schema.
+type AppIngressRule struct {
+	Name  string   `yaml:"name"`
+	Port  int      `yaml:"port"`
+	Hosts []string `yaml:"hosts"`
 }

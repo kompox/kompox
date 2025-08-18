@@ -3,7 +3,6 @@ package main
 import (
 	"github.com/spf13/cobra"
 	providerdrv "github.com/yaegashi/kompoxops/adapters/drivers/provider"
-	"github.com/yaegashi/kompoxops/adapters/kube/kompose"
 	"github.com/yaegashi/kompoxops/usecase/app"
 	"github.com/yaegashi/kompoxops/usecase/cluster"
 	"github.com/yaegashi/kompoxops/usecase/provider"
@@ -16,7 +15,7 @@ func buildAppUseCase(cmd *cobra.Command) (*app.UseCase, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &app.UseCase{Repos: repos, KubeConverter: kompose.NewAdapter()}, nil
+	return &app.UseCase{Repos: repos}, nil
 }
 
 // buildClusterUseCase creates cluster use case with required repositories and ports.
