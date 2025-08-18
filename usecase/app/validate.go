@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/yaegashi/kompoxops/adapters/kube"
-	"gopkg.in/yaml.v3"
+	"github.com/yaegashi/kompoxops/internal/compose"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -27,48 +27,30 @@ type ValidateOutput struct {
 func (u *UseCase) Validate(ctx context.Context, in ValidateInput) (*ValidateOutput, error) {
 	out := &ValidateOutput{}
 	if in.ID == "" {
-		out.Errors = append(out.Errors, "missing app ID")
-		return out, nil
+		return out, fmt.Errorf("missing app ID")
 	}
+
 	a, err := u.Repos.App.Get(ctx, in.ID)
 	if err != nil {
 		return out, fmt.Errorf("failed to get app: %w", err)
 	}
 	if a == nil {
-		out.Errors = append(out.Errors, fmt.Sprintf("app not found: %s", in.ID))
-		return out, nil
-	}
-	composeStr := a.Compose
-	if composeStr == "" {
-		out.Errors = append(out.Errors, "compose definition empty")
-		return out, nil
+		return out, fmt.Errorf("app not found: %s", in.ID)
 	}
 
-	var generic any
-	if err := yaml.Unmarshal([]byte(composeStr), &generic); err != nil {
-		out.Errors = append(out.Errors, fmt.Sprintf("invalid YAML: %v", err))
-		return out, nil
-	}
-
-	// Normalize
-	normalizedBytes, err := yaml.Marshal(generic)
+	pro, err := compose.NewProject(ctx, a.Compose)
 	if err != nil {
-		out.Errors = append(out.Errors, fmt.Sprintf("failed to normalize YAML: %v", err))
-		return out, nil
+		return out, fmt.Errorf("compose project failed: %w", err)
 	}
-	out.Compose = string(normalizedBytes)
 
-	// Basic structural checks
-	if m, ok := generic.(map[string]any); ok {
-		if _, ok := m["services"]; !ok {
-			out.Warnings = append(out.Warnings, "top-level 'services' key not found (required for docker compose v2 style)")
-		}
-	} else {
-		out.Errors = append(out.Errors, "top-level YAML must be a mapping object")
+	b, err := pro.MarshalYAML()
+	if err != nil {
+		return out, fmt.Errorf("failed to marshal project to YAML: %w", err)
 	}
+	out.Compose = string(b)
 
 	if u.KubeConverter != nil {
-		objs, warns, err := u.KubeConverter.ComposeToObjects(ctx, normalizedBytes, kube.ConvertOption{Replicas: 1, Controller: "deployment", WithAnnotations: true})
+		objs, warns, err := u.KubeConverter.ComposeToObjects(ctx, []byte(out.Compose), kube.ConvertOption{Replicas: 1, Controller: "deployment", WithAnnotations: false})
 		if err != nil {
 			out.Warnings = append(out.Warnings, fmt.Sprintf("kompose conversion failed: %v", err))
 		} else {

@@ -98,7 +98,7 @@ func newCmdAppValidate() *cobra.Command {
 			}
 			out, err := appUC.Validate(ctx, app.ValidateInput{ID: *target})
 			if err != nil {
-				return err
+				return fmt.Errorf("validation failed: %w", err)
 			}
 			if len(out.Errors) > 0 {
 				for _, e := range out.Errors {
