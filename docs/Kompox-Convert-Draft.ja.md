@@ -6,38 +6,91 @@ Kompox の Service/Provider/Cluster/App リソースがどのように Kubernete
 
 ## 方針
 
-### Kubernetes マニフェスト
+### リソース
 
-次のリソースを含む Kubernetes マニフェストが作られる
+次のリソースを含む Kubernetes マニフェストが作られる。
 
-- Namespace 1個
-- PVC 1個 (別のライフサイクルで管理される静的なPVを参照する)
-- Deployment 1個 (シングルレプリカのPod)
+- Namespace 1個 (アプリごとに作成)
+- PV 1 個 (Provider のライフサイクルで管理される静的なクラウドディスクリソースを参照する RWO ボリューム)
+- PVC 1個 (PVを参照する)
+- Deployment 1個 (シングルレプリカ、strategy.type:Recreate)
 - Service 1個 (compose の host ポートを列挙)
 - Ingress 1個 (DNSホスト名からServiceへのルーティングを列挙)
 
-命名規約
+### 名前・ラベル・アノテーション
 
-- Namespace: `kompox-<appName>-<HASH>`
-- Service/Deployment/Ingress/PVC: `<appName>`
+リソース命名規則
+
+- Namespace: `kompox-<appName>-<idHASH>`
+- PV/PVC: `kompox-<appName>-<idHASH>-<volHASH>`
+- Service/Deployment/Ingress: `<appName>`
   - 当面は固定とする。将来的にはバージョン管理のために `<appName>-<version>` などの形式を導入。
-- PV: `kompox-<appName>-<HASH>`
-  - Azure Disk リソースを参照する。
 
-`<HASH>` は以下で生成する:
+各リソースには次のラベルを設定する。セレクタとしては `app: <appName>` を使用する。
+
+```yaml
+metadata:
+  labels:
+    app: <appName>
+    app.kubernetes.io/name: <appName>
+    app.kubernetes.io/instance: <appName>-<inHASH>
+    app.kubernetes.io/managed-by: kompox
+    kompox.dev/app-instance-hash: <inHASH>
+    kompox.dev/app-id-hash: <idHASH>
+```
+
+ラベル意味:
+- app / app.kubernetes.io/name: Pod セレクタ・表示用短名
+- app.kubernetes.io/instance: 人間可読なインスタンス名 (= <appName>-<inHASH>)
+- kompox.dev/app-instance-hash: クラスタ依存インスタンスハッシュ (inHASH)
+- kompox.dev/app-id-hash: クラスタ非依存アプリ識別ハッシュ (idHASH, cluster.name を含まない)
+
+Pod (Deployment の template) にも同一集合を付与し、selector は `app` のみ利用する。
+
+Namespace には次のアノテーションを設定する。
+
+```yaml
+metadata:
+  annotations:
+    kompox.dev/app: <serviceName>/<providerName>/<clusterName>/<appName>
+    kompox.dev/provider-driver: <providerDriverName>
+    kompox.dev/volume-handle-current: <diskResourceId>
+    kompox.dev/volume-handle-previous: <diskResourceId>
+```
+
+- `<providerDriverName>` は `aks` や `k3s` などのプロバイダドライバ名。
+- `<diskResourceId>` は `aks` の場合は Azure Disk リソース ID となる (サブスクリプション GUID 露出に注意: 閲覧権限を最小化)。
+- `kompox.dev/volume-handle-previous` は初回のデプロイ時には設定しない。
+
+### ハッシュの種類と生成規則
+
+`<inHASH>` (クラスタ依存ハッシュ) 生成方法
 
 ```
 BASE = service.name + ":" + provider.name + ":" + cluster.name + ":" + app.name
 HASH = sha1(BASE) の先頭6文字 (16進)
 ```
 
-PV 名にも同じ `<HASH>` を用いて一貫性を保つ
-(Azure リソース ID 由来の別アルゴリズムは採用しない／採用する場合は `<PVHASH>` として別記する)。
+`<idHASH>` (クラスタ非依存ハッシュ) 生成方法
+
+```
+BASE = service.name + ":" + provider.name + ":" + app.name
+HASH = sha1(BASE) の先頭6文字 (16進)
+```
+
+`<volHASH>` (クラウドディスクリソースハッシュ) 生成方法
+
+```
+BASE = クラウドディスクリソースのID (/subscriptions/.... など)
+HASH = sha1(BASE) の先頭6文字 (16進)
+```
+
+各ハッシュの衝突が理論上発生した場合は実装側でハッシュ長 (6→8→10 文字…) を自動延長する。
 
 ### ボリューム
 
-- Compose でサポートする形式 `./<subpath>:<mountpoint>`
-- 単一の PVC に `subPath` で割り当てる。
+- Compose の volumes では `./<subpath>:<mountpoint>` 以外の形式はエラーとする。
+- 単一の PVC に `subPath` を割り当てる。
 
 subPath 正規化ルール
 
@@ -47,29 +100,6 @@ subPath 正規化ルール
 4. 末尾 `/` を除去 (結果空ならエラー)  
 
 initContainers により subPath ディレクトリを自動作成する。
-
-静的な PV リソースの例
-
-```yaml
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  annotations:
-    pv.kubernetes.io/provisioned-by: disk.csi.azure.com
-  name: kompox-app1-HASH
-spec:
-  capacity:
-    storage: 32Gi
-  accessModes:
-    - ReadWriteOnce
-  persistentVolumeReclaimPolicy: Retain
-  storageClassName: managed-csi
-  csi:
-    driver: disk.csi.azure.com
-    volumeHandle: /subscriptions/...
-    volumeAttributes:
-      fsType: ext4
-```
 
 ### x-kompox (リソース変換)
 
@@ -89,7 +119,7 @@ Compose `environment` の key/value をそのままコピー。Secret 化やフ�
 ### Ports/Service/Ingress
 
 Compose の ports 指定の仕様
-- プロトコルはHTTPのみをサポートする。
+- (HTTP 前提) Ingress 経由で利用するためアプリ層は HTTP 想定。Service は TCP ポートで生成。
 - `hostPort:containerPort` の形式のみサポートする。
 - 複数のサービスが同じ `containerPort` を使用する設定は明示的なエラーとする (コンテナは同一Podで稼働するため)。
 
@@ -119,20 +149,19 @@ Ingress 生成の仕様
 - `annotations.traefik.ingress.kubernetes.io/router.entrypoints: websecure`
 - TLS セクションは生成しない (Traefik 側 ACME 自動取得前提)。
 
-### ラベル・セレクタ
+### ディスクの切り替え
 
-各リソースには次のラベルを設定する。
+- 新しいクラウドディスクに切り替える場合は新しい `<volHASH>` を持つ PV / PVC (同名) を追加し、Deployment の claimName をその新 PVC 名へ変更する (同一 apply 可)。
+- 切替時は旧 PV/PVC を即削除せず動作確認後に手動削除。
+- ロールバック (旧世代へ戻す) は旧 PV/PVC を削除していない場合のみ可能。
 
-```yaml
-metadata:
-  labels:
-    app: <appName>
-    app.kubernetes.io/name: <appName>
-    app.kubernetes.io/instance: <appName>-<HASH>
-    app.kubernetes.io/managed-by: kompox
-```
+### クラスタの切り替え
 
-セレクタとしては `app: <appName>` を使用する。
+手順 (同一クラウドディスクを再利用):
+1. 旧クラスタ Namespace 削除 (namespaced リソース一括削除)
+2. PVC 削除 → PV 状態 Released
+3. PV 削除 (クラウド側 detach 完了確認)
+4. 新クラスタで Namespace / PV / PVC / Deployment / Service / Ingress を apply
 
 ## 例1
 
@@ -197,30 +226,83 @@ app:
 ```yaml
 ---
 apiVersion: v1
+kind: Namespace
+metadata:
+  name: kompox-app1-idHASH
+  labels:
+    app: app1
+    app.kubernetes.io/name: app1
+    app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/managed-by: kompox
+    kompox.dev/app-instance-hash: inHASH
+    kompox.dev/app-id-hash: idHASH
+  annotations:
+    kompox.dev/app: ops/aks1/cluster1/app1
+    kompox.dev/provider-driver: aks
+    kompox.dev/volume-handle-current: /subscriptions/....
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: kompox-app1-idHASH-volHASH
+  labels:
+    app: app1
+    app.kubernetes.io/name: app1
+    app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/managed-by: kompox
+    kompox.dev/app-instance-hash: inHASH
+    kompox.dev/app-id-hash: idHASH
+  annotations:
+    pv.kubernetes.io/provisioned-by: disk.csi.azure.com
+spec:
+  capacity:
+    storage: 32Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: managed-csi
+  csi:
+    driver: disk.csi.azure.com
+    volumeHandle: /subscriptions/...
+    volumeAttributes:
+      fsType: ext4
+---
+apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: app1
-  namespace: kompox-app1-HASH
+  name: kompox-app1-idHASH-volHASH
+  namespace: kompox-app1-idHASH
+  labels:
+    app: app1
+    app.kubernetes.io/name: app1
+    app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/managed-by: kompox
+    kompox.dev/app-instance-hash: inHASH
+    kompox.dev/app-id-hash: idHASH
 spec:
   accessModes:
   - ReadWriteOnce
   resources:
     requests:
       storage: 32Gi
-  volumeName: kompox-app1-HASH
+  volumeName: kompox-app1-idHASH-volHASH
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: app1
-  namespace: kompox-app1-HASH
+  namespace: kompox-app1-idHASH
   labels:
     app: app1
     app.kubernetes.io/name: app1
-    app.kubernetes.io/instance: app1-HASH
+    app.kubernetes.io/instance: app1-inHASH
     app.kubernetes.io/managed-by: kompox
+    kompox.dev/app-instance-hash: inHASH
+    kompox.dev/app-id-hash: idHASH
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: app1
@@ -229,8 +311,10 @@ spec:
       labels:
         app: app1
         app.kubernetes.io/name: app1
-        app.kubernetes.io/instance: app1-HASH
+        app.kubernetes.io/instance: app1-inHASH
         app.kubernetes.io/managed-by: kompox
+        kompox.dev/app-instance-hash: inHASH
+        kompox.dev/app-id-hash: idHASH
     spec:
       containers:
       - name: app
@@ -285,18 +369,20 @@ spec:
       volumes:
         - name: default
           persistentVolumeClaim:
-            claimName: app1
+            claimName: kompox-app1-idHASH-volHASH
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: app1
-  namespace: kompox-app1-HASH
+  namespace: kompox-app1-idHASH
   labels:
     app: app1
     app.kubernetes.io/name: app1
-    app.kubernetes.io/instance: app1-HASH
+    app.kubernetes.io/instance: app1-inHASH
     app.kubernetes.io/managed-by: kompox
+    kompox.dev/app-instance-hash: inHASH
+    kompox.dev/app-id-hash: idHASH
 spec:
   ports:
   - name: main
@@ -312,12 +398,14 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: app1
-  namespace: kompox-app1-HASH
+  namespace: kompox-app1-idHASH
   labels:
     app: app1
     app.kubernetes.io/name: app1
-    app.kubernetes.io/instance: app1-HASH
+    app.kubernetes.io/instance: app1-inHASH
     app.kubernetes.io/managed-by: kompox
+    kompox.dev/app-instance-hash: inHASH
+    kompox.dev/app-id-hash: idHASH
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
 spec:
