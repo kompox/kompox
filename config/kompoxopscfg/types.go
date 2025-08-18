@@ -38,6 +38,7 @@ type App struct {
 	Name      string            `yaml:"name"`
 	Compose   any               `yaml:"compose"` // compose.yml content or URL to fetch
 	Ingress   []AppIngressRule  `yaml:"ingress,omitempty"`
+	Volumes   []AppVolume       `yaml:"volumes,omitempty"`
 	Resources map[string]string `yaml:"resources,omitempty"` // pod resources (e.g., cpu, memory)
 	Settings  map[string]string `yaml:"settings,omitempty"`  // app-specific settings
 }
@@ -47,4 +48,10 @@ type AppIngressRule struct {
 	Name  string   `yaml:"name"`
 	Port  int      `yaml:"port"`
 	Hosts []string `yaml:"hosts"`
+}
+
+// AppVolume matches docs/Kompox-Convert-Draft schema for persistent volumes.
+type AppVolume struct {
+	Name string `yaml:"name"`
+	Size string `yaml:"size"`
 }

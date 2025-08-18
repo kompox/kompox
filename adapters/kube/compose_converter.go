@@ -49,11 +49,18 @@ func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Pro
 		"kompox.dev/app-id-hash":       idHASH,
 	}
 
+	// Build volume definitions map from a.Volumes for quick lookup
+	volDefs := map[string]model.AppVolume{}
+	for _, v := range a.Volumes {
+		volDefs[v.Name] = v
+	}
+
 	// Compose services parsing & validation
 	hostPortToContainer := map[int]int{}   // hostPort -> containerPort
 	containerPortOwner := map[int]string{} // containerPort -> service name
 	containerPortName := map[int]string{}  // containerPort -> chosen Service port name
-	subPaths := map[string]struct{}{}
+	// subPathsPerVolume collects subpaths to create per volume name
+	subPathsPerVolume := map[string]map[string]struct{}{}
 	var containers []corev1.Container
 
 	for _, s := range proj.Services { // deterministic order from compose-go
@@ -97,7 +104,10 @@ func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Pro
 			hostPortToContainer[hp] = cp
 		}
 
-		// volumes: spec requires ./subpath but compose-go may normalize away leading "./"; accept both forms
+		// volumes: parse according to spec
+		//  - ./sub/path: default volume (first entry in a.Volumes slice) required
+		//  - name/sub/path: named volume must match volume definition
+		//  Absolute paths are error
 		for _, v := range s.Volumes {
 			if v.Source == "" || v.Target == "" {
 				return nil, nil, errors.New("volume with empty source/target not supported")
@@ -106,37 +116,79 @@ func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Pro
 				return nil, nil, fmt.Errorf("absolute volume path not supported: %s", v.Source)
 			}
 			src := v.Source
-			if strings.HasPrefix(src, "./") { // normalize leading ./ per spec step1
-				src = strings.TrimPrefix(src, "./")
+			src = strings.TrimPrefix(src, "./") // may or may not have ./
+			volName := ""
+			subPathRaw := ""
+			if strings.Contains(src, ":") { // colon shouldn't appear here (compose-go already split), but guard
+				return nil, nil, fmt.Errorf("unexpected ':' in volume source: %s", v.Source)
 			}
-			sp := normalizeSubPath(src)
+			// Determine form
+			if strings.Contains(src, "/") {
+				// Could be name/sub/path or sub/path for default. To distinguish, check full token before first slash exists in volDefs
+				first, rest, _ := strings.Cut(src, "/")
+				if _, ok := volDefs[first]; ok { // named volume
+					volName = first
+					subPathRaw = rest
+				} else {
+					// treat as default volume reference
+					if len(a.Volumes) == 0 {
+						return nil, nil, fmt.Errorf("relative bind volume '%s' requires at least one app volume (default) defined", v.Source)
+					}
+					volName = a.Volumes[0].Name
+					subPathRaw = src
+				}
+			} else {
+				// single segment is invalid because subPath after normalization must not be empty
+				return nil, nil, fmt.Errorf("volume source must include sub path: %s", v.Source)
+			}
+			if volName == "" {
+				return nil, nil, fmt.Errorf("failed to resolve volume for source %s", v.Source)
+			}
+			sp := normalizeSubPath(subPathRaw)
 			if sp == "" || strings.Contains(sp, "..") {
-				return nil, nil, fmt.Errorf("invalid subPath: %s", sp)
+				return nil, nil, fmt.Errorf("invalid subPath: %s", subPathRaw)
 			}
-			subPaths[sp] = struct{}{}
-			c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{Name: "default", MountPath: v.Target, SubPath: sp})
+			// record subPath per volume
+			if subPathsPerVolume[volName] == nil {
+				subPathsPerVolume[volName] = map[string]struct{}{}
+			}
+			subPathsPerVolume[volName][sp] = struct{}{}
+			c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{Name: volName, MountPath: v.Target, SubPath: sp})
 		}
 
 		applyXKompoxResources(&c, s.Extensions["x-kompox"]) // resources/limits
 		containers = append(containers, c)
 	}
 
-	// initContainer to create subPath directories
+	// initContainer to create subPath directories across volumes
 	var initContainers []corev1.Container
-	if len(subPaths) > 0 {
-		var list []string
-		for sp := range subPaths {
-			list = append(list, sp)
+	if len(subPathsPerVolume) > 0 {
+		var lines []string
+		// stable order: volume names sorted, then subpaths sorted
+		var volNames []string
+		for vn := range subPathsPerVolume {
+			volNames = append(volNames, vn)
 		}
-		sort.Strings(list)
-		lines := []string{"set -eu"}
-		for _, sp := range list {
-			lines = append(lines, fmt.Sprintf("mkdir -p /work/%s", sp))
+		sort.Strings(volNames)
+		for _, vn := range volNames {
+			var sps []string
+			for sp := range subPathsPerVolume[vn] {
+				sps = append(sps, sp)
+			}
+			sort.Strings(sps)
+			for _, sp := range sps {
+				lines = append(lines, fmt.Sprintf("mkdir -m 1777 -p /work/%s/%s", vn, sp))
+			}
+		}
+		// mount each volume at /work/<volName>
+		var vm []corev1.VolumeMount
+		for _, vn := range volNames {
+			vm = append(vm, corev1.VolumeMount{Name: vn, MountPath: fmt.Sprintf("/work/%s", vn)})
 		}
 		initContainers = append(initContainers, corev1.Container{
 			Name: "init-volume-subpaths", Image: "busybox:1.36",
 			Command:      []string{"sh", "-c", strings.Join(lines, "\n")},
-			VolumeMounts: []corev1.VolumeMount{{Name: "default", MountPath: "/work"}},
+			VolumeMounts: vm,
 		})
 	}
 
@@ -147,17 +199,24 @@ func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Pro
 		// volume-handle-current/previous: provider specific; left empty here until driver injection stage.
 	}}}
 
-	// PV/PVC naming: simplified placeholder without real disk handle (driver later injects/patches)
-	volHandle := "placeholder-volume-handle" // TODO: integrate real provider disk id
-	volHASH := shortHash(volHandle, 6)
-	pvName := fmt.Sprintf("kompox-%s-%s-%s", a.Name, idHASH, volHASH)
-
-	pv := &corev1.PersistentVolume{ObjectMeta: metav1.ObjectMeta{Name: pvName, Labels: commonLabels}, Spec: corev1.PersistentVolumeSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain, Capacity: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("32Gi")}, StorageClassName: "managed-csi", VolumeMode: volumeModePtr(corev1.PersistentVolumeFilesystem), PersistentVolumeSource: corev1.PersistentVolumeSource{CSI: &corev1.CSIPersistentVolumeSource{Driver: "disk.csi.azure.com", VolumeHandle: volHandle, VolumeAttributes: map[string]string{"fsType": "ext4"}}}}}
-
-	pvcName := pvName
-	pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: pvcName, Namespace: nsName, Labels: commonLabels}, Spec: corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, Resources: corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse("32Gi")}}, VolumeName: pvName}}
-
-	dep := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: a.Name, Namespace: nsName, Labels: commonLabels}, Spec: appsv1.DeploymentSpec{Replicas: int32Ptr(1), Strategy: appsv1.DeploymentStrategy{Type: appsv1.RecreateDeploymentStrategyType}, Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": a.Name}}, Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: commonLabels}, Spec: corev1.PodSpec{Containers: containers, InitContainers: initContainers, Volumes: []corev1.Volume{{Name: "default", VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: pvcName}}}}}}}}
+	// Build PVs / PVCs for each declared volume
+	var pvs []runtime.Object
+	var podVolumes []corev1.Volume
+	for _, av := range a.Volumes {
+		volHandle := fmt.Sprintf("placeholder-%s-handle", av.Name) // TODO provider inject
+		volHASH := shortHash(volHandle, 6)
+		pvName := fmt.Sprintf("kompox-%s-%s-%s", av.Name, idHASH, volHASH)
+		size := av.Size
+		if size == "" {
+			size = "32Gi"
+		}
+		pv := &corev1.PersistentVolume{ObjectMeta: metav1.ObjectMeta{Name: pvName, Labels: commonLabels}, Spec: corev1.PersistentVolumeSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain, Capacity: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse(size)}, StorageClassName: "managed-csi", VolumeMode: volumeModePtr(corev1.PersistentVolumeFilesystem), PersistentVolumeSource: corev1.PersistentVolumeSource{CSI: &corev1.CSIPersistentVolumeSource{Driver: "disk.csi.azure.com", VolumeHandle: volHandle, VolumeAttributes: map[string]string{"fsType": "ext4"}}}}}
+		pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: pvName, Namespace: nsName, Labels: commonLabels}, Spec: corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, Resources: corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse(size)}}, VolumeName: pvName}}
+		pvs = append(pvs, pv, pvc)
+		podVolumes = append(podVolumes, corev1.Volume{Name: av.Name, VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: pvName}}})
+	}
+	// Deployment with all volumes
+	dep := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: a.Name, Namespace: nsName, Labels: commonLabels}, Spec: appsv1.DeploymentSpec{Replicas: int32Ptr(1), Strategy: appsv1.DeploymentStrategy{Type: appsv1.RecreateDeploymentStrategyType}, Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": a.Name}}, Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: commonLabels}, Spec: corev1.PodSpec{Containers: containers, InitContainers: initContainers, Volumes: podVolumes}}}}
 
 	// Build Service from app.Ingress definitions (ordered) – spec mandates Service ports align with ingress entries.
 	var warnings []string
@@ -229,7 +288,9 @@ func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Pro
 		ingObj = &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: a.Name, Namespace: nsName, Labels: commonLabels, Annotations: map[string]string{"traefik.ingress.kubernetes.io/router.entrypoints": "websecure"}}, Spec: netv1.IngressSpec{IngressClassName: strPtr("traefik"), Rules: rules}}
 	}
 
-	objs := []runtime.Object{ns, pv, pvc, dep}
+	objs := []runtime.Object{ns}
+	objs = append(objs, pvs...)
+	objs = append(objs, dep)
 	if svcObj != nil {
 		objs = append(objs, svcObj)
 	}

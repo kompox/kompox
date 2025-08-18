@@ -83,6 +83,7 @@ func (r *Root) ToModels() (*model.Service, *model.Provider, *model.Cluster, *mod
 		ClusterID: clusterID,
 		Compose:   composeContent,
 		Ingress:   toModelIngress(r.App.Ingress),
+		Volumes:   toModelVolumes(r.App.Volumes),
 		Resources: r.App.Resources,
 		Settings:  r.App.Settings,
 		CreatedAt: now,
@@ -149,6 +150,18 @@ func toModelIngress(rules []AppIngressRule) []model.AppIngressRule {
 	out := make([]model.AppIngressRule, 0, len(rules))
 	for _, r := range rules {
 		out = append(out, model.AppIngressRule{Name: r.Name, Port: r.Port, Hosts: append([]string{}, r.Hosts...)})
+	}
+	return out
+}
+
+// toModelVolumes converts config volumes to domain volumes.
+func toModelVolumes(vs []AppVolume) []model.AppVolume {
+	if len(vs) == 0 {
+		return nil
+	}
+	out := make([]model.AppVolume, 0, len(vs))
+	for _, v := range vs {
+		out = append(out, model.AppVolume{Name: v.Name, Size: v.Size})
 	}
 	return out
 }

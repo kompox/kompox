@@ -14,6 +14,7 @@ import (
 	"github.com/yaegashi/kompoxops/usecase/app"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	serjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -121,12 +122,17 @@ func newCmdAppValidate() *cobra.Command {
 				scheme := runtime.NewScheme()
 				utilruntime.Must(appsv1.AddToScheme(scheme))
 				utilruntime.Must(corev1.AddToScheme(scheme))
+				utilruntime.Must(netv1.AddToScheme(scheme))
 				ser := serjson.NewSerializerWithOptions(
 					serjson.DefaultMetaFactory, scheme, scheme,
 					serjson.SerializerOptions{Yaml: true, Pretty: true, Strict: true},
 				)
 				var buf bytes.Buffer
 				for _, obj := range out.K8sObjects {
+					// Ensure GVK is populated so apiVersion/kind appear in output
+					if gvk, _, err := scheme.ObjectKinds(obj); err == nil && len(gvk) > 0 {
+						obj.GetObjectKind().SetGroupVersionKind(gvk[0])
+					}
 					io.WriteString(&buf, "---\n")
 					if err := ser.Encode(obj, &buf); err != nil {
 						return fmt.Errorf("failed to encode kubernetes object: %w", err)

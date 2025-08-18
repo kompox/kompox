@@ -9,6 +9,7 @@ type App struct {
 	ClusterID string // references Cluster
 	Compose   string
 	Ingress   []AppIngressRule
+	Volumes   []AppVolume
 	Resources map[string]string
 	Settings  map[string]string
 	CreatedAt time.Time
@@ -20,4 +21,10 @@ type AppIngressRule struct {
 	Name  string
 	Port  int
 	Hosts []string
+}
+
+// AppVolume defines a persistent volume requested by the app.
+type AppVolume struct {
+	Name string
+	Size string // e.g. 32Gi
 }
