@@ -6,7 +6,6 @@ import (
 
 	"github.com/yaegashi/kompoxops/adapters/kube"
 	"github.com/yaegashi/kompoxops/domain/model"
-	"github.com/yaegashi/kompoxops/internal/compose"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -36,7 +35,7 @@ func (u *UseCase) Validate(ctx context.Context, in ValidateInput) (*ValidateOutp
 		return out, fmt.Errorf("app not found: %s", in.ID)
 	}
 
-	pro, err := compose.NewProject(ctx, a.Compose)
+	pro, err := kube.ComposeAppToProject(ctx, a.Compose)
 	if err != nil {
 		return out, fmt.Errorf("compose project failed: %w", err)
 	}

@@ -32,10 +32,9 @@ domain/                 Domain layer
 
 adapters/
   kube/
-    kompose/            Converter implementation (kompose)
     client.go           Kubernetes client
     installer.go        Kubernetes infrastructure installer
-    convert.go          Compose to Manifest converter
+    compose_convert.go  Compose to Manifest converter
   drivers/              Drivers
     provider/           Provider drivers (providerdrv)
       aks/
@@ -52,7 +51,6 @@ adapters/
 
 internal/
   logging/              Logging infrastructure (slog)
-  compose/              Compose loader and validator (compose-go)
 
 config/
   kompoxopscfg/         komposops.cfg loader
