@@ -38,6 +38,18 @@ type Driver interface {
 	// ClusterKubeconfig returns kubeconfig bytes for connecting to the target cluster.
 	// Implementations may fetch admin/user credentials depending on provider capability.
 	ClusterKubeconfig(ctx context.Context, cluster *model.Cluster) ([]byte, error)
+
+	// VolumeInstanceList returns a list of volume instances of the specified volume.
+	VolumeInstanceList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) ([]*model.AppVolumeInstance, error)
+
+	// VolumeInstanceCreate creates a volume instance of the specified volume.
+	VolumeInstanceCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) (*model.AppVolumeInstance, error)
+
+	// VolumeInstanceAssign assigns a volume instance to the specified volume.
+	VolumeInstanceAssign(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string) error
+
+	// VolumeInstanceDelete deletes a volume instance of the specified volume.
+	VolumeInstanceDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string) error
 }
 
 // driverFactory is a constructor function for a provider driver.

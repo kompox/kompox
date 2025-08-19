@@ -53,6 +53,20 @@ func (d *driver) ClusterKubeconfig(ctx context.Context, cluster *model.Cluster) 
 	return nil, fmt.Errorf("ClusterKubeconfig is not implemented for k3s provider")
 }
 
+// Volume management (not implemented for k3s)
+func (d *driver) VolumeInstanceList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) ([]*model.AppVolumeInstance, error) {
+	return nil, fmt.Errorf("VolumeInstanceList is not implemented for k3s provider")
+}
+func (d *driver) VolumeInstanceCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) (*model.AppVolumeInstance, error) {
+	return nil, fmt.Errorf("VolumeInstanceCreate is not implemented for k3s provider")
+}
+func (d *driver) VolumeInstanceAssign(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string) error {
+	return fmt.Errorf("VolumeInstanceAssign is not implemented for k3s provider")
+}
+func (d *driver) VolumeInstanceDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string) error {
+	return fmt.Errorf("VolumeInstanceDelete is not implemented for k3s provider")
+}
+
 // init registers the K3s driver.
 func init() {
 	providerdrv.Register("k3s", func(service *model.Service, provider *model.Provider) (providerdrv.Driver, error) {
