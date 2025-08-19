@@ -20,6 +20,8 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
+var flagAppName string
+
 func newCmdApp() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                "app",
@@ -29,19 +31,24 @@ func newCmdApp() *cobra.Command {
 		DisableSuggestions: true,
 		RunE:               func(cmd *cobra.Command, args []string) error { return fmt.Errorf("invalid command") },
 	}
+	// Persistent flag shared across subcommands
+	cmd.PersistentFlags().StringVarP(&flagAppName, "app-name", "A", "", "App name (default: app.name in kompoxops.yml)")
 	cmd.AddCommand(newCmdAppValidate())
 	return cmd
 }
 
-// getAppName returns the app name from args if present, otherwise from loaded configuration file.
+// getAppName resolves the app name from flag or config file. Positional args are no longer supported.
 func getAppName(_ *cobra.Command, args []string) (string, error) {
 	if len(args) > 0 {
-		return args[0], nil
+		return "", fmt.Errorf("positional app name is not supported; use --app-name")
+	}
+	if flagAppName != "" {
+		return flagAppName, nil
 	}
 	if configRoot != nil && len(configRoot.App.Name) > 0 {
 		return configRoot.App.Name, nil
 	}
-	return "", fmt.Errorf("app name not specified and no default available; provide app-name or use --db-url=file:/path/to/kompoxops.yml")
+	return "", fmt.Errorf("app name not specified; use --app-name or set app.name in kompoxops.yml")
 }
 
 // normalizeYAMLDocs ensures the YAML document starts with "---" and ends with a newline.
@@ -62,9 +69,9 @@ func newCmdAppValidate() *cobra.Command {
 	var outComposePath string
 	var outManifestPath string
 	cmd := &cobra.Command{
-		Use:                "validate [app-name]",
+		Use:                "validate",
 		Short:              "Validate app compose definition",
-		Args:               cobra.MaximumNArgs(1),
+		Args:               cobra.NoArgs,
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,

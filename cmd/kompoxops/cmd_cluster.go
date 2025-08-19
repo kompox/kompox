@@ -12,6 +12,8 @@ import (
 	uc "github.com/yaegashi/kompoxops/usecase/cluster"
 )
 
+var flagClusterName string
+
 func newCmdCluster() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                "cluster",
@@ -23,6 +25,8 @@ func newCmdCluster() *cobra.Command {
 			return fmt.Errorf("invalid command")
 		},
 	}
+	// Persistent flag so all subcommands can use --cluster-name / -C
+	cmd.PersistentFlags().StringVarP(&flagClusterName, "cluster-name", "C", "", "Cluster name (default: cluster.name in kompoxops.yml)")
 	cmd.AddCommand(
 		newCmdClusterProvision(),
 		newCmdClusterDeprovision(),
@@ -33,22 +37,25 @@ func newCmdCluster() *cobra.Command {
 	return cmd
 }
 
-// getClusterName returns the cluster name from args if present, otherwise from loaded configuration file.
+// getClusterName resolves the cluster name from flag or config file. Positional args are no longer supported.
 func getClusterName(_ *cobra.Command, args []string) (string, error) {
 	if len(args) > 0 {
-		return args[0], nil
+		return "", fmt.Errorf("positional cluster name is not supported; use --cluster-name")
 	}
-	if configRoot != nil && len(configRoot.Cluster.Name) > 0 {
+	if flagClusterName != "" { // explicit flag
+		return flagClusterName, nil
+	}
+	if configRoot != nil && len(configRoot.Cluster.Name) > 0 { // default from config
 		return configRoot.Cluster.Name, nil
 	}
-	return "", fmt.Errorf("cluster name not specified and no default available; provide cluster-name or use --db-url=file:/path/to/kompoxops.yml")
+	return "", fmt.Errorf("cluster name not specified; use --cluster-name or set cluster.name in kompoxops.yml")
 }
 
 func newCmdClusterProvision() *cobra.Command {
 	return &cobra.Command{
-		Use:                "provision [cluster-name]",
+		Use:                "provision",
 		Short:              "Provision a Kubernetes cluster",
-		Args:               cobra.MaximumNArgs(1),
+		Args:               cobra.NoArgs,
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
@@ -100,9 +107,9 @@ func newCmdClusterProvision() *cobra.Command {
 
 func newCmdClusterDeprovision() *cobra.Command {
 	return &cobra.Command{
-		Use:                "deprovision [cluster-name]",
+		Use:                "deprovision",
 		Short:              "Deprovision a Kubernetes cluster",
-		Args:               cobra.MaximumNArgs(1),
+		Args:               cobra.NoArgs,
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
@@ -155,9 +162,9 @@ func newCmdClusterDeprovision() *cobra.Command {
 
 func newCmdClusterInstall() *cobra.Command {
 	return &cobra.Command{
-		Use:                "install [cluster-name]",
+		Use:                "install",
 		Short:              "Install cluster resources (Ingress Controller, etc.)",
-		Args:               cobra.MaximumNArgs(1),
+		Args:               cobra.NoArgs,
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
@@ -207,9 +214,9 @@ func newCmdClusterInstall() *cobra.Command {
 
 func newCmdClusterUninstall() *cobra.Command {
 	return &cobra.Command{
-		Use:                "uninstall [cluster-name]",
+		Use:                "uninstall",
 		Short:              "Uninstall cluster resources (Ingress Controller, etc.)",
-		Args:               cobra.MaximumNArgs(1),
+		Args:               cobra.NoArgs,
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
@@ -259,9 +266,9 @@ func newCmdClusterUninstall() *cobra.Command {
 
 func newCmdClusterStatus() *cobra.Command {
 	return &cobra.Command{
-		Use:                "status [cluster-name]",
+		Use:                "status",
 		Short:              "Show cluster status",
-		Args:               cobra.MaximumNArgs(1),
+		Args:               cobra.NoArgs,
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
