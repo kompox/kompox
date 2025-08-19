@@ -206,12 +206,15 @@ func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Pro
 		volHandle := fmt.Sprintf("placeholder-%s-handle", av.Name) // TODO provider inject
 		volHASH := shortHash(volHandle, 6)
 		pvName := fmt.Sprintf("kompox-%s-%s-%s", av.Name, idHASH, volHASH)
-		size := av.Size
-		if size == "" {
-			size = "32Gi"
+		// Determine size quantity string for Kubernetes from bytes.
+		var sizeBytes = av.Size
+		if sizeBytes == 0 {
+			// default 32Gi
+			sizeBytes = 32 * (1 << 30)
 		}
-		pv := &corev1.PersistentVolume{ObjectMeta: metav1.ObjectMeta{Name: pvName, Labels: commonLabels}, Spec: corev1.PersistentVolumeSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain, Capacity: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse(size)}, StorageClassName: "managed-csi", VolumeMode: volumeModePtr(corev1.PersistentVolumeFilesystem), PersistentVolumeSource: corev1.PersistentVolumeSource{CSI: &corev1.CSIPersistentVolumeSource{Driver: "disk.csi.azure.com", VolumeHandle: volHandle, VolumeAttributes: map[string]string{"fsType": "ext4"}}}}}
-		pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: pvName, Namespace: nsName, Labels: commonLabels}, Spec: corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, Resources: corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: resource.MustParse(size)}}, VolumeName: pvName}}
+		sizeQty := bytesToQuantity(sizeBytes)
+		pv := &corev1.PersistentVolume{ObjectMeta: metav1.ObjectMeta{Name: pvName, Labels: commonLabels}, Spec: corev1.PersistentVolumeSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain, Capacity: corev1.ResourceList{corev1.ResourceStorage: sizeQty}, StorageClassName: "managed-csi", VolumeMode: volumeModePtr(corev1.PersistentVolumeFilesystem), PersistentVolumeSource: corev1.PersistentVolumeSource{CSI: &corev1.CSIPersistentVolumeSource{Driver: "disk.csi.azure.com", VolumeHandle: volHandle, VolumeAttributes: map[string]string{"fsType": "ext4"}}}}}
+		pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: pvName, Namespace: nsName, Labels: commonLabels}, Spec: corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, Resources: corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: sizeQty}}, VolumeName: pvName}}
 		pvs = append(pvs, pv, pvc)
 		podVolumes = append(podVolumes, corev1.Volume{Name: av.Name, VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: pvName}}})
 	}
@@ -373,6 +376,18 @@ func reclaimPolicyPtr(p corev1.PersistentVolumeReclaimPolicy) *corev1.Persistent
 }
 func volumeModePtr(m corev1.PersistentVolumeMode) *corev1.PersistentVolumeMode { return &m }
 func strPtr(s string) *string                                                  { return &s }
+
+// bytesToQuantity converts bytes to a resource.Quantity, rounding up to Mi boundary.
+func bytesToQuantity(b int64) resource.Quantity {
+	if b <= 0 {
+		return resource.MustParse("1Mi")
+	}
+	const Mi = int64(1 << 20)
+	if b%Mi != 0 {
+		b = ((b / Mi) + 1) * Mi
+	}
+	return resource.MustParse(fmt.Sprintf("%dMi", b>>20))
+}
 
 // shortHash returns a hex SHA1 prefix with automatic extension length logic placeholder.
 func shortHash(s string, n int) string {

@@ -10,6 +10,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/yaegashi/kompoxops/domain/model"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 // ToModels converts the configuration to domain models with proper references.
@@ -161,7 +162,12 @@ func toModelVolumes(vs []AppVolume) []model.AppVolume {
 	}
 	out := make([]model.AppVolume, 0, len(vs))
 	for _, v := range vs {
-		out = append(out, model.AppVolume{Name: v.Name, Size: v.Size})
+		q, err := resource.ParseQuantity(v.Size)
+		if err != nil {
+			panic(fmt.Errorf("invalid volume size %q for volume %q: %w", v.Size, v.Name, err))
+		}
+		// Quantity.Value() returns the value in base units (bytes for memory/storage quantities)
+		out = append(out, model.AppVolume{Name: v.Name, Size: q.Value()})
 	}
 	return out
 }
