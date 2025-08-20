@@ -40,6 +40,8 @@ func (a *volumePortAdapter) getDriver(ctx context.Context, cluster *model.Cluste
 	return drv, nil
 }
 
+// VolumeInstanceList returns the list of volume instances associated with the
+// logical volume identified by volName for the specified cluster/app.
 func (a *volumePortAdapter) VolumeInstanceList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) ([]*model.AppVolumeInstance, error) {
 	drv, err := a.getDriver(ctx, cluster, app)
 	if err != nil {
@@ -48,6 +50,8 @@ func (a *volumePortAdapter) VolumeInstanceList(ctx context.Context, cluster *mod
 	return drv.VolumeInstanceList(ctx, cluster, app, volName)
 }
 
+// VolumeInstanceCreate creates (provisions) a new volume instance belonging to
+// the logical volume identified by volName for the specified cluster/app.
 func (a *volumePortAdapter) VolumeInstanceCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) (*model.AppVolumeInstance, error) {
 	drv, err := a.getDriver(ctx, cluster, app)
 	if err != nil {
@@ -56,6 +60,9 @@ func (a *volumePortAdapter) VolumeInstanceCreate(ctx context.Context, cluster *m
 	return drv.VolumeInstanceCreate(ctx, cluster, app, volName)
 }
 
+// VolumeInstanceAssign assigns an existing volume instance (volInstName) to the
+// logical volume volName for the specified cluster/app. The exact semantics (e.g.
+// attachment vs. reference update) are implemented by the provider driver.
 func (a *volumePortAdapter) VolumeInstanceAssign(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string) error {
 	drv, err := a.getDriver(ctx, cluster, app)
 	if err != nil {
@@ -64,6 +71,8 @@ func (a *volumePortAdapter) VolumeInstanceAssign(ctx context.Context, cluster *m
 	return drv.VolumeInstanceAssign(ctx, cluster, app, volName, volInstName)
 }
 
+// VolumeInstanceDelete deletes the named volume instance (volInstName) belonging
+// to the logical volume volName for the specified cluster/app.
 func (a *volumePortAdapter) VolumeInstanceDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string) error {
 	drv, err := a.getDriver(ctx, cluster, app)
 	if err != nil {

@@ -14,123 +14,82 @@ type clusterPortAdapter struct {
 	providers domain.ProviderRepository
 }
 
-func (a *clusterPortAdapter) Status(ctx context.Context, cluster *model.Cluster) (*model.ClusterStatus, error) {
-	// Get provider
+// getDriver fetches a provider driver for the given cluster.
+func (a *clusterPortAdapter) getDriver(ctx context.Context, cluster *model.Cluster) (Driver, error) {
+	if cluster == nil {
+		return nil, fmt.Errorf("cluster nil")
+	}
 	provider, err := a.providers.Get(ctx, cluster.ProviderID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get provider %s: %w", cluster.ProviderID, err)
 	}
-
-	// Get service (may be nil)
 	var service *model.Service
 	if provider.ServiceID != "" {
-		service, err = a.services.Get(ctx, provider.ServiceID)
-		if err != nil {
-			// Log but continue - service may be nil for testing
-			service = nil
-		}
+		service, _ = a.services.Get(ctx, provider.ServiceID)
 	}
-
-	// Get driver factory
-	factory, exists := GetDriverFactory(provider.Driver)
-	if !exists {
+	factory, ok := GetDriverFactory(provider.Driver)
+	if !ok {
 		return nil, fmt.Errorf("unknown provider driver: %s", provider.Driver)
 	}
-
-	// Create driver with service and provider
-	driver, err := factory(service, provider)
+	drv, err := factory(service, provider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create driver %s: %w", provider.Driver, err)
 	}
+	return drv, nil
+}
 
-	// Get status from driver
-	ds, err := driver.ClusterStatus(ctx, cluster)
+// Status returns the current status of the specified cluster by delegating
+// to the underlying provider driver implementation. It returns a *model.ClusterStatus
+// describing existence, provisioning and installation state.
+func (a *clusterPortAdapter) Status(ctx context.Context, cluster *model.Cluster) (*model.ClusterStatus, error) {
+	drv, err := a.getDriver(ctx, cluster)
 	if err != nil {
 		return nil, err
 	}
-
-	return &model.ClusterStatus{
-		Existing:    ds.Existing,
-		Provisioned: ds.Provisioned,
-		Installed:   ds.Installed,
-	}, nil
+	return drv.ClusterStatus(ctx, cluster)
 }
 
-// getDriverForCluster is a helper function to get a driver for a cluster
-func (a *clusterPortAdapter) getDriverForCluster(ctx context.Context, cluster *model.Cluster) (Driver, error) {
-	// Get provider
-	provider, err := a.providers.Get(ctx, cluster.ProviderID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get provider %s: %w", cluster.ProviderID, err)
-	}
-
-	// Get service (may be nil)
-	var service *model.Service
-	if provider.ServiceID != "" {
-		service, err = a.services.Get(ctx, provider.ServiceID)
-		if err != nil {
-			// Log but continue - service may be nil for testing
-			service = nil
-		}
-	}
-
-	// Get driver factory
-	factory, exists := GetDriverFactory(provider.Driver)
-	if !exists {
-		return nil, fmt.Errorf("unknown provider driver: %s", provider.Driver)
-	}
-
-	// Create driver with service and provider
-	driver, err := factory(service, provider)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create driver %s: %w", provider.Driver, err)
-	}
-
-	return driver, nil
-}
-
+// Provision creates (provisions) the target Kubernetes cluster according to the
+// specification contained in the provided *model.Cluster. The operation is performed
+// via the provider driver.
 func (a *clusterPortAdapter) Provision(ctx context.Context, cluster *model.Cluster) error {
-	// Get driver
-	driver, err := a.getDriverForCluster(ctx, cluster)
+	drv, err := a.getDriver(ctx, cluster)
 	if err != nil {
 		return err
 	}
-
-	// Provision cluster via driver
-	return driver.ClusterProvision(ctx, cluster)
+	return drv.ClusterProvision(ctx, cluster)
 }
 
+// Deprovision deletes (deprovisions) the target Kubernetes cluster. Idempotent
+// behavior depends on the driver; deleting a non-existent cluster should typically
+// result in a no-op or a well-defined error.
 func (a *clusterPortAdapter) Deprovision(ctx context.Context, cluster *model.Cluster) error {
-	// Get driver
-	driver, err := a.getDriverForCluster(ctx, cluster)
+	drv, err := a.getDriver(ctx, cluster)
 	if err != nil {
 		return err
 	}
-
-	// Deprovision cluster via driver
-	return driver.ClusterDeprovision(ctx, cluster)
+	return drv.ClusterDeprovision(ctx, cluster)
 }
 
+// Install installs in-cluster supporting resources (e.g., ingress controller, CSI
+// drivers, monitoring agents) required by Kompox. The precise set depends on the
+// provider driver.
 func (a *clusterPortAdapter) Install(ctx context.Context, cluster *model.Cluster) error {
-	// Get driver
-	driver, err := a.getDriverForCluster(ctx, cluster)
+	drv, err := a.getDriver(ctx, cluster)
 	if err != nil {
 		return err
 	}
-
-	// Install in-cluster resources via driver
-	return driver.ClusterInstall(ctx, cluster)
+	return drv.ClusterInstall(ctx, cluster)
 }
 
+// Uninstall removes previously installed in-cluster supporting resources that were
+// added by Install. Cluster itself is not deleted by this operation.
 func (a *clusterPortAdapter) Uninstall(ctx context.Context, cluster *model.Cluster) error {
-	// Get driver
-	driver, err := a.getDriverForCluster(ctx, cluster)
+	drv, err := a.getDriver(ctx, cluster)
 	if err != nil {
 		return err
 	}
-
-	// Uninstall in-cluster resources via driver
-	return driver.ClusterUninstall(ctx, cluster)
+	return drv.ClusterUninstall(ctx, cluster)
 }
 
 // GetClusterPort returns a model.ClusterPort implemented via provider drivers.
