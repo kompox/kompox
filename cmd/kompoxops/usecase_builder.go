@@ -16,7 +16,7 @@ func buildAppUseCase(cmd *cobra.Command) (*app.UseCase, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &app.UseCase{Repos: repos}, nil
+	return &app.UseCase{Repos: repos, VolumePort: providerdrv.GetVolumePort(repos.Service, repos.Provider, repos.Cluster, repos.App)}, nil
 }
 
 // buildClusterUseCase creates cluster use case with required repositories and ports.

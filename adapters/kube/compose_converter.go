@@ -26,7 +26,15 @@ import (
 
 // ComposeAppToObjects converts App compose spec into Kubernetes objects per conversion draft.
 // Output order: Namespace, PV, PVC, Deployment, Service (optional), Ingress (optional).
-func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Provider, cls *model.Cluster, a *model.App) ([]runtime.Object, []string, error) {
+// VolumeInstanceInfo minimal data required from assigned volume instance.
+type VolumeInstanceInfo struct {
+	Handle string
+	Size   int64 // bytes
+}
+
+// ComposeAppToObjects converts App compose spec into Kubernetes objects using optional volume instance map.
+// volumeInstances: map[logicalVolumeName]VolumeInstanceInfo for assigned instances. If missing, placeholder handles are used.
+func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Provider, cls *model.Cluster, a *model.App, volumeInstances map[string]VolumeInstanceInfo) ([]runtime.Object, []string, error) {
 	proj, err := newComposeProject(ctx, a.Compose)
 	if err != nil {
 		return nil, nil, fmt.Errorf("compose project failed: %w", err)
@@ -203,15 +211,23 @@ func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Pro
 	var pvs []runtime.Object
 	var podVolumes []corev1.Volume
 	for _, av := range a.Volumes {
-		volHandle := fmt.Sprintf("placeholder-%s-handle", av.Name) // TODO provider inject
-		volHASH := shortHash(volHandle, 6)
-		pvName := fmt.Sprintf("kompox-%s-%s-%s", av.Name, idHASH, volHASH)
-		// Determine size quantity string for Kubernetes from bytes.
-		var sizeBytes = av.Size
+		inst, ok := volumeInstances[av.Name]
+		volHandle := ""
+		sizeBytes := av.Size
+		if ok {
+			volHandle = inst.Handle
+			if inst.Size > 0 {
+				sizeBytes = inst.Size
+			}
+		}
+		if volHandle == "" { // fallback placeholder
+			volHandle = fmt.Sprintf("placeholder-%s-handle", av.Name)
+		}
 		if sizeBytes == 0 {
-			// default 32Gi
 			sizeBytes = 32 * (1 << 30)
 		}
+		volHASH := shortHash(volHandle, 6)
+		pvName := fmt.Sprintf("kompox-%s-%s-%s", av.Name, idHASH, volHASH)
 		sizeQty := bytesToQuantity(sizeBytes)
 		pv := &corev1.PersistentVolume{ObjectMeta: metav1.ObjectMeta{Name: pvName, Labels: commonLabels}, Spec: corev1.PersistentVolumeSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain, Capacity: corev1.ResourceList{corev1.ResourceStorage: sizeQty}, StorageClassName: "managed-csi", VolumeMode: volumeModePtr(corev1.PersistentVolumeFilesystem), PersistentVolumeSource: corev1.PersistentVolumeSource{CSI: &corev1.CSIPersistentVolumeSource{Driver: "disk.csi.azure.com", VolumeHandle: volHandle, VolumeAttributes: map[string]string{"fsType": "ext4"}}}}}
 		pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: pvName, Namespace: nsName, Labels: commonLabels}, Spec: corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, Resources: corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: sizeQty}}, VolumeName: pvName}}

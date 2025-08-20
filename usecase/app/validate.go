@@ -64,7 +64,37 @@ func (u *UseCase) Validate(ctx context.Context, in *ValidateInput) (*ValidateOut
 			svc, _ = u.Repos.Service.Get(ctx, prv.ServiceID)
 		}
 		if svc != nil && prv != nil {
-			objs, warns, convErr := kube.ComposeAppToObjects(ctx, svc, prv, cls, a)
+			// Collect assigned volume instances (one per logical volume) via VolumePort if available.
+			vmap := map[string]kube.VolumeInstanceInfo{}
+			if u.VolumePort != nil && len(a.Volumes) > 0 {
+				for _, av := range a.Volumes {
+					// list instances
+					insts, lerr := u.VolumePort.VolumeInstanceList(ctx, cls, a, av.Name)
+					if lerr != nil {
+						continue // ignore errors; validation should still proceed
+					}
+					// choose newest assigned (Assigned true). If multiple, pick most recent CreatedAt.
+					var chosen *model.AppVolumeInstance
+					for _, inst := range insts {
+						if inst.Assigned {
+							if chosen == nil || inst.CreatedAt.After(chosen.CreatedAt) {
+								chosen = inst
+							}
+						}
+					}
+					if chosen != nil {
+						size := chosen.Size
+						if size <= 0 && av.Size > 0 {
+							size = av.Size
+						}
+						if size <= 0 {
+							size = 32 * (1 << 30) // default
+						}
+						vmap[av.Name] = kube.VolumeInstanceInfo{Handle: chosen.Handle, Size: size}
+					}
+				}
+			}
+			objs, warns, convErr := kube.ComposeAppToObjects(ctx, svc, prv, cls, a, vmap)
 			if convErr != nil {
 				out.Warnings = append(out.Warnings, fmt.Sprintf("compose conversion failed: %v", convErr))
 			} else {

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"os"
 	"strings"
 	"time"
@@ -12,11 +11,11 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/yaegashi/kompoxops/internal/logging"
 	"github.com/yaegashi/kompoxops/usecase/app"
+	yaml "gopkg.in/yaml.v3"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	serjson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
 
@@ -130,24 +129,19 @@ func newCmdAppValidate() *cobra.Command {
 				utilruntime.Must(appsv1.AddToScheme(scheme))
 				utilruntime.Must(corev1.AddToScheme(scheme))
 				utilruntime.Must(netv1.AddToScheme(scheme))
-				ser := serjson.NewSerializerWithOptions(
-					serjson.DefaultMetaFactory, scheme, scheme,
-					serjson.SerializerOptions{Yaml: true, Pretty: true, Strict: true},
-				)
-				var buf bytes.Buffer
+				// Ensure GVKs
 				for _, obj := range out.K8sObjects {
-					// Ensure GVK is populated so apiVersion/kind appear in output
 					if gvk, _, err := scheme.ObjectKinds(obj); err == nil && len(gvk) > 0 {
 						obj.GetObjectKind().SetGroupVersionKind(gvk[0])
 					}
-					io.WriteString(&buf, "---\n")
-					if err := ser.Encode(obj, &buf); err != nil {
-						return fmt.Errorf("failed to encode kubernetes object: %w", err)
-					}
+				}
+				manifest, err := buildCleanManifest(out.K8sObjects)
+				if err != nil {
+					return fmt.Errorf("failed to build manifest: %w", err)
 				}
 				if outManifestPath == "-" {
-					fmt.Fprint(cmd.OutOrStdout(), buf.String())
-				} else if err := os.WriteFile(outManifestPath, buf.Bytes(), 0o644); err != nil {
+					fmt.Fprint(cmd.OutOrStdout(), manifest)
+				} else if err := os.WriteFile(outManifestPath, []byte(manifest), 0o644); err != nil {
 					return fmt.Errorf("failed to write manifest output: %w", err)
 				}
 			}
@@ -157,4 +151,73 @@ func newCmdAppValidate() *cobra.Command {
 	cmd.Flags().StringVar(&outComposePath, "out-compose", "", "Write normalized compose YAML to file (omit compose YAML stdout)")
 	cmd.Flags().StringVar(&outManifestPath, "out-manifest", "", "Write generated Kubernetes manifest to file (omit manifest stdout)")
 	return cmd
+}
+
+// pruneManifest takes a multi-document YAML (--- separators) and removes keys whose value is null or an empty map.
+// Empty lists are preserved (they can be semantically meaningful). Entire documents that become empty are dropped.
+// buildCleanManifest converts runtime.Objects to unstructured maps, prunes null/empty maps using reflection style traversal, then marshals as multi-doc YAML.
+func buildCleanManifest(objs []runtime.Object) (string, error) {
+	var buf bytes.Buffer
+	for _, obj := range objs {
+		m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
+		if err != nil {
+			return "", err
+		}
+		pruneMap(m)
+		// Drop metadata.creationTimestamp explicitly (often zero => null output)
+		if meta, ok := m["metadata"].(map[string]interface{}); ok {
+			delete(meta, "creationTimestamp")
+			if len(meta) == 0 { // unlikely
+				delete(m, "metadata")
+			}
+		}
+		// Drop empty status
+		if st, ok := m["status"].(map[string]interface{}); ok && len(st) == 0 {
+			delete(m, "status")
+		}
+		var ybuf bytes.Buffer
+		enc := yaml.NewEncoder(&ybuf)
+		enc.SetIndent(2)
+		if err := enc.Encode(m); err != nil {
+			return "", err
+		}
+		_ = enc.Close()
+		y := ybuf.Bytes()
+		buf.WriteString("---\n")
+		buf.Write(y)
+		if len(y) == 0 || y[len(y)-1] != '\n' {
+			buf.WriteByte('\n')
+		}
+	}
+	return buf.String(), nil
+}
+
+// pruneMap recursively removes keys with nil or empty map values.
+func pruneMap(v interface{}) interface{} {
+	switch x := v.(type) {
+	case map[string]interface{}:
+		for k, val := range x {
+			cleaned := pruneMap(val)
+			switch cv := cleaned.(type) {
+			case nil:
+				delete(x, k)
+			case map[string]interface{}:
+				if len(cv) == 0 {
+					delete(x, k)
+				} else {
+					x[k] = cv
+				}
+			default:
+				x[k] = cv
+			}
+		}
+		return x
+	case []interface{}:
+		for i, it := range x {
+			x[i] = pruneMap(it)
+		}
+		return x
+	default:
+		return x
+	}
 }
