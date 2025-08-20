@@ -7,6 +7,7 @@ import (
 	"github.com/yaegashi/kompoxops/usecase/cluster"
 	"github.com/yaegashi/kompoxops/usecase/provider"
 	"github.com/yaegashi/kompoxops/usecase/service"
+	"github.com/yaegashi/kompoxops/usecase/volume"
 )
 
 // buildAppUseCase creates app use case with required repositories.
@@ -46,4 +47,16 @@ func buildServiceUseCase(cmd *cobra.Command) (*service.UseCase, error) {
 		return nil, err
 	}
 	return &service.UseCase{Repos: repos}, nil
+}
+
+// buildVolumeUseCase creates volume use case with required repositories and ports.
+func buildVolumeUseCase(cmd *cobra.Command) (*volume.UseCase, error) {
+	repos, err := buildVolumeRepos(cmd)
+	if err != nil {
+		return nil, err
+	}
+	return &volume.UseCase{
+		Repos:      repos,
+		VolumePort: providerdrv.GetVolumePort(repos.Service, repos.Provider, repos.Cluster, repos.App),
+	}, nil
 }

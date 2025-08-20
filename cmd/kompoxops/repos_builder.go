@@ -15,6 +15,7 @@ import (
 	"github.com/yaegashi/kompoxops/usecase/cluster"
 	"github.com/yaegashi/kompoxops/usecase/provider"
 	"github.com/yaegashi/kompoxops/usecase/service"
+	"github.com/yaegashi/kompoxops/usecase/volume"
 )
 
 // configRoot holds the loaded configuration.
@@ -133,4 +134,13 @@ func buildServiceRepos(cmd *cobra.Command) (*service.Repos, error) {
 	return &service.Repos{
 		Service: repos.Service,
 	}, nil
+}
+
+// buildVolumeRepos creates repositories needed for volume use cases.
+func buildVolumeRepos(cmd *cobra.Command) (*volume.Repos, error) {
+	repos, err := buildRepos(cmd)
+	if err != nil {
+		return nil, err
+	}
+	return &volume.Repos{Service: repos.Service, Provider: repos.Provider, Cluster: repos.Cluster, App: repos.App}, nil
 }
