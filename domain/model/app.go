@@ -24,19 +24,18 @@ type AppIngressRule struct {
 }
 
 // AppVolume defines a persistent volume requested by the app.
-// Size is stored in bytes (parsed from user configuration quantities like "32Gi").
 type AppVolume struct {
 	Name string
-	Size int64 // bytes
+	Size int64 // in bytes (parsed from user configuration quantities like "32Gi").
 }
 
-// AppVolumeInstance
+// AppVolumeInstance represents a specific instance of a volume.
 type AppVolumeInstance struct {
-	Name       string // name of the volume instance
-	VolumeName string // name of the volume this instance is based on
-	Assigned   bool   // whether this instance is assigned to the volume
-	Size       int64  // volume instance size in bytes
-	Handle     string // provider driver specific handle
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	Name       string    `json:"name"`       // name of the volume instance
+	VolumeName string    `json:"volumeName"` // name of the volume this instance is based on
+	Assigned   bool      `json:"assigned"`   // whether this instance is assigned to the volume
+	Size       int64     `json:"size"`       // volume instance size in bytes
+	Handle     string    `json:"handle"`     // provider driver specific handle
+	CreatedAt  time.Time `json:"createdAt"`
+	UpdatedAt  time.Time `json:"updatedAt"`
 }
