@@ -16,8 +16,3 @@ type Repos struct {
 type UseCase struct {
 	Repos *Repos
 }
-
-// ValidateInput parameters for Validate use case.
-type ValidateInput struct {
-	ID string
-}

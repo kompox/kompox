@@ -10,6 +10,9 @@ import (
 )
 
 // ValidateInput represents parameters to Validate.
+type ValidateInput struct {
+	ID string
+}
 
 // ValidateOutput represents result of validation.
 type ValidateOutput struct {
