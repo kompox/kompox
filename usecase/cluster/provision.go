@@ -8,21 +8,21 @@ import (
 
 // ProvisionInput represents a command to provision a cluster.
 type ProvisionInput struct {
-	ID string `json:"id"`
+	ClusterID string `json:"cluster_id"`
 }
+type ProvisionOutput struct{}
 
 // Provision provisions a cluster.
-func (u *UseCase) Provision(ctx context.Context, cmd ProvisionInput) error {
-	if cmd.ID == "" {
-		return model.ErrClusterInvalid
+func (u *UseCase) Provision(ctx context.Context, in *ProvisionInput) (*ProvisionOutput, error) {
+	if in == nil || in.ClusterID == "" {
+		return nil, model.ErrClusterInvalid
 	}
-
-	// Get cluster
-	c, err := u.Repos.Cluster.Get(ctx, cmd.ID)
+	c, err := u.Repos.Cluster.Get(ctx, in.ClusterID)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	// Use injected cluster port to provision
-	return u.ClusterPort.Provision(ctx, c)
+	if err := u.ClusterPort.Provision(ctx, c); err != nil {
+		return nil, err
+	}
+	return &ProvisionOutput{}, nil
 }

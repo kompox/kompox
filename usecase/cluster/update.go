@@ -7,35 +7,45 @@ import (
 	"github.com/yaegashi/kompoxops/domain/model"
 )
 
+// UpdateInput specifies cluster fields that can be modified.
 type UpdateInput struct {
-	ID         string
-	Name       *string
-	ProviderID *string
+	// ClusterID identifies the cluster.
+	ClusterID string `json:"cluster_id"`
+	// Name optionally updates the cluster name.
+	Name *string `json:"name,omitempty"`
+	// ProviderID optionally updates the provider reference.
+	ProviderID *string `json:"provider_id,omitempty"`
 }
 
-func (u *UseCase) Update(ctx context.Context, cmd UpdateInput) (*model.Cluster, error) {
-	if cmd.ID == "" {
+// UpdateOutput wraps the updated cluster.
+type UpdateOutput struct {
+	// Cluster is the updated entity.
+	Cluster *model.Cluster `json:"cluster"`
+}
+
+// Update applies modifications to a cluster.
+func (u *UseCase) Update(ctx context.Context, in *UpdateInput) (*UpdateOutput, error) {
+	if in == nil || in.ClusterID == "" {
 		return nil, model.ErrClusterInvalid
 	}
-	existing, err := u.Repos.Cluster.Get(ctx, cmd.ID)
+	existing, err := u.Repos.Cluster.Get(ctx, in.ClusterID)
 	if err != nil {
 		return nil, err
 	}
 	changed := false
-	if cmd.Name != nil && *cmd.Name != "" && existing.Name != *cmd.Name {
-		existing.Name = *cmd.Name
+	if in.Name != nil && *in.Name != "" && existing.Name != *in.Name {
+		existing.Name = *in.Name
 		changed = true
 	}
-	if cmd.ProviderID != nil && existing.ProviderID != *cmd.ProviderID {
-		existing.ProviderID = *cmd.ProviderID
+	if in.ProviderID != nil && existing.ProviderID != *in.ProviderID {
+		existing.ProviderID = *in.ProviderID
 		changed = true
 	}
-	if !changed {
-		return existing, nil
+	if changed {
+		existing.UpdatedAt = time.Now().UTC()
+		if err := u.Repos.Cluster.Update(ctx, existing); err != nil {
+			return nil, err
+		}
 	}
-	existing.UpdatedAt = time.Now().UTC()
-	if err := u.Repos.Cluster.Update(ctx, existing); err != nil {
-		return nil, err
-	}
-	return existing, nil
+	return &UpdateOutput{Cluster: existing}, nil
 }

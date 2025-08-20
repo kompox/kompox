@@ -8,21 +8,21 @@ import (
 
 // DeprovisionInput represents a command to deprovision a cluster.
 type DeprovisionInput struct {
-	ID string `json:"id"`
+	ClusterID string `json:"cluster_id"`
 }
+type DeprovisionOutput struct{}
 
 // Deprovision deprovisions a cluster.
-func (u *UseCase) Deprovision(ctx context.Context, cmd DeprovisionInput) error {
-	if cmd.ID == "" {
-		return model.ErrClusterInvalid
+func (u *UseCase) Deprovision(ctx context.Context, in *DeprovisionInput) (*DeprovisionOutput, error) {
+	if in == nil || in.ClusterID == "" {
+		return nil, model.ErrClusterInvalid
 	}
-
-	// Get cluster
-	c, err := u.Repos.Cluster.Get(ctx, cmd.ID)
+	c, err := u.Repos.Cluster.Get(ctx, in.ClusterID)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	// Use injected cluster port to deprovision
-	return u.ClusterPort.Deprovision(ctx, c)
+	if err := u.ClusterPort.Deprovision(ctx, c); err != nil {
+		return nil, err
+	}
+	return &DeprovisionOutput{}, nil
 }

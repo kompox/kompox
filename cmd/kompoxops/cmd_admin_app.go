@@ -54,12 +54,12 @@ func newCmdAdminAppList() *cobra.Command {
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 			defer cancel()
-			items, err := u.List(ctx)
+			out, err := u.List(ctx, &app.ListInput{})
 			if err != nil {
 				return err
 			}
 			enc := json.NewEncoder(cmd.OutOrStdout())
-			for _, it := range items {
+			for _, it := range out.Apps {
 				if err := enc.Encode(it); err != nil {
 					return err
 				}
@@ -76,13 +76,13 @@ func newCmdAdminAppGet() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 		defer cancel()
-		v, err := u.Get(ctx, args[0])
+		out, err := u.Get(ctx, &app.GetInput{AppID: args[0]})
 		if err != nil {
 			return err
 		}
 		enc := json.NewEncoder(cmd.OutOrStdout())
 		enc.SetIndent("", "  ")
-		return enc.Encode(v)
+		return enc.Encode(out.App)
 	}}
 }
 
@@ -125,13 +125,13 @@ func newCmdAdminAppCreate() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 		defer cancel()
-		out, err := u.Create(ctx, app.CreateInput{Name: spec.Name, ClusterID: spec.ClusterID})
+		out, err := u.Create(ctx, &app.CreateInput{Name: spec.Name, ClusterID: spec.ClusterID})
 		if err != nil {
 			return err
 		}
 		enc := json.NewEncoder(cmd.OutOrStdout())
 		enc.SetIndent("", "  ")
-		return enc.Encode(out)
+		return enc.Encode(out.App)
 	}}
 	c.Flags().StringVarP(&file, "file", "f", "", "Path to app spec (YAML), or '-' for stdin")
 	_ = c.MarkFlagRequired("file")
@@ -158,13 +158,13 @@ func newCmdAdminAppUpdate() *cobra.Command {
 		if spec.ClusterID != "" {
 			clusterPtr = &spec.ClusterID
 		}
-		out, err := u.Update(ctx, app.UpdateInput{ID: args[0], Name: namePtr, ClusterID: clusterPtr})
+		out, err := u.Update(ctx, &app.UpdateInput{AppID: args[0], Name: namePtr, ClusterID: clusterPtr})
 		if err != nil {
 			return err
 		}
 		enc := json.NewEncoder(cmd.OutOrStdout())
 		enc.SetIndent("", "  ")
-		return enc.Encode(out)
+		return enc.Encode(out.App)
 	}}
 	c.Flags().StringVarP(&file, "file", "f", "", "Path to app spec (YAML), or '-' for stdin")
 	_ = c.MarkFlagRequired("file")
@@ -179,7 +179,7 @@ func newCmdAdminAppDelete() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 		defer cancel()
-		if err := u.Delete(ctx, app.DeleteInput{ID: args[0]}); err != nil {
+		if _, err := u.Delete(ctx, &app.DeleteInput{AppID: args[0]}); err != nil {
 			return err
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "deleted %s\n", args[0])

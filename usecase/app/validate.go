@@ -10,32 +10,38 @@ import (
 )
 
 // ValidateInput represents parameters to Validate.
+// ValidateInput identifies the App whose compose specification should be validated.
 type ValidateInput struct {
-	ID string
+	// AppID is the application being validated.
+	AppID string `json:"app_id"`
 }
 
-// ValidateOutput represents result of validation.
+// ValidateOutput reports validation outcomes.
 type ValidateOutput struct {
-	Errors     []string
-	Warnings   []string
-	Compose    string           // normalized compose YAML (if valid)
+	// Errors are fatal validation failures.
+	Errors []string
+	// Warnings are non-fatal issues.
+	Warnings []string
+	// Compose is the normalized compose YAML when validation succeeds.
+	Compose string // normalized compose YAML (if valid)
+	// K8sObjects are generated Kubernetes manifests if conversion succeeds.
 	K8sObjects []runtime.Object // converted Kubernetes objects (nil if conversion failed)
 }
 
-// Validate checks the compose string stored in App resource is valid YAML.
-// Future enhancements: semantic checks, policy checks.
-func (u *UseCase) Validate(ctx context.Context, in ValidateInput) (*ValidateOutput, error) {
+// Validate checks the compose string stored in an App resource.
+// It performs syntactic validation and best-effort conversion to Kubernetes objects.
+func (u *UseCase) Validate(ctx context.Context, in *ValidateInput) (*ValidateOutput, error) {
 	out := &ValidateOutput{}
-	if in.ID == "" {
+	if in == nil || in.AppID == "" {
 		return out, fmt.Errorf("missing app ID")
 	}
 
-	a, err := u.Repos.App.Get(ctx, in.ID)
+	a, err := u.Repos.App.Get(ctx, in.AppID)
 	if err != nil {
 		return out, fmt.Errorf("failed to get app: %w", err)
 	}
 	if a == nil {
-		return out, fmt.Errorf("app not found: %s", in.ID)
+		return out, fmt.Errorf("app not found: %s", in.AppID)
 	}
 
 	pro, err := kube.ComposeAppToProject(ctx, a.Compose)

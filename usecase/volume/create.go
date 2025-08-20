@@ -9,18 +9,21 @@ import (
 
 // CreateInput parameters for Create use case.
 type CreateInput struct {
-	AppID      string
-	VolumeName string
+	// AppID owning application identifier.
+	AppID string `json:"app_id"`
+	// VolumeName logical volume name.
+	VolumeName string `json:"volume_name"`
 }
 
 // CreateOutput result for Create use case.
 type CreateOutput struct {
-	Instance *model.AppVolumeInstance
+	// Instance is the created volume instance.
+	Instance *model.AppVolumeInstance `json:"instance"`
 }
 
 // Create creates a new volume instance.
-func (u *UseCase) Create(ctx context.Context, in CreateInput) (*CreateOutput, error) {
-	if in.AppID == "" || in.VolumeName == "" {
+func (u *UseCase) Create(ctx context.Context, in *CreateInput) (*CreateOutput, error) {
+	if in == nil || in.AppID == "" || in.VolumeName == "" {
 		return nil, fmt.Errorf("missing parameters")
 	}
 	app, err := u.Repos.App.Get(ctx, in.AppID)

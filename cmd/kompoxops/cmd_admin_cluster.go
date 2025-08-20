@@ -56,12 +56,12 @@ func newCmdAdminClusterList() *cobra.Command {
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 			defer cancel()
-			items, err := u.List(ctx)
+			out, err := u.List(ctx, &cluster.ListInput{})
 			if err != nil {
 				return err
 			}
 			enc := json.NewEncoder(cmd.OutOrStdout())
-			for _, it := range items {
+			for _, it := range out.Clusters {
 				if err := enc.Encode(it); err != nil {
 					return err
 				}
@@ -78,13 +78,13 @@ func newCmdAdminClusterGet() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 		defer cancel()
-		c, err := u.Get(ctx, args[0])
+		out, err := u.Get(ctx, &cluster.GetInput{ClusterID: args[0]})
 		if err != nil {
 			return err
 		}
 		enc := json.NewEncoder(cmd.OutOrStdout())
 		enc.SetIndent("", "  ")
-		return enc.Encode(c)
+		return enc.Encode(out.Cluster)
 	}}
 }
 
@@ -127,13 +127,13 @@ func newCmdAdminClusterCreate() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 		defer cancel()
-		out, err := u.Create(ctx, cluster.CreateInput{Name: spec.Name, ProviderID: spec.ProviderID})
+		out, err := u.Create(ctx, &cluster.CreateInput{Name: spec.Name, ProviderID: spec.ProviderID})
 		if err != nil {
 			return err
 		}
 		enc := json.NewEncoder(cmd.OutOrStdout())
 		enc.SetIndent("", "  ")
-		return enc.Encode(out)
+		return enc.Encode(out.Cluster)
 	}}
 	c.Flags().StringVarP(&file, "file", "f", "", "Path to cluster spec (YAML), or '-' for stdin")
 	_ = c.MarkFlagRequired("file")
@@ -160,13 +160,13 @@ func newCmdAdminClusterUpdate() *cobra.Command {
 		if spec.ProviderID != "" {
 			providerPtr = &spec.ProviderID
 		}
-		out, err := u.Update(ctx, cluster.UpdateInput{ID: args[0], Name: namePtr, ProviderID: providerPtr})
+		out, err := u.Update(ctx, &cluster.UpdateInput{ClusterID: args[0], Name: namePtr, ProviderID: providerPtr})
 		if err != nil {
 			return err
 		}
 		enc := json.NewEncoder(cmd.OutOrStdout())
 		enc.SetIndent("", "  ")
-		return enc.Encode(out)
+		return enc.Encode(out.Cluster)
 	}}
 	c.Flags().StringVarP(&file, "file", "f", "", "Path to cluster spec (YAML), or '-' for stdin")
 	_ = c.MarkFlagRequired("file")
@@ -181,7 +181,7 @@ func newCmdAdminClusterDelete() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 		defer cancel()
-		if err := u.Delete(ctx, cluster.DeleteInput{ID: args[0]}); err != nil {
+		if _, err := u.Delete(ctx, &cluster.DeleteInput{ClusterID: args[0]}); err != nil {
 			return err
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "deleted %s\n", args[0])
@@ -197,7 +197,7 @@ func newCmdAdminClusterProvision() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Minute)
 		defer cancel()
-		if err := u.Provision(ctx, cluster.ProvisionInput{ID: args[0]}); err != nil {
+		if _, err := u.Provision(ctx, &cluster.ProvisionInput{ClusterID: args[0]}); err != nil {
 			return err
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "provisioned %s\n", args[0])
@@ -213,7 +213,7 @@ func newCmdAdminClusterDeprovision() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Minute)
 		defer cancel()
-		if err := u.Deprovision(ctx, cluster.DeprovisionInput{ID: args[0]}); err != nil {
+		if _, err := u.Deprovision(ctx, &cluster.DeprovisionInput{ClusterID: args[0]}); err != nil {
 			return err
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "deprovisioned %s\n", args[0])

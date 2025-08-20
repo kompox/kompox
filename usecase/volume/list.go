@@ -9,18 +9,21 @@ import (
 
 // ListInput parameters for List use case.
 type ListInput struct {
-	AppID      string
-	VolumeName string
+	// AppID owning application identifier.
+	AppID string `json:"app_id"`
+	// VolumeName logical volume name within the app.
+	VolumeName string `json:"volume_name"`
 }
 
 // ListOutput result for List use case.
 type ListOutput struct {
-	Items []*model.AppVolumeInstance
+	// Items is the collection of volume instances.
+	Items []*model.AppVolumeInstance `json:"items"`
 }
 
 // List returns volume instances for a logical volume.
-func (u *UseCase) List(ctx context.Context, in ListInput) (*ListOutput, error) {
-	if in.AppID == "" || in.VolumeName == "" {
+func (u *UseCase) List(ctx context.Context, in *ListInput) (*ListOutput, error) {
+	if in == nil || in.AppID == "" || in.VolumeName == "" {
 		return nil, fmt.Errorf("missing parameters")
 	}
 	app, err := u.Repos.App.Get(ctx, in.AppID)

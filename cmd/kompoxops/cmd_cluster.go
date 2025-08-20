@@ -72,13 +72,13 @@ func newCmdClusterProvision() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			clusters, err := clusterUC.List(ctx)
+			listOut, err := clusterUC.List(ctx, &uc.ListInput{})
 			if err != nil {
 				return fmt.Errorf("failed to list clusters: %w", err)
 			}
 
 			var cluster *model.Cluster
-			for _, c := range clusters {
+			for _, c := range listOut.Clusters {
 				if c.Name == clusterName {
 					cluster = c
 					break
@@ -95,7 +95,7 @@ func newCmdClusterProvision() *cobra.Command {
 			logger.Info(ctx, "provision start", "cluster", clusterName)
 
 			// Provision the cluster via usecase
-			if err := clusterUC.Provision(ctx, uc.ProvisionInput{ID: cluster.ID}); err != nil {
+			if _, err := clusterUC.Provision(ctx, &uc.ProvisionInput{ClusterID: cluster.ID}); err != nil {
 				return fmt.Errorf("failed to provision cluster %s: %w", clusterName, err)
 			}
 
@@ -127,13 +127,13 @@ func newCmdClusterDeprovision() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			clusters, err := clusterUC.List(ctx)
+			listOut, err := clusterUC.List(ctx, &uc.ListInput{})
 			if err != nil {
 				return fmt.Errorf("failed to list clusters: %w", err)
 			}
 
 			var cluster *model.Cluster
-			for _, c := range clusters {
+			for _, c := range listOut.Clusters {
 				if c.Name == clusterName {
 					cluster = c
 					break
@@ -150,7 +150,7 @@ func newCmdClusterDeprovision() *cobra.Command {
 			logger.Info(ctx, "deprovision start", "cluster", clusterName)
 
 			// Deprovision the cluster via usecase
-			if err := clusterUC.Deprovision(ctx, uc.DeprovisionInput{ID: cluster.ID}); err != nil {
+			if _, err := clusterUC.Deprovision(ctx, &uc.DeprovisionInput{ClusterID: cluster.ID}); err != nil {
 				return fmt.Errorf("failed to deprovision cluster %s: %w", clusterName, err)
 			}
 
@@ -182,14 +182,14 @@ func newCmdClusterInstall() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			clusters, err := clusterUC.List(ctx)
+			listOut, err := clusterUC.List(ctx, &uc.ListInput{})
 			if err != nil {
 				return fmt.Errorf("failed to list clusters: %w", err)
 			}
 
 			// Find cluster by name
 			var cluster *model.Cluster
-			for _, c := range clusters {
+			for _, c := range listOut.Clusters {
 				if c.Name == clusterName {
 					cluster = c
 					break
@@ -202,7 +202,7 @@ func newCmdClusterInstall() *cobra.Command {
 			logger.Info(ctx, "install start", "cluster", clusterName)
 
 			// Install cluster resources via usecase
-			if err := clusterUC.Install(ctx, uc.InstallInput{ID: cluster.ID}); err != nil {
+			if _, err := clusterUC.Install(ctx, &uc.InstallInput{ClusterID: cluster.ID}); err != nil {
 				return fmt.Errorf("failed to install cluster resources for %s: %w", clusterName, err)
 			}
 
@@ -234,14 +234,14 @@ func newCmdClusterUninstall() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			clusters, err := clusterUC.List(ctx)
+			listOut, err := clusterUC.List(ctx, &uc.ListInput{})
 			if err != nil {
 				return fmt.Errorf("failed to list clusters: %w", err)
 			}
 
 			// Find cluster by name
 			var cluster *model.Cluster
-			for _, c := range clusters {
+			for _, c := range listOut.Clusters {
 				if c.Name == clusterName {
 					cluster = c
 					break
@@ -254,7 +254,7 @@ func newCmdClusterUninstall() *cobra.Command {
 			logger.Info(ctx, "uninstall start", "cluster", clusterName)
 
 			// Uninstall cluster resources via usecase
-			if err := clusterUC.Uninstall(ctx, uc.UninstallInput{ID: cluster.ID}); err != nil {
+			if _, err := clusterUC.Uninstall(ctx, &uc.UninstallInput{ClusterID: cluster.ID}); err != nil {
 				return fmt.Errorf("failed to uninstall cluster resources for %s: %w", clusterName, err)
 			}
 
@@ -285,13 +285,13 @@ func newCmdClusterStatus() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			clusters, err := clusterUC.List(ctx)
+			listOut, err := clusterUC.List(ctx, &uc.ListInput{})
 			if err != nil {
 				return fmt.Errorf("failed to list clusters: %w", err)
 			}
 
 			var cluster *model.Cluster
-			for _, c := range clusters {
+			for _, c := range listOut.Clusters {
 				if c.Name == clusterName {
 					cluster = c
 					break
@@ -302,7 +302,7 @@ func newCmdClusterStatus() *cobra.Command {
 			}
 
 			// Get status
-			status, err := clusterUC.Status(ctx, uc.StatusInput{ID: cluster.ID})
+			status, err := clusterUC.Status(ctx, &uc.StatusInput{ClusterID: cluster.ID})
 			if err != nil {
 				return fmt.Errorf("failed to get cluster status: %w", err)
 			}

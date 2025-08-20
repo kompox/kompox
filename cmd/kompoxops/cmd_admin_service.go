@@ -66,12 +66,12 @@ func newCmdAdminServiceList() *cobra.Command {
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 			defer cancel()
-			items, err := uc.List(ctx, service.ListServicesQuery{})
+			out, err := uc.List(ctx, &service.ListInput{})
 			if err != nil {
 				return err
 			}
 			enc := json.NewEncoder(cmd.OutOrStdout())
-			for _, it := range items {
+			for _, it := range out.Services {
 				if err := enc.Encode(it); err != nil {
 					return err
 				}
@@ -96,13 +96,13 @@ func newCmdAdminServiceGet() *cobra.Command {
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 			defer cancel()
-			s, err := uc.Get(ctx, args[0])
+			out, err := uc.Get(ctx, &service.GetInput{ServiceID: args[0]})
 			if err != nil {
 				return err
 			}
 			enc := json.NewEncoder(cmd.OutOrStdout())
 			enc.SetIndent("", "  ")
-			return enc.Encode(s)
+			return enc.Encode(out.Service)
 		},
 	}
 }
@@ -152,13 +152,13 @@ func newCmdAdminServiceCreate() *cobra.Command {
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 			defer cancel()
-			out, err := uc.Create(ctx, service.CreateInput{Name: spec.Name})
+			out, err := uc.Create(ctx, &service.CreateInput{Name: spec.Name})
 			if err != nil {
 				return err
 			}
 			enc := json.NewEncoder(cmd.OutOrStdout())
 			enc.SetIndent("", "  ")
-			return enc.Encode(out)
+			return enc.Encode(out.Service)
 		},
 	}
 	c.Flags().StringVarP(&file, "file", "f", "", "Path to service spec (YAML), or '-' for stdin")
@@ -190,13 +190,13 @@ func newCmdAdminServiceUpdate() *cobra.Command {
 			if spec.Name != "" {
 				namePtr = &spec.Name
 			}
-			out, err := uc.Update(ctx, service.UpdateInput{ID: args[0], Name: namePtr})
+			out, err := uc.Update(ctx, &service.UpdateInput{ServiceID: args[0], Name: namePtr})
 			if err != nil {
 				return err
 			}
 			enc := json.NewEncoder(cmd.OutOrStdout())
 			enc.SetIndent("", "  ")
-			return enc.Encode(out)
+			return enc.Encode(out.Service)
 		},
 	}
 	c.Flags().StringVarP(&file, "file", "f", "", "Path to service spec (YAML), or '-' for stdin")
@@ -219,7 +219,7 @@ func newCmdAdminServiceDelete() *cobra.Command {
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 			defer cancel()
-			if err := uc.Delete(ctx, service.DeleteInput{ID: args[0]}); err != nil {
+			if _, err := uc.Delete(ctx, &service.DeleteInput{ServiceID: args[0]}); err != nil {
 				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "deleted %s\n", args[0])

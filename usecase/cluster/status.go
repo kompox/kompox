@@ -8,7 +8,8 @@ import (
 
 // StatusInput represents a command to get cluster status.
 type StatusInput struct {
-	ID string `json:"id"`
+	// ClusterID identifies the cluster.
+	ClusterID string `json:"cluster_id"`
 }
 
 // StatusOutput represents the response of cluster status.
@@ -19,13 +20,13 @@ type StatusOutput struct {
 }
 
 // Status returns the status of a cluster.
-func (u *UseCase) Status(ctx context.Context, cmd StatusInput) (*StatusOutput, error) {
-	if cmd.ID == "" {
+func (u *UseCase) Status(ctx context.Context, in *StatusInput) (*StatusOutput, error) {
+	if in == nil || in.ClusterID == "" {
 		return nil, model.ErrClusterInvalid
 	}
 
 	// Get cluster
-	c, err := u.Repos.Cluster.Get(ctx, cmd.ID)
+	c, err := u.Repos.Cluster.Get(ctx, in.ClusterID)
 	if err != nil {
 		return nil, err
 	}

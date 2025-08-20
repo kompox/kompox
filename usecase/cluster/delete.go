@@ -2,11 +2,22 @@ package cluster
 
 import "context"
 
-type DeleteInput struct{ ID string }
+// DeleteInput identifies the cluster to remove.
+type DeleteInput struct {
+	// ClusterID is the identifier of the cluster to delete.
+	ClusterID string `json:"cluster_id"`
+}
 
-func (u *UseCase) Delete(ctx context.Context, cmd DeleteInput) error {
-	if cmd.ID == "" {
-		return nil
+// DeleteOutput is empty because delete has no payload.
+type DeleteOutput struct{}
+
+// Delete removes a cluster; empty ID is a no-op.
+func (u *UseCase) Delete(ctx context.Context, in *DeleteInput) (*DeleteOutput, error) {
+	if in == nil || in.ClusterID == "" { // idempotent
+		return &DeleteOutput{}, nil
 	}
-	return u.Repos.Cluster.Delete(ctx, cmd.ID)
+	if err := u.Repos.Cluster.Delete(ctx, in.ClusterID); err != nil {
+		return nil, err
+	}
+	return &DeleteOutput{}, nil
 }

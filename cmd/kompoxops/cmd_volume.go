@@ -65,7 +65,7 @@ func newCmdVolumeList() *cobra.Command {
 		if err != nil {
 			return err
 		}
-		out, err := u.List(ctx, vuc.ListInput{AppID: appID, VolumeName: volName})
+		out, err := u.List(ctx, &vuc.ListInput{AppID: appID, VolumeName: volName})
 		if err != nil {
 			return err
 		}
@@ -98,7 +98,7 @@ func newCmdVolumeCreate() *cobra.Command {
 			return err
 		}
 		logger.Info(ctx, "create volume instance start", "app", appName, "volume", volName)
-		out, err := u.Create(ctx, vuc.CreateInput{AppID: appID, VolumeName: volName})
+		out, err := u.Create(ctx, &vuc.CreateInput{AppID: appID, VolumeName: volName})
 		if err != nil {
 			return err
 		}
@@ -135,7 +135,7 @@ func newCmdVolumeAssign() *cobra.Command {
 			return err
 		}
 		logger.Info(ctx, "assign volume instance", "app", appName, "volume", volName, "instance", instName)
-		if err := u.Assign(ctx, vuc.AssignInput{AppID: appID, VolumeName: volName, VolumeInstanceName: instName}); err != nil {
+		if _, err := u.Assign(ctx, &vuc.AssignInput{AppID: appID, VolumeName: volName, VolumeInstanceName: instName}); err != nil {
 			return err
 		}
 		return nil
@@ -169,7 +169,7 @@ func newCmdVolumeDelete() *cobra.Command {
 			return err
 		}
 		logger.Info(ctx, "delete volume instance", "app", appName, "volume", volName, "instance", instName)
-		if err := u.Delete(ctx, vuc.DeleteInput{AppID: appID, VolumeName: volName, VolumeInstanceName: instName}); err != nil {
+		if _, err := u.Delete(ctx, &vuc.DeleteInput{AppID: appID, VolumeName: volName, VolumeInstanceName: instName}); err != nil {
 			return err
 		}
 		return nil

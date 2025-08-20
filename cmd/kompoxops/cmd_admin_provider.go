@@ -54,12 +54,12 @@ func newCmdAdminProviderList() *cobra.Command {
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 			defer cancel()
-			items, err := u.List(ctx)
+			listOut, err := u.List(ctx, &provider.ListInput{})
 			if err != nil {
 				return err
 			}
 			enc := json.NewEncoder(cmd.OutOrStdout())
-			for _, it := range items {
+			for _, it := range listOut.Providers {
 				if err := enc.Encode(it); err != nil {
 					return err
 				}
@@ -76,13 +76,13 @@ func newCmdAdminProviderGet() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 		defer cancel()
-		p, err := u.Get(ctx, args[0])
+		out, err := u.Get(ctx, &provider.GetInput{ProviderID: args[0]})
 		if err != nil {
 			return err
 		}
 		enc := json.NewEncoder(cmd.OutOrStdout())
 		enc.SetIndent("", "  ")
-		return enc.Encode(p)
+		return enc.Encode(out.Provider)
 	}}
 }
 
@@ -125,13 +125,13 @@ func newCmdAdminProviderCreate() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 		defer cancel()
-		out, err := u.Create(ctx, provider.CreateInput{Name: spec.Name, Driver: spec.Driver})
+		out, err := u.Create(ctx, &provider.CreateInput{Name: spec.Name, Driver: spec.Driver})
 		if err != nil {
 			return err
 		}
 		enc := json.NewEncoder(cmd.OutOrStdout())
 		enc.SetIndent("", "  ")
-		return enc.Encode(out)
+		return enc.Encode(out.Provider)
 	}}
 	c.Flags().StringVarP(&file, "file", "f", "", "Path to provider spec (YAML), or '-' for stdin")
 	_ = c.MarkFlagRequired("file")
@@ -158,13 +158,13 @@ func newCmdAdminProviderUpdate() *cobra.Command {
 		if spec.Driver != "" {
 			driverPtr = &spec.Driver
 		}
-		out, err := u.Update(ctx, provider.UpdateInput{ID: args[0], Name: namePtr, Driver: driverPtr})
+		out, err := u.Update(ctx, &provider.UpdateInput{ProviderID: args[0], Name: namePtr, Driver: driverPtr})
 		if err != nil {
 			return err
 		}
 		enc := json.NewEncoder(cmd.OutOrStdout())
 		enc.SetIndent("", "  ")
-		return enc.Encode(out)
+		return enc.Encode(out.Provider)
 	}}
 	c.Flags().StringVarP(&file, "file", "f", "", "Path to provider spec (YAML), or '-' for stdin")
 	_ = c.MarkFlagRequired("file")
@@ -179,7 +179,7 @@ func newCmdAdminProviderDelete() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 		defer cancel()
-		if err := u.Delete(ctx, provider.DeleteInput{ID: args[0]}); err != nil {
+		if _, err := u.Delete(ctx, &provider.DeleteInput{ProviderID: args[0]}); err != nil {
 			return err
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "deleted %s\n", args[0])

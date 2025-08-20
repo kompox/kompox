@@ -88,13 +88,13 @@ func newCmdAppValidate() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			// Find app by name
-			apps, err := appUC.List(ctx)
+			// Find app by name using new List Input/Output pattern
+			listOut, err := appUC.List(ctx, &app.ListInput{})
 			if err != nil {
 				return fmt.Errorf("failed to list apps: %w", err)
 			}
 			var target *string
-			for _, a := range apps {
+			for _, a := range listOut.Apps {
 				if a.Name == appName {
 					id := a.ID
 					target = &id
@@ -104,7 +104,7 @@ func newCmdAppValidate() *cobra.Command {
 			if target == nil {
 				return fmt.Errorf("app %s not found", appName)
 			}
-			out, err := appUC.Validate(ctx, app.ValidateInput{ID: *target})
+			out, err := appUC.Validate(ctx, &app.ValidateInput{AppID: *target})
 			if err != nil {
 				return fmt.Errorf("validation failed: %w", err)
 			}

@@ -7,30 +7,39 @@ import (
 	"github.com/yaegashi/kompoxops/domain/model"
 )
 
+// UpdateInput specifies service fields that can be changed.
 type UpdateInput struct {
-	ID   string
-	Name *string
+	// ServiceID identifies the service.
+	ServiceID string `json:"service_id"`
+	// Name optionally updates the name.
+	Name *string `json:"name,omitempty"`
 }
 
-func (u *UseCase) Update(ctx context.Context, cmd UpdateInput) (*model.Service, error) {
-	if cmd.ID == "" {
+// UpdateOutput wraps the updated service.
+type UpdateOutput struct {
+	// Service is the updated entity.
+	Service *model.Service `json:"service"`
+}
+
+// Update applies provided changes to a service.
+func (u *UseCase) Update(ctx context.Context, in *UpdateInput) (*UpdateOutput, error) {
+	if in == nil || in.ServiceID == "" {
 		return nil, model.ErrServiceInvalid
 	}
-	existing, err := u.Repos.Service.Get(ctx, cmd.ID)
+	existing, err := u.Repos.Service.Get(ctx, in.ServiceID)
 	if err != nil {
 		return nil, err
 	}
 	changed := false
-	if cmd.Name != nil && *cmd.Name != "" && existing.Name != *cmd.Name {
-		existing.Name = *cmd.Name
+	if in.Name != nil && *in.Name != "" && existing.Name != *in.Name {
+		existing.Name = *in.Name
 		changed = true
 	}
-	if !changed {
-		return existing, nil
+	if changed {
+		existing.UpdatedAt = time.Now().UTC()
+		if err := u.Repos.Service.Update(ctx, existing); err != nil {
+			return nil, err
+		}
 	}
-	existing.UpdatedAt = time.Now().UTC()
-	if err := u.Repos.Service.Update(ctx, existing); err != nil {
-		return nil, err
-	}
-	return existing, nil
+	return &UpdateOutput{Service: existing}, nil
 }

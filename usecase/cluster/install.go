@@ -8,21 +8,21 @@ import (
 
 // InstallInput represents a command to install cluster resources.
 type InstallInput struct {
-	ID string `json:"id"`
+	ClusterID string `json:"cluster_id"`
 }
+type InstallOutput struct{}
 
 // Install installs in-cluster resources (Ingress Controller, etc.).
-func (u *UseCase) Install(ctx context.Context, cmd InstallInput) error {
-	if cmd.ID == "" {
-		return model.ErrClusterInvalid
+func (u *UseCase) Install(ctx context.Context, in *InstallInput) (*InstallOutput, error) {
+	if in == nil || in.ClusterID == "" {
+		return nil, model.ErrClusterInvalid
 	}
-
-	// Get cluster
-	c, err := u.Repos.Cluster.Get(ctx, cmd.ID)
+	c, err := u.Repos.Cluster.Get(ctx, in.ClusterID)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	// Use injected cluster port to install
-	return u.ClusterPort.Install(ctx, c)
+	if err := u.ClusterPort.Install(ctx, c); err != nil {
+		return nil, err
+	}
+	return &InstallOutput{}, nil
 }
