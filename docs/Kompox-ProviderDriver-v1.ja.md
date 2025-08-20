@@ -21,23 +21,50 @@
 > 実体は `/adapters/drivers/provider/registry.go` を参照。
 
 ```go
-// Interface implemented by cloud provider drivers.
-// Keep methods idempotent where possible and respect context cancellation.
+// Driver abstracts provider-specific behavior (identifier, hooks, etc.).
+// Implementations live under adapters/drivers/provider/<name> and should return a
+// provider driver identifier such as "aks" via ID().
 type Driver interface {
-    // Provider identifier (e.g., "aks", "k3s").
+    // ID returns the provider driver identifier (e.g., "aks").
     ID() string
 
-    // Cluster lifecycle (provider-side resources).
+    // ServiceName returns the service name associated with this driver instance.
+    // May return "(nil)" if no service is associated (e.g., for testing).
+    ServiceName() string
+
+    // ProviderName returns the provider name associated with this driver instance.
+    ProviderName() string
+
+    // ClusterProvision provisions a Kubernetes cluster according to the cluster specification.
     ClusterProvision(ctx context.Context, cluster *model.Cluster) error
+
+    // ClusterDeprovision deprovisions a Kubernetes cluster according to the cluster specification.
     ClusterDeprovision(ctx context.Context, cluster *model.Cluster) error
+
+    // ClusterStatus returns the status of a Kubernetes cluster.
     ClusterStatus(ctx context.Context, cluster *model.Cluster) (*model.ClusterStatus, error)
 
-    // In-cluster operations orchestrated via adapters/kube.
+    // ClusterInstall installs in-cluster resources (Ingress Controller, etc.).
     ClusterInstall(ctx context.Context, cluster *model.Cluster) error
+
+    // ClusterUninstall uninstalls in-cluster resources (Ingress Controller, etc.).
     ClusterUninstall(ctx context.Context, cluster *model.Cluster) error
 
-    // Returns kubeconfig bytes to connect to the target cluster.
+    // ClusterKubeconfig returns kubeconfig bytes for connecting to the target cluster.
+    // Implementations may fetch admin/user credentials depending on provider capability.
     ClusterKubeconfig(ctx context.Context, cluster *model.Cluster) ([]byte, error)
+
+    // VolumeInstanceList returns a list of volume instances of the specified volume.
+    VolumeInstanceList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) ([]*model.AppVolumeInstance, error)
+
+    // VolumeInstanceCreate creates a volume instance of the specified volume.
+    VolumeInstanceCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) (*model.AppVolumeInstance, error)
+
+    // VolumeInstanceAssign assigns a volume instance to the specified volume.
+    VolumeInstanceAssign(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string) error
+
+    // VolumeInstanceDelete deletes a volume instance of the specified volume.
+    VolumeInstanceDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string) error
 }
 ```
 
@@ -89,6 +116,24 @@ func init() {
 ### ClusterKubeconfig
 - プロバイダ SDK で管理者/ユーザ資格情報を取得し、kubeconfig のバイト列を返す。
 - 返却のみ（ファイル出力しない）。ドライバ外へはバイト配列で受け渡し。
+
+### VolumeInstanceList / VolumeInstanceCreate / VolumeInstanceAssign / VolumeInstanceDelete
+
+- app.volumes で定義された各ボリュームに対する操作。
+- app.volumes で定義された各ボリュームにつき、
+  - 複数の VolumeInstance が存在する。
+  - Name メンバはドライバにより決定される。重複はエラーとする。
+  - Size メンバはボリュームの指定値が使われる。
+  - Handle メンバはクラウドディスクリソースの参照であり `volHASH` の生成に使われる。重複はエラーとする。
+  - Assigned メンバが true の VolumeInstance が 1 個だけ存在するのが正常な状態。この VolumeInstance から Manifest が生成される。非正常状態で Manifest を生成しようとするとエラーになる。
+- メソッド
+  - VolumeInstanceList は VolumeInstance の一覧を CreatedAt メンバの降順で取得する。
+  - VolumeInstanceCreate は新規の VolumeInstance を作成する。 Assigned の初期値は false とする。
+  - VolumeInstanceAssign は指定した VolumeInstance の Assigned メンバを true として、それ以外のインスタンスの Assigned メンバを false とする。
+  - VolumeInstanceDelete は指定した VolumeInstance を削除する。
+- ドライバ実装
+  - 個々の VolumeInstance の Name, Handle の決定方法や Assigned メンバの記録方法はドライバの実装に任される。
+  - 同一のボリュームに属する VolumeInstance を識別するためのタグの値には `kompox-volName-idHASH` を使用する。これにより同一の VolumeInstance を維持したクラスタのフェイルオーバーが可能になる。
 
 ## `adapters/kube` の利用例（ドライバ側）
 

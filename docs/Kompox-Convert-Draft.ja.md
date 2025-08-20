@@ -11,8 +11,8 @@ Kompox の Service/Provider/Cluster/App リソースがどのように Kubernete
 次のリソースを含む Kubernetes マニフェストが作られる。
 
 - Namespace 1個 (アプリごとに作成)
-- PV 1 個 (Provider のライフサイクルで管理される静的なクラウドディスクリソースを参照する RWO ボリューム)
-- PVC 1個 (PVを参照する)
+- PV 複数個 (Provider のライフサイクルで管理される静的なクラウドディスクリソースを参照する RWO ボリューム)
+- PVC 複数個 (PVを参照する)
 - Deployment 1個 (シングルレプリカ、strategy.type:Recreate)
 - Service 1個 (compose の host ポートを列挙)
 - Ingress 1個 (DNSホスト名からServiceへのルーティングを列挙)
@@ -22,7 +22,7 @@ Kompox の Service/Provider/Cluster/App リソースがどのように Kubernete
 リソース命名規則
 
 - Namespace: `kompox-<appName>-<idHASH>`
-- PV/PVC: `kompox-<appName>-<idHASH>-<volHASH>`
+- PV/PVC: `kompox-<volName>-<idHASH>-<volHASH>`
 - Service/Deployment/Ingress: `<appName>`
   - 当面は固定とする。将来的にはバージョン管理のために `<appName>-<version>` などの形式を導入。
 
@@ -54,13 +54,20 @@ metadata:
   annotations:
     kompox.dev/app: <serviceName>/<providerName>/<clusterName>/<appName>
     kompox.dev/provider-driver: <providerDriverName>
-    kompox.dev/volume-handle-current: <diskResourceId>
-    kompox.dev/volume-handle-previous: <diskResourceId>
 ```
 
 - `<providerDriverName>` は `aks` や `k3s` などのプロバイダドライバ名。
-- `<diskResourceId>` は `aks` の場合は Azure Disk リソース ID となる (サブスクリプション GUID 露出に注意: 閲覧権限を最小化)。
+
+PV には次のアノテーションを設定する。
+
+```yaml
+metadata:
+  annotations:
+    kompox.dev/volume-handle-previous: <diskResourceId>
+```
+
 - `kompox.dev/volume-handle-previous` は初回のデプロイ時には設定しない。
+- `<diskResourceId>` は `aks` の場合は Azure Disk リソース ID となる (サブスクリプション GUID 露出に注意: 閲覧権限を最小化)。
 
 ### ハッシュの種類と生成規則
 
@@ -89,17 +96,66 @@ HASH = sha1(BASE) の先頭6文字 (16進)
 
 ### ボリューム
 
-- Compose の volumes では `./<subpath>:<mountpoint>` 以外の形式はエラーとする。
-- 単一の PVC に `subPath` を割り当てる。
+app.volumes スキーマ
 
-subPath 正規化ルール
+```yaml
+app.volumes:
+  - name: <name>
+    size: <size>
+```
+
+- name: `^[a-z]([-a-z0-9]{0,14})$`
+- size: `32Gi` など
+
+Compose の volumes は次の種類をサポートする。
+
+|種類|形式|意味|
+|-|-|-|
+|Abs bind volume|`/sub/path:/mount/path`|エラー|
+|Rel bind volume|`./sub/path:/mount/path`|app.volumes[0] を参照し `/sub/path` を `/mount/path` にマウント|
+|Named volume|`name/sub/path:/mount/path`|app.volumes[name] を参照し `/sub/path` を `/mount/path` にマウント|
+
+参照する volume が見つからない場合はエラーとする。
+app.volumes が空でも自動的に作成するようなことはしない。
+
+sub path 正規化ルール
 
 1. 先頭の `./` を除去  
 2. `..` を含む場合エラー  
 3. 連続 `/` を 1 個に畳み込み  
 4. 末尾 `/` を除去 (結果空ならエラー)  
 
-initContainers により subPath ディレクトリを自動作成する。
+initContainers により各 volume の sub path ディレクトリを自動作成する。
+作成するディレクトリのパーミッションは 1777 とする。
+
+解決とエラー判定順
+
+1. 各 Compose service.volumes 行をパース
+   - `/abs/...` 形式 → 即エラー (Abs bind 未対応)
+2. `./sub/path:...` は app.volumes[0] が存在しなければエラー
+3. `name/sub/path:...` は name と一致する app.volumes エントリを検索して見つからなければエラー
+4. subPath 正規化、失敗したらエラー
+5. mountPath の一意性検証、同一サービス内で重複する場合はエラー
+
+設定例
+
+```yaml
+app:
+  name: app1
+  compose:
+    services:
+      app:
+        image: app
+        volumes:
+        - /abs/path:/error    # エラー
+        - ./sub/path:/default # default の /sub/path を /default にマウント
+        - data/sub/path:/data # data の /sub/path を /data にマウント
+  volumes:
+  - name: default  # PV/PVC kompox-default-<idHASH>-<volHASH>
+    size: 32Gi
+  - name: data     # PV/PVC kompox-data-<idHASH>-<volHASH>
+    size: 32Gi
+```
 
 ### x-kompox (リソース変換)
 
@@ -153,6 +209,7 @@ Ingress 生成の仕様
 
 - 新しいクラウドディスクに切り替える場合は新しい `<volHASH>` を持つ PV / PVC (同名) を追加し、Deployment の claimName をその新 PVC 名へ変更する (同一 apply 可)。
 - 切替時は旧 PV/PVC を即削除せず動作確認後に手動削除。
+- アノテーション `kompox.dev/volume-handle-previous` の設定は PV ごとに設定する。
 - ロールバック (旧世代へ戻す) は旧 PV/PVC を削除していない場合のみ可能。
 
 ### クラスタの切り替え
@@ -204,7 +261,7 @@ app:
         environment:
           POSTGRES_PASSWORD: secret
         volumes:
-          - ./data/postgres:/var/lib/postgresql/data
+          - db/data:/var/lib/postgresql/data
         x-kompox:
           resources:
             cpu: 100m
@@ -219,6 +276,11 @@ app:
     - name: admin
       port: 8081
       hosts: [admin.custom.kompox.dev]
+  volumes:
+    - name: default
+      size: 32Gi
+    - name: db
+      size: 64Gi
 ```
 
 ### Kubernetes Manifest
@@ -239,12 +301,11 @@ metadata:
   annotations:
     kompox.dev/app: ops/aks1/cluster1/app1
     kompox.dev/provider-driver: aks
-    kompox.dev/volume-handle-current: /subscriptions/....
 ---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: kompox-app1-idHASH-volHASH
+  name: kompox-default-idHASH-volHASH
   labels:
     app: app1
     app.kubernetes.io/name: app1
@@ -254,6 +315,7 @@ metadata:
     kompox.dev/app-id-hash: idHASH
   annotations:
     pv.kubernetes.io/provisioned-by: disk.csi.azure.com
+    # 初回デプロイ: kompox.dev/volume-handle-previous は未設定
 spec:
   capacity:
     storage: 32Gi
@@ -268,9 +330,36 @@ spec:
       fsType: ext4
 ---
 apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: kompox-db-idHASH-volHASH
+  labels:
+    app: app1
+    app.kubernetes.io/name: app1
+    app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/managed-by: kompox
+    kompox.dev/app-instance-hash: inHASH
+    kompox.dev/app-id-hash: idHASH
+  annotations:
+    pv.kubernetes.io/provisioned-by: disk.csi.azure.com
+    # 初回デプロイ: kompox.dev/volume-handle-previous は未設定
+spec:
+  capacity:
+    storage: 64Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: managed-csi
+  csi:
+    driver: disk.csi.azure.com
+    volumeHandle: /subscriptions/...
+    volumeAttributes:
+      fsType: ext4
+---
+apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: kompox-app1-idHASH-volHASH
+  name: kompox-default-idHASH-volHASH
   namespace: kompox-app1-idHASH
   labels:
     app: app1
@@ -285,7 +374,27 @@ spec:
   resources:
     requests:
       storage: 32Gi
-  volumeName: kompox-app1-idHASH-volHASH
+  volumeName: kompox-default-idHASH-volHASH
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: kompox-db-idHASH-volHASH
+  namespace: kompox-app1-idHASH
+  labels:
+    app: app1
+    app.kubernetes.io/name: app1
+    app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/managed-by: kompox
+    kompox.dev/app-instance-hash: inHASH
+    kompox.dev/app-id-hash: idHASH
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 64Gi
+  volumeName: kompox-db-idHASH-volHASH
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -342,9 +451,9 @@ spec:
         - name: POSTGRES_PASSWORD
           value: secret        
         volumeMounts:
-        - name: default
+        - name: db
           mountPath: /var/lib/postgresql/data
-          subPath: data/postgres
+          subPath: data
         resources:
           requests:
             cpu: 100m
@@ -359,17 +468,20 @@ spec:
           - sh
           - -c
           - |
-            set -eu
-            for d in data/app data/postgres; do
-              mkdir -p /work/$d
-            done
+            mkdir -m 1777 -p /work/default/data/app
+            mkdir -m 1777 -p /work/db/data
         volumeMounts:
           - name: default
-            mountPath: /work
+            mountPath: /work/default
+          - name: db
+            mountPath: /work/db
       volumes:
         - name: default
           persistentVolumeClaim:
-            claimName: kompox-app1-idHASH-volHASH
+            claimName: kompox-default-idHASH-volHASH
+        - name: db
+          persistentVolumeClaim:
+            claimName: kompox-db-idHASH-volHASH
 ---
 apiVersion: v1
 kind: Service

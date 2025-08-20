@@ -20,16 +20,14 @@ kompoxops は Kompox PaaS 準拠のデプロイツールである。
 kompoxops init              設定ファイルの雛形作成
 kompoxops cluster           クラスタ操作
 kompoxops app               アプリ操作
-kompoxops disk              ディスク操作
+kompoxops volume            ボリューム操作
 kompoxops snapshot          スナップショット操作
 kompoxops admin             管理ツール
 ```
 
-グローバルオプション
+共通オプション
 
-```
---db-url <URL>              永続化DBの接続URL。環境変数 KOMPOX_DB_URL で指定可能。
-```
+- `--db-url <URL>` 永続化DBの接続URL。環境変数 KOMPOX_DB_URL で指定可能。
 
 ### kompoxops.yml
 
@@ -56,32 +54,59 @@ provider:
     AZURE_SUBSCRIPTION_ID: 34809bd3-31b4-4331-9376-49a32a9616f2
     AZURE_LOCATION: japaneast
 cluster:
-  name: my-aks
+  name: cluster1
   existing: false
-  ingress:
-    controller: traefik  
-    namespace: traefik
   domain: ops.kompox.dev
+  ingress:
+    controller: traefik
+    namespace: traefik
   settings:
-    AZURE_RESOURCE_GROUP_NAME: rg-CLU
+    AZURE_RESOURCE_GROUP_NAME: rg-cluster1
 app:
-  name: my-app
+  name: app1
   compose:
     services:
-      whoami:
-        image: traefik/whoami
-      ports:
-        - 80:80
+      app:
+        image: ghcr.io/kompox/app
+        environment:
+          TZ: Asia/Tokyo
+        ports:
+          - "8080:80"
+          - "8081:8080"
+        volumes:
+          - ./data/app:/data
+        x-kompox:
+          resources:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 200m
+            memory: 512Mi
+      postgres:
+        image: postgres
+        environment:
+          POSTGRES_PASSWORD: secret
+        volumes:
+          - db/data:/var/lib/postgresql/data
+        x-kompox:
+          resources:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 200m
+            memory: 512Mi
   ingress:
-    http_80: www.my-app.kompox.dev
-    http_8080: admin.my-app.kompox.dev     
-  resources:
-    cpu: 500m
-    memory: 1Gi
-  settings:
-    AZURE_RESOURCE_GROUP_NAME: rg-APP
-    AZURE_DISK_SIZE: 50
-    AZURE_DISK_TYPE: Standard_LRS
+    - name: main
+      port: 8080
+      hosts: [www.custom.kompox.dev]
+    - name: admin
+      port: 8081
+      hosts: [admin.custom.kompox.dev]
+  volumes:
+    - name: default
+      size: 32Gi
+    - name: db
+      size: 64Gi
 ```
 
 ### kompoxops cluster
@@ -89,14 +114,16 @@ app:
 K8s クラスタ操作を行う。
 
 ```
-kompoxops cluster provision     Cluster リソース準拠の K8s クラスタを作成開始 (existingがfalseの場合)
-kompoxops cluster deprovision   Cluster リソース準拠の K8s クラスタを削除開始 (existingがfalseの場合)
-kompoxops cluster install       K8s クラスタ内のリソースをインストール開始
-kompoxops cluster uninstall     K8s クラスタ内のリソースをアンインストール開始
-kompoxops cluster status        K8s クラスタのステータスを表示
+kompoxops cluster provision --cluster-name <clusterName>     Cluster リソース準拠の K8s クラスタを作成開始 (existingがfalseの場合)
+kompoxops cluster deprovision --cluster-name <clusterName>   Cluster リソース準拠の K8s クラスタを削除開始 (existingがfalseの場合)
+kompoxops cluster install --cluster-name <clusterName>       K8s クラスタ内のリソースをインストール開始
+kompoxops cluster uninstall --cluster-name <clusterName>     K8s クラスタ内のリソースをアンインストール開始
+kompoxops cluster status --cluster-name <clusterName>        K8s クラスタのステータスを表示
 ```
 
-引数として Cluster リソースの名前を指定する。名前のデフォルトは cluster.name とする。
+共通オプション
+
+- `--cluster-name | -C` クラスタ名を指定 (デフォルト: kompoxops.yml の cluster.name)
 
 provision/deprovision コマンドは service/provider/cluster リソースの設定に従って K8s クラスタを作成・削除する。
 既存のクラスタを参照する場合は cluster.existing を true に設定する。
@@ -132,15 +159,56 @@ provision/deprovision/install/uninstall は status により実行可否が変�
 アプリの操作を行う。
 
 ```
-kompoxops app validate
-kompoxops app deploy
-kompoxops app destroy
+kompoxops app validate --app-name <appName>
+kompoxops app deploy --app-name <appName>
+kompoxops app destroy --app-name <appName>
 ```
+
+共通オプション
+
+- `--app-name | -A` アプリ名を指定 (デフォルト: kompoxops.yml の app.name)
 
 validate コマンドは app.compose の内容を検証し Kompose により K8s マニフェストに変換する。
 YAML 構文エラーや制約違反が検出された場合はエラーを返す。
+
 - `--out-compose FILE` を指定すると正規化した Docker Compose の YAML ドキュメントを出力する (`-` は stdout)
 - `--out-manifest FILE` を指定すると K8s マニフェストの YAML ドキュメントを出力する (`-` は stdout)
+
+### kompoxops volume
+
+app.volumes で定義された論理ボリュームに属するボリュームインスタンスを操作する。
+
+```
+kompoxops volume list --app-name <appName> --vol-name <volName>                                      ボリュームインスタンス一覧表示
+kompoxops volume create --app-name <appName> --vol-name <volName>                                    新しいボリュームインスタンス作成 (サイズは app.volumes 定義を使用)
+kompoxops volume assign --app-name <appName> --vol-name <volName> --vol-inst-name <volInstanceName>  指定インスタンスを <volName> の Assigned に設定 (他は自動的に Unassign)
+kompoxops volume delete --app-name <appName> --vol-name <volName> --vol-inst-name <volInstanceName>  指定インスタンス削除 (Assigned 中はエラー)
+```
+
+共通オプション
+
+- `--app-name | -A` アプリ名を指定 (デフォルト: kompoxops.yml の app.naame)
+- `--vol-name | -V` ボリューム名を指定
+- `--vol-inst-name | -I` ボリュームインスタンス名を指定
+
+仕様
+
+- `<volName>` は app.volumes に存在しない場合エラー。
+- create: インスタンス名は自動生成 (例: 時刻ベース) または `--name` 指定 (存在重複はエラー)。
+- assign: 1 論理ボリュームにつき同時に Assigned=true は 0 または 1。既に同一インスタンスが Assigned なら成功 (冪等)。別インスタンスが Assigned の場合は自動でそのインスタンスを Unassign 後に指定を Assign。
+- delete: 対象が存在しなければ成功 (冪等)。Assigned=true のインスタンスは `--force` 無しで拒否。
+- list 出力列例: NAME  ASSIGNED  SIZE  HANDLE(SHORT)  CREATED              UPDATED
+- SIZE 表示は Gi 単位 (内部は bytes)。
+- manifest 生成 (app deploy) 時: 各 volName で Assigned インスタンスがちょうど 1 件でない場合エラー。
+
+例
+
+```
+$ kompoxops volume list default
+NAME        ASSIGNED  SIZE   HANDLE        CREATED              UPDATED
+vol-202401  true      32Gi   1f3ab29 (az)  2024-01-10T12:00Z    2024-01-10T12:05Z
+vol-202312  false     32Gi   9ab1c02 (az)  2023-12-31T09:00Z    2024-01-10T12:05Z
+```
 
 ### kompoxops admin
 
