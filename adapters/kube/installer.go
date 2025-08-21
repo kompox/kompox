@@ -1,27 +1,15 @@
 package kube
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	stdErrors "errors"
 	"fmt"
-	"io"
 	"os"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
-	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/client-go/discovery"
-	"k8s.io/client-go/discovery/cached/memory"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/restmapper"
 
 	"github.com/yaegashi/kompoxops/domain/model"
 	"helm.sh/helm/v3/pkg/action"
@@ -124,7 +112,7 @@ func (i *Installer) InstallTraefik(ctx context.Context, cluster *model.Cluster) 
 	settings.KubeConfig = kubeconfigPath
 
 	cfg := new(action.Configuration)
-	if err := cfg.Init(settings.RESTClientGetter(), ns, "secret", func(format string, v ...interface{}) {}); err != nil {
+	if err := cfg.Init(settings.RESTClientGetter(), ns, "secret", func(format string, v ...any) {}); err != nil {
 		return fmt.Errorf("init helm configuration: %w", err)
 	}
 
@@ -147,8 +135,8 @@ func (i *Installer) InstallTraefik(ctx context.Context, cluster *model.Cluster) 
 	}
 
 	// Minimal values: expose as LoadBalancer
-	values := map[string]interface{}{
-		"service": map[string]interface{}{
+	values := map[string]any{
+		"service": map[string]any{
 			"type": "LoadBalancer",
 		},
 	}
@@ -193,7 +181,7 @@ func (i *Installer) UninstallTraefik(ctx context.Context, cluster *model.Cluster
 	settings.KubeConfig = kubeconfigPath
 
 	cfg := new(action.Configuration)
-	if err := cfg.Init(settings.RESTClientGetter(), ns, "secret", func(format string, v ...interface{}) {}); err != nil {
+	if err := cfg.Init(settings.RESTClientGetter(), ns, "secret", func(format string, v ...any) {}); err != nil {
 		return fmt.Errorf("init helm configuration: %w", err)
 	}
 	un := action.NewUninstall(cfg)
@@ -285,129 +273,4 @@ func (i *Installer) DeleteNamespace(ctx context.Context, name string) error {
 		return fmt.Errorf("delete namespace %s: %w", name, err)
 	}
 	return nil
-}
-
-// ApplyYAML applies a YAML stream (possibly multi-document) using server-side apply.
-// defaultNamespace is used when a namespaced resource has no namespace.
-func (i *Installer) ApplyYAML(ctx context.Context, yamlStream []byte, defaultNamespace string) error {
-	if i == nil || i.Client == nil || i.Client.RESTConfig == nil {
-		return fmt.Errorf("kube installer is not initialized")
-	}
-	// Create clients once per stream
-	cfg := i.Client.RESTConfig
-	dc, err := discovery.NewDiscoveryClientForConfig(cfg)
-	if err != nil {
-		return fmt.Errorf("create discovery client: %w", err)
-	}
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
-	dy, err := dynamic.NewForConfig(cfg)
-	if err != nil {
-		return fmt.Errorf("create dynamic client: %w", err)
-	}
-
-	dec := utilyaml.NewYAMLOrJSONDecoder(bytes.NewReader(yamlStream), 4096)
-	for {
-		var raw map[string]interface{}
-		if err := dec.Decode(&raw); err != nil {
-			if err == io.EOF {
-				break
-			}
-			return fmt.Errorf("decode yaml: %w", err)
-		}
-		if len(raw) == 0 {
-			continue
-		}
-		obj := &unstructured.Unstructured{Object: raw}
-		// Marshal back to JSON for Patch body
-		body, err := json.Marshal(raw)
-		if err != nil {
-			return fmt.Errorf("marshal object to json: %w", err)
-		}
-		if err := i.applyUnstructured(ctx, obj, body, defaultNamespace, dy, mapper); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// ApplyManifests applies a list of YAML documents.
-func (i *Installer) ApplyManifests(ctx context.Context, manifests [][]byte, defaultNamespace string) error {
-	if i == nil || i.Client == nil || i.Client.RESTConfig == nil {
-		return fmt.Errorf("kube installer is not initialized")
-	}
-	cfg := i.Client.RESTConfig
-	dc, err := discovery.NewDiscoveryClientForConfig(cfg)
-	if err != nil {
-		return fmt.Errorf("create discovery client: %w", err)
-	}
-	mapper := restmapper.NewDeferredDiscoveryRESTMapper(memory.NewMemCacheClient(dc))
-	dy, err := dynamic.NewForConfig(cfg)
-	if err != nil {
-		return fmt.Errorf("create dynamic client: %w", err)
-	}
-	for _, m := range manifests {
-		dec := utilyaml.NewYAMLOrJSONDecoder(bytes.NewReader(m), 4096)
-		for {
-			var raw map[string]interface{}
-			if err := dec.Decode(&raw); err != nil {
-				if err == io.EOF {
-					break
-				}
-				return fmt.Errorf("decode yaml: %w", err)
-			}
-			if len(raw) == 0 {
-				continue
-			}
-			obj := &unstructured.Unstructured{Object: raw}
-			body, err := json.Marshal(raw)
-			if err != nil {
-				return fmt.Errorf("marshal object to json: %w", err)
-			}
-			if err := i.applyUnstructured(ctx, obj, body, defaultNamespace, dy, mapper); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-// applyUnstructured performs server-side apply for a single object.
-func (i *Installer) applyUnstructured(ctx context.Context, obj *unstructured.Unstructured, body []byte, defaultNamespace string, dy dynamic.Interface, mapper meta.RESTMapper) error {
-	if obj.GetKind() == "" || obj.GetAPIVersion() == "" {
-		// Skip docs without essential metadata
-		return nil
-	}
-	gvk := schema.FromAPIVersionAndKind(obj.GetAPIVersion(), obj.GetKind())
-	mapping, err := mapper.RESTMapping(gvk.GroupKind(), gvk.Version)
-	if err != nil {
-		return fmt.Errorf("find REST mapping for %s: %w", gvk.String(), err)
-	}
-
-	ns := obj.GetNamespace()
-	if mapping.Scope.Name() == meta.RESTScopeNameNamespace && ns == "" {
-		if defaultNamespace == "" {
-			defaultNamespace = "default"
-		}
-		obj.SetNamespace(defaultNamespace)
-		ns = defaultNamespace
-	}
-	name := obj.GetName()
-	if name == "" {
-		return fmt.Errorf("object %s requires metadata.name for server-side apply", gvk.String())
-	}
-
-	ri := resourceInterfaceFor(dy, mapping.Resource, ns)
-	force := true
-	if _, err := ri.Patch(ctx, name, types.ApplyPatchType, body, metav1.PatchOptions{FieldManager: "kompoxops", Force: &force}); err != nil {
-		return fmt.Errorf("apply %s %s: %w", obj.GetKind(), name, err)
-	}
-	return nil
-}
-
-// resourceInterfaceFor returns a ResourceInterface for the given GVR and namespace.
-func resourceInterfaceFor(dy dynamic.Interface, gvr schema.GroupVersionResource, namespace string) dynamic.ResourceInterface {
-	if namespace == "" {
-		return dy.Resource(gvr)
-	}
-	return dy.Resource(gvr).Namespace(namespace)
 }

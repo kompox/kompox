@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -14,12 +13,9 @@ import (
 	"github.com/yaegashi/kompoxops/domain/model"
 	"github.com/yaegashi/kompoxops/internal/logging"
 	"github.com/yaegashi/kompoxops/usecase/app"
-	yaml "gopkg.in/yaml.v3"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
@@ -140,7 +136,7 @@ func newCmdAppValidate() *cobra.Command {
 						obj.GetObjectKind().SetGroupVersionKind(gvk[0])
 					}
 				}
-				manifest, err := buildCleanManifest(out.K8sObjects)
+				manifest, err := kube.BuildCleanManifest(out.K8sObjects)
 				if err != nil {
 					return fmt.Errorf("failed to build manifest: %w", err)
 				}
@@ -258,8 +254,8 @@ func newCmdAppDeploy() *cobra.Command {
 				return fmt.Errorf("failed to create kube client: %w", err)
 			}
 
-			// Apply objects
-			if err := applyK8sObjects(ctx, kcli, vout.K8sObjects, logger); err != nil {
+			// Apply objects via server-side apply (SSA)
+			if err := kcli.ServerSideApplyObjects(ctx, vout.K8sObjects, &kube.ApplyOptions{FieldManager: "kompoxops", ForceConflicts: true}); err != nil {
 				return fmt.Errorf("apply objects failed: %w", err)
 			}
 
@@ -268,231 +264,4 @@ func newCmdAppDeploy() *cobra.Command {
 		},
 	}
 	return cmd
-}
-
-// applyK8sObjects applies a slice of runtime.Objects using simple create-or-update semantics.
-
-func applyK8sObjects(ctx context.Context, kc *kube.Client, objs []runtime.Object, logger logging.Logger) error {
-	var errs []string
-	apply := func(kind, name string,
-		get func() (runtime.Object, error),
-		create func() (runtime.Object, error),
-		prepare func(existing runtime.Object) (runtime.Object, error),
-		update func(runtime.Object) (runtime.Object, error),
-		logUpdate bool,
-	) {
-		exist, err := get()
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				if _, cerr := create(); cerr != nil {
-					logger.Error(ctx, fmt.Sprintf("create error: %v", cerr), "kind", kind, "name", name, "op", "create")
-					errs = append(errs, fmt.Sprintf("create %s %s: %v", kind, name, cerr))
-					return
-				}
-				logger.Info(ctx, "created "+kind, "name", name)
-				return
-			}
-			logger.Error(ctx, fmt.Sprintf("get error: %v", err), "kind", kind, "name", name, "op", "get")
-			errs = append(errs, fmt.Sprintf("get %s %s: %v", kind, name, err))
-			return
-		}
-		objForUpdate, err := prepare(exist)
-		if err != nil {
-			logger.Error(ctx, fmt.Sprintf("prepare error: %v", err), "kind", kind, "name", name, "op", "prepare")
-			errs = append(errs, fmt.Sprintf("prepare %s %s: %v", kind, name, err))
-			return
-		}
-		if _, err := update(objForUpdate); err != nil {
-			logger.Error(ctx, fmt.Sprintf("update error: %v", err), "kind", kind, "name", name, "op", "update")
-			errs = append(errs, fmt.Sprintf("update %s %s: %v", kind, name, err))
-			return
-		}
-		if logUpdate {
-			logger.Info(ctx, "updated "+kind, "name", name)
-		}
-	}
-
-	for _, obj := range objs {
-		switch o := obj.(type) {
-		case *corev1.Namespace:
-			nsClient := kc.Clientset.CoreV1().Namespaces()
-			apply("namespace", o.Name,
-				func() (runtime.Object, error) { return nsClient.Get(ctx, o.Name, metav1.GetOptions{}) },
-				func() (runtime.Object, error) { return nsClient.Create(ctx, o, metav1.CreateOptions{}) },
-				func(existing runtime.Object) (runtime.Object, error) { // merge labels/annotations
-					e := existing.(*corev1.Namespace)
-					if e.Labels == nil {
-						e.Labels = map[string]string{}
-					}
-					for k, v := range o.Labels {
-						e.Labels[k] = v
-					}
-					if e.Annotations == nil {
-						e.Annotations = map[string]string{}
-					}
-					for k, v := range o.Annotations {
-						e.Annotations[k] = v
-					}
-					return e, nil
-				},
-				func(ro runtime.Object) (runtime.Object, error) {
-					return nsClient.Update(ctx, ro.(*corev1.Namespace), metav1.UpdateOptions{})
-				},
-				true)
-		case *corev1.PersistentVolume:
-			pvClient := kc.Clientset.CoreV1().PersistentVolumes()
-			apply("pv", o.Name,
-				func() (runtime.Object, error) { return pvClient.Get(ctx, o.Name, metav1.GetOptions{}) },
-				func() (runtime.Object, error) { return pvClient.Create(ctx, o, metav1.CreateOptions{}) },
-				func(existing runtime.Object) (runtime.Object, error) {
-					e := existing.(*corev1.PersistentVolume)
-					// no pre-check; rely on API server immutability validation
-					o.ResourceVersion = e.ResourceVersion
-					return o, nil
-				},
-				func(ro runtime.Object) (runtime.Object, error) {
-					return pvClient.Update(ctx, ro.(*corev1.PersistentVolume), metav1.UpdateOptions{})
-				},
-				true)
-		case *corev1.PersistentVolumeClaim:
-			pvcClient := kc.Clientset.CoreV1().PersistentVolumeClaims(o.Namespace)
-			apply("pvc", o.Name,
-				func() (runtime.Object, error) { return pvcClient.Get(ctx, o.Name, metav1.GetOptions{}) },
-				func() (runtime.Object, error) { return pvcClient.Create(ctx, o, metav1.CreateOptions{}) },
-				func(existing runtime.Object) (runtime.Object, error) {
-					e := existing.(*corev1.PersistentVolumeClaim)
-					// no pre-check; rely on API server immutability/validation errors
-					o.ResourceVersion = e.ResourceVersion
-					return o, nil
-				},
-				func(ro runtime.Object) (runtime.Object, error) {
-					return pvcClient.Update(ctx, ro.(*corev1.PersistentVolumeClaim), metav1.UpdateOptions{})
-				},
-				true)
-		case *appsv1.Deployment:
-			depClient := kc.Clientset.AppsV1().Deployments(o.Namespace)
-			apply("deployment", o.Name,
-				func() (runtime.Object, error) { return depClient.Get(ctx, o.Name, metav1.GetOptions{}) },
-				func() (runtime.Object, error) { return depClient.Create(ctx, o, metav1.CreateOptions{}) },
-				func(existing runtime.Object) (runtime.Object, error) {
-					e := existing.(*appsv1.Deployment)
-					o.ResourceVersion = e.ResourceVersion
-					return o, nil
-				},
-				func(ro runtime.Object) (runtime.Object, error) {
-					return depClient.Update(ctx, ro.(*appsv1.Deployment), metav1.UpdateOptions{})
-				},
-				true)
-		case *corev1.Service:
-			svcClient := kc.Clientset.CoreV1().Services(o.Namespace)
-			apply("service", o.Name,
-				func() (runtime.Object, error) { return svcClient.Get(ctx, o.Name, metav1.GetOptions{}) },
-				func() (runtime.Object, error) { return svcClient.Create(ctx, o, metav1.CreateOptions{}) },
-				func(existing runtime.Object) (runtime.Object, error) {
-					e := existing.(*corev1.Service)
-					// preserve immutable fields
-					if e.Spec.ClusterIP != "" {
-						o.Spec.ClusterIP = e.Spec.ClusterIP
-					}
-					if len(e.Spec.ClusterIPs) > 0 {
-						o.Spec.ClusterIPs = e.Spec.ClusterIPs
-					}
-					o.ResourceVersion = e.ResourceVersion
-					return o, nil
-				},
-				func(ro runtime.Object) (runtime.Object, error) {
-					return svcClient.Update(ctx, ro.(*corev1.Service), metav1.UpdateOptions{})
-				},
-				true)
-		case *netv1.Ingress:
-			ingClient := kc.Clientset.NetworkingV1().Ingresses(o.Namespace)
-			apply("ingress", o.Name,
-				func() (runtime.Object, error) { return ingClient.Get(ctx, o.Name, metav1.GetOptions{}) },
-				func() (runtime.Object, error) { return ingClient.Create(ctx, o, metav1.CreateOptions{}) },
-				func(existing runtime.Object) (runtime.Object, error) {
-					e := existing.(*netv1.Ingress)
-					o.ResourceVersion = e.ResourceVersion
-					return o, nil
-				},
-				func(ro runtime.Object) (runtime.Object, error) {
-					return ingClient.Update(ctx, ro.(*netv1.Ingress), metav1.UpdateOptions{})
-				},
-				true)
-		default:
-			continue
-		}
-	}
-	if len(errs) > 0 {
-		return fmt.Errorf(strings.Join(errs, "; "))
-	}
-	return nil
-}
-
-// pruneManifest takes a multi-document YAML (--- separators) and removes keys whose value is null or an empty map.
-// Empty lists are preserved (they can be semantically meaningful). Entire documents that become empty are dropped.
-// buildCleanManifest converts runtime.Objects to unstructured maps, prunes null/empty maps using reflection style traversal, then marshals as multi-doc YAML.
-func buildCleanManifest(objs []runtime.Object) (string, error) {
-	var buf bytes.Buffer
-	for _, obj := range objs {
-		m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
-		if err != nil {
-			return "", err
-		}
-		pruneMap(m)
-		// Drop metadata.creationTimestamp explicitly (often zero => null output)
-		if meta, ok := m["metadata"].(map[string]interface{}); ok {
-			delete(meta, "creationTimestamp")
-			if len(meta) == 0 { // unlikely
-				delete(m, "metadata")
-			}
-		}
-		// Drop empty status
-		if st, ok := m["status"].(map[string]interface{}); ok && len(st) == 0 {
-			delete(m, "status")
-		}
-		var ybuf bytes.Buffer
-		enc := yaml.NewEncoder(&ybuf)
-		enc.SetIndent(2)
-		if err := enc.Encode(m); err != nil {
-			return "", err
-		}
-		_ = enc.Close()
-		y := ybuf.Bytes()
-		buf.WriteString("---\n")
-		buf.Write(y)
-		if len(y) == 0 || y[len(y)-1] != '\n' {
-			buf.WriteByte('\n')
-		}
-	}
-	return buf.String(), nil
-}
-
-// pruneMap recursively removes keys with nil or empty map values.
-func pruneMap(v interface{}) interface{} {
-	switch x := v.(type) {
-	case map[string]interface{}:
-		for k, val := range x {
-			cleaned := pruneMap(val)
-			switch cv := cleaned.(type) {
-			case nil:
-				delete(x, k)
-			case map[string]interface{}:
-				if len(cv) == 0 {
-					delete(x, k)
-				} else {
-					x[k] = cv
-				}
-			default:
-				x[k] = cv
-			}
-		}
-		return x
-	case []interface{}:
-		for i, it := range x {
-			x[i] = pruneMap(it)
-		}
-		return x
-	default:
-		return x
-	}
 }
