@@ -216,21 +216,16 @@ func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Pro
 		sizeBytes := av.Size
 		if ok {
 			volHandle = inst.Handle
-			if inst.Size > 0 {
-				sizeBytes = inst.Size
-			}
 		}
 		if volHandle == "" { // fallback placeholder
 			volHandle = fmt.Sprintf("placeholder-%s-handle", av.Name)
 		}
-		if sizeBytes == 0 {
-			sizeBytes = 32 * (1 << 30)
-		}
+		// Do not override sizeBytes even if zero; pass through to manifest so API server validates.
 		volHASH := shortHash(volHandle, 6)
 		pvName := fmt.Sprintf("kompox-%s-%s-%s", av.Name, idHASH, volHASH)
 		sizeQty := bytesToQuantity(sizeBytes)
 		pv := &corev1.PersistentVolume{ObjectMeta: metav1.ObjectMeta{Name: pvName, Labels: commonLabels}, Spec: corev1.PersistentVolumeSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain, Capacity: corev1.ResourceList{corev1.ResourceStorage: sizeQty}, StorageClassName: "managed-csi", VolumeMode: volumeModePtr(corev1.PersistentVolumeFilesystem), PersistentVolumeSource: corev1.PersistentVolumeSource{CSI: &corev1.CSIPersistentVolumeSource{Driver: "disk.csi.azure.com", VolumeHandle: volHandle, VolumeAttributes: map[string]string{"fsType": "ext4"}}}}}
-		pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: pvName, Namespace: nsName, Labels: commonLabels}, Spec: corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, Resources: corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: sizeQty}}, VolumeName: pvName}}
+		pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: pvName, Namespace: nsName, Labels: commonLabels}, Spec: corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, Resources: corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: sizeQty}}, VolumeName: pvName, StorageClassName: strPtr("managed-csi")}}
 		pvs = append(pvs, pv, pvc)
 		podVolumes = append(podVolumes, corev1.Volume{Name: av.Name, VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: pvName}}})
 	}
@@ -396,7 +391,8 @@ func strPtr(s string) *string                                                  {
 // bytesToQuantity converts bytes to a resource.Quantity, rounding up to Mi boundary.
 func bytesToQuantity(b int64) resource.Quantity {
 	if b <= 0 {
-		return resource.MustParse("1Mi")
+		// Return zero-value quantity (interpreted as 0) to let API server raise validation error if invalid.
+		return resource.Quantity{}
 	}
 	const Mi = int64(1 << 20)
 	if b%Mi != 0 {
