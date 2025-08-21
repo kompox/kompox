@@ -32,6 +32,11 @@ To preserve a clean public codebase, do NOT add meta or prompt-author oriented a
 
 Allowed content focuses strictly on: behavior, rationale for technical decisions, usage examples, constraints, and future TODOs relevant to maintainers.
 
+Additional rules for source code comments:
+
+- Omit comments whose information belongs naturally in a commit message (e.g. pure change-log or refactor notes); rely on version control history instead.
+- Do not add comments that depend on a fleeting point-in-time context ("after recent refactor", "temporary hack until next week"). Instead, write timeless explanations or create a TODO with a concrete actionable follow-up (owner/condition) if necessary.
+
 ## Git Guidelines
 
 - Do not commit unless the user asks you to.
