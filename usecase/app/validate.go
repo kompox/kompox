@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	providerdrv "github.com/yaegashi/kompoxops/adapters/drivers/provider"
 	"github.com/yaegashi/kompoxops/adapters/kube"
 	"github.com/yaegashi/kompoxops/domain/model"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -64,6 +65,13 @@ func (u *UseCase) Validate(ctx context.Context, in *ValidateInput) (*ValidateOut
 			svc, _ = u.Repos.Service.Get(ctx, prv.ServiceID)
 		}
 		if svc != nil && prv != nil {
+			// Instantiate provider driver for conversion (volume class, etc.)
+			var drv providerdrv.Driver
+			if factory, ok := providerdrv.GetDriverFactory(prv.Driver); ok {
+				if d, derr := factory(svc, prv); derr == nil {
+					drv = d
+				}
+			}
 			// Collect assigned volume instances (one per logical volume) via VolumePort if available.
 			vmap := map[string]kube.VolumeInstanceInfo{}
 			if u.VolumePort != nil && len(a.Volumes) > 0 {
@@ -94,7 +102,7 @@ func (u *UseCase) Validate(ctx context.Context, in *ValidateInput) (*ValidateOut
 					}
 				}
 			}
-			objs, warns, convErr := kube.ComposeAppToObjects(ctx, svc, prv, cls, a, vmap)
+			objs, warns, convErr := kube.ComposeAppToObjects(ctx, svc, prv, cls, a, vmap, drv)
 			if convErr != nil {
 				out.Warnings = append(out.Warnings, fmt.Sprintf("compose conversion failed: %v", convErr))
 			} else {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/compose-spec/compose-go/v2/loader"
 	"github.com/compose-spec/compose-go/v2/types"
+	providerdrv "github.com/yaegashi/kompoxops/adapters/drivers/provider"
 	"github.com/yaegashi/kompoxops/domain/model"
 	"github.com/yaegashi/kompoxops/internal/logging"
 
@@ -34,7 +35,7 @@ type VolumeInstanceInfo struct {
 
 // ComposeAppToObjects converts App compose spec into Kubernetes objects using optional volume instance map.
 // volumeInstances: map[logicalVolumeName]VolumeInstanceInfo for assigned instances. If missing, placeholder handles are used.
-func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Provider, cls *model.Cluster, a *model.App, volumeInstances map[string]VolumeInstanceInfo) ([]runtime.Object, []string, error) {
+func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Provider, cls *model.Cluster, a *model.App, volumeInstances map[string]VolumeInstanceInfo, drv providerdrv.Driver) ([]runtime.Object, []string, error) {
 	proj, err := newComposeProject(ctx, a.Compose)
 	if err != nil {
 		return nil, nil, fmt.Errorf("compose project failed: %w", err)
@@ -224,8 +225,82 @@ func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Pro
 		volHASH := shortHash(volHandle, 6)
 		pvName := fmt.Sprintf("kompox-%s-%s-%s", av.Name, idHASH, volHASH)
 		sizeQty := bytesToQuantity(sizeBytes)
-		pv := &corev1.PersistentVolume{ObjectMeta: metav1.ObjectMeta{Name: pvName, Labels: commonLabels}, Spec: corev1.PersistentVolumeSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, PersistentVolumeReclaimPolicy: corev1.PersistentVolumeReclaimRetain, Capacity: corev1.ResourceList{corev1.ResourceStorage: sizeQty}, StorageClassName: "managed-csi", VolumeMode: volumeModePtr(corev1.PersistentVolumeFilesystem), PersistentVolumeSource: corev1.PersistentVolumeSource{CSI: &corev1.CSIPersistentVolumeSource{Driver: "disk.csi.azure.com", VolumeHandle: volHandle, VolumeAttributes: map[string]string{"fsType": "ext4"}}}}}
-		pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: pvName, Namespace: nsName, Labels: commonLabels}, Spec: corev1.PersistentVolumeClaimSpec{AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}, Resources: corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: sizeQty}}, VolumeName: pvName, StorageClassName: strPtr("managed-csi")}}
+
+		// Resolve provider-specific volume class (optional; may return empty spec)
+		var vc providerdrv.VolumeClass
+		if drv != nil {
+			resolved, err := drv.VolumeClass(ctx, cls, a, av)
+			if err != nil {
+				return nil, nil, fmt.Errorf("volume class resolve failed: %s: %w", av.Name, err)
+			}
+			vc = resolved
+		}
+		// AccessModes mapping
+		accessModes := []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
+		if len(vc.AccessModes) > 0 {
+			var am []corev1.PersistentVolumeAccessMode
+			for _, m := range vc.AccessModes {
+				switch m {
+				case "ReadWriteOnce":
+					am = append(am, corev1.ReadWriteOnce)
+				case "ReadOnlyMany":
+					am = append(am, corev1.ReadOnlyMany)
+				case "ReadWriteMany":
+					am = append(am, corev1.ReadWriteMany)
+				}
+			}
+			if len(am) > 0 { // only override if at least one valid mode parsed
+				accessModes = am
+			}
+		}
+		reclaim := corev1.PersistentVolumeReclaimRetain
+		if vc.ReclaimPolicy == "Delete" {
+			reclaim = corev1.PersistentVolumeReclaimDelete
+		}
+		volMode := corev1.PersistentVolumeFilesystem
+		if vc.VolumeMode == "Block" {
+			volMode = corev1.PersistentVolumeBlock
+		}
+		csiDriver := vc.CSIDriver
+		if csiDriver == "" {
+			return nil, nil, fmt.Errorf("provider driver did not supply CSIDriver for volume %s (no default injected)", av.Name)
+		}
+		// fsType attribute: prefer explicit FSType then Attributes[fsType]
+		fsType := vc.FSType
+		attrs := map[string]string{}
+		for k, v := range vc.Attributes {
+			if v != "" {
+				attrs[k] = v
+			}
+		}
+		if fsType != "" {
+			attrs["fsType"] = fsType
+		}
+		if _, ok := attrs["fsType"]; !ok { // final fallback for compatibility
+			attrs["fsType"] = "ext4"
+		}
+		pvSpec := corev1.PersistentVolumeSpec{
+			AccessModes:                   accessModes,
+			PersistentVolumeReclaimPolicy: reclaim,
+			Capacity:                      corev1.ResourceList{corev1.ResourceStorage: sizeQty},
+			VolumeMode:                    volumeModePtr(volMode),
+			PersistentVolumeSource:        corev1.PersistentVolumeSource{CSI: &corev1.CSIPersistentVolumeSource{Driver: csiDriver, VolumeHandle: volHandle, VolumeAttributes: attrs}},
+		}
+		if vc.StorageClassName != "" { // only set if provided
+			pvSpec.StorageClassName = vc.StorageClassName
+		}
+		pv := &corev1.PersistentVolume{ObjectMeta: metav1.ObjectMeta{Name: pvName, Labels: commonLabels}, Spec: pvSpec}
+		pvcSpec := corev1.PersistentVolumeClaimSpec{
+			AccessModes: accessModes,
+			Resources:   corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: sizeQty}},
+			VolumeName:  pvName,
+		}
+		if vc.StorageClassName != "" {
+			pvcSpec.StorageClassName = strPtr(vc.StorageClassName)
+		}
+		pvcSpec.VolumeMode = volumeModePtr(volMode)
+		pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: pvName, Namespace: nsName, Labels: commonLabels}, Spec: pvcSpec}
+
 		pvs = append(pvs, pv, pvc)
 		podVolumes = append(podVolumes, corev1.Volume{Name: av.Name, VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: pvName}}})
 	}

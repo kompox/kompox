@@ -14,6 +14,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/oklog/ulid/v2"
+	providerdrv "github.com/yaegashi/kompoxops/adapters/drivers/provider"
 	"github.com/yaegashi/kompoxops/domain/model"
 )
 
@@ -392,4 +393,19 @@ func (d *driver) VolumeInstanceDelete(ctx context.Context, cluster *model.Cluste
 	}
 	idHASH := deriveIDHash(d.ServiceName(), d.ProviderName(), app.Name)
 	return d.azureVolumeInstanceDelete(ctx, rg, volName, idHASH, volInstName)
+}
+
+// VolumeClass implements providerdrv.Driver VolumeClass method for AKS.
+// Returns opinionated defaults suitable for Azure Disk CSI; callers must omit any empty field.
+func (d *driver) VolumeClass(ctx context.Context, cluster *model.Cluster, app *model.App, vol model.AppVolume) (providerdrv.VolumeClass, error) {
+	// For now we always return managed-csi / disk.csi.azure.com with ext4; future: derive from volume, size, perf tier.
+	return providerdrv.VolumeClass{
+		StorageClassName: "managed-csi",
+		CSIDriver:        "disk.csi.azure.com",
+		FSType:           "ext4",
+		Attributes:       map[string]string{"fsType": "ext4"},
+		AccessModes:      []string{"ReadWriteOnce"},
+		ReclaimPolicy:    "Retain",
+		VolumeMode:       "Filesystem",
+	}, nil
 }

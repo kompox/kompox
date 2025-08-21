@@ -67,6 +67,11 @@ func (d *driver) VolumeInstanceDelete(ctx context.Context, cluster *model.Cluste
 	return fmt.Errorf("VolumeInstanceDelete is not implemented for k3s provider")
 }
 
+// VolumeClass returns empty spec (no opinion) for k3s provider.
+func (d *driver) VolumeClass(ctx context.Context, cluster *model.Cluster, app *model.App, vol model.AppVolume) (providerdrv.VolumeClass, error) {
+	return providerdrv.VolumeClass{}, nil
+}
+
 // init registers the K3s driver.
 func init() {
 	providerdrv.Register("k3s", func(service *model.Service, provider *model.Provider) (providerdrv.Driver, error) {
