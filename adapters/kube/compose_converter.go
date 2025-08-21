@@ -2,7 +2,6 @@ package kube
 
 import (
 	"context"
-	"crypto/sha1"
 	"errors"
 	"fmt"
 	"sort"
@@ -14,6 +13,7 @@ import (
 	providerdrv "github.com/yaegashi/kompoxops/adapters/drivers/provider"
 	"github.com/yaegashi/kompoxops/domain/model"
 	"github.com/yaegashi/kompoxops/internal/logging"
+	"github.com/yaegashi/kompoxops/internal/naming"
 
 	yaml "gopkg.in/yaml.v3"
 	appsv1 "k8s.io/api/apps/v1"
@@ -41,11 +41,12 @@ func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Pro
 		return nil, nil, fmt.Errorf("compose project failed: %w", err)
 	}
 
-	// Hashes (inHASH cluster dependent, idHASH cluster independent)
-	inBase := fmt.Sprintf("%s:%s:%s:%s", svc.Name, prv.Name, cls.Name, a.Name)
-	idBase := fmt.Sprintf("%s:%s:%s", svc.Name, prv.Name, a.Name)
-	inHASH := shortHash(inBase, 6)
-	idHASH := shortHash(idBase, 6)
+	// Hierarchical hashes
+	hashes := naming.NewHashes(svc.Name, prv.Name, cls.Name, a.Name)
+	// service/provider/app (cluster independent)
+	idHASH := hashes.AppID
+	// service/provider/cluster/app (cluster dependent)
+	inHASH := hashes.AppInstance
 
 	nsName := fmt.Sprintf("kompox-%s-%s", a.Name, idHASH)
 
@@ -222,7 +223,7 @@ func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Pro
 			volHandle = fmt.Sprintf("placeholder-%s-handle", av.Name)
 		}
 		// Do not override sizeBytes even if zero; pass through to manifest so API server validates.
-		volHASH := shortHash(volHandle, 6)
+		volHASH := naming.VolumeHash(volHandle)
 		pvName := fmt.Sprintf("kompox-%s-%s-%s", av.Name, idHASH, volHASH)
 		sizeQty := bytesToQuantity(sizeBytes)
 
@@ -475,18 +476,6 @@ func bytesToQuantity(b int64) resource.Quantity {
 	}
 	return resource.MustParse(fmt.Sprintf("%dMi", b>>20))
 }
-
-// shortHash returns a hex SHA1 prefix with automatic extension length logic placeholder.
-func shortHash(s string, n int) string {
-	sum := sha1.Sum([]byte(s))
-	h := fmt.Sprintf("%x", sum)
-	if n > len(h) {
-		n = len(h)
-	}
-	return h[:n]
-}
-
-var _ = types.Project{}
 
 // newComposeProject loads a compose project from raw YAML string (single file only, includes disabled).
 func newComposeProject(ctx context.Context, composeContent string) (*types.Project, error) {
