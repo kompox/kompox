@@ -4,12 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armdeploymentstacks"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/yaegashi/kompoxops/adapters/kube"
 	"github.com/yaegashi/kompoxops/domain/model"
 	"github.com/yaegashi/kompoxops/internal/logging"
@@ -17,51 +17,54 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// Constants for deployment stack output keys
+// Constants for template output keys
 const (
-	StackOutputResourceGroupName = "AZURE_RESOURCE_GROUP_NAME"
-	StackOutputAksClusterName    = "AZURE_AKS_CLUSTER_NAME"
+	OutputResourceGroupName = "AZURE_RESOURCE_GROUP_NAME"
+	OutputAksClusterName    = "AZURE_AKS_CLUSTER_NAME"
 )
 
-// Deployment stack name now equals cluster resource group name for determinism.
+// deploymentName generates the deployment name for the subscription-scoped deployment.
+// It returns the same name as the resource group name for consistency.
+func (d *driver) deploymentName(cluster *model.Cluster) (string, error) {
+	return d.clusterResourceGroupName(cluster)
+}
 
 // clusterTagValue generates the cluster tag value for resource tagging.
 func (d *driver) clusterTagValue(clusterName string) string {
 	return fmt.Sprintf("%s/%s/%s", d.ServiceName(), d.ProviderName(), clusterName)
 }
 
-// getDeploymentStackOutputs retrieves the outputs from the deployment stack.
-func (d *driver) getDeploymentStackOutputs(ctx context.Context, cluster *model.Cluster) (map[string]any, error) {
-	stacksClient, err := armdeploymentstacks.NewClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+// getDeploymentOutputs retrieves the outputs from the subscription-scoped deployment.
+func (d *driver) getDeploymentOutputs(ctx context.Context, cluster *model.Cluster) (map[string]any, error) {
+	deploymentsClient, err := armresources.NewDeploymentsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create deployment stacks client: %w", err)
+		return nil, fmt.Errorf("failed to create deployments client: %w", err)
 	}
 
-	deploymentStackName, err := d.clusterResourceGroupName(cluster)
+	deploymentName, err := d.deploymentName(cluster)
 	if err != nil {
-		return nil, fmt.Errorf("derive deployment stack name: %w", err)
+		return nil, fmt.Errorf("derive deployment name: %w", err)
 	}
-	stack, err := stacksClient.GetAtSubscription(ctx, deploymentStackName, nil)
+	deployment, err := deploymentsClient.GetAtSubscriptionScope(ctx, deploymentName, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get deployment stack: %w", err)
+		return nil, fmt.Errorf("failed to get subscription deployment: %w", err)
 	}
 
-	if stack.Properties == nil || stack.Properties.Outputs == nil {
-		return nil, fmt.Errorf("deployment stack has no outputs")
+	if deployment.Properties == nil || deployment.Properties.Outputs == nil {
+		return nil, fmt.Errorf("deployment has no outputs")
 	}
 
 	// Type assert the outputs to the correct map type
-	outputsMap, ok := stack.Properties.Outputs.(map[string]any)
+	outputsMap, ok := deployment.Properties.Outputs.(map[string]any)
 	if !ok {
-		return nil, fmt.Errorf("deployment stack outputs has unexpected type")
+		return nil, fmt.Errorf("deployment outputs has unexpected type")
 	}
 
 	outputs := make(map[string]any)
 	for key, value := range outputsMap {
 		if outputValue, ok := value.(map[string]any); ok {
 			if val, exists := outputValue["value"]; exists {
-				// ARM does not preserve alphabet case in output keys, so normalization is required
-				outputs[strings.ToUpper(key)] = val
+				outputs[key] = val
 			}
 		}
 	}
@@ -69,23 +72,23 @@ func (d *driver) getDeploymentStackOutputs(ctx context.Context, cluster *model.C
 	return outputs, nil
 }
 
-// getAKSClient creates a new AKS client and retrieves resource information from deployment stack.
+// getAKSClient creates a new AKS client and retrieves resource information from deployment outputs.
 func (d *driver) getAKSClient(ctx context.Context, cluster *model.Cluster) (*armcontainerservice.ManagedClustersClient, string, string, error) {
-	// Get outputs from deployment stack
-	outputs, err := d.getDeploymentStackOutputs(ctx, cluster)
+	// Get outputs from deployment
+	outputs, err := d.getDeploymentOutputs(ctx, cluster)
 	if err != nil {
-		return nil, "", "", fmt.Errorf("failed to get deployment stack outputs: %w", err)
+		return nil, "", "", fmt.Errorf("failed to get deployment outputs: %w", err)
 	}
 
 	// Extract resource group and cluster names from outputs
-	aksRGName, ok := outputs[StackOutputResourceGroupName].(string)
+	aksRGName, ok := outputs[OutputResourceGroupName].(string)
 	if !ok {
-		return nil, "", "", fmt.Errorf("%s not found in deployment stack outputs", StackOutputResourceGroupName)
+		return nil, "", "", fmt.Errorf("%s not found in deployment outputs", OutputResourceGroupName)
 	}
 
-	aksName, ok := outputs[StackOutputAksClusterName].(string)
+	aksName, ok := outputs[OutputAksClusterName].(string)
 	if !ok {
-		return nil, "", "", fmt.Errorf("%s not found in deployment stack outputs", StackOutputAksClusterName)
+		return nil, "", "", fmt.Errorf("%s not found in deployment outputs", OutputAksClusterName)
 	}
 
 	// Create AKS client
@@ -97,6 +100,74 @@ func (d *driver) getAKSClient(ctx context.Context, cluster *model.Cluster) (*arm
 	return aksClient, aksRGName, aksName, nil
 }
 
+// getKeyVaultsInResourceGroup retrieves the names of Key Vaults in the specified resource group.
+func (d *driver) getKeyVaultsInResourceGroup(ctx context.Context, resourceGroupName string) ([]string, error) {
+	resourcesClient, err := armresources.NewClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create resources client: %w", err)
+	}
+
+	// Filter for Key Vault resources
+	filter := "resourceType eq 'Microsoft.KeyVault/vaults'"
+	pager := resourcesClient.NewListByResourceGroupPager(resourceGroupName, &armresources.ClientListByResourceGroupOptions{
+		Filter: &filter,
+	})
+
+	var keyVaultNames []string
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list resources: %w", err)
+		}
+
+		for _, resource := range page.Value {
+			if resource.Name != nil {
+				keyVaultNames = append(keyVaultNames, *resource.Name)
+			}
+		}
+	}
+
+	return keyVaultNames, nil
+}
+
+// purgeKeyVaults purges the specified Key Vaults to allow immediate recreation.
+func (d *driver) purgeKeyVaults(ctx context.Context, keyVaultNames []string) error {
+	if len(keyVaultNames) == 0 {
+		return nil
+	}
+
+	log := logging.FromContext(ctx)
+
+	vaultsClient, err := armkeyvault.NewVaultsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create key vault client: %w", err)
+	}
+
+	for _, vaultName := range keyVaultNames {
+		log.Info(ctx, "purging key vault", "vault_name", vaultName, "location", d.AzureLocation)
+
+		poller, err := vaultsClient.BeginPurgeDeleted(ctx, vaultName, d.AzureLocation, nil)
+		if err != nil {
+			// Log error but continue with other vaults
+			log.Debug(ctx, "failed to start key vault purge", "error", err, "vault_name", vaultName)
+			continue
+		}
+
+		// Wait for purge completion with a shorter timeout per vault
+		purgeCtx, purgeCancel := context.WithTimeout(ctx, 5*time.Minute)
+		_, err = poller.PollUntilDone(purgeCtx, nil)
+		purgeCancel()
+
+		if err != nil {
+			log.Debug(ctx, "key vault purge failed or timed out", "error", err, "vault_name", vaultName)
+		} else {
+			log.Info(ctx, "key vault purged successfully", "vault_name", vaultName)
+		}
+	}
+
+	return nil
+}
+
 // ClusterProvision provisions an AKS cluster according to the cluster specification.
 func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
@@ -104,11 +175,18 @@ func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster) e
 
 	log := logging.FromContext(ctx)
 
-	// Derive or override resource group name
+	// Derive resource group name
 	resourceGroupName, err := d.clusterResourceGroupName(cluster)
 	if err != nil || resourceGroupName == "" {
 		return fmt.Errorf("derive cluster resource group: %w", err)
 	}
+
+	log.Info(ctx, "aks cluster provision begin",
+		"resource_group", resourceGroupName,
+		"cluster", cluster.Name,
+		"provider", d.ProviderName(),
+		"subscription", d.AzureSubscriptionId,
+	)
 
 	// Unmarshal embedded ARM template (subscription scope)
 	var template map[string]any
@@ -116,61 +194,45 @@ func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster) e
 		return fmt.Errorf("unmarshal embedded template: %w", err)
 	}
 
-	// Prepare ARM parameters (object with value fields)
-	parameters := map[string]*armdeploymentstacks.DeploymentParameter{
-		"environmentName": {
-			Value: cluster.Name,
-		},
-		"location": {
-			Value: d.AzureLocation,
-		},
-		"resourceGroupName": {
-			Value: resourceGroupName,
-		},
+	// Prepare ARM parameters for subscription-scoped deployment
+	parameters := map[string]any{
+		"environmentName":   map[string]any{"value": cluster.Name},
+		"location":          map[string]any{"value": d.AzureLocation},
+		"resourceGroupName": map[string]any{"value": resourceGroupName},
 	}
 
-	// Create deployment stacks client
-	stacksClient, err := armdeploymentstacks.NewClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+	// Create deployments client for subscription-scoped deployment
+	deploymentsClient, err := armresources.NewDeploymentsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
 	if err != nil {
-		return fmt.Errorf("create deployment stacks client: %w", err)
+		return fmt.Errorf("create deployments client: %w", err)
 	}
 
-	deploymentStackName, err := d.clusterResourceGroupName(cluster)
+	deploymentName, err := d.deploymentName(cluster)
 	if err != nil {
-		return fmt.Errorf("derive deployment stack name: %w", err)
+		return fmt.Errorf("derive deployment name: %w", err)
 	}
 
-	log.Info(ctx, "aks cluster provision begin",
-		"deployment_stack", deploymentStackName,
-		"resource_group", resourceGroupName,
-		"cluster", cluster.Name,
-		"provider", d.ProviderName(),
-		"subscription", d.AzureSubscriptionId,
-	)
-
-	// If an existing successful deployment stack with same name exists, treat as done (idempotent)
-	if existing, err := stacksClient.GetAtSubscription(ctx, deploymentStackName, nil); err == nil {
+	// Check if deployment already exists and is successful (idempotent)
+	if existing, err := deploymentsClient.GetAtSubscriptionScope(ctx, deploymentName, nil); err == nil {
 		if existing.Properties != nil && existing.Properties.ProvisioningState != nil &&
-			*existing.Properties.ProvisioningState == armdeploymentstacks.DeploymentStackProvisioningStateSucceeded {
+			*existing.Properties.ProvisioningState == "Succeeded" {
+			log.Info(ctx, "aks cluster already provisioned",
+				"resource_group", resourceGroupName,
+				"cluster", cluster.Name,
+				"provider", d.ProviderName(),
+			)
 			return nil
 		}
 		// fallthrough: re-issue deployment to converge
 	}
 
-	// Create deployment stack
-	deploymentStack := armdeploymentstacks.DeploymentStack{
+	// Create subscription-scoped deployment
+	deployment := armresources.Deployment{
 		Location: to.Ptr(d.AzureLocation),
-		Properties: &armdeploymentstacks.DeploymentStackProperties{
+		Properties: &armresources.DeploymentProperties{
 			Template:   template,
 			Parameters: parameters,
-			ActionOnUnmanage: &armdeploymentstacks.ActionOnUnmanage{
-				Resources:        to.Ptr(armdeploymentstacks.DeploymentStacksDeleteDetachEnumDetach),
-				ResourceGroups:   to.Ptr(armdeploymentstacks.DeploymentStacksDeleteDetachEnumDetach),
-				ManagementGroups: to.Ptr(armdeploymentstacks.DeploymentStacksDeleteDetachEnumDetach),
-			},
-			DenySettings: &armdeploymentstacks.DenySettings{
-				Mode: to.Ptr(armdeploymentstacks.DenySettingsModeNone),
-			},
+			Mode:       to.Ptr(armresources.DeploymentModeIncremental),
 		},
 		Tags: map[string]*string{
 			"kompox-cluster": to.Ptr(d.clusterTagValue(cluster.Name)),
@@ -178,16 +240,15 @@ func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster) e
 		},
 	}
 
-	poller, err := stacksClient.BeginCreateOrUpdateAtSubscription(ctx, deploymentStackName, deploymentStack, nil)
+	poller, err := deploymentsClient.BeginCreateOrUpdateAtSubscriptionScope(ctx, deploymentName, deployment, nil)
 	if err != nil {
-		return fmt.Errorf("begin subscription deployment stack creation: %w", err)
+		return fmt.Errorf("begin subscription deployment creation: %w", err)
 	}
 	if _, err = poller.PollUntilDone(ctx, nil); err != nil {
-		return fmt.Errorf("subscription deployment stack creation failed: %w", err)
+		return fmt.Errorf("subscription deployment creation failed: %w", err)
 	}
 
 	log.Info(ctx, "aks cluster provision succeeded",
-		"deployment_stack", deploymentStackName,
 		"resource_group", resourceGroupName,
 		"cluster", cluster.Name,
 		"provider", d.ProviderName(),
@@ -195,7 +256,7 @@ func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster) e
 	return nil
 }
 
-// ClusterDeprovision deprovisions an AKS cluster according to the cluster specification.
+// ClusterDeprovision deprovisions an AKS cluster by deleting the entire resource group.
 func (d *driver) ClusterDeprovision(ctx context.Context, cluster *model.Cluster) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
@@ -207,48 +268,61 @@ func (d *driver) ClusterDeprovision(ctx context.Context, cluster *model.Cluster)
 		return fmt.Errorf("derive cluster resource group: %w", err)
 	}
 
-	// Create deployment stacks client
-	stacksClient, err := armdeploymentstacks.NewClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+	// Create resource groups client
+	rgClient, err := armresources.NewResourceGroupsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
 	if err != nil {
-		return fmt.Errorf("failed to create deployment stacks client: %w", err)
+		return fmt.Errorf("failed to create resource groups client: %w", err)
 	}
 
-	deploymentStackName, err := d.clusterResourceGroupName(cluster)
+	// Check if resource group exists
+	_, err = rgClient.Get(ctx, resourceGroupName, nil)
 	if err != nil {
-		return fmt.Errorf("derive deployment stack name: %w", err)
-	}
-
-	// Check if deployment stack exists
-	_, err = stacksClient.GetAtSubscription(ctx, deploymentStackName, nil)
-	if err != nil {
-		// If deployment stack doesn't exist, consider it already deprovisioned
+		// If resource group doesn't exist, consider it already deprovisioned
 		return nil
 	}
 
-	// Delete the deployment stack with all managed resources
+	// Get Key Vaults in the resource group before deletion for later purging
+	keyVaultNames, err := d.getKeyVaultsInResourceGroup(ctx, resourceGroupName)
+	if err != nil {
+		log.Debug(ctx, "failed to get key vaults in resource group", "error", err, "resource_group", resourceGroupName)
+		// Continue with deletion even if we can't get key vault names
+		keyVaultNames = []string{}
+	}
+
 	log.Info(ctx, "aks cluster deprovision begin",
-		"deployment_stack", deploymentStackName,
 		"resource_group", resourceGroupName,
 		"cluster", cluster.Name,
 		"provider", d.ProviderName(),
+		"key_vaults_to_purge", len(keyVaultNames),
 	)
-	poller, err := stacksClient.BeginDeleteAtSubscription(ctx, deploymentStackName, &armdeploymentstacks.ClientBeginDeleteAtSubscriptionOptions{
-		UnmanageActionResources:        to.Ptr(armdeploymentstacks.UnmanageActionResourceModeDelete),
-		UnmanageActionResourceGroups:   to.Ptr(armdeploymentstacks.UnmanageActionResourceGroupModeDelete),
-		UnmanageActionManagementGroups: to.Ptr(armdeploymentstacks.UnmanageActionManagementGroupModeDelete),
-	})
+
+	// Delete the entire resource group
+	poller, err := rgClient.BeginDelete(ctx, resourceGroupName, nil)
 	if err != nil {
-		return fmt.Errorf("failed to start deployment stack deletion: %w", err)
+		return fmt.Errorf("failed to start resource group deletion: %w", err)
 	}
 
 	// Wait for completion
 	_, err = poller.PollUntilDone(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("failed to delete deployment stack %s: %w", deploymentStackName, err)
+		return fmt.Errorf("failed to delete resource group %s: %w", resourceGroupName, err)
+	}
+
+	log.Info(ctx, "resource group deleted successfully",
+		"resource_group", resourceGroupName,
+		"cluster", cluster.Name,
+		"provider", d.ProviderName(),
+	)
+
+	// Purge the Key Vaults that were in the deleted resource group
+	if len(keyVaultNames) > 0 {
+		if err := d.purgeKeyVaults(ctx, keyVaultNames); err != nil {
+			// Log the error but don't fail the entire deprovision operation
+			log.Debug(ctx, "failed to purge some key vaults", "error", err, "key_vaults", keyVaultNames)
+		}
 	}
 
 	log.Info(ctx, "aks cluster deprovision succeeded",
-		"deployment_stack", deploymentStackName,
 		"resource_group", resourceGroupName,
 		"cluster", cluster.Name,
 		"provider", d.ProviderName(),
@@ -268,30 +342,30 @@ func (d *driver) ClusterStatus(ctx context.Context, cluster *model.Cluster) (*mo
 		Installed:   false,
 	}
 
-	// Create deployment stacks client to check the stack status
-	stacksClient, err := armdeploymentstacks.NewClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+	// Create deployments client to check subscription deployment status
+	deploymentsClient, err := armresources.NewDeploymentsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
 	if err != nil {
-		return status, fmt.Errorf("failed to create deployment stacks client: %w", err)
+		return status, fmt.Errorf("failed to create deployments client: %w", err)
 	}
 
-	deploymentStackName, err := d.clusterResourceGroupName(cluster)
+	deploymentName, err := d.deploymentName(cluster)
 	if err != nil {
-		return status, fmt.Errorf("derive deployment stack name: %w", err)
+		return status, fmt.Errorf("derive deployment name: %w", err)
 	}
 
-	// Check deployment stack status
-	stack, err := stacksClient.GetAtSubscription(ctx, deploymentStackName, nil)
+	// Check subscription deployment status
+	deployment, err := deploymentsClient.GetAtSubscriptionScope(ctx, deploymentName, nil)
 	if err != nil {
-		// Deployment stack doesn't exist
+		// Deployment doesn't exist
 		return status, nil
 	}
 
-	if stack.Properties == nil || stack.Properties.ProvisioningState == nil {
+	if deployment.Properties == nil || deployment.Properties.ProvisioningState == nil {
 		return status, nil
 	}
 
-	// Check if deployment stack is provisioned successfully
-	if *stack.Properties.ProvisioningState == armdeploymentstacks.DeploymentStackProvisioningStateSucceeded {
+	// Check if deployment is provisioned successfully
+	if *deployment.Properties.ProvisioningState == "Succeeded" {
 		status.Provisioned = true
 
 		// Get AKS client and resource information
