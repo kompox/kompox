@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -64,7 +65,8 @@ func (d *driver) getDeploymentOutputs(ctx context.Context, cluster *model.Cluste
 	for key, value := range outputsMap {
 		if outputValue, ok := value.(map[string]any); ok {
 			if val, exists := outputValue["value"]; exists {
-				outputs[key] = val
+				// Normalize keys to uppercase to avoid issues from accidental casing changes
+				outputs[strings.ToUpper(key)] = val
 			}
 		}
 	}

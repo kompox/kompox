@@ -119,6 +119,7 @@ kompoxops cluster deprovision --cluster-name <clusterName>   Cluster リソー�
 kompoxops cluster install --cluster-name <clusterName>       K8s クラスタ内のリソースをインストール開始
 kompoxops cluster uninstall --cluster-name <clusterName>     K8s クラスタ内のリソースをアンインストール開始
 kompoxops cluster status --cluster-name <clusterName>        K8s クラスタのステータスを表示
+kompoxops cluster kubeconfig --cluster-name <clusterName>    kubectl 用 kubeconfig を取得/統合
 ```
 
 共通オプション
@@ -154,6 +155,67 @@ provision/deprovision/install/uninstall は status により実行可否が変�
 |install|provisioned=false|installed=falseならK8sクラスタ内リソース作成開始|
 |uninstall||installed=trueならK8sクラスタ内リソース削除開始|
 
+### kompoxops cluster provision
+
+Cluster リソース準拠の AKS/K8s クラスタを作成開始します（idempotent）。`existing=true` の場合は何もしません。
+
+### kompoxops cluster deprovision
+
+対象クラスタのリソースグループを削除します（idempotent）。`installed=true` の場合はエラーです。
+
+### kompoxops cluster install
+
+Ingress Controller などのクラスタ内リソースをインストールします。`provisioned=false` の場合はエラーです。
+
+### kompoxops cluster uninstall
+
+クラスタ内リソースをアンインストールします（best-effort）。
+
+### kompoxops cluster status
+
+クラスタの `existing`/`provisioned`/`installed` を JSON で表示します。
+
+### kompoxops cluster kubeconfig
+
+Provider Driver からクラスタの kubeconfig（管理者資格）を取得し、標準出力/ファイル保存/既存 kubeconfig への統合を行う。
+
+主なオプション:
+
+- `-o, --out FILE` 出力先（`-` は標準出力。stdout は必ず明示的に `-o -` を指定）
+- `--merge` 既存 kubeconfig に統合（既定: `~/.kube/config`）
+- `--kubeconfig PATH` 統合先ファイル（既定: `~/.kube/config`）
+- `--context NAME` 生成する context 名（既定: `kompoxops-<clusterName>`）
+- `--namespace NS` context のデフォルト namespace
+- `--set-current` 統合後に current-context を新しい context に設定
+- `--force` 同名エントリがある場合に上書き（未指定時は `-1`, `-2` のように自動ユニーク化）
+- `--temp` セキュアな一時ファイルに保存してパスを出力
+- `--print-export` `export KUBECONFIG=...` を出力（`--out` か `--temp` と併用）
+- `--format yaml|json` 標準出力時のフォーマット（既定: `yaml`）
+- `--dry-run` 統合時の差分を要約表示のみ（書き込み無し）
+- `--cred admin|user` 要求する資格（現状 `admin` のみサポート）
+- `--timeout DURATION` 取得のタイムアウト（既定: `2m`）
+
+注意:
+
+- 何も出力先を指定しない（`--merge` なし、`--temp` なし、`--out` 未指定）の場合はエラーになります。
+- stdout 出力は `-o -` を明示したときのみ行われます。
+
+使用例:
+
+```
+# 標準出力へ（明示）
+kompoxops cluster kubeconfig -C mycluster -o -
+
+# 一時ファイル化と KUBECONFIG エクスポート
+eval "$(kompoxops cluster kubeconfig -C mycluster --temp --print-export)"
+
+# 既存へ統合して current-context を切替え
+kompoxops cluster kubeconfig -C mycluster --merge --set-current
+
+# context と namespace を指定して保存
+kompoxops cluster kubeconfig -C mycluster --merge --context kompox/prod --namespace staging
+```
+
 ### kompoxops app
 
 アプリの操作を行う。
@@ -173,6 +235,18 @@ YAML 構文エラーや制約違反が検出された場合はエラーを返す
 
 - `--out-compose FILE` を指定すると正規化した Docker Compose の YAML ドキュメントを出力する (`-` は stdout)
 - `--out-manifest FILE` を指定すると K8s マニフェストの YAML ドキュメントを出力する (`-` は stdout)
+
+### kompoxops app validate
+
+Compose の検証と K8s マニフェスト生成を行います。`--out-compose`/`--out-manifest` でファイル出力可能です。
+
+### kompoxops app deploy
+
+検証・変換済みのオブジェクトを対象クラスタに適用します（サーバサイドアプライ）。
+
+### kompoxops app destroy
+
+（将来拡張）デプロイ済みオブジェクトの削除を行います。
 
 ### kompoxops volume
 
@@ -209,6 +283,22 @@ NAME        ASSIGNED  SIZE   HANDLE        CREATED              UPDATED
 vol-202401  true      32Gi   1f3ab29 (az)  2024-01-10T12:00Z    2024-01-10T12:05Z
 vol-202312  false     32Gi   9ab1c02 (az)  2023-12-31T09:00Z    2024-01-10T12:05Z
 ```
+
+### kompoxops volume list
+
+ボリュームインスタンスの一覧を表示します。
+
+### kompoxops volume create
+
+新しいボリュームインスタンスを作成します（サイズは app.volumes 定義）。
+
+### kompoxops volume assign
+
+指定インスタンスを Assigned=true に設定し、他を自動的に Unassign します。
+
+### kompoxops volume delete
+
+指定インスタンスを削除します（Assigned 中は `--force` なしで拒否）。
 
 ### kompoxops admin
 
