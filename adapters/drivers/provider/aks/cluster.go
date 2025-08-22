@@ -12,6 +12,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armdeploymentstacks"
 	"github.com/yaegashi/kompoxops/adapters/kube"
 	"github.com/yaegashi/kompoxops/domain/model"
+	"github.com/yaegashi/kompoxops/internal/logging"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -22,10 +23,7 @@ const (
 	StackOutputAksClusterName    = "AZURE_AKS_CLUSTER_NAME"
 )
 
-// deploymentStackName generates the deployment stack name for a cluster.
-func (d *driver) deploymentStackName(clusterName string) string {
-	return fmt.Sprintf("kompox_%s_%s_%s", d.ServiceName(), d.ProviderName(), clusterName)
-}
+// Deployment stack name now equals cluster resource group name for determinism.
 
 // clusterTagValue generates the cluster tag value for resource tagging.
 func (d *driver) clusterTagValue(clusterName string) string {
@@ -33,13 +31,16 @@ func (d *driver) clusterTagValue(clusterName string) string {
 }
 
 // getDeploymentStackOutputs retrieves the outputs from the deployment stack.
-func (d *driver) getDeploymentStackOutputs(ctx context.Context, clusterName string) (map[string]any, error) {
+func (d *driver) getDeploymentStackOutputs(ctx context.Context, cluster *model.Cluster) (map[string]any, error) {
 	stacksClient, err := armdeploymentstacks.NewClient(d.AzureSubscriptionId, d.TokenCredential, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create deployment stacks client: %w", err)
 	}
 
-	deploymentStackName := d.deploymentStackName(clusterName)
+	deploymentStackName, err := d.clusterResourceGroupName(cluster)
+	if err != nil {
+		return nil, fmt.Errorf("derive deployment stack name: %w", err)
+	}
 	stack, err := stacksClient.GetAtSubscription(ctx, deploymentStackName, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get deployment stack: %w", err)
@@ -69,9 +70,9 @@ func (d *driver) getDeploymentStackOutputs(ctx context.Context, clusterName stri
 }
 
 // getAKSClient creates a new AKS client and retrieves resource information from deployment stack.
-func (d *driver) getAKSClient(ctx context.Context, clusterName string) (*armcontainerservice.ManagedClustersClient, string, string, error) {
+func (d *driver) getAKSClient(ctx context.Context, cluster *model.Cluster) (*armcontainerservice.ManagedClustersClient, string, string, error) {
 	// Get outputs from deployment stack
-	outputs, err := d.getDeploymentStackOutputs(ctx, clusterName)
+	outputs, err := d.getDeploymentStackOutputs(ctx, cluster)
 	if err != nil {
 		return nil, "", "", fmt.Errorf("failed to get deployment stack outputs: %w", err)
 	}
@@ -101,10 +102,12 @@ func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster) e
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
 
-	// Parameters from cluster & driver
-	resourceGroupName := cluster.Settings["AZURE_RESOURCE_GROUP_NAME"]
-	if resourceGroupName == "" {
-		return fmt.Errorf("AZURE_RESOURCE_GROUP_NAME is required in cluster settings")
+	log := logging.FromContext(ctx)
+
+	// Derive or override resource group name
+	resourceGroupName, err := d.clusterResourceGroupName(cluster)
+	if err != nil || resourceGroupName == "" {
+		return fmt.Errorf("derive cluster resource group: %w", err)
 	}
 
 	// Unmarshal embedded ARM template (subscription scope)
@@ -132,7 +135,18 @@ func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster) e
 		return fmt.Errorf("create deployment stacks client: %w", err)
 	}
 
-	deploymentStackName := d.deploymentStackName(cluster.Name)
+	deploymentStackName, err := d.clusterResourceGroupName(cluster)
+	if err != nil {
+		return fmt.Errorf("derive deployment stack name: %w", err)
+	}
+
+	log.Info(ctx, "aks cluster provision begin",
+		"deployment_stack", deploymentStackName,
+		"resource_group", resourceGroupName,
+		"cluster", cluster.Name,
+		"provider", d.ProviderName(),
+		"subscription", d.AzureSubscriptionId,
+	)
 
 	// If an existing successful deployment stack with same name exists, treat as done (idempotent)
 	if existing, err := stacksClient.GetAtSubscription(ctx, deploymentStackName, nil); err == nil {
@@ -171,6 +185,13 @@ func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster) e
 	if _, err = poller.PollUntilDone(ctx, nil); err != nil {
 		return fmt.Errorf("subscription deployment stack creation failed: %w", err)
 	}
+
+	log.Info(ctx, "aks cluster provision succeeded",
+		"deployment_stack", deploymentStackName,
+		"resource_group", resourceGroupName,
+		"cluster", cluster.Name,
+		"provider", d.ProviderName(),
+	)
 	return nil
 }
 
@@ -179,10 +200,11 @@ func (d *driver) ClusterDeprovision(ctx context.Context, cluster *model.Cluster)
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
 
-	// Get resource group name from cluster settings
-	resourceGroupName := cluster.Settings["AZURE_RESOURCE_GROUP_NAME"]
-	if resourceGroupName == "" {
-		return fmt.Errorf("AZURE_RESOURCE_GROUP_NAME is required in cluster settings")
+	log := logging.FromContext(ctx)
+
+	resourceGroupName, err := d.clusterResourceGroupName(cluster)
+	if err != nil || resourceGroupName == "" {
+		return fmt.Errorf("derive cluster resource group: %w", err)
 	}
 
 	// Create deployment stacks client
@@ -191,7 +213,10 @@ func (d *driver) ClusterDeprovision(ctx context.Context, cluster *model.Cluster)
 		return fmt.Errorf("failed to create deployment stacks client: %w", err)
 	}
 
-	deploymentStackName := d.deploymentStackName(cluster.Name)
+	deploymentStackName, err := d.clusterResourceGroupName(cluster)
+	if err != nil {
+		return fmt.Errorf("derive deployment stack name: %w", err)
+	}
 
 	// Check if deployment stack exists
 	_, err = stacksClient.GetAtSubscription(ctx, deploymentStackName, nil)
@@ -201,6 +226,12 @@ func (d *driver) ClusterDeprovision(ctx context.Context, cluster *model.Cluster)
 	}
 
 	// Delete the deployment stack with all managed resources
+	log.Info(ctx, "aks cluster deprovision begin",
+		"deployment_stack", deploymentStackName,
+		"resource_group", resourceGroupName,
+		"cluster", cluster.Name,
+		"provider", d.ProviderName(),
+	)
 	poller, err := stacksClient.BeginDeleteAtSubscription(ctx, deploymentStackName, &armdeploymentstacks.ClientBeginDeleteAtSubscriptionOptions{
 		UnmanageActionResources:        to.Ptr(armdeploymentstacks.UnmanageActionResourceModeDelete),
 		UnmanageActionResourceGroups:   to.Ptr(armdeploymentstacks.UnmanageActionResourceGroupModeDelete),
@@ -215,6 +246,13 @@ func (d *driver) ClusterDeprovision(ctx context.Context, cluster *model.Cluster)
 	if err != nil {
 		return fmt.Errorf("failed to delete deployment stack %s: %w", deploymentStackName, err)
 	}
+
+	log.Info(ctx, "aks cluster deprovision succeeded",
+		"deployment_stack", deploymentStackName,
+		"resource_group", resourceGroupName,
+		"cluster", cluster.Name,
+		"provider", d.ProviderName(),
+	)
 
 	return nil
 }
@@ -236,7 +274,10 @@ func (d *driver) ClusterStatus(ctx context.Context, cluster *model.Cluster) (*mo
 		return status, fmt.Errorf("failed to create deployment stacks client: %w", err)
 	}
 
-	deploymentStackName := d.deploymentStackName(cluster.Name)
+	deploymentStackName, err := d.clusterResourceGroupName(cluster)
+	if err != nil {
+		return status, fmt.Errorf("derive deployment stack name: %w", err)
+	}
 
 	// Check deployment stack status
 	stack, err := stacksClient.GetAtSubscription(ctx, deploymentStackName, nil)
@@ -254,7 +295,7 @@ func (d *driver) ClusterStatus(ctx context.Context, cluster *model.Cluster) (*mo
 		status.Provisioned = true
 
 		// Get AKS client and resource information
-		aksClient, aksRGName, aksName, err := d.getAKSClient(ctx, cluster.Name)
+		aksClient, aksRGName, aksName, err := d.getAKSClient(ctx, cluster)
 		if err != nil {
 			return status, fmt.Errorf("failed to get AKS client and resource info: %w", err)
 		}
@@ -314,6 +355,20 @@ func (d *driver) checkIngressNamespaceExists(ctx context.Context, resourceGroupN
 
 // ClusterInstall installs in-cluster resources (Ingress Controller, etc.) for AKS cluster.
 func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster) error {
+	log := logging.FromContext(ctx)
+
+	// Retrieve AKS resource identifiers for logging.
+	if aksClient, aksRG, aksName, err := d.getAKSClient(ctx, cluster); err == nil && aksClient != nil {
+		log.Info(ctx, "aks cluster install begin",
+			"aks_resource_group", aksRG,
+			"aks_cluster", aksName,
+			"cluster", cluster.Name,
+			"provider", d.ProviderName(),
+		)
+	} else if err != nil { // only debug log on failure to resolve prior to kubeconfig
+		log.Debug(ctx, "failed to resolve aks identifiers before install", "error", err, "cluster", cluster.Name, "provider", d.ProviderName())
+	}
+
 	// Build kube client from provider-managed kubeconfig
 	kubeconfig, err := d.ClusterKubeconfig(ctx, cluster)
 	if err != nil {
@@ -334,11 +389,27 @@ func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster) err
 	if err := installer.InstallTraefik(ctx, cluster); err != nil {
 		return err
 	}
+
+	log.Info(ctx, "aks cluster install succeeded", "cluster", cluster.Name, "provider", d.ProviderName())
 	return nil
 }
 
 // ClusterUninstall uninstalls in-cluster resources (Ingress Controller, etc.) from AKS cluster.
 func (d *driver) ClusterUninstall(ctx context.Context, cluster *model.Cluster) error {
+	log := logging.FromContext(ctx)
+
+	// Retrieve AKS resource identifiers for logging.
+	if aksClient, aksRG, aksName, err := d.getAKSClient(ctx, cluster); err == nil && aksClient != nil {
+		log.Info(ctx, "aks cluster uninstall begin",
+			"aks_resource_group", aksRG,
+			"aks_cluster", aksName,
+			"cluster", cluster.Name,
+			"provider", d.ProviderName(),
+		)
+	} else if err != nil { // only debug log on failure to resolve prior to kubeconfig
+		log.Debug(ctx, "failed to resolve aks identifiers before uninstall", "error", err, "cluster", cluster.Name, "provider", d.ProviderName())
+	}
+
 	// Build kube client from provider-managed kubeconfig
 	kubeconfig, err := d.ClusterKubeconfig(ctx, cluster)
 	if err != nil {
@@ -359,6 +430,8 @@ func (d *driver) ClusterUninstall(ctx context.Context, cluster *model.Cluster) e
 	if err := installer.DeleteIngressNamespace(ctx, cluster); err != nil {
 		return err
 	}
+
+	log.Info(ctx, "aks cluster uninstall succeeded", "cluster", cluster.Name, "provider", d.ProviderName())
 	return nil
 }
 
@@ -368,7 +441,7 @@ func (d *driver) ClusterKubeconfig(ctx context.Context, cluster *model.Cluster) 
 	defer cancel()
 
 	// Get AKS client and resource information
-	aksClient, aksRGName, aksName, err := d.getAKSClient(ctx, cluster.Name)
+	aksClient, aksRGName, aksName, err := d.getAKSClient(ctx, cluster)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get AKS client and resource info: %w", err)
 	}

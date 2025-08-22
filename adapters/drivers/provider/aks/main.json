@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "10036276078009500284"
+      "templateHash": "4580135705196587178"
     }
   },
   "parameters": {
@@ -199,7 +199,7 @@
     "tags": {
       "azd-env-name": "[parameters('environmentName')]"
     },
-    "resourceToken": "[toLower(uniqueString(subscription().id, parameters('environmentName'), parameters('location')))]",
+    "resourceToken": "[toLower(uniqueString(subscription().id, parameters('environmentName'), parameters('location'), if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))))]",
     "apiServiceName": "python-api"
   },
   "resources": [

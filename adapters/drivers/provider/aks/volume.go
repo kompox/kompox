@@ -3,7 +3,6 @@ package aks
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha1"
 	"errors"
 	"fmt"
 	"sort"
@@ -16,6 +15,7 @@ import (
 	"github.com/oklog/ulid/v2"
 	providerdrv "github.com/yaegashi/kompoxops/adapters/drivers/provider"
 	"github.com/yaegashi/kompoxops/domain/model"
+	"github.com/yaegashi/kompoxops/internal/naming"
 )
 
 // Volume instance tag keys
@@ -273,18 +273,6 @@ func (d *driver) azureVolumeInstanceDelete(ctx context.Context, resourceGroupNam
 	return nil
 }
 
-// === Driver interface adapter methods ===
-
-// AppVolumeInstanceList adapts VolumeInstanceList to Driver interface returning model.AppVolumeInstance slice.
-// === Spec-compliant Driver interface methods ===
-
-// deriveIDHash computes idHASH (cluster independent) same logic as compose_converter: sha1(service:provider:app) first 6 hex.
-func deriveIDHash(serviceName, providerName, appName string) string {
-	base := fmt.Sprintf("%s:%s:%s", serviceName, providerName, appName)
-	sum := sha1.Sum([]byte(base))
-	return fmt.Sprintf("%x", sum)[:6]
-}
-
 // volumeDefSize returns defined size for volume name from app.Volumes.
 func volumeDefSize(app *model.App, volName string) (int64, bool) {
 	for _, v := range app.Volumes {
@@ -300,14 +288,12 @@ func (d *driver) VolumeInstanceList(ctx context.Context, cluster *model.Cluster,
 	if cluster == nil || app == nil {
 		return nil, fmt.Errorf("cluster/app nil")
 	}
-	rg := ""
-	if app.Settings != nil {
-		rg = app.Settings["AZURE_RESOURCE_GROUP_NAME"]
+	rg, err := d.volumeResourceGroupName(app)
+	if err != nil {
+		return nil, err
 	}
-	if rg == "" {
-		return nil, fmt.Errorf("app setting AZURE_RESOURCE_GROUP_NAME missing")
-	}
-	idHASH := deriveIDHash(d.ServiceName(), d.ProviderName(), app.Name)
+	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
+	idHASH := hashes.AppID
 	items, err := d.azureVolumeInstanceList(ctx, rg, volName, idHASH)
 	if err != nil {
 		return nil, err
@@ -332,12 +318,9 @@ func (d *driver) VolumeInstanceCreate(ctx context.Context, cluster *model.Cluste
 	if cluster == nil || app == nil {
 		return nil, fmt.Errorf("cluster/app nil")
 	}
-	rg := ""
-	if app.Settings != nil {
-		rg = app.Settings["AZURE_RESOURCE_GROUP_NAME"]
-	}
-	if rg == "" {
-		return nil, fmt.Errorf("app setting AZURE_RESOURCE_GROUP_NAME missing")
+	rg, err := d.volumeResourceGroupName(app)
+	if err != nil {
+		return nil, err
 	}
 	sizeBytes, ok := volumeDefSize(app, volName)
 	if !ok {
@@ -347,7 +330,8 @@ func (d *driver) VolumeInstanceCreate(ctx context.Context, cluster *model.Cluste
 		sizeBytes = 1 << 30
 	}
 	sizeGiB := int32((sizeBytes + (1 << 30) - 1) >> 30)
-	idHASH := deriveIDHash(d.ServiceName(), d.ProviderName(), app.Name)
+	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
+	idHASH := hashes.AppID
 	meta, err := d.azureVolumeInstanceCreate(ctx, rg, volName, idHASH, sizeGiB)
 	if err != nil {
 		return nil, err
@@ -368,14 +352,12 @@ func (d *driver) VolumeInstanceAssign(ctx context.Context, cluster *model.Cluste
 	if cluster == nil || app == nil {
 		return fmt.Errorf("cluster/app nil")
 	}
-	rg := ""
-	if app.Settings != nil {
-		rg = app.Settings["AZURE_RESOURCE_GROUP_NAME"]
+	rg, err := d.volumeResourceGroupName(app)
+	if err != nil {
+		return err
 	}
-	if rg == "" {
-		return fmt.Errorf("app setting AZURE_RESOURCE_GROUP_NAME missing")
-	}
-	idHASH := deriveIDHash(d.ServiceName(), d.ProviderName(), app.Name)
+	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
+	idHASH := hashes.AppID
 	return d.azureVolumeInstanceAssign(ctx, rg, volName, idHASH, volInstName)
 }
 
@@ -384,14 +366,12 @@ func (d *driver) VolumeInstanceDelete(ctx context.Context, cluster *model.Cluste
 	if cluster == nil || app == nil {
 		return fmt.Errorf("cluster/app nil")
 	}
-	rg := ""
-	if app.Settings != nil {
-		rg = app.Settings["AZURE_RESOURCE_GROUP_NAME"]
+	rg, err := d.volumeResourceGroupName(app)
+	if err != nil {
+		return err
 	}
-	if rg == "" {
-		return fmt.Errorf("app setting AZURE_RESOURCE_GROUP_NAME missing")
-	}
-	idHASH := deriveIDHash(d.ServiceName(), d.ProviderName(), app.Name)
+	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
+	idHASH := hashes.AppID
 	return d.azureVolumeInstanceDelete(ctx, rg, volName, idHASH, volInstName)
 }
 

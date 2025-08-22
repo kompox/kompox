@@ -12,11 +12,12 @@ import (
 
 // driver implements the AKS provider driver.
 type driver struct {
-	serviceName         string
-	providerName        string
-	TokenCredential     azcore.TokenCredential
-	AzureSubscriptionId string
-	AzureLocation       string
+	serviceName           string
+	providerName          string
+	resourceGroupBaseName string
+	TokenCredential       azcore.TokenCredential
+	AzureSubscriptionId   string
+	AzureLocation         string
 }
 
 // ID returns the provider identifier.
@@ -27,6 +28,9 @@ func (d *driver) ServiceName() string { return d.serviceName }
 
 // ProviderName returns the provider name associated with this driver instance.
 func (d *driver) ProviderName() string { return d.providerName }
+
+// ResourceGroupBaseName returns provider-level base resource group name.
+func (d *driver) ResourceGroupBaseName() string { return d.resourceGroupBaseName }
 
 // init registers the AKS driver.
 func init() {
@@ -106,12 +110,21 @@ func init() {
 			return nil, fmt.Errorf("create Azure credential: %w", err)
 		}
 
+		base := get(keyResourceGroupBaseName)
+		if base == "" {
+			base = fmt.Sprintf("kompox_%s", provider.Name)
+		}
+		if len(base) > maxResourceGroupBaseName {
+			base = base[:maxResourceGroupBaseName]
+		}
+
 		return &driver{
-			serviceName:         serviceName,
-			providerName:        provider.Name,
-			TokenCredential:     cred,
-			AzureSubscriptionId: subscriptionID,
-			AzureLocation:       location,
+			serviceName:           serviceName,
+			providerName:          provider.Name,
+			resourceGroupBaseName: base,
+			TokenCredential:       cred,
+			AzureSubscriptionId:   subscriptionID,
+			AzureLocation:         location,
 		}, nil
 	})
 }
