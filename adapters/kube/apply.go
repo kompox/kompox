@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/yaegashi/kompoxops/internal/logging"
 	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -141,6 +142,8 @@ func (c *Client) serverSideApplyUnstructured(ctx context.Context, u *unstructure
 	}
 	ri := resourceInterfaceFor(dy, mapping.Resource, u.GetNamespace())
 	force := opts.ForceConflicts
+
+	logging.FromContext(ctx).Info(ctx, "Applying", "kind", u.GetKind(), "name", u.GetName(), "namespace", u.GetNamespace(), "force", force)
 	if _, err := ri.Patch(ctx, u.GetName(), types.ApplyPatchType, body, metav1.PatchOptions{FieldManager: opts.FieldManager, Force: &force}); err != nil {
 		return fmt.Errorf("apply %s %s: %w", u.GetKind(), u.GetName(), err)
 	}
