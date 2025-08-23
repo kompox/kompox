@@ -147,6 +147,7 @@ output AZURE_TENANT_ID string = tenant().tenantId
 output AZURE_SUBSCRIPTION_ID string = subscription().subscriptionId
 output AZURE_RESOURCE_GROUP_NAME string = rg.name
 output AZURE_AKS_CLUSTER_NAME string = aks.outputs.clusterName
+output AZURE_AKS_PRINCIPAL_ID string = aks.outputs.principalId
 output AZURE_AKS_OIDC_ISSUER_URL string = aks.outputs.oidcIssuerUrl
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.outputs.loginServer
 output AZURE_CONTAINER_REGISTRY_NAME string = containerRegistry.outputs.name

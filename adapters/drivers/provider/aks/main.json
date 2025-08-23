@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "18350364318284673598"
+      "templateHash": "9755781099443204254"
     }
   },
   "parameters": {
@@ -2311,7 +2311,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "4526262158163166183"
+              "templateHash": "2567704857633430389"
             }
           },
           "parameters": {
@@ -2607,6 +2607,10 @@
               "type": "string",
               "value": "[parameters('name')]"
             },
+            "principalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ContainerService/managedClusters', parameters('name')), '2025-05-02-preview', 'full').identity.principalId]"
+            },
             "oidcIssuerUrl": {
               "type": "string",
               "value": "[reference(resourceId('Microsoft.ContainerService/managedClusters', parameters('name')), '2025-05-02-preview').oidcIssuerProfile.issuerURL]"
@@ -2642,6 +2646,10 @@
     "AZURE_AKS_CLUSTER_NAME": {
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))), 'Microsoft.Resources/deployments', 'aks'), '2022-09-01').outputs.clusterName.value]"
+    },
+    "AZURE_AKS_PRINCIPAL_ID": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))), 'Microsoft.Resources/deployments', 'aks'), '2022-09-01').outputs.principalId.value]"
     },
     "AZURE_AKS_OIDC_ISSUER_URL": {
       "type": "string",

@@ -10,11 +10,14 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
+	"github.com/google/uuid"
 	"github.com/oklog/ulid/v2"
 	providerdrv "github.com/yaegashi/kompoxops/adapters/drivers/provider"
 	"github.com/yaegashi/kompoxops/domain/model"
+	"github.com/yaegashi/kompoxops/internal/logging"
 	"github.com/yaegashi/kompoxops/internal/naming"
 )
 
@@ -23,6 +26,12 @@ const (
 	tagVolumeKey          = "kompox-volume"                   // logical volume key value: kompox-volName-idHASH
 	tagVolumeInstanceName = "kompox-volume-instance-name"     // ulid
 	tagVolumeAssigned     = "kompox-volume-instance-assigned" // true/false
+)
+
+// Built-in role definition IDs used by this driver
+const (
+	// Contributor role definition GUID (tenant-agnostic)
+	contributorRoleDefinitionID = "b24988ac-6180-42a0-ab88-20f7382dd24c"
 )
 
 // volumeInstanceMeta represents returned metadata for a volume insta
@@ -115,17 +124,58 @@ func (d *driver) azureVolumeInstanceList(ctx context.Context, resourceGroupName,
 }
 
 // ensureResourceGroup ensures RG exists for Create path only.
-func (d *driver) ensureResourceGroup(ctx context.Context, resourceGroupName string) error {
+func (d *driver) ensureResourceGroup(ctx context.Context, resourceGroupName string, principalID string) error {
+	log := logging.FromContext(ctx)
+
+	// Ensure RG exists
 	groupsClient, err := armresources.NewResourceGroupsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
 	if err != nil {
 		return err
 	}
-	_, err = groupsClient.CreateOrUpdate(ctx, resourceGroupName, armresources.ResourceGroup{Location: to.Ptr(d.AzureLocation)}, nil)
-	return err
+
+	log.Info(ctx, "ensuring resource group", "resource_group", resourceGroupName, "subscription", d.AzureSubscriptionId, "location", d.AzureLocation)
+	if _, err = groupsClient.CreateOrUpdate(ctx, resourceGroupName, armresources.ResourceGroup{Location: to.Ptr(d.AzureLocation)}, nil); err != nil {
+		return err
+	}
+
+	// Ensure AKS principal has Contributor on this RG (idempotent)
+	principalID = strings.TrimSpace(principalID)
+	if principalID == "" {
+		// Unknown principal; skip assignment silently (caller should have provided from deployment outputs).
+		return nil
+	}
+
+	assignmentsClient, err := armauthorization.NewRoleAssignmentsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+	if err != nil {
+		return err
+	}
+
+	// Create assignment with deterministic GUID name derived from (scope, principalID, roleDefinitionID)
+	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s", d.AzureSubscriptionId, resourceGroupName)
+	roleDefinitionID := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s", d.AzureSubscriptionId, contributorRoleDefinitionID)
+	hashInput := scope + "|" + principalID + "|" + roleDefinitionID
+	name := uuid.NewSHA1(uuid.NameSpaceURL, []byte(hashInput)).String()
+	params := armauthorization.RoleAssignmentCreateParameters{
+		Properties: &armauthorization.RoleAssignmentProperties{
+			PrincipalID:      to.Ptr(principalID),
+			RoleDefinitionID: to.Ptr(roleDefinitionID),
+		},
+	}
+
+	log.Info(ctx, "ensuring role assignment", "scope", scope, "principal_id", principalID, "role_definition_id", contributorRoleDefinitionID, "assignment_name", name)
+	if _, err := assignmentsClient.Create(ctx, scope, name, params, nil); err != nil {
+		// If conflict due to existing assignment (race), treat as success
+		if strings.Contains(strings.ToLower(err.Error()), "existing assignment") || strings.Contains(strings.ToLower(err.Error()), "conflict") {
+			return nil
+		}
+		return err
+	}
+
+	return nil
 }
 
 // VolumeInstanceCreate creates an Azure Disk for logical volume.
-func (d *driver) azureVolumeInstanceCreate(ctx context.Context, resourceGroupName, volName, idHASH string, sizeGiB int32) (*volumeInstanceMeta, error) {
+func (d *driver) azureVolumeInstanceCreate(ctx context.Context, resourceGroupName, volName, idHASH string, sizeGiB int32, principalID string) (*volumeInstanceMeta, error) {
 	if resourceGroupName == "" {
 		return nil, errors.New("AZURE_RESOURCE_GROUP_NAME required")
 	}
@@ -135,7 +185,7 @@ func (d *driver) azureVolumeInstanceCreate(ctx context.Context, resourceGroupNam
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
-	if err := d.ensureResourceGroup(ctx, resourceGroupName); err != nil {
+	if err := d.ensureResourceGroup(ctx, resourceGroupName, principalID); err != nil {
 		return nil, fmt.Errorf("ensure RG: %w", err)
 	}
 
@@ -333,6 +383,12 @@ func (d *driver) VolumeInstanceCreate(ctx context.Context, cluster *model.Cluste
 	if cluster == nil || app == nil {
 		return nil, fmt.Errorf("cluster/app nil")
 	}
+	// Retrieve AKS principal ID from deployment outputs (per-cluster)
+	outputs, err := d.getDeploymentOutputs(ctx, cluster)
+	if err != nil {
+		return nil, fmt.Errorf("get deployment outputs: %w", err)
+	}
+	principalID, _ := outputs[OutputAksPrincipalID].(string)
 	rg, err := d.volumeResourceGroupName(app)
 	if err != nil {
 		return nil, err
@@ -347,7 +403,7 @@ func (d *driver) VolumeInstanceCreate(ctx context.Context, cluster *model.Cluste
 	sizeGiB := int32((sizeBytes + (1 << 30) - 1) >> 30)
 	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
 	idHASH := hashes.AppID
-	meta, err := d.azureVolumeInstanceCreate(ctx, rg, volName, idHASH, sizeGiB)
+	meta, err := d.azureVolumeInstanceCreate(ctx, rg, volName, idHASH, sizeGiB, principalID)
 	if err != nil {
 		return nil, err
 	}
