@@ -146,18 +146,68 @@ func (i *Installer) InstallTraefik(ctx context.Context, cluster *model.Cluster) 
 		return fmt.Errorf("load traefik chart: %w", err)
 	}
 
-	// Minimal values: expose as LoadBalancer
+	// Minimal values with ACME and persistence
 	saName := IngressServiceAccountName(cluster)
 	values := map[string]any{
 		"service": map[string]any{
 			"type": "LoadBalancer",
+		},
+		// Use Recreate strategy to avoid deadlocks
+		"updateStrategy": map[string]any{
+			"type": "Recreate",
 		},
 		// Use the pre-created ServiceAccount for ingress/workload-identity.
 		// Helm should not attempt to create another ServiceAccount.
 		"serviceAccount": map[string]any{
 			"name": saName,
 		},
+		// Enable persistence for Let's Encrypt accounts and certificates
+		"persistence": map[string]any{
+			"enabled":    true,
+			"accessMode": "ReadWriteOnce",
+			"size":       "1Gi",
+			"path":       "/data",
+		},
+		// Enable Traefik access logs
+		"logs": map[string]any{
+			"access": map[string]any{
+				"enabled": true,
+			},
+		},
+		// Will populate below
+		"additionalArguments": []string{},
+		// Ensure mounted PVC at /data is group-writable for the Traefik user (65532)
+		"podSecurityContext": map[string]any{
+			"fsGroup":             65532,
+			"fsGroupChangePolicy": "OnRootMismatch",
+		},
 	}
+
+	// Configure Let's Encrypt (ACME) resolvers for staging and production
+	certEmail := ""
+	preferredResolver := ""
+	if cluster != nil && cluster.Ingress != nil {
+		certEmail = cluster.Ingress.CertEmail
+		preferredResolver = cluster.Ingress.CertResolver
+	}
+	if certEmail == "" {
+		// Fall back to a placeholder if not provided; user should set a real email in cluster config.
+		certEmail = "noreply@example.com"
+	}
+	addArgs := []string{
+		"--certificatesresolvers.production.acme.tlschallenge=true",
+		"--certificatesresolvers.production.acme.caserver=https://acme-v02.api.letsencrypt.org/directory",
+		fmt.Sprintf("--certificatesresolvers.production.acme.email=%s", certEmail),
+		"--certificatesresolvers.production.acme.storage=/data/acme-production.json",
+		"--certificatesresolvers.staging.acme.tlschallenge=true",
+		"--certificatesresolvers.staging.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory",
+		fmt.Sprintf("--certificatesresolvers.staging.acme.email=%s", certEmail),
+		"--certificatesresolvers.staging.acme.storage=/data/acme-staging.json",
+	}
+	if preferredResolver == "production" || preferredResolver == "staging" {
+		addArgs = append(addArgs, fmt.Sprintf("--entrypoints.websecure.http.tls.certresolver=%s", preferredResolver))
+	}
+	values["additionalArguments"] = addArgs
 
 	if _, err := up.Run("traefik", ch, values); err != nil {
 		// If release doesn't exist, perform install instead

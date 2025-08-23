@@ -41,16 +41,28 @@ type ClusterIngress struct {
 	Namespace      string `yaml:"namespace"`
 	Controller     string `yaml:"controller"`
 	ServiceAccount string `yaml:"serviceAccount,omitempty"`
+	// CertResolver selects the Traefik ACME resolver to use (e.g., "staging" or "production").
+	CertResolver string `yaml:"certResolver,omitempty"`
+	// CertEmail is the email address used for ACME registration.
+	CertEmail string `yaml:"certEmail,omitempty"`
 }
 
 // App represents the target application to deploy.
 type App struct {
 	Name      string            `yaml:"name"`
 	Compose   any               `yaml:"compose"` // compose.yml content or URL to fetch
-	Ingress   []AppIngressRule  `yaml:"ingress,omitempty"`
+	Ingress   AppIngress        `yaml:"ingress,omitempty"`
 	Volumes   []AppVolume       `yaml:"volumes,omitempty"`
 	Resources map[string]string `yaml:"resources,omitempty"` // pod resources (e.g., cpu, memory)
 	Settings  map[string]string `yaml:"settings,omitempty"`  // app-specific settings
+}
+
+// AppIngress groups ingress-wide settings and routing rules.
+type AppIngress struct {
+	// CertResolver overrides cluster.ingress.certResolver when set.
+	CertResolver string `yaml:"certResolver,omitempty"`
+	// Rules defines the set of exposed ports and hostnames.
+	Rules []AppIngressRule `yaml:"rules,omitempty"`
 }
 
 // AppIngressRule matches docs/Kompox-Convert-Draft schema.

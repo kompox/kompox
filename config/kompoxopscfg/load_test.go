@@ -26,16 +26,20 @@ cluster:
   ingress:
     controller: traefik
     namespace: traefik
+    certEmail: admin@example.com
+    certResolver: staging
   settings:
     NODE_COUNT: "3"
 app:
   name: sample-app
   compose: ./docker-compose.yml
   ingress:
-    - name: http_80
-      port: 80
-      hosts:
-        - app.example.com
+    certResolver: production
+    rules:
+      - name: http_80
+        port: 80
+        hosts:
+          - app.example.com
   resources:
     cpu: 100m
     memory: 256Mi

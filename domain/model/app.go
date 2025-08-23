@@ -8,12 +8,19 @@ type App struct {
 	Name      string
 	ClusterID string // references Cluster
 	Compose   string
-	Ingress   []AppIngressRule
+	Ingress   AppIngress
 	Volumes   []AppVolume
 	Resources map[string]string
 	Settings  map[string]string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+// AppIngress defines ingress-wide settings and rules for an app.
+type AppIngress struct {
+	// CertResolver overrides cluster-level resolver when set.
+	CertResolver string
+	Rules        []AppIngressRule
 }
 
 // AppIngressRule defines external exposure of a host/port.

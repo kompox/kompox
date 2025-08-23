@@ -182,28 +182,56 @@ Compose の ports 指定の仕様
 app.ingress スキーマ
 
 ```yaml
-app.ingress:
-  - name: <portName>
-    port: <hostPort:int>
-    hosts: [<fqdn>, ...]   # 1件以上
+app:
+  ingress:
+    certResolver: staging | production (デフォルト: {cluster.ingress.certResolver})
+    rules:
+      - name: <portName>
+        port: <hostPort:int>
+        hosts: [<fqdn>, ...]   # 1件以上
 ```
 
 - name: `^[a-z]([-a-z0-9]{0,14})$` (Kubernetes Service port 名制約)
 - port: Compose `hostPort` のいずれか。未定義ならエラー。
 - 同一 port を複数エントリが参照することは禁止 (エラー)。
 - hosts: 各要素 DNS-1123 subdomain。エントリ内重複は 1 回目のみ採用し警告。異なるエントリ間で同一 FQDN 再出現はエラー。
-- app.ingress が空 (または未指定) の場合 Ingress を生成しない。
+- app.ingress.rules が空 (または未指定) の場合 Ingress を生成しない。
 
 Service 生成の仕様
-- `ports` は app.ingress の定義順。
-- `port` = app.ingress.port, `targetPort` = 対応する `containerPort`。
+- `ports` は app.ingress.rules の定義順。
+- `port` = `hostPort`, `targetPort` = 対応する `containerPort`。
 - 複数サービス (Compose) が同一 containerPort を公開 (ports に含める) する構成はエラー。
 
 Ingress 生成の仕様
-- `rules` 出力順: app.ingress 定義順、各エントリ内 host 配列順。
+- `rules` 出力順: app.ingress.rules 定義順、各エントリ内 host 配列順。
 - 各 host 1 rule, path は常に `/` (Prefix)。
-- `annotations.traefik.ingress.kubernetes.io/router.entrypoints: websecure`
-- TLS セクションは生成しない (Traefik 側 ACME 自動取得前提)。
+- 次の annotations を設定する
+```yaml
+traefik.ingress.kubernetes.io/router.entrypoints: websecure
+traefik.ingress.kubernetes.io/router.tls: "true"
+traefik.ingress.kubernetes.io/router.tls.certresolver: {app.ingress.certResolver}
+```
+
+参考: Traefik Helm values.yaml 設定
+```yaml
+persistence:
+  enabled: true
+  accessMode: ReadWriteOnce
+  size: 1Gi
+  path: /data
+
+additionalArguments:
+  # production
+  - --certificatesresolvers.production.acme.tlschallenge=true
+  - --certificatesresolvers.production.acme.caserver=https://acme-v02.api.letsencrypt.org/directory
+  - --certificatesresolvers.production.acme.email={cluster.ingress.certEmail}
+  - --certificatesresolvers.production.acme.storage=/data/acme-production.json
+  # staging
+  - --certificatesresolvers.staging.acme.tlschallenge=true
+  - --certificatesresolvers.staging.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory
+  - --certificatesresolvers.staging.acme.email={cluster.ingress.certEmail}
+  - --certificatesresolvers.staging.acme.storage=/data/acme-staging.json
+```
 
 ### ディスクの切り替え
 
@@ -236,6 +264,8 @@ cluster:
   ingress:
     controller: traefik
     namespace: traefik
+    certEmail: admin@example.com
+    certResolver: staging
 app:
   name: app1
   compose:
@@ -270,12 +300,14 @@ app:
             cpu: 200m
             memory: 512Mi
   ingress:
-    - name: main
-      port: 8080
-      hosts: [www.custom.kompox.dev]
-    - name: admin
-      port: 8081
-      hosts: [admin.custom.kompox.dev]
+    certResolver: staging
+    rules:
+      - name: main
+        port: 8080
+        hosts: [www.custom.kompox.dev]
+      - name: admin
+        port: 8081
+        hosts: [admin.custom.kompox.dev]
   volumes:
     - name: default
       size: 32Gi
@@ -314,7 +346,6 @@ metadata:
     kompox.dev/app-instance-hash: inHASH
     kompox.dev/app-id-hash: idHASH
   annotations:
-    pv.kubernetes.io/provisioned-by: disk.csi.azure.com
     # 初回デプロイ: kompox.dev/volume-handle-previous は未設定
 spec:
   capacity:
@@ -341,7 +372,6 @@ metadata:
     kompox.dev/app-instance-hash: inHASH
     kompox.dev/app-id-hash: idHASH
   annotations:
-    pv.kubernetes.io/provisioned-by: disk.csi.azure.com
     # 初回デプロイ: kompox.dev/volume-handle-previous は未設定
 spec:
   capacity:
@@ -374,6 +404,7 @@ spec:
   resources:
     requests:
       storage: 32Gi
+  storageClassName: managed-csi
   volumeName: kompox-default-idHASH-volHASH
 ---
 apiVersion: v1
@@ -394,6 +425,7 @@ spec:
   resources:
     requests:
       storage: 64Gi
+  storageClassName: managed-csi
   volumeName: kompox-db-idHASH-volHASH
 ---
 apiVersion: apps/v1
@@ -520,6 +552,8 @@ metadata:
     kompox.dev/app-id-hash: idHASH
   annotations:
     traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+    traefik.ingress.kubernetes.io/router.tls.certresolver: staging
 spec:
   ingressClassName: traefik
   rules:

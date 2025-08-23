@@ -23,6 +23,10 @@ type ClusterIngress struct {
 	Namespace      string
 	Controller     string
 	ServiceAccount string
+	// CertResolver selects the Traefik ACME resolver (e.g., "staging", "production").
+	CertResolver string
+	// CertEmail is the email address used for ACME account registration.
+	CertEmail string
 }
 
 // ClusterPort is an interface (domain port) for cluster operations.

@@ -254,6 +254,20 @@ func newCmdAppDeploy() *cobra.Command {
 				return fmt.Errorf("failed to create kube client: %w", err)
 			}
 
+			// Ensure GVK is set on all objects before SSA; otherwise they are skipped as no-op.
+			scheme := runtime.NewScheme()
+			utilruntime.Must(appsv1.AddToScheme(scheme))
+			utilruntime.Must(corev1.AddToScheme(scheme))
+			utilruntime.Must(netv1.AddToScheme(scheme))
+			for _, obj := range vout.K8sObjects {
+				if obj == nil {
+					continue
+				}
+				if gvk, _, err := scheme.ObjectKinds(obj); err == nil && len(gvk) > 0 {
+					obj.GetObjectKind().SetGroupVersionKind(gvk[0])
+				}
+			}
+
 			// Apply objects via server-side apply (SSA)
 			if err := kcli.ServerSideApplyObjects(ctx, vout.K8sObjects, &kube.ApplyOptions{FieldManager: "kompoxops", ForceConflicts: true}); err != nil {
 				return fmt.Errorf("apply objects failed: %w", err)

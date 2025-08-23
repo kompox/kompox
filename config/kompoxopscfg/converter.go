@@ -83,7 +83,7 @@ func (r *Root) ToModels() (*model.Service, *model.Provider, *model.Cluster, *mod
 		Name:      r.App.Name,
 		ClusterID: clusterID,
 		Compose:   composeContent,
-		Ingress:   toModelIngress(r.App.Ingress),
+		Ingress:   toModelAppIngress(r.App.Ingress),
 		Volumes:   toModelVolumes(r.App.Volumes),
 		Resources: r.App.Resources,
 		Settings:  r.App.Settings,
@@ -144,14 +144,16 @@ func readComposeFile(path string) (string, error) {
 }
 
 // toModelIngress converts config slice to domain slice.
-func toModelIngress(rules []AppIngressRule) []model.AppIngressRule {
-	if len(rules) == 0 {
-		return nil
+func toModelAppIngress(ai AppIngress) model.AppIngress {
+	out := model.AppIngress{CertResolver: ai.CertResolver}
+	if len(ai.Rules) == 0 {
+		return out
 	}
-	out := make([]model.AppIngressRule, 0, len(rules))
-	for _, r := range rules {
-		out = append(out, model.AppIngressRule{Name: r.Name, Port: r.Port, Hosts: append([]string{}, r.Hosts...)})
+	rules := make([]model.AppIngressRule, 0, len(ai.Rules))
+	for _, r := range ai.Rules {
+		rules = append(rules, model.AppIngressRule{Name: r.Name, Port: r.Port, Hosts: append([]string{}, r.Hosts...)})
 	}
+	out.Rules = rules
 	return out
 }
 
@@ -175,7 +177,7 @@ func toModelVolumes(vs []AppVolume) []model.AppVolume {
 // toModelClusterIngress converts config ClusterIngress to domain ClusterIngress pointer.
 func toModelClusterIngress(ci ClusterIngress) *model.ClusterIngress {
 	// If all fields are empty, return nil to indicate unspecified
-	if ci.Namespace == "" && ci.Controller == "" && ci.ServiceAccount == "" {
+	if ci.Namespace == "" && ci.Controller == "" && ci.ServiceAccount == "" && ci.CertResolver == "" && ci.CertEmail == "" {
 		return nil
 	}
 	// Apply minimal defaults if necessary (ServiceAccount may be empty; runtime has a default)
@@ -183,5 +185,7 @@ func toModelClusterIngress(ci ClusterIngress) *model.ClusterIngress {
 		Namespace:      ci.Namespace,
 		Controller:     ci.Controller,
 		ServiceAccount: ci.ServiceAccount,
+		CertResolver:   ci.CertResolver,
+		CertEmail:      ci.CertEmail,
 	}
 }

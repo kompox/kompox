@@ -308,14 +308,15 @@ func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Pro
 	// Deployment with all volumes
 	dep := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: a.Name, Namespace: nsName, Labels: commonLabels}, Spec: appsv1.DeploymentSpec{Replicas: int32Ptr(1), Strategy: appsv1.DeploymentStrategy{Type: appsv1.RecreateDeploymentStrategyType}, Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": a.Name}}, Template: corev1.PodTemplateSpec{ObjectMeta: metav1.ObjectMeta{Labels: commonLabels}, Spec: corev1.PodSpec{Containers: containers, InitContainers: initContainers, Volumes: podVolumes}}}}
 
-	// Build Service from app.Ingress definitions (ordered) – spec mandates Service ports align with ingress entries.
+	// Build Service from app.Ingress rules (ordered) – spec mandates Service ports align with ingress entries.
 	var warnings []string
 	var svcObj *corev1.Service
-	if len(a.Ingress) > 0 { // need service if ingress defined
+	// Ingress presence is determined by non-empty rules
+	if len(a.Ingress.Rules) > 0 { // need service if ingress defined
 		portSeen := map[int]struct{}{}
 		hostSeen := map[string]string{} // host -> ruleName
 		var servicePorts []corev1.ServicePort
-		for i, r := range a.Ingress {
+		for i, r := range a.Ingress.Rules {
 			// validate name regex (simplified): start with [a-z], max 15, only [a-z0-9-]
 			if r.Name == "" || len(r.Name) > 15 || r.Name[0] < 'a' || r.Name[0] > 'z' {
 				return nil, nil, fmt.Errorf("invalid ingress name: %s", r.Name)
@@ -365,9 +366,9 @@ func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Pro
 
 	// Ingress generation
 	var ingObj *netv1.Ingress
-	if len(a.Ingress) > 0 && svcObj != nil {
+	if len(a.Ingress.Rules) > 0 && svcObj != nil {
 		var rules []netv1.IngressRule
-		for _, r := range a.Ingress { // defined order
+		for _, r := range a.Ingress.Rules { // defined order
 			cp := hostPortToContainer[r.Port]
 			portName := containerPortName[cp]
 			path := netv1.HTTPIngressPath{Path: "/", PathType: pathTypePtr(netv1.PathTypePrefix), Backend: netv1.IngressBackend{Service: &netv1.IngressServiceBackend{Name: svcObj.Name, Port: netv1.ServiceBackendPort{Name: portName}}}}
@@ -375,7 +376,22 @@ func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Pro
 				rules = append(rules, netv1.IngressRule{Host: host, IngressRuleValue: netv1.IngressRuleValue{HTTP: &netv1.HTTPIngressRuleValue{Paths: []netv1.HTTPIngressPath{path}}}})
 			}
 		}
-		ingObj = &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: a.Name, Namespace: nsName, Labels: commonLabels, Annotations: map[string]string{"traefik.ingress.kubernetes.io/router.entrypoints": "websecure"}}, Spec: netv1.IngressSpec{IngressClassName: strPtr("traefik"), Rules: rules}}
+		// Traefik annotations for TLS and certificate resolver
+		ann := map[string]string{
+			"traefik.ingress.kubernetes.io/router.entrypoints": "websecure",
+			"traefik.ingress.kubernetes.io/router.tls":         "true",
+		}
+		// Choose resolver: app override > cluster default
+		certResolver := ""
+		if a.Ingress.CertResolver != "" {
+			certResolver = a.Ingress.CertResolver
+		} else if cls != nil && cls.Ingress != nil && cls.Ingress.CertResolver != "" {
+			certResolver = cls.Ingress.CertResolver
+		}
+		if certResolver != "" {
+			ann["traefik.ingress.kubernetes.io/router.tls.certresolver"] = certResolver
+		}
+		ingObj = &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: a.Name, Namespace: nsName, Labels: commonLabels, Annotations: ann}, Spec: netv1.IngressSpec{IngressClassName: strPtr("traefik"), Rules: rules}}
 	}
 
 	objs := []runtime.Object{ns}
