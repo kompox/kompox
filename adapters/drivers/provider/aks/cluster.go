@@ -146,24 +146,10 @@ func (d *driver) purgeKeyVaults(ctx context.Context, keyVaultNames []string) err
 	}
 
 	for _, vaultName := range keyVaultNames {
-		log.Info(ctx, "purging key vault", "vault_name", vaultName, "location", d.AzureLocation)
-
-		poller, err := vaultsClient.BeginPurgeDeleted(ctx, vaultName, d.AzureLocation, nil)
-		if err != nil {
-			// Log error but continue with other vaults
-			log.Debug(ctx, "failed to start key vault purge", "error", err, "vault_name", vaultName)
-			continue
-		}
-
-		// Wait for purge completion with a shorter timeout per vault
-		purgeCtx, purgeCancel := context.WithTimeout(ctx, 5*time.Minute)
-		_, err = poller.PollUntilDone(purgeCtx, nil)
-		purgeCancel()
-
-		if err != nil {
-			log.Debug(ctx, "key vault purge failed or timed out", "error", err, "vault_name", vaultName)
-		} else {
-			log.Info(ctx, "key vault purged successfully", "vault_name", vaultName)
+		// Fire-and-forget: initiate purge without waiting for completion
+		log.Info(ctx, "initiating key vault purge (async)", "vault_name", vaultName, "location", d.AzureLocation)
+		if _, err := vaultsClient.BeginPurgeDeleted(ctx, vaultName, d.AzureLocation, nil); err != nil {
+			log.Warn(ctx, "failed to start key vault purge", "error", err, "vault_name", vaultName)
 		}
 	}
 
