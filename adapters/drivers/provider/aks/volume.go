@@ -150,12 +150,27 @@ func (d *driver) azureVolumeInstanceCreate(ctx context.Context, resourceGroupNam
 	lvKey := logicalVolumeKey(volName, idHASH)
 	diskName := buildDiskName(lvKey, ulidStr)
 
+	// If this is the first volume instance for the logical volume, mark it assigned=true.
+	initialAssigned := false
+	if list, err := d.azureVolumeInstanceList(ctx, resourceGroupName, volName, idHASH); err == nil {
+		if len(list) == 0 {
+			initialAssigned = true
+		}
+	} else {
+		// If list fails, continue with default (not assigned) but log via error wrapping when creation fails later.
+	}
+
+	assignedVal := "false"
+	if initialAssigned {
+		assignedVal = "true"
+	}
+
 	disk := armcompute.Disk{
 		Location: to.Ptr(d.AzureLocation),
 		Tags: map[string]*string{
 			tagVolumeKey:          to.Ptr(lvKey),
 			tagVolumeInstanceName: to.Ptr(ulidStr),
-			tagVolumeAssigned:     to.Ptr("false"),
+			tagVolumeAssigned:     to.Ptr(assignedVal),
 			"managed-by":          to.Ptr("kompox"),
 		},
 		Properties: &armcompute.DiskProperties{
@@ -173,7 +188,7 @@ func (d *driver) azureVolumeInstanceCreate(ctx context.Context, resourceGroupNam
 	if err != nil {
 		return nil, fmt.Errorf("create disk: %w", err)
 	}
-	meta := &volumeInstanceMeta{Name: diskName, VolInst: ulidStr, SizeGiB: sizeGiB, Assigned: false, TimeCreated: time.Now().UTC()}
+	meta := &volumeInstanceMeta{Name: diskName, VolInst: ulidStr, SizeGiB: sizeGiB, Assigned: assignedVal == "true", TimeCreated: time.Now().UTC()}
 	if res.Properties != nil && res.Properties.TimeCreated != nil {
 		meta.TimeCreated = *res.Properties.TimeCreated
 	}
@@ -339,7 +354,7 @@ func (d *driver) VolumeInstanceCreate(ctx context.Context, cluster *model.Cluste
 	return &model.AppVolumeInstance{
 		Name:       meta.VolInst,
 		VolumeName: volName,
-		Assigned:   false,
+		Assigned:   meta.Assigned,
 		Size:       int64(meta.SizeGiB) << 30,
 		Handle:     fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/disks/%s", d.AzureSubscriptionId, rg, meta.Name),
 		CreatedAt:  meta.TimeCreated,
