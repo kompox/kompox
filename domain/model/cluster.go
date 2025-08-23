@@ -12,10 +12,17 @@ type Cluster struct {
 	ProviderID string // references Provider
 	Existing   bool
 	Domain     string
-	Ingress    map[string]interface{}
+	Ingress    *ClusterIngress
 	Settings   map[string]string
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
+}
+
+// ClusterIngress defines cluster-level ingress configuration.
+type ClusterIngress struct {
+	Namespace      string
+	Controller     string
+	ServiceAccount string
 }
 
 // ClusterPort is an interface (domain port) for cluster operations.

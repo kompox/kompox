@@ -26,11 +26,21 @@ type Provider struct {
 
 // Cluster represents target Kubernetes cluster configuration.
 type Cluster struct {
-	Name     string                 `yaml:"name"`
-	Existing bool                   `yaml:"existing"` // whether to use existing cluster
-	Domain   string                 `yaml:"domain"`   // e.g., "ops.kompox.dev"
-	Ingress  map[string]interface{} `yaml:"ingress"`  // ingress configuration
-	Settings map[string]string      `yaml:"settings"` // cluster-specific settings
+	Name     string            `yaml:"name"`
+	Existing bool              `yaml:"existing"` // whether to use existing cluster
+	Domain   string            `yaml:"domain"`   // e.g., "ops.kompox.dev"
+	Ingress  ClusterIngress    `yaml:"ingress"`  // ingress configuration
+	Settings map[string]string `yaml:"settings"` // cluster-specific settings
+}
+
+// ClusterIngress represents cluster-level ingress settings.
+// Namespace: Kubernetes namespace for ingress controller resources
+// Controller: Ingress controller type (e.g., "traefik")
+// ServiceAccount: ServiceAccount name used by ingress workloads
+type ClusterIngress struct {
+	Namespace      string `yaml:"namespace"`
+	Controller     string `yaml:"controller"`
+	ServiceAccount string `yaml:"serviceAccount,omitempty"`
 }
 
 // App represents the target application to deploy.

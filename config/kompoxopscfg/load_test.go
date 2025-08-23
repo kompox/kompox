@@ -32,14 +32,16 @@ app:
   name: sample-app
   compose: ./docker-compose.yml
   ingress:
-    http_80: app.example.com
+    - name: http_80
+      port: 80
+      hosts:
+        - app.example.com
   resources:
     cpu: 100m
     memory: 256Mi
   settings:
     REPLICAS: "2"
 `
-
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("failed to write temp yaml: %v", err)
 	}
@@ -61,7 +63,7 @@ app:
 	if cfg.Cluster.Name != "test-cluster" || cfg.Cluster.Domain != "ops.kompox.dev" {
 		t.Errorf("unexpected cluster: %+v", cfg.Cluster)
 	}
-	if cfg.Cluster.Ingress["controller"] != "traefik" || cfg.Cluster.Ingress["namespace"] != "traefik" {
+	if cfg.Cluster.Ingress.Controller != "traefik" || cfg.Cluster.Ingress.Namespace != "traefik" {
 		t.Errorf("unexpected ingress: %+v", cfg.Cluster.Ingress)
 	}
 	if cfg.App.Name != "sample-app" || cfg.App.Compose != "./docker-compose.yml" {

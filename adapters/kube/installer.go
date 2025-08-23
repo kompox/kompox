@@ -63,7 +63,7 @@ func writeTempKubeconfig(kubeconfig []byte) (string, func(), error) {
 func IngressNamespace(cluster *model.Cluster) string {
 	ns := "default"
 	if cluster != nil && cluster.Ingress != nil {
-		if v, ok := cluster.Ingress["namespace"].(string); ok && v != "" {
+		if v := cluster.Ingress.Namespace; v != "" {
 			ns = v
 		}
 	}
@@ -71,8 +71,15 @@ func IngressNamespace(cluster *model.Cluster) string {
 }
 
 // IngressServiceAccountName returns the canonical ServiceAccount name used by ingress workloads.
-func IngressServiceAccountName(_ *model.Cluster) string {
-	return "ingress-service-account"
+func IngressServiceAccountName(cluster *model.Cluster) string {
+	// Default name when not specified
+	const def = "ingress-service-account"
+	if cluster != nil && cluster.Ingress != nil {
+		if sa := cluster.Ingress.ServiceAccount; sa != "" {
+			return sa
+		}
+	}
+	return def
 }
 
 // EnsureIngressNamespace ensures the ingress namespace exists.

@@ -65,7 +65,7 @@ func (r *Root) ToModels() (*model.Service, *model.Provider, *model.Cluster, *mod
 		ProviderID: providerID,
 		Existing:   r.Cluster.Existing,
 		Domain:     r.Cluster.Domain,
-		Ingress:    r.Cluster.Ingress,
+		Ingress:    toModelClusterIngress(r.Cluster.Ingress),
 		Settings:   r.Cluster.Settings,
 		CreatedAt:  now,
 		UpdatedAt:  now,
@@ -170,4 +170,18 @@ func toModelVolumes(vs []AppVolume) []model.AppVolume {
 		out = append(out, model.AppVolume{Name: v.Name, Size: q.Value()})
 	}
 	return out
+}
+
+// toModelClusterIngress converts config ClusterIngress to domain ClusterIngress pointer.
+func toModelClusterIngress(ci ClusterIngress) *model.ClusterIngress {
+	// If all fields are empty, return nil to indicate unspecified
+	if ci.Namespace == "" && ci.Controller == "" && ci.ServiceAccount == "" {
+		return nil
+	}
+	// Apply minimal defaults if necessary (ServiceAccount may be empty; runtime has a default)
+	return &model.ClusterIngress{
+		Namespace:      ci.Namespace,
+		Controller:     ci.Controller,
+		ServiceAccount: ci.ServiceAccount,
+	}
 }

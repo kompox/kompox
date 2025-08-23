@@ -402,10 +402,8 @@ func (d *driver) checkIngressNamespaceExists(ctx context.Context, resourceGroupN
 
 	// Determine namespace to check
 	ns := "default"
-	if cluster.Ingress != nil {
-		if namespace, ok := cluster.Ingress["namespace"].(string); ok && namespace != "" {
-			ns = namespace
-		}
+	if cluster.Ingress != nil && cluster.Ingress.Namespace != "" {
+		ns = cluster.Ingress.Namespace
 	}
 
 	// Query namespace existence via API
