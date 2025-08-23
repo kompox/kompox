@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "4580135705196587178"
+      "templateHash": "6029526316151286066"
     }
   },
   "parameters": {
@@ -55,6 +55,14 @@
     "principalId": {
       "type": "string",
       "defaultValue": "[deployer().objectId]"
+    },
+    "ingressServiceAccountNamespace": {
+      "type": "string",
+      "defaultValue": "traefik"
+    },
+    "ingressServiceAccountName": {
+      "type": "string",
+      "defaultValue": "traefik"
     }
   },
   "variables": {
@@ -200,6 +208,7 @@
       "azd-env-name": "[parameters('environmentName')]"
     },
     "resourceToken": "[toLower(uniqueString(subscription().id, parameters('environmentName'), parameters('location'), if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))))]",
+    "ingressServiceAccountSubject": "[format('system:serviceaccount:{0}:{1}', parameters('ingressServiceAccountNamespace'), parameters('ingressServiceAccountName'))]",
     "apiServiceName": "python-api"
   },
   "resources": [
@@ -2202,7 +2211,7 @@
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))), 'Microsoft.Resources/deployments', 'aks'), '2022-09-01').outputs.oidcIssuerUrl.value]"
           },
           "subject": {
-            "value": "system:serviceaccount:traefik:traefik"
+            "value": "[variables('ingressServiceAccountSubject')]"
           },
           "audience": {
             "value": "api://AzureADTokenExchange"
@@ -2641,6 +2650,14 @@
     "AZURE_CONTAINER_REGISTRY_NAME": {
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))), 'Microsoft.Resources/deployments', 'containerRegistry'), '2022-09-01').outputs.name.value]"
+    },
+    "AZURE_INGRESS_SERVICE_ACCOUNT_NAMESPACE": {
+      "type": "string",
+      "value": "[parameters('ingressServiceAccountNamespace')]"
+    },
+    "AZURE_INGRESS_SERVICE_ACCOUNT_NAME": {
+      "type": "string",
+      "value": "[parameters('ingressServiceAccountName')]"
     }
   }
 }

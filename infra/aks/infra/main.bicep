@@ -27,6 +27,8 @@ param applicationInsightsName string = ''
 param applicationInsightsDashboardName string = ''
 param aksName string = ''
 param principalId string = deployer().objectId
+param ingressServiceAccountNamespace string = 'traefik'
+param ingressServiceAccountName string = 'traefik'
 
 var abbrs = loadJsonContent('./abbreviations.json')
 
@@ -40,6 +42,9 @@ var tags = {
 // Remove linter suppression after using.
 #disable-next-line no-unused-vars
 var resourceToken = toLower(uniqueString(subscription().id, environmentName, location, rg.name))
+
+// Compose AKS OIDC subject for ServiceAccount (system:serviceaccount:<namespace>:<name>)
+var ingressServiceAccountSubject = 'system:serviceaccount:${ingressServiceAccountNamespace}:${ingressServiceAccountName}'
 
 // Name of the service defined in azure.yaml
 // A tag named azd-service-name with this value should be applied to the service host resource, such as:
@@ -117,7 +122,7 @@ module userIdentityFederation './app/user-identity-federation.bicep' = {
     name: 'fic-traefik'
     userIdentityName: userIdentity.outputs.name
     issuerUrl: aks.outputs.oidcIssuerUrl
-    subject: 'system:serviceaccount:traefik:traefik'
+    subject: ingressServiceAccountSubject
     audience: 'api://AzureADTokenExchange'
   }
 }
@@ -145,3 +150,5 @@ output AZURE_AKS_CLUSTER_NAME string = aks.outputs.clusterName
 output AZURE_AKS_OIDC_ISSUER_URL string = aks.outputs.oidcIssuerUrl
 output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.outputs.loginServer
 output AZURE_CONTAINER_REGISTRY_NAME string = containerRegistry.outputs.name
+output AZURE_INGRESS_SERVICE_ACCOUNT_NAMESPACE string = ingressServiceAccountNamespace
+output AZURE_INGRESS_SERVICE_ACCOUNT_NAME string = ingressServiceAccountName
