@@ -147,9 +147,15 @@ func (i *Installer) InstallTraefik(ctx context.Context, cluster *model.Cluster) 
 	}
 
 	// Minimal values: expose as LoadBalancer
+	saName := IngressServiceAccountName(cluster)
 	values := map[string]any{
 		"service": map[string]any{
 			"type": "LoadBalancer",
+		},
+		// Use the pre-created ServiceAccount for ingress/workload-identity.
+		// Helm should not attempt to create another ServiceAccount.
+		"serviceAccount": map[string]any{
+			"name": saName,
 		},
 	}
 

@@ -119,7 +119,7 @@ module userIdentityFederation './app/user-identity-federation.bicep' = {
   name: 'userIdentityFederation'
   scope: rg
   params: {
-    name: 'fic-traefik'
+    name: 'fic-ingress'
     userIdentityName: userIdentity.outputs.name
     issuerUrl: aks.outputs.oidcIssuerUrl
     subject: ingressServiceAccountSubject
@@ -152,3 +152,5 @@ output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.outputs.logi
 output AZURE_CONTAINER_REGISTRY_NAME string = containerRegistry.outputs.name
 output AZURE_INGRESS_SERVICE_ACCOUNT_NAMESPACE string = ingressServiceAccountNamespace
 output AZURE_INGRESS_SERVICE_ACCOUNT_NAME string = ingressServiceAccountName
+output AZURE_INGRESS_SERVICE_ACCOUNT_PRINCIPAL_ID string = userIdentity.outputs.principalId
+output AZURE_INGRESS_SERVICE_ACCOUNT_CLIENT_ID string = userIdentity.outputs.clientId

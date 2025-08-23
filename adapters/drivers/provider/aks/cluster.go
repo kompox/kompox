@@ -24,6 +24,7 @@ const (
 	OutputAksClusterName                 = "AZURE_AKS_CLUSTER_NAME"
 	OutputIngressServiceAccountNamespace = "AZURE_INGRESS_SERVICE_ACCOUNT_NAMESPACE"
 	OutputIngressServiceAccountName      = "AZURE_INGRESS_SERVICE_ACCOUNT_NAME"
+	OutputIngressServiceAccountClientID  = "AZURE_INGRESS_SERVICE_ACCOUNT_CLIENT_ID"
 )
 
 // deploymentName generates the deployment name for the subscription-scoped deployment.
@@ -468,8 +469,17 @@ func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster) err
 		return fmt.Errorf("deployment outputs mismatch: expected %s/%s, got %s/%s", expectedNS, expectedName, saNS, saName)
 	}
 
-	// Create the ServiceAccount idempotently in the specified namespace
-	if err := kc.CreateServiceAccount(ctx, saNS, saName); err != nil {
+	// Fetch workload identity client ID from deployment outputs and annotate the ServiceAccount
+	clientID, _ := outputs[OutputIngressServiceAccountClientID].(string)
+	if clientID == "" {
+		return fmt.Errorf("deployment outputs must include non-empty %s", OutputIngressServiceAccountClientID)
+	}
+	annotations := map[string]string{
+		"azure.workload.identity/client-id": clientID,
+	}
+
+	// Create or update the ServiceAccount idempotently with annotations
+	if err := kc.CreateServiceAccount(ctx, saNS, saName, annotations); err != nil {
 		return fmt.Errorf("create ingress serviceaccount %s/%s: %w", saNS, saName, err)
 	}
 

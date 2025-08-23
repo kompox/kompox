@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "6029526316151286066"
+      "templateHash": "18350364318284673598"
     }
   },
   "parameters": {
@@ -2145,7 +2145,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "9729238661536281929"
+              "templateHash": "10340039119236316017"
             }
           },
           "parameters": {
@@ -2182,6 +2182,10 @@
             "principalId": {
               "type": "string",
               "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('name')), '2025-01-31-preview').principalId]"
+            },
+            "clientId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('name')), '2025-01-31-preview').clientId]"
             }
           }
         }
@@ -2202,7 +2206,7 @@
         "mode": "Incremental",
         "parameters": {
           "name": {
-            "value": "fic-traefik"
+            "value": "fic-ingress"
           },
           "userIdentityName": {
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))), 'Microsoft.Resources/deployments', 'userIdentity'), '2022-09-01').outputs.name.value]"
@@ -2658,6 +2662,14 @@
     "AZURE_INGRESS_SERVICE_ACCOUNT_NAME": {
       "type": "string",
       "value": "[parameters('ingressServiceAccountName')]"
+    },
+    "AZURE_INGRESS_SERVICE_ACCOUNT_PRINCIPAL_ID": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))), 'Microsoft.Resources/deployments', 'userIdentity'), '2022-09-01').outputs.principalId.value]"
+    },
+    "AZURE_INGRESS_SERVICE_ACCOUNT_CLIENT_ID": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))), 'Microsoft.Resources/deployments', 'userIdentity'), '2022-09-01').outputs.clientId.value]"
     }
   }
 }
