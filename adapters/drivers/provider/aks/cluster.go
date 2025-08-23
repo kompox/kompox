@@ -20,8 +20,10 @@ import (
 
 // Constants for template output keys
 const (
-	OutputResourceGroupName = "AZURE_RESOURCE_GROUP_NAME"
-	OutputAksClusterName    = "AZURE_AKS_CLUSTER_NAME"
+	OutputResourceGroupName              = "AZURE_RESOURCE_GROUP_NAME"
+	OutputAksClusterName                 = "AZURE_AKS_CLUSTER_NAME"
+	OutputIngressServiceAccountNamespace = "AZURE_INGRESS_SERVICE_ACCOUNT_NAMESPACE"
+	OutputIngressServiceAccountName      = "AZURE_INGRESS_SERVICE_ACCOUNT_NAME"
 )
 
 // deploymentName generates the deployment name for the subscription-scoped deployment.
@@ -187,6 +189,9 @@ func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster) e
 		"environmentName":   map[string]any{"value": cluster.Name},
 		"location":          map[string]any{"value": d.AzureLocation},
 		"resourceGroupName": map[string]any{"value": resourceGroupName},
+		// Pass ingress ServiceAccount parameters required for workload identity wiring
+		"ingressServiceAccountName":      map[string]any{"value": kube.IngressServiceAccountName(cluster)},
+		"ingressServiceAccountNamespace": map[string]any{"value": kube.IngressNamespace(cluster)},
 	}
 
 	// Create deployments client for subscription-scoped deployment
@@ -445,6 +450,29 @@ func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster) err
 	// Step 1: Ensure ingress namespace exists (idempotent)
 	if err := installer.EnsureIngressNamespace(ctx, cluster); err != nil {
 		return err
+	}
+
+	// Step 1.5: Create ServiceAccount exactly as specified by deployment outputs
+	outputs, err := d.getDeploymentOutputs(ctx, cluster)
+	if err != nil {
+		return fmt.Errorf("read deployment outputs: %w", err)
+	}
+	saNS, _ := outputs[OutputIngressServiceAccountNamespace].(string)
+	saName, _ := outputs[OutputIngressServiceAccountName].(string)
+	if saNS == "" || saName == "" {
+		return fmt.Errorf("deployment outputs must include %s and %s", OutputIngressServiceAccountNamespace, OutputIngressServiceAccountName)
+	}
+
+	// Validate outputs match the parameters we passed in ClusterProvision
+	expectedNS := kube.IngressNamespace(cluster)
+	expectedName := kube.IngressServiceAccountName(cluster)
+	if saNS != expectedNS || saName != expectedName {
+		return fmt.Errorf("deployment outputs mismatch: expected %s/%s, got %s/%s", expectedNS, expectedName, saNS, saName)
+	}
+
+	// Create the ServiceAccount idempotently in the specified namespace
+	if err := kc.CreateServiceAccount(ctx, saNS, saName); err != nil {
+		return fmt.Errorf("create ingress serviceaccount %s/%s: %w", saNS, saName, err)
 	}
 
 	// Step 2: Install Traefik via manifests (idempotent)

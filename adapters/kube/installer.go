@@ -70,6 +70,11 @@ func IngressNamespace(cluster *model.Cluster) string {
 	return ns
 }
 
+// IngressServiceAccountName returns the canonical ServiceAccount name used by ingress workloads.
+func IngressServiceAccountName(_ *model.Cluster) string {
+	return "ingress-service-account"
+}
+
 // EnsureIngressNamespace ensures the ingress namespace exists.
 func (i *Installer) EnsureIngressNamespace(ctx context.Context, cluster *model.Cluster) error {
 	ns := IngressNamespace(cluster)

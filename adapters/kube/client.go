@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"os"
 
+	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -85,4 +88,37 @@ func NewClientFromRESTConfig(cfg *rest.Config, opts *Options) (*Client, error) {
 	}
 
 	return &Client{RESTConfig: cfg, Clientset: cs}, nil
+}
+
+// CreateServiceAccount ensures a namespaced ServiceAccount exists (idempotent).
+func (c *Client) CreateServiceAccount(ctx context.Context, namespace, name string) error {
+	if c == nil || c.Clientset == nil {
+		return fmt.Errorf("kube client is not initialized")
+	}
+	if namespace == "" {
+		return fmt.Errorf("namespace is empty")
+	}
+	if name == "" {
+		return fmt.Errorf("serviceaccount name is empty")
+	}
+
+	// Check existence first
+	_, err := c.Clientset.CoreV1().ServiceAccounts(namespace).Get(ctx, name, metav1.GetOptions{})
+	if err == nil {
+		return nil
+	}
+	if !apierrors.IsNotFound(err) {
+		return fmt.Errorf("get serviceaccount %s/%s: %w", namespace, name, err)
+	}
+
+	_, err = c.Clientset.CoreV1().ServiceAccounts(namespace).Create(ctx, &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+	}, metav1.CreateOptions{})
+	if err != nil {
+		if apierrors.IsAlreadyExists(err) {
+			return nil
+		}
+		return fmt.Errorf("create serviceaccount %s/%s: %w", namespace, name, err)
+	}
+	return nil
 }
