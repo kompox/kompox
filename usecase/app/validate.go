@@ -81,33 +81,41 @@ func (u *UseCase) Validate(ctx context.Context, in *ValidateInput) (*ValidateOut
 					if lerr != nil {
 						continue // ignore errors; validation should still proceed
 					}
-					// choose newest assigned (Assigned true). If multiple, pick most recent CreatedAt.
-					var chosen *model.AppVolumeInstance
+					// Exactly one assigned instance must exist; otherwise it's an error.
+					var assigned []*model.AppVolumeInstance
 					for _, inst := range insts {
 						if inst.Assigned {
-							if chosen == nil || inst.CreatedAt.After(chosen.CreatedAt) {
-								chosen = inst
-							}
+							assigned = append(assigned, inst)
 						}
 					}
-					if chosen != nil {
-						size := chosen.Size
-						if size <= 0 && av.Size > 0 {
-							size = av.Size
-						}
-						if size <= 0 {
-							size = 32 * (1 << 30) // default
-						}
-						vmap[av.Name] = kube.VolumeInstanceInfo{Handle: chosen.Handle, Size: size}
+					if len(assigned) == 0 {
+						out.Errors = append(out.Errors, fmt.Sprintf("volume %s has no assigned instances", av.Name))
+						continue
 					}
+					if len(assigned) > 1 {
+						out.Errors = append(out.Errors, fmt.Sprintf("volume %s has multiple assigned instances (%d)", av.Name, len(assigned)))
+						continue
+					}
+					chosen := assigned[0]
+					size := chosen.Size
+					if size <= 0 && av.Size > 0 {
+						size = av.Size
+					}
+					if size <= 0 {
+						size = 32 * (1 << 30) // default
+					}
+					vmap[av.Name] = kube.VolumeInstanceInfo{Handle: chosen.Handle, Size: size}
 				}
 			}
-			objs, warns, convErr := kube.ComposeAppToObjects(ctx, svc, prv, cls, a, vmap, drv)
-			if convErr != nil {
-				out.Warnings = append(out.Warnings, fmt.Sprintf("compose conversion failed: %v", convErr))
-			} else {
-				out.K8sObjects = objs
-				out.Warnings = append(out.Warnings, warns...)
+			// Only attempt conversion if no fatal errors have been collected.
+			if len(out.Errors) == 0 {
+				objs, warns, convErr := kube.ComposeAppToObjects(ctx, svc, prv, cls, a, vmap, drv)
+				if convErr != nil {
+					out.Warnings = append(out.Warnings, fmt.Sprintf("compose conversion failed: %v", convErr))
+				} else {
+					out.K8sObjects = objs
+					out.Warnings = append(out.Warnings, warns...)
+				}
 			}
 		}
 	}

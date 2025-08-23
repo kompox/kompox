@@ -33,8 +33,9 @@ type VolumeInstanceInfo struct {
 	Size   int64 // bytes
 }
 
-// ComposeAppToObjects converts App compose spec into Kubernetes objects using optional volume instance map.
-// volumeInstances: map[logicalVolumeName]VolumeInstanceInfo for assigned instances. If missing, placeholder handles are used.
+// ComposeAppToObjects converts App compose spec into Kubernetes objects using a volume instance map.
+// volumeInstances: map[logicalVolumeName]VolumeInstanceInfo for assigned instances. A valid handle must be provided
+// for every declared app volume; if a handle is missing or empty for any volume, this function returns an error.
 func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Provider, cls *model.Cluster, a *model.App, volumeInstances map[string]VolumeInstanceInfo, drv providerdrv.Driver) ([]runtime.Object, []string, error) {
 	proj, err := newComposeProject(ctx, a.Compose)
 	if err != nil {
@@ -213,14 +214,14 @@ func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Pro
 	var pvs []runtime.Object
 	var podVolumes []corev1.Volume
 	for _, av := range a.Volumes {
-		inst, ok := volumeInstances[av.Name]
 		volHandle := ""
 		sizeBytes := av.Size
+		inst, ok := volumeInstances[av.Name]
 		if ok {
 			volHandle = inst.Handle
 		}
-		if volHandle == "" { // fallback placeholder
-			volHandle = fmt.Sprintf("placeholder-%s-handle", av.Name)
+		if volHandle == "" {
+			return nil, nil, fmt.Errorf("volume %s has no assigned handle; provide volumeInstances[%s].Handle", av.Name, av.Name)
 		}
 		// Do not override sizeBytes even if zero; pass through to manifest so API server validates.
 		volHASH := naming.VolumeHash(volHandle)
