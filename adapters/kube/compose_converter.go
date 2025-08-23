@@ -116,8 +116,8 @@ func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Pro
 		}
 
 		// volumes: parse according to spec
-		//  - ./sub/path: default volume (first entry in a.Volumes slice) required
-		//  - name/sub/path: named volume must match volume definition
+		//  - ./sub/path: default volume (first entry in a.Volumes slice) is referenced only when the source starts with "./"
+		//  - name/sub/path: named volume; the token before the first slash must match a declared app volume name
 		//  Absolute paths are error
 		for _, v := range s.Volumes {
 			if v.Source == "" || v.Target == "" {
@@ -126,28 +126,35 @@ func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Pro
 			if strings.HasPrefix(v.Source, "/") { // absolute path not allowed
 				return nil, nil, fmt.Errorf("absolute volume path not supported: %s", v.Source)
 			}
-			src := v.Source
-			src = strings.TrimPrefix(src, "./") // may or may not have ./
+			srcRaw := v.Source
 			volName := ""
 			subPathRaw := ""
-			if strings.Contains(src, ":") { // colon shouldn't appear here (compose-go already split), but guard
+			if strings.Contains(srcRaw, ":") { // colon shouldn't appear here (compose-go already split), but guard
 				return nil, nil, fmt.Errorf("unexpected ':' in volume source: %s", v.Source)
 			}
 			// Determine form
-			if strings.Contains(src, "/") {
-				// Could be name/sub/path or sub/path for default. To distinguish, check full token before first slash exists in volDefs
-				first, rest, _ := strings.Cut(src, "/")
-				if _, ok := volDefs[first]; ok { // named volume
-					volName = first
-					subPathRaw = rest
-				} else {
-					// treat as default volume reference
-					if len(a.Volumes) == 0 {
-						return nil, nil, fmt.Errorf("relative bind volume '%s' requires at least one app volume (default) defined", v.Source)
-					}
-					volName = a.Volumes[0].Name
-					subPathRaw = src
+			if strings.HasPrefix(srcRaw, "./") {
+				// Default volume reference must start with "./"
+				src := strings.TrimPrefix(srcRaw, "./")
+				if src == "" {
+					return nil, nil, fmt.Errorf("volume source must include sub path: %s", v.Source)
 				}
+				if len(a.Volumes) == 0 {
+					return nil, nil, fmt.Errorf("relative bind volume '%s' requires at least one app volume (default) defined", v.Source)
+				}
+				volName = a.Volumes[0].Name
+				subPathRaw = src
+			} else if strings.Contains(srcRaw, "/") {
+				// Named volume must be declared in app volumes
+				first, rest, _ := strings.Cut(srcRaw, "/")
+				if _, ok := volDefs[first]; !ok {
+					return nil, nil, fmt.Errorf("named volume '%s' referenced by '%s' is not defined in app volumes", first, v.Source)
+				}
+				if rest == "" {
+					return nil, nil, fmt.Errorf("volume source must include sub path: %s", v.Source)
+				}
+				volName = first
+				subPathRaw = rest
 			} else {
 				// single segment is invalid because subPath after normalization must not be empty
 				return nil, nil, fmt.Errorf("volume source must include sub path: %s", v.Source)
