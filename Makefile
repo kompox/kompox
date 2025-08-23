@@ -1,36 +1,27 @@
-.PHONY: build clean test fmt vet run
+.PHONY: build test cmd bicep
 
-# Build the kompoxops binary
-build:
-	go build -o bin/kompoxops ./cmd/kompoxops
-
-# Clean build artifacts
-clean:
-	rm -rf bin/
-
-# Run tests
+# Run full tests
 test:
 	go test ./...
 
-# Format code
-fmt:
-	go fmt ./...
+# Run full build check
+build:
+	go build ./...
 
-# Vet code
-vet:
-	go vet ./...
+# Build kompoxops CLI executable
+cmd:
+	go build ./cmd/kompoxops
 
-# Run the application (with help by default)
-run: build
-	./bin/kompoxops help
-
-# Install dependencies
-deps:
+# Run go mod tidy
+tidy:
 	go mod tidy
-	go mod download
 
-# Build for multiple platforms
-build-all:
-	GOOS=linux GOARCH=amd64 go build -o bin/kompoxops-linux-amd64 ./cmd/kompoxops
-	GOOS=darwin GOARCH=amd64 go build -o bin/kompoxops-darwin-amd64 ./cmd/kompoxops
-	GOOS=windows GOARCH=amd64 go build -o bin/kompoxops-windows-amd64.exe ./cmd/kompoxops
+# Show staged changes in Git
+diff-staged-changes:
+	git status
+	git diff --cached
+
+# Build adapters/drivers/provider/aks/main.json to embed in AKS driver
+# You need it when you make changes in infra/aks
+bicep:
+	az bicep build -f infra/aks/infra/main.bicep --outdir adapters/drivers/provider/aks
