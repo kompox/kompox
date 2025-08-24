@@ -40,9 +40,11 @@ type ClusterPort interface {
 
 // ClusterStatus represents the status of a cluster.
 type ClusterStatus struct {
-	Existing    bool `json:"existing"`    // Value of cluster.existing configuration
-	Provisioned bool `json:"provisioned"` // True when the Kubernetes cluster exists
-	Installed   bool `json:"installed"`   // True when in-cluster resources are installed
+	Existing        bool   `json:"existing"`                  // Value of cluster.existing configuration
+	Provisioned     bool   `json:"provisioned"`               // True when the Kubernetes cluster exists
+	Installed       bool   `json:"installed"`                 // True when in-cluster resources are installed
+	IngressGlobalIP string `json:"ingressGlobalIP,omitempty"` // Ingress global IP address
+	IngressFQDN     string `json:"ingressFQDN,omitempty"`     // Ingress FQDN (if available)
 }
 
 // Note: Status retrieval should be invoked from use cases through a ClusterPort.

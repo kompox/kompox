@@ -142,6 +142,8 @@ status コマンドにより K8s クラスタと内部リソースの状態に�
 existing: bool          cluster.existing の設定値
 provisioned: bool       K8s クラスタが存在するとき true (existingがtrueの場合も実際に存在するか調べる)
 installed: bool         K8s クラスタ内のリソースが存在するとき true
+ingressGlobalIP: string クラスタ Ingress/LoadBalancer のグローバル IP アドレス（存在する場合）
+ingressFQDN: string     クラスタ Ingress/LoadBalancer の FQDN（存在する場合）
 ```
 
 provision/deprovision/install/uninstall は status により実行可否が変わる。
@@ -173,7 +175,7 @@ Ingress Controller などのクラスタ内リソースをインストールし�
 
 ### kompoxops cluster status
 
-クラスタの `existing`/`provisioned`/`installed` を JSON で表示します。
+クラスタの `existing`/`provisioned`/`installed` に加えて Ingress のグローバル IP/FQDN を JSON で表示します（利用可能な場合）。
 
 ### kompoxops cluster kubeconfig
 

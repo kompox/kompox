@@ -14,8 +14,6 @@ import (
 	"github.com/yaegashi/kompoxops/adapters/kube"
 	"github.com/yaegashi/kompoxops/domain/model"
 	"github.com/yaegashi/kompoxops/internal/logging"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Constants for template output keys
@@ -104,6 +102,20 @@ func (d *driver) getAKSClient(ctx context.Context, cluster *model.Cluster) (*arm
 	}
 
 	return aksClient, aksRGName, aksName, nil
+}
+
+// getKubeClient returns a Kubernetes client for the target cluster.
+// Callers can reuse the client across multiple operations to avoid redundant constructions.
+func (d *driver) getKubeClient(ctx context.Context, cluster *model.Cluster) (*kube.Client, error) {
+	kubeconfig, err := d.ClusterKubeconfig(ctx, cluster)
+	if err != nil {
+		return nil, fmt.Errorf("get kubeconfig: %w", err)
+	}
+	kc, err := kube.NewClientFromKubeconfig(ctx, kubeconfig, &kube.Options{UserAgent: "kompoxops"})
+	if err != nil {
+		return nil, fmt.Errorf("new kube client: %w", err)
+	}
+	return kc, nil
 }
 
 // getKeyVaultsInResourceGroup retrieves the names of Key Vaults in the specified resource group.
@@ -337,122 +349,40 @@ func (d *driver) ClusterStatus(ctx context.Context, cluster *model.Cluster) (*mo
 		Installed:   false,
 	}
 
-	// Create deployments client to check subscription deployment status
-	deploymentsClient, err := armresources.NewDeploymentsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
-	if err != nil {
-		return status, fmt.Errorf("failed to create deployments client: %w", err)
-	}
-
-	deploymentName, err := d.deploymentName(cluster)
-	if err != nil {
-		return status, fmt.Errorf("derive deployment name: %w", err)
-	}
-
-	// Check subscription deployment status
-	deployment, err := deploymentsClient.GetAtSubscriptionScope(ctx, deploymentName, nil)
-	if err != nil {
-		// Deployment doesn't exist
-		return status, nil
-	}
-
-	if deployment.Properties == nil || deployment.Properties.ProvisioningState == nil {
-		return status, nil
-	}
-
-	// Check if deployment is provisioned successfully
-	if *deployment.Properties.ProvisioningState == "Succeeded" {
+	// Check if the AKS cluster exists by attempting to get the kube client
+	kc, err := d.getKubeClient(ctx, cluster)
+	if err == nil {
 		status.Provisioned = true
 
-		// Get AKS client and resource information
-		aksClient, aksRGName, aksName, err := d.getAKSClient(ctx, cluster)
-		if err != nil {
-			return status, fmt.Errorf("failed to get AKS client and resource info: %w", err)
-		}
-
-		// Check if AKS cluster exists and is provisioned
-		aksCluster, err := aksClient.Get(ctx, aksRGName, aksName, nil)
-		if err == nil && aksCluster.Properties != nil && aksCluster.Properties.ProvisioningState != nil &&
-			*aksCluster.Properties.ProvisioningState == "Succeeded" {
-
-			// Check if cluster is installed by verifying ingress namespace exists
-			installed, err := d.checkIngressNamespaceExists(ctx, aksRGName, aksName, cluster)
-			if err != nil {
-				// Log error but don't fail the entire status check
-				// The cluster is provisioned even if we can't check the namespace
-				return status, nil
-			}
-			status.Installed = installed
+		// Retrieve ingress endpoint (global IP/FQDN) when installed
+		ip, host, err := kc.IngressEndpoint(ctx, cluster)
+		if err == nil {
+			status.Installed = true
+			status.IngressGlobalIP = ip
+			status.IngressFQDN = host
 		}
 	}
 
 	return status, nil
 }
 
-// checkIngressNamespaceExists checks if the ingress namespace exists in the K8s cluster
-func (d *driver) checkIngressNamespaceExists(ctx context.Context, resourceGroupName string, aksClusterName string, cluster *model.Cluster) (bool, error) {
-	// Acquire kubeconfig via the driver's unified method
-	kubeconfig, err := d.ClusterKubeconfig(ctx, cluster)
-	if err != nil {
-		return false, fmt.Errorf("failed to get cluster kubeconfig: %w", err)
-	}
-
-	// Build a shared kube client
-	cli, err := kube.NewClientFromKubeconfig(ctx, kubeconfig, &kube.Options{UserAgent: "kompoxops"})
-	if err != nil {
-		return false, fmt.Errorf("failed to create kube client: %w", err)
-	}
-
-	// Determine namespace to check
-	ns := "default"
-	if cluster.Ingress != nil && cluster.Ingress.Namespace != "" {
-		ns = cluster.Ingress.Namespace
-	}
-
-	// Query namespace existence via API
-	_, err = cli.Clientset.CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			return false, nil
-		}
-		// On other errors (e.g., auth/conn), surface as non-fatal for status
-		return false, fmt.Errorf("failed to get namespace %s: %w", ns, err)
-	}
-	return true, nil
-}
-
 // ClusterInstall installs in-cluster resources (Ingress Controller, etc.) for AKS cluster.
 func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster) error {
 	log := logging.FromContext(ctx)
-
-	// Retrieve AKS resource identifiers for logging.
-	if aksClient, aksRG, aksName, err := d.getAKSClient(ctx, cluster); err == nil && aksClient != nil {
-		log.Info(ctx, "aks cluster install begin",
-			"aks_resource_group", aksRG,
-			"aks_cluster", aksName,
-			"cluster", cluster.Name,
-			"provider", d.ProviderName(),
-		)
-	} else if err != nil { // only debug log on failure to resolve prior to kubeconfig
-		log.Debug(ctx, "failed to resolve aks identifiers before install", "error", err, "cluster", cluster.Name, "provider", d.ProviderName())
-	}
+	log.Info(ctx, "aks cluster install begin", "cluster", cluster.Name, "provider", d.ProviderName())
 
 	// Build kube client from provider-managed kubeconfig
-	kubeconfig, err := d.ClusterKubeconfig(ctx, cluster)
+	kc, err := d.getKubeClient(ctx, cluster)
 	if err != nil {
-		return fmt.Errorf("get kubeconfig: %w", err)
-	}
-	kc, err := kube.NewClientFromKubeconfig(ctx, kubeconfig, &kube.Options{UserAgent: "kompoxops"})
-	if err != nil {
-		return fmt.Errorf("new kube client: %w", err)
-	}
-	installer := kube.NewInstallerWithKubeconfig(kc, kubeconfig)
-
-	// Step 1: Ensure ingress namespace exists (idempotent)
-	if err := installer.EnsureIngressNamespace(ctx, cluster); err != nil {
 		return err
 	}
 
-	// Step 1.5: Create ServiceAccount exactly as specified by deployment outputs
+	// Step 1: Ensure ingress namespace exists (idempotent)
+	if err := kc.CreateNamespace(ctx, kube.IngressNamespace(cluster)); err != nil {
+		return err
+	}
+
+	// Step 2: Create ServiceAccount exactly as specified by deployment outputs
 	outputs, err := d.getDeploymentOutputs(ctx, cluster)
 	if err != nil {
 		return fmt.Errorf("read deployment outputs: %w", err)
@@ -484,8 +414,8 @@ func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster) err
 		return fmt.Errorf("create ingress serviceaccount %s/%s: %w", saNS, saName, err)
 	}
 
-	// Step 2: Install Traefik via manifests (idempotent)
-	if err := installer.InstallTraefik(ctx, cluster); err != nil {
+	// Step 3: Install Traefik via Helm (idempotent)
+	if err := kc.InstallIngressTraefik(ctx, cluster); err != nil {
 		return err
 	}
 
@@ -496,37 +426,21 @@ func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster) err
 // ClusterUninstall uninstalls in-cluster resources (Ingress Controller, etc.) from AKS cluster.
 func (d *driver) ClusterUninstall(ctx context.Context, cluster *model.Cluster) error {
 	log := logging.FromContext(ctx)
-
-	// Retrieve AKS resource identifiers for logging.
-	if aksClient, aksRG, aksName, err := d.getAKSClient(ctx, cluster); err == nil && aksClient != nil {
-		log.Info(ctx, "aks cluster uninstall begin",
-			"aks_resource_group", aksRG,
-			"aks_cluster", aksName,
-			"cluster", cluster.Name,
-			"provider", d.ProviderName(),
-		)
-	} else if err != nil { // only debug log on failure to resolve prior to kubeconfig
-		log.Debug(ctx, "failed to resolve aks identifiers before uninstall", "error", err, "cluster", cluster.Name, "provider", d.ProviderName())
-	}
+	log.Info(ctx, "aks cluster uninstall begin", "cluster", cluster.Name, "provider", d.ProviderName())
 
 	// Build kube client from provider-managed kubeconfig
-	kubeconfig, err := d.ClusterKubeconfig(ctx, cluster)
+	kc, err := d.getKubeClient(ctx, cluster)
 	if err != nil {
-		return fmt.Errorf("get kubeconfig: %w", err)
+		return err
 	}
-	kc, err := kube.NewClientFromKubeconfig(ctx, kubeconfig, &kube.Options{UserAgent: "kompoxops"})
-	if err != nil {
-		return fmt.Errorf("new kube client: %w", err)
-	}
-	installer := kube.NewInstallerWithKubeconfig(kc, kubeconfig)
 
 	// Step 1: Uninstall Traefik (best-effort)
-	if err := installer.UninstallTraefik(ctx, cluster); err != nil {
+	if err := kc.UninstallIngressTraefik(ctx, cluster); err != nil {
 		return err
 	}
 
 	// Step 2: Delete ingress namespace (best-effort, idempotent)
-	if err := installer.DeleteIngressNamespace(ctx, cluster); err != nil {
+	if err := kc.DeleteNamespace(ctx, kube.IngressNamespace(cluster)); err != nil {
 		return err
 	}
 

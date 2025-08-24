@@ -3,6 +3,7 @@ package kube
 import (
 	"bytes"
 	"fmt"
+	"os"
 
 	"gopkg.in/yaml.v3"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -75,4 +76,25 @@ func pruneMap(v any) any {
 	default:
 		return x
 	}
+}
+
+// tempfile writes arbitrary bytes to a temporary file and returns its path
+// and a cleanup function to remove it.
+func tempfile(bytes []byte) (string, func(), error) {
+	f, err := os.CreateTemp("", "kompox-kube-*")
+	if err != nil {
+		return "", func() {}, fmt.Errorf("create temp file: %w", err)
+	}
+	path := f.Name()
+	if _, err := f.Write(bytes); err != nil {
+		_ = f.Close()
+		_ = os.Remove(path)
+		return "", func() {}, fmt.Errorf("write temp file: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(path)
+		return "", func() {}, fmt.Errorf("close temp file: %w", err)
+	}
+	cleanup := func() { _ = os.Remove(path) }
+	return path, cleanup, nil
 }

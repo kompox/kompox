@@ -480,11 +480,8 @@ func normalizeSubPath(s string) string {
 	}
 	return strings.Join(out, "/")
 }
-func int32Ptr(i int32) *int32                      { return &i }
-func pathTypePtr(p netv1.PathType) *netv1.PathType { return &p }
-func reclaimPolicyPtr(p corev1.PersistentVolumeReclaimPolicy) *corev1.PersistentVolumeReclaimPolicy {
-	return &p
-}
+func int32Ptr(i int32) *int32                                                  { return &i }
+func pathTypePtr(p netv1.PathType) *netv1.PathType                             { return &p }
 func volumeModePtr(m corev1.PersistentVolumeMode) *corev1.PersistentVolumeMode { return &m }
 func strPtr(s string) *string                                                  { return &s }
 
