@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "9755781099443204254"
+      "templateHash": "3824521459594169321"
     }
   },
   "parameters": {
@@ -26,7 +26,8 @@
     },
     "resourceGroupName": {
       "type": "string",
-      "defaultValue": ""
+      "defaultValue": "",
+      "maxLength": 80
     },
     "keyVaultName": {
       "type": "string",
@@ -2287,6 +2288,9 @@
           },
           "tags": {
             "value": "[variables('tags')]"
+          },
+          "nodeResourceGroupName": {
+            "value": "[format('{0}_mc', if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName'))))]"
           },
           "containerRegistryName": {
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))), 'Microsoft.Resources/deployments', 'containerRegistry'), '2022-09-01').outputs.name.value]"

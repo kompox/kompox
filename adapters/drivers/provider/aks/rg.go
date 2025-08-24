@@ -22,7 +22,7 @@ import (
 // Resource group related limits and setting keys.
 const (
 	maxResourceGroupBaseName = 40
-	maxResourceGroupName     = 90
+	maxResourceGroupName     = 80
 	keyResourceGroupBaseName = "AZURE_RESOURCE_GROUP_BASE_NAME"
 	keyResourceGroupName     = "AZURE_RESOURCE_GROUP_NAME"
 )

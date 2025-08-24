@@ -1,9 +1,5 @@
 targetScope = 'subscription'
 
-// The main bicep module to provision Azure resources.
-// For a more complete walkthrough to understand how this file works with azd,
-// see https://learn.microsoft.com/en-us/azure/developer/azure-developer-cli/make-azd-compatible?pivots=azd-create
-
 @minLength(1)
 @maxLength(64)
 @description('Name of the the environment which is used to generate a short unique hash used in all resources.')
@@ -13,11 +9,7 @@ param environmentName string
 @description('Primary location for all resources')
 param location string
 
-// Optional parameters to override the default azd resource naming conventions.
-// Add the following to main.parameters.json to provide values:
-// "resourceGroupName": {
-//      "value": "myGroupName"
-// }
+@maxLength(80) // RG name max len is 90. Ensure buffer for suffixes.
 param resourceGroupName string = ''
 
 param keyVaultName string = ''
@@ -134,6 +126,7 @@ module aks './app/aks.bicep' = {
     name: !empty(aksName) ? aksName : '${abbrs.containerServiceManagedClusters}${resourceToken}'
     location: location
     tags: tags
+    nodeResourceGroupName: '${rg.name}_mc'
     containerRegistryName: containerRegistry.outputs.name
     logAnalyticsName: monitoring.outputs.logAnalyticsWorkspaceName
     keyVaultName: keyVault.outputs.name
