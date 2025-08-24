@@ -45,7 +45,7 @@ func (u *UseCase) Validate(ctx context.Context, in *ValidateInput) (*ValidateOut
 		return out, fmt.Errorf("app not found: %s", in.AppID)
 	}
 
-	pro, err := kube.ComposeAppToProject(ctx, a.Compose)
+	pro, err := kube.NewComposeProject(ctx, a.Compose)
 	if err != nil {
 		return out, fmt.Errorf("compose project failed: %w", err)
 	}

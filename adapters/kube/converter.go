@@ -103,7 +103,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		return nil, fmt.Errorf("converter requires svc/prv/cls/app")
 	}
 
-	proj, err := newComposeProject(ctx, c.App.Compose)
+	proj, err := NewComposeProject(ctx, c.App.Compose)
 	if err != nil {
 		return nil, fmt.Errorf("compose project failed: %w", err)
 	}

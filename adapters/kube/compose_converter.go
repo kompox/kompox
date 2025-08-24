@@ -8,11 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/compose-spec/compose-go/v2/loader"
-	"github.com/compose-spec/compose-go/v2/types"
 	providerdrv "github.com/yaegashi/kompoxops/adapters/drivers/provider"
 	"github.com/yaegashi/kompoxops/domain/model"
-	"github.com/yaegashi/kompoxops/internal/logging"
 	"github.com/yaegashi/kompoxops/internal/naming"
 
 	yaml "gopkg.in/yaml.v3"
@@ -37,7 +34,7 @@ type VolumeInstanceInfo struct {
 // volumeInstances: map[logicalVolumeName]VolumeInstanceInfo for assigned instances. A valid handle must be provided
 // for every declared app volume; if a handle is missing or empty for any volume, this function returns an error.
 func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Provider, cls *model.Cluster, a *model.App, volumeInstances map[string]VolumeInstanceInfo, drv providerdrv.Driver) ([]runtime.Object, []string, error) {
-	proj, err := newComposeProject(ctx, a.Compose)
+	proj, err := NewComposeProject(ctx, a.Compose)
 	if err != nil {
 		return nil, nil, fmt.Errorf("compose project failed: %w", err)
 	}
@@ -488,35 +485,4 @@ func bytesToQuantity(b int64) resource.Quantity {
 		b = ((b / Mi) + 1) * Mi
 	}
 	return resource.MustParse(fmt.Sprintf("%dMi", b>>20))
-}
-
-// newComposeProject loads a compose project from raw YAML string (single file only, includes disabled).
-func newComposeProject(ctx context.Context, composeContent string) (*types.Project, error) {
-	logger := logging.FromContext(ctx)
-
-	cdm := types.ConfigDetails{
-		WorkingDir:  ".",
-		ConfigFiles: []types.ConfigFile{{Filename: "app.compose", Content: []byte(composeContent)}},
-		Environment: map[string]string{},
-	}
-	model, err := loader.LoadModelWithContext(ctx, cdm, func(o *loader.Options) {
-		o.SetProjectName("kompox-compose", false)
-		o.SkipInclude = true
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to load compose model: %w", err)
-	}
-	if _, ok := model["version"]; ok {
-		logger.Warn(ctx, "compose: `version` is obsolete")
-	}
-	var proj *types.Project
-	if err := loader.Transform(model, &proj); err != nil {
-		return nil, fmt.Errorf("failed to transform compose model to project: %w", err)
-	}
-	return proj, nil
-}
-
-// ComposeAppToProject returns the normalized compose project (exported for usecases needing validation output).
-func ComposeAppToProject(ctx context.Context, composeContent string) (*types.Project, error) {
-	return newComposeProject(ctx, composeContent)
 }
