@@ -68,8 +68,8 @@ func (d *driver) VolumeInstanceDelete(ctx context.Context, cluster *model.Cluste
 }
 
 // VolumeClass returns empty spec (no opinion) for k3s provider.
-func (d *driver) VolumeClass(ctx context.Context, cluster *model.Cluster, app *model.App, vol model.AppVolume) (providerdrv.VolumeClass, error) {
-	return providerdrv.VolumeClass{}, nil
+func (d *driver) VolumeClass(ctx context.Context, cluster *model.Cluster, app *model.App, vol model.AppVolume) (model.VolumeClass, error) {
+	return model.VolumeClass{}, nil
 }
 
 // init registers the K3s driver.

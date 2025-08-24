@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/compose-spec/compose-go/v2/types"
-	providerdrv "github.com/yaegashi/kompoxops/adapters/drivers/provider"
 	"github.com/yaegashi/kompoxops/domain/model"
 	appsv1 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -43,8 +42,8 @@ func (m *mockDriver) VolumeInstanceDelete(ctx context.Context, cluster *model.Cl
 	return nil
 }
 
-func (m *mockDriver) VolumeClass(ctx context.Context, cls *model.Cluster, app *model.App, vol model.AppVolume) (providerdrv.VolumeClass, error) {
-	return providerdrv.VolumeClass{
+func (m *mockDriver) VolumeClass(ctx context.Context, cls *model.Cluster, app *model.App, vol model.AppVolume) (model.VolumeClass, error) {
+	return model.VolumeClass{
 		CSIDriver:        "test.csi.driver",
 		StorageClassName: "test-storage",
 		AccessModes:      []string{"ReadWriteOnce"},

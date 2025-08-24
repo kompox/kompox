@@ -54,21 +54,7 @@ type Driver interface {
 	// VolumeClass returns provider specific volume provisioning parameters for the given logical volume.
 	// Empty fields mean "no opinion" and the caller should omit them from generated manifests rather than
 	// substituting provider-specific defaults. This keeps kube layer free from provider assumptions.
-	VolumeClass(ctx context.Context, cluster *model.Cluster, app *model.App, vol model.AppVolume) (VolumeClass, error)
-}
-
-// VolumeClass represents provider specific volume provisioning parameters.
-// All fields are optional. The kube adapter must not inject provider defaults; if a field is empty it should
-// be simply omitted from the PV/PVC spec letting the cluster defaulting logic apply (e.g. default storage class).
-type VolumeClass struct {
-	StorageClassName string            // e.g. "managed-csi" (omit if empty)
-	CSIDriver        string            // CSI driver name (omit if empty)
-	FSType           string            // Filesystem type, e.g. ext4 (omit if empty)
-	Attributes       map[string]string // CSI volumeAttributes (nil/empty => none)
-	AccessModes      []string          // e.g. ["ReadWriteOnce"]. Empty => use caller default mapping.
-	ReclaimPolicy    string            // "Retain" | "Delete" (empty => caller default)
-	VolumeMode       string            // "Filesystem" | "Block" (empty => caller default)
-	_                struct{}          // future-proofing
+	VolumeClass(ctx context.Context, cluster *model.Cluster, app *model.App, vol model.AppVolume) (model.VolumeClass, error)
 }
 
 // driverFactory is a constructor function for a provider driver.

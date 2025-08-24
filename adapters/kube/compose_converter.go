@@ -238,7 +238,7 @@ func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Pro
 		sizeQty := bytesToQuantity(sizeBytes)
 
 		// Resolve provider-specific volume class (optional; may return empty spec)
-		var vc providerdrv.VolumeClass
+		var vc model.VolumeClass
 		if drv != nil {
 			resolved, err := drv.VolumeClass(ctx, cls, a, av)
 			if err != nil {
