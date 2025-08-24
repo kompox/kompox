@@ -18,6 +18,7 @@ import (
 
 // Constants for template output keys
 const (
+	OutputTenantID                       = "AZURE_TENANT_ID"
 	OutputResourceGroupName              = "AZURE_RESOURCE_GROUP_NAME"
 	OutputAksClusterName                 = "AZURE_AKS_CLUSTER_NAME"
 	OutputAksPrincipalID                 = "AZURE_AKS_PRINCIPAL_ID"
@@ -200,10 +201,9 @@ func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster) e
 
 	// Prepare ARM parameters for subscription-scoped deployment
 	parameters := map[string]any{
-		"environmentName":   map[string]any{"value": cluster.Name},
-		"location":          map[string]any{"value": d.AzureLocation},
-		"resourceGroupName": map[string]any{"value": resourceGroupName},
-		// Pass ingress ServiceAccount parameters required for workload identity wiring
+		"environmentName":                map[string]any{"value": cluster.Name},
+		"location":                       map[string]any{"value": d.AzureLocation},
+		"resourceGroupName":              map[string]any{"value": resourceGroupName},
 		"ingressServiceAccountName":      map[string]any{"value": kube.IngressServiceAccountName(cluster)},
 		"ingressServiceAccountNamespace": map[string]any{"value": kube.IngressNamespace(cluster)},
 	}
@@ -400,12 +400,17 @@ func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster) err
 		return fmt.Errorf("deployment outputs mismatch: expected %s/%s, got %s/%s", expectedNS, expectedName, saNS, saName)
 	}
 
-	// Fetch workload identity client ID from deployment outputs and annotate the ServiceAccount
+	// Fetch workload identity tenant/client ID from deployment outputs and annotate the ServiceAccount
+	tenantID, _ := outputs[OutputTenantID].(string)
+	if tenantID == "" {
+		return fmt.Errorf("deployment outputs must include non-empty %s", OutputTenantID)
+	}
 	clientID, _ := outputs[OutputIngressServiceAccountClientID].(string)
 	if clientID == "" {
 		return fmt.Errorf("deployment outputs must include non-empty %s", OutputIngressServiceAccountClientID)
 	}
 	annotations := map[string]string{
+		"azure.workload.identity/tenant-id": tenantID,
 		"azure.workload.identity/client-id": clientID,
 	}
 

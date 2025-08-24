@@ -89,13 +89,20 @@ func (c *Client) InstallIngressTraefik(ctx context.Context, cluster *model.Clust
 				"enabled": true,
 			},
 		},
-		// Will populate below
-		"additionalArguments": []string{},
 		// Ensure mounted PVC at /data is group-writable for the Traefik user (65532)
 		"podSecurityContext": map[string]any{
 			"fsGroup":             65532,
 			"fsGroupChangePolicy": "OnRootMismatch",
 		},
+		// Ensure AKS Workload Identity is enabled on Traefik Pods by adding the required label.
+		// This relies on a pre-created ServiceAccount annotated for Azure Workload Identity.
+		"deployment": map[string]any{
+			"podLabels": map[string]any{
+				"azure.workload.identity/use": "true",
+			},
+		},
+		// Will populate below
+		"additionalArguments": []string{},
 	}
 
 	// Configure Let's Encrypt (ACME) resolvers for staging and production
