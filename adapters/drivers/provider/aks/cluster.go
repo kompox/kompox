@@ -174,7 +174,7 @@ func (d *driver) purgeKeyVaults(ctx context.Context, keyVaultNames []string) err
 }
 
 // ClusterProvision provisions an AKS cluster according to the cluster specification.
-func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster) error {
+func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster, opts ...model.ClusterProvisionOption) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
 
@@ -219,16 +219,33 @@ func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster) e
 		return fmt.Errorf("derive deployment name: %w", err)
 	}
 
-	// Check if deployment already exists and is successful (idempotent)
+	// Resolve options
+	var o model.ClusterProvisionOptions
+	for _, fn := range opts {
+		if fn != nil {
+			fn(&o)
+		}
+	}
+
+	// Check if deployment already exists and is successful (idempotent unless forced)
 	if existing, err := deploymentsClient.GetAtSubscriptionScope(ctx, deploymentName, nil); err == nil {
 		if existing.Properties != nil && existing.Properties.ProvisioningState != nil &&
 			*existing.Properties.ProvisioningState == "Succeeded" {
-			log.Info(ctx, "aks cluster already provisioned",
+			// Allow runtime option to force redeploy
+			if !o.Force {
+				log.Info(ctx, "aks cluster already provisioned",
+					"resource_group", resourceGroupName,
+					"cluster", cluster.Name,
+					"provider", d.ProviderName(),
+				)
+				return nil
+			}
+			// Force re-deployment even if succeeded
+			log.Info(ctx, "force-redeploy enabled, proceeding despite existing successful deployment",
+				"deployment", deploymentName,
 				"resource_group", resourceGroupName,
 				"cluster", cluster.Name,
-				"provider", d.ProviderName(),
 			)
-			return nil
 		}
 		// fallthrough: re-issue deployment to converge
 	}
@@ -264,7 +281,7 @@ func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster) e
 }
 
 // ClusterDeprovision deprovisions an AKS cluster by deleting the entire resource group.
-func (d *driver) ClusterDeprovision(ctx context.Context, cluster *model.Cluster) error {
+func (d *driver) ClusterDeprovision(ctx context.Context, cluster *model.Cluster, _ ...model.ClusterDeprovisionOption) error {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
 
@@ -273,6 +290,23 @@ func (d *driver) ClusterDeprovision(ctx context.Context, cluster *model.Cluster)
 	resourceGroupName, err := d.clusterResourceGroupName(cluster)
 	if err != nil || resourceGroupName == "" {
 		return fmt.Errorf("derive cluster resource group: %w", err)
+	}
+
+	// First, delete the subscription-scoped deployment if it exists (idempotent)
+	// Unconditional, best-effort deletion of subscription-scoped deployment; ignore errors
+	if depClient, err := armresources.NewDeploymentsClient(d.AzureSubscriptionId, d.TokenCredential, nil); err == nil {
+		if depName, derr := d.deploymentName(cluster); derr == nil {
+			log.Info(ctx, "deleting subscription-scoped deployment (best-effort)",
+				"deployment", depName,
+				"cluster", cluster.Name,
+				"provider", d.ProviderName(),
+			)
+			if poller, derr := depClient.BeginDeleteAtSubscriptionScope(ctx, depName, nil); derr == nil {
+				if _, derr = poller.PollUntilDone(ctx, nil); derr != nil {
+					logging.FromContext(ctx).Debug(ctx, "deployment deletion error ignored", "deployment", depName, "error", derr)
+				}
+			}
+		}
 	}
 
 	// Create resource groups client
@@ -367,7 +401,7 @@ func (d *driver) ClusterStatus(ctx context.Context, cluster *model.Cluster) (*mo
 }
 
 // ClusterInstall installs in-cluster resources (Ingress Controller, etc.) for AKS cluster.
-func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster) error {
+func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster, _ ...model.ClusterInstallOption) error {
 	log := logging.FromContext(ctx)
 	log.Info(ctx, "aks cluster install begin", "cluster", cluster.Name, "provider", d.ProviderName())
 
@@ -429,7 +463,7 @@ func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster) err
 }
 
 // ClusterUninstall uninstalls in-cluster resources (Ingress Controller, etc.) from AKS cluster.
-func (d *driver) ClusterUninstall(ctx context.Context, cluster *model.Cluster) error {
+func (d *driver) ClusterUninstall(ctx context.Context, cluster *model.Cluster, _ ...model.ClusterUninstallOption) error {
 	log := logging.FromContext(ctx)
 	log.Info(ctx, "aks cluster uninstall begin", "cluster", cluster.Name, "provider", d.ProviderName())
 

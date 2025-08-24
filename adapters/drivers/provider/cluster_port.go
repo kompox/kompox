@@ -52,44 +52,44 @@ func (a *clusterPortAdapter) Status(ctx context.Context, cluster *model.Cluster)
 // Provision creates (provisions) the target Kubernetes cluster according to the
 // specification contained in the provided *model.Cluster. The operation is performed
 // via the provider driver.
-func (a *clusterPortAdapter) Provision(ctx context.Context, cluster *model.Cluster) error {
+func (a *clusterPortAdapter) Provision(ctx context.Context, cluster *model.Cluster, opts ...model.ClusterProvisionOption) error {
 	drv, err := a.getDriver(ctx, cluster)
 	if err != nil {
 		return err
 	}
-	return drv.ClusterProvision(ctx, cluster)
+	return drv.ClusterProvision(ctx, cluster, opts...)
 }
 
 // Deprovision deletes (deprovisions) the target Kubernetes cluster. Idempotent
 // behavior depends on the driver; deleting a non-existent cluster should typically
 // result in a no-op or a well-defined error.
-func (a *clusterPortAdapter) Deprovision(ctx context.Context, cluster *model.Cluster) error {
+func (a *clusterPortAdapter) Deprovision(ctx context.Context, cluster *model.Cluster, opts ...model.ClusterDeprovisionOption) error {
 	drv, err := a.getDriver(ctx, cluster)
 	if err != nil {
 		return err
 	}
-	return drv.ClusterDeprovision(ctx, cluster)
+	return drv.ClusterDeprovision(ctx, cluster, opts...)
 }
 
 // Install installs in-cluster supporting resources (e.g., ingress controller, CSI
 // drivers, monitoring agents) required by Kompox. The precise set depends on the
 // provider driver.
-func (a *clusterPortAdapter) Install(ctx context.Context, cluster *model.Cluster) error {
+func (a *clusterPortAdapter) Install(ctx context.Context, cluster *model.Cluster, opts ...model.ClusterInstallOption) error {
 	drv, err := a.getDriver(ctx, cluster)
 	if err != nil {
 		return err
 	}
-	return drv.ClusterInstall(ctx, cluster)
+	return drv.ClusterInstall(ctx, cluster, opts...)
 }
 
 // Uninstall removes previously installed in-cluster supporting resources that were
 // added by Install. Cluster itself is not deleted by this operation.
-func (a *clusterPortAdapter) Uninstall(ctx context.Context, cluster *model.Cluster) error {
+func (a *clusterPortAdapter) Uninstall(ctx context.Context, cluster *model.Cluster, opts ...model.ClusterUninstallOption) error {
 	drv, err := a.getDriver(ctx, cluster)
 	if err != nil {
 		return err
 	}
-	return drv.ClusterUninstall(ctx, cluster)
+	return drv.ClusterUninstall(ctx, cluster, opts...)
 }
 
 // GetClusterPort returns a model.ClusterPort implemented via provider drivers.

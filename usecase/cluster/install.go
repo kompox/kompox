@@ -9,6 +9,7 @@ import (
 // InstallInput represents a command to install cluster resources.
 type InstallInput struct {
 	ClusterID string `json:"cluster_id"`
+	Force     bool   `json:"force,omitempty"`
 }
 type InstallOutput struct{}
 
@@ -21,7 +22,11 @@ func (u *UseCase) Install(ctx context.Context, in *InstallInput) (*InstallOutput
 	if err != nil {
 		return nil, err
 	}
-	if err := u.ClusterPort.Install(ctx, c); err != nil {
+	var opts []model.ClusterInstallOption
+	if in.Force {
+		opts = append(opts, model.WithClusterInstallForce())
+	}
+	if err := u.ClusterPort.Install(ctx, c, opts...); err != nil {
 		return nil, err
 	}
 	return &InstallOutput{}, nil

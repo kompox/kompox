@@ -9,6 +9,7 @@ import (
 // DeprovisionInput represents a command to deprovision a cluster.
 type DeprovisionInput struct {
 	ClusterID string `json:"cluster_id"`
+	Force     bool   `json:"force,omitempty"`
 }
 type DeprovisionOutput struct{}
 
@@ -21,7 +22,11 @@ func (u *UseCase) Deprovision(ctx context.Context, in *DeprovisionInput) (*Depro
 	if err != nil {
 		return nil, err
 	}
-	if err := u.ClusterPort.Deprovision(ctx, c); err != nil {
+	var opts []model.ClusterDeprovisionOption
+	if in.Force {
+		opts = append(opts, model.WithClusterDeprovisionForce())
+	}
+	if err := u.ClusterPort.Deprovision(ctx, c, opts...); err != nil {
 		return nil, err
 	}
 	return &DeprovisionOutput{}, nil

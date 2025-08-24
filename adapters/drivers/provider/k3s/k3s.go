@@ -24,12 +24,12 @@ func (d *driver) ServiceName() string { return d.serviceName }
 func (d *driver) ProviderName() string { return d.providerName }
 
 // ClusterProvision is not implemented for K3s provider.
-func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster) error {
+func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster, _ ...model.ClusterProvisionOption) error {
 	return fmt.Errorf("ClusterProvision is not implemented for k3s provider")
 }
 
 // ClusterDeprovision is not implemented for K3s provider.
-func (d *driver) ClusterDeprovision(ctx context.Context, cluster *model.Cluster) error {
+func (d *driver) ClusterDeprovision(ctx context.Context, cluster *model.Cluster, _ ...model.ClusterDeprovisionOption) error {
 	return fmt.Errorf("ClusterDeprovision is not implemented for k3s provider")
 }
 
@@ -39,12 +39,12 @@ func (d *driver) ClusterStatus(ctx context.Context, cluster *model.Cluster) (*mo
 }
 
 // ClusterInstall is not implemented for K3s provider.
-func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster) error {
+func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster, _ ...model.ClusterInstallOption) error {
 	return fmt.Errorf("ClusterInstall is not implemented for k3s provider")
 }
 
 // ClusterUninstall is not implemented for K3s provider.
-func (d *driver) ClusterUninstall(ctx context.Context, cluster *model.Cluster) error {
+func (d *driver) ClusterUninstall(ctx context.Context, cluster *model.Cluster, _ ...model.ClusterUninstallOption) error {
 	return fmt.Errorf("ClusterUninstall is not implemented for k3s provider")
 }
 

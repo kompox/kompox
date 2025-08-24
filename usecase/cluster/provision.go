@@ -9,6 +9,7 @@ import (
 // ProvisionInput represents a command to provision a cluster.
 type ProvisionInput struct {
 	ClusterID string `json:"cluster_id"`
+	Force     bool   `json:"force,omitempty"`
 }
 type ProvisionOutput struct{}
 
@@ -21,7 +22,11 @@ func (u *UseCase) Provision(ctx context.Context, in *ProvisionInput) (*Provision
 	if err != nil {
 		return nil, err
 	}
-	if err := u.ClusterPort.Provision(ctx, c); err != nil {
+	var opts []model.ClusterProvisionOption
+	if in.Force {
+		opts = append(opts, model.WithClusterProvisionForce())
+	}
+	if err := u.ClusterPort.Provision(ctx, c, opts...); err != nil {
 		return nil, err
 	}
 	return &ProvisionOutput{}, nil

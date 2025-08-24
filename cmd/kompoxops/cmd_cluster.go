@@ -60,7 +60,8 @@ func getClusterName(_ *cobra.Command, args []string) (string, error) {
 }
 
 func newCmdClusterProvision() *cobra.Command {
-	return &cobra.Command{
+	var force bool
+	cmd := &cobra.Command{
 		Use:                "provision",
 		Short:              "Provision a Kubernetes cluster",
 		Args:               cobra.NoArgs,
@@ -103,7 +104,7 @@ func newCmdClusterProvision() *cobra.Command {
 			logger.Info(ctx, "provision start", "cluster", clusterName)
 
 			// Provision the cluster via usecase
-			if _, err := clusterUC.Provision(ctx, &uc.ProvisionInput{ClusterID: cluster.ID}); err != nil {
+			if _, err := clusterUC.Provision(ctx, &uc.ProvisionInput{ClusterID: cluster.ID, Force: force}); err != nil {
 				return fmt.Errorf("failed to provision cluster %s: %w", clusterName, err)
 			}
 
@@ -111,10 +112,13 @@ func newCmdClusterProvision() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&force, "force", false, "Force cluster provisioning even if a successful deployment exists")
+	return cmd
 }
 
 func newCmdClusterDeprovision() *cobra.Command {
-	return &cobra.Command{
+	var force bool
+	cmd := &cobra.Command{
 		Use:                "deprovision",
 		Short:              "Deprovision a Kubernetes cluster",
 		Args:               cobra.NoArgs,
@@ -158,7 +162,7 @@ func newCmdClusterDeprovision() *cobra.Command {
 			logger.Info(ctx, "deprovision start", "cluster", clusterName)
 
 			// Deprovision the cluster via usecase
-			if _, err := clusterUC.Deprovision(ctx, &uc.DeprovisionInput{ClusterID: cluster.ID}); err != nil {
+			if _, err := clusterUC.Deprovision(ctx, &uc.DeprovisionInput{ClusterID: cluster.ID, Force: force}); err != nil {
 				return fmt.Errorf("failed to deprovision cluster %s: %w", clusterName, err)
 			}
 
@@ -166,10 +170,13 @@ func newCmdClusterDeprovision() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&force, "force", false, "Force deprovision behavior if driver supports it")
+	return cmd
 }
 
 func newCmdClusterInstall() *cobra.Command {
-	return &cobra.Command{
+	var force bool
+	cmd := &cobra.Command{
 		Use:                "install",
 		Short:              "Install cluster resources (Ingress Controller, etc.)",
 		Args:               cobra.NoArgs,
@@ -210,7 +217,7 @@ func newCmdClusterInstall() *cobra.Command {
 			logger.Info(ctx, "install start", "cluster", clusterName)
 
 			// Install cluster resources via usecase
-			if _, err := clusterUC.Install(ctx, &uc.InstallInput{ClusterID: cluster.ID}); err != nil {
+			if _, err := clusterUC.Install(ctx, &uc.InstallInput{ClusterID: cluster.ID, Force: force}); err != nil {
 				return fmt.Errorf("failed to install cluster resources for %s: %w", clusterName, err)
 			}
 
@@ -218,10 +225,13 @@ func newCmdClusterInstall() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&force, "force", false, "Force install behavior if driver supports it")
+	return cmd
 }
 
 func newCmdClusterUninstall() *cobra.Command {
-	return &cobra.Command{
+	var force bool
+	cmd := &cobra.Command{
 		Use:                "uninstall",
 		Short:              "Uninstall cluster resources (Ingress Controller, etc.)",
 		Args:               cobra.NoArgs,
@@ -262,7 +272,7 @@ func newCmdClusterUninstall() *cobra.Command {
 			logger.Info(ctx, "uninstall start", "cluster", clusterName)
 
 			// Uninstall cluster resources via usecase
-			if _, err := clusterUC.Uninstall(ctx, &uc.UninstallInput{ClusterID: cluster.ID}); err != nil {
+			if _, err := clusterUC.Uninstall(ctx, &uc.UninstallInput{ClusterID: cluster.ID, Force: force}); err != nil {
 				return fmt.Errorf("failed to uninstall cluster resources for %s: %w", clusterName, err)
 			}
 
@@ -270,6 +280,8 @@ func newCmdClusterUninstall() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&force, "force", false, "Force uninstall behavior if driver supports it")
+	return cmd
 }
 
 func newCmdClusterStatus() *cobra.Command {

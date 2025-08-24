@@ -21,19 +21,19 @@ type Driver interface {
 	ProviderName() string
 
 	// ClusterProvision provisions a Kubernetes cluster according to the cluster specification.
-	ClusterProvision(ctx context.Context, cluster *model.Cluster) error
+	ClusterProvision(ctx context.Context, cluster *model.Cluster, opts ...model.ClusterProvisionOption) error
 
 	// ClusterDeprovision deprovisions a Kubernetes cluster according to the cluster specification.
-	ClusterDeprovision(ctx context.Context, cluster *model.Cluster) error
+	ClusterDeprovision(ctx context.Context, cluster *model.Cluster, opts ...model.ClusterDeprovisionOption) error
 
 	// ClusterStatus returns the status of a Kubernetes cluster.
 	ClusterStatus(ctx context.Context, cluster *model.Cluster) (*model.ClusterStatus, error)
 
 	// ClusterInstall installs in-cluster resources (Ingress Controller, etc.).
-	ClusterInstall(ctx context.Context, cluster *model.Cluster) error
+	ClusterInstall(ctx context.Context, cluster *model.Cluster, opts ...model.ClusterInstallOption) error
 
 	// ClusterUninstall uninstalls in-cluster resources (Ingress Controller, etc.).
-	ClusterUninstall(ctx context.Context, cluster *model.Cluster) error
+	ClusterUninstall(ctx context.Context, cluster *model.Cluster, opts ...model.ClusterUninstallOption) error
 
 	// ClusterKubeconfig returns kubeconfig bytes for connecting to the target cluster.
 	// Implementations may fetch admin/user credentials depending on provider capability.

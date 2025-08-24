@@ -9,6 +9,7 @@ import (
 // UninstallInput represents a command to uninstall cluster resources.
 type UninstallInput struct {
 	ClusterID string `json:"cluster_id"`
+	Force     bool   `json:"force,omitempty"`
 }
 type UninstallOutput struct{}
 
@@ -21,7 +22,11 @@ func (u *UseCase) Uninstall(ctx context.Context, in *UninstallInput) (*Uninstall
 	if err != nil {
 		return nil, err
 	}
-	if err := u.ClusterPort.Uninstall(ctx, c); err != nil {
+	var opts []model.ClusterUninstallOption
+	if in.Force {
+		opts = append(opts, model.WithClusterUninstallForce())
+	}
+	if err := u.ClusterPort.Uninstall(ctx, c, opts...); err != nil {
 		return nil, err
 	}
 	return &UninstallOutput{}, nil
