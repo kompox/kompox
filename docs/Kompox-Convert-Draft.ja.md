@@ -107,35 +107,38 @@ app.volumes:
 - name: `^[a-z]([-a-z0-9]{0,14})$`
 - size: `32Gi` など
 
-Compose の volumes は次の種類をサポートする。
+Compose の `services.<service>.volumes` は compose-go によりパースされる。
 
-|種類|形式|意味|
+|種類|形式|Kompoxでの取り扱い|
 |-|-|-|
-|Abs bind volume|`/sub/path:/mount/path`|エラー|
-|Rel bind volume|`./sub/path:/mount/path`|app.volumes[0] を参照し `/sub/path` を `/mount/path` にマウント|
-|Named volume|`name/sub/path:/mount/path`|app.volumes[name] を参照し `/sub/path` を `/mount/path` にマウント|
+|Abs path bind|`/sub/path:/mount/path`|エラー|
+|Rel path bind|`./sub/path:/mount/path`|app.volumes[0] を参照し `/sub/path` を `/mount/path` にマウント|
+|Root path volume|`name:/mount/path`|app.volumes[name] を参照し `/` を `/mount/path` にマウント|
+|Sub path volume|`name/sub/path:/mount/path`|app.volumes[name] を参照し `/sub/path` を `/mount/path` にマウント|
 
 参照する volume が見つからない場合はエラーとする。
 app.volumes が空でも自動的に作成するようなことはしない。
 
-sub path 正規化ルール
-
-1. 先頭の `./` を除去  
-2. `..` を含む場合エラー  
-3. 連続 `/` を 1 個に畳み込み  
-4. 末尾 `/` を除去 (結果空ならエラー)  
+`sub/path` の正規化や `/mount/path` の重複チェックは compose-go により行われる。
 
 initContainers により各 volume の sub path ディレクトリを自動作成する。
 作成するディレクトリのパーミッションは 1777 とする。
 
 解決とエラー判定順
 
-1. 各 Compose service.volumes 行をパース
-   - `/abs/...` 形式 → 即エラー (Abs bind 未対応)
-2. `./sub/path:...` は app.volumes[0] が存在しなければエラー
-3. `name/sub/path:...` は name と一致する app.volumes エントリを検索して見つからなければエラー
-4. subPath 正規化、失敗したらエラー
-5. mountPath の一意性検証、同一サービス内で重複する場合はエラー
+- compose-go により Compose service.volumes 行をパース
+- 各 ServiceVolumeConfig について
+  - `Target` または `Source` が空の場合はエラー
+  - `Type` で場合分けして `name` と `subPath` を決定
+    - `bind`
+      - `Source` が `/` で始まる場合はエラー (Abs path bind)
+      - `name={app.volumes[0].name}` `subPath={Source}` (Rel path bind)
+    - `volume`
+      - `Source` に `/` が含まれる場合: `name={Source:最初の"/"より前}` `subPath={Source:最初の"/"より後}` (Sub path volume)
+      - `Source` に `/` が含まれない場合: `name={Source}` `subPath={空}` (Root path volume)
+    - それ以外
+      - エラー
+  - `app.volumes[name]` が存在しない場合はエラー
 
 設定例
 
@@ -147,9 +150,10 @@ app:
       app:
         image: app
         volumes:
-        - /abs/path:/error    # エラー
-        - ./sub/path:/default # default の /sub/path を /default にマウント
-        - data/sub/path:/data # data の /sub/path を /data にマウント
+        - /abs/path:/mnt/abs     # error
+        - ./sub/path:/mnt/rel    # mount default:/sub/path on /mnt/rel
+        - data:/mnt/root         # mount data:/ on /mnt/root
+        - data/sub/path:/mnt/sub # mount data:/sub/path on /mnt/sub
   volumes:
   - name: default  # PV/PVC kompox-default-<idHASH>-<volHASH>
     size: 32Gi

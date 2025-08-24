@@ -115,63 +115,65 @@ func ComposeAppToObjects(ctx context.Context, svc *model.Service, prv *model.Pro
 			hostPortToContainer[hp] = cp
 		}
 
-		// volumes: parse according to spec
-		//  - ./sub/path: default volume (first entry in a.Volumes slice) is referenced only when the source starts with "./"
-		//  - name/sub/path: named volume; the token before the first slash must match a declared app volume name
-		//  Absolute paths are error
+		// volumes: parse according to spec (see docs/Kompox-Convert-Draft.ja.md)
+		//  - bind: relative path only (absolute is error) -> default app volume with subPath=Source
+		//  - volume: Source may be "name" (root) or "name/sub/path" (sub path)
 		for _, v := range s.Volumes {
 			if v.Source == "" || v.Target == "" {
 				return nil, nil, errors.New("volume with empty source/target not supported")
 			}
-			if strings.HasPrefix(v.Source, "/") { // absolute path not allowed
-				return nil, nil, fmt.Errorf("absolute volume path not supported: %s", v.Source)
-			}
-			srcRaw := v.Source
-			volName := ""
-			subPathRaw := ""
-			if strings.Contains(srcRaw, ":") { // colon shouldn't appear here (compose-go already split), but guard
+			if strings.Contains(v.Source, ":") { // compose-go already split, but guard
 				return nil, nil, fmt.Errorf("unexpected ':' in volume source: %s", v.Source)
 			}
-			// Determine form
-			if strings.HasPrefix(srcRaw, "./") {
-				// Default volume reference must start with "./"
-				src := strings.TrimPrefix(srcRaw, "./")
-				if src == "" {
-					return nil, nil, fmt.Errorf("volume source must include sub path: %s", v.Source)
+
+			var volName string
+			var subPath string // keep as-is; no extra normalization
+
+			switch v.Type {
+			case "bind":
+				// Absolute bind is not supported by spec
+				if strings.HasPrefix(v.Source, "/") {
+					return nil, nil, fmt.Errorf("absolute bind volume not supported: %s", v.Source)
 				}
 				if len(a.Volumes) == 0 {
 					return nil, nil, fmt.Errorf("relative bind volume '%s' requires at least one app volume (default) defined", v.Source)
 				}
 				volName = a.Volumes[0].Name
-				subPathRaw = src
-			} else if strings.Contains(srcRaw, "/") {
-				// Named volume must be declared in app volumes
-				first, rest, _ := strings.Cut(srcRaw, "/")
-				if _, ok := volDefs[first]; !ok {
-					return nil, nil, fmt.Errorf("named volume '%s' referenced by '%s' is not defined in app volumes", first, v.Source)
+				subPath = v.Source // compose-go strips leading './' already
+
+			case "volume":
+				// Allow root-path volume (no '/') and sub-path volume (with '/')
+				src := v.Source
+				name := src
+				rest := ""
+				if i := strings.IndexByte(src, '/'); i >= 0 {
+					name = src[:i]
+					if i+1 < len(src) {
+						rest = src[i+1:]
+					} else {
+						rest = ""
+					}
 				}
-				if rest == "" {
-					return nil, nil, fmt.Errorf("volume source must include sub path: %s", v.Source)
+				if _, ok := volDefs[name]; !ok {
+					return nil, nil, fmt.Errorf("named volume '%s' referenced by '%s' is not defined in app volumes", name, v.Source)
 				}
-				volName = first
-				subPathRaw = rest
+				volName = name
+				subPath = rest // may be empty for root mount
+
+			default:
+				return nil, nil, fmt.Errorf("unsupported volume type: %s (source=%s target=%s)", v.Type, v.Source, v.Target)
+			}
+
+			// record subPath per volume (only if non-empty) and add volume mount
+			if subPath != "" {
+				if subPathsPerVolume[volName] == nil {
+					subPathsPerVolume[volName] = map[string]struct{}{}
+				}
+				subPathsPerVolume[volName][subPath] = struct{}{}
+				c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{Name: volName, MountPath: v.Target, SubPath: subPath})
 			} else {
-				// single segment is invalid because subPath after normalization must not be empty
-				return nil, nil, fmt.Errorf("volume source must include sub path: %s", v.Source)
+				c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{Name: volName, MountPath: v.Target})
 			}
-			if volName == "" {
-				return nil, nil, fmt.Errorf("failed to resolve volume for source %s", v.Source)
-			}
-			sp := normalizeSubPath(subPathRaw)
-			if sp == "" || strings.Contains(sp, "..") {
-				return nil, nil, fmt.Errorf("invalid subPath: %s", subPathRaw)
-			}
-			// record subPath per volume
-			if subPathsPerVolume[volName] == nil {
-				subPathsPerVolume[volName] = map[string]struct{}{}
-			}
-			subPathsPerVolume[volName][sp] = struct{}{}
-			c.VolumeMounts = append(c.VolumeMounts, corev1.VolumeMount{Name: volName, MountPath: v.Target, SubPath: sp})
 		}
 
 		applyXKompoxResources(&c, s.Extensions["x-kompox"]) // resources/limits
@@ -470,16 +472,6 @@ func applyXKompoxResources(c *corev1.Container, ext any) {
 	}
 }
 
-func normalizeSubPath(s string) string {
-	parts := strings.Split(s, "/")
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		if p != "" {
-			out = append(out, p)
-		}
-	}
-	return strings.Join(out, "/")
-}
 func int32Ptr(i int32) *int32                                                  { return &i }
 func pathTypePtr(p netv1.PathType) *netv1.PathType                             { return &p }
 func volumeModePtr(m corev1.PersistentVolumeMode) *corev1.PersistentVolumeMode { return &m }
