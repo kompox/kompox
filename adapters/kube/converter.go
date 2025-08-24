@@ -18,6 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/ptr"
 )
 
 // Converter holds a provider-agnostic plan of Kubernetes objects derived from a Kompox App.
@@ -326,7 +327,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		for _, r := range c.App.Ingress.Rules {
 			cp := hostPortToContainer[r.Port]
 			portName := containerPortName[cp]
-			path := netv1.HTTPIngressPath{Path: "/", PathType: pathTypePtr(netv1.PathTypePrefix), Backend: netv1.IngressBackend{Service: &netv1.IngressServiceBackend{Name: svcObj.Name, Port: netv1.ServiceBackendPort{Name: portName}}}}
+			path := netv1.HTTPIngressPath{Path: "/", PathType: ptr.To(netv1.PathTypePrefix), Backend: netv1.IngressBackend{Service: &netv1.IngressServiceBackend{Name: svcObj.Name, Port: netv1.ServiceBackendPort{Name: portName}}}}
 			for _, host := range r.Hosts {
 				rules = append(rules, netv1.IngressRule{Host: host, IngressRuleValue: netv1.IngressRuleValue{HTTP: &netv1.HTTPIngressRuleValue{Paths: []netv1.HTTPIngressPath{path}}}})
 			}
@@ -344,7 +345,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		if certResolver != "" {
 			ann["traefik.ingress.kubernetes.io/router.tls.certresolver"] = certResolver
 		}
-		ingObj = &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: c.App.Name, Namespace: nsName, Labels: commonLabels, Annotations: ann}, Spec: netv1.IngressSpec{IngressClassName: strPtr("traefik"), Rules: rules}}
+		ingObj = &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: c.App.Name, Namespace: nsName, Labels: commonLabels, Annotations: ann}, Spec: netv1.IngressSpec{IngressClassName: ptr.To("traefik"), Rules: rules}}
 	}
 
 	c.Project = proj
@@ -445,7 +446,7 @@ func (c *Converter) BindVolumes(ctx context.Context, vols []ConverterVolumeBindi
 			AccessModes:                   accessModes,
 			PersistentVolumeReclaimPolicy: reclaim,
 			Capacity:                      corev1.ResourceList{corev1.ResourceStorage: sizeQty},
-			VolumeMode:                    volumeModePtr(volMode),
+			VolumeMode:                    ptr.To(volMode),
 			PersistentVolumeSource:        corev1.PersistentVolumeSource{CSI: &corev1.CSIPersistentVolumeSource{Driver: csiDriver, VolumeHandle: volHandle, VolumeAttributes: attrs}},
 		}
 		if vc.StorageClassName != "" {
@@ -457,10 +458,10 @@ func (c *Converter) BindVolumes(ctx context.Context, vols []ConverterVolumeBindi
 			AccessModes: accessModes,
 			Resources:   corev1.VolumeResourceRequirements{Requests: corev1.ResourceList{corev1.ResourceStorage: sizeQty}},
 			VolumeName:  resourceName,
-			VolumeMode:  volumeModePtr(volMode),
+			VolumeMode:  ptr.To(volMode),
 		}
 		if vc.StorageClassName != "" {
-			pvcSpec.StorageClassName = strPtr(vc.StorageClassName)
+			pvcSpec.StorageClassName = ptr.To(vc.StorageClassName)
 		}
 		pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: resourceName, Namespace: c.NSName, Labels: c.CommonLabels}, Spec: pvcSpec}
 
@@ -504,7 +505,7 @@ func (c *Converter) Build() ([]runtime.Object, []string, error) {
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: c.App.Name, Namespace: c.NSName, Labels: c.CommonLabels},
 		Spec: appsv1.DeploymentSpec{
-			Replicas: int32Ptr(1),
+			Replicas: ptr.To[int32](1),
 			Strategy: appsv1.DeploymentStrategy{Type: appsv1.RecreateDeploymentStrategyType},
 			Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": c.App.Name}},
 			Template: corev1.PodTemplateSpec{

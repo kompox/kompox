@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v3"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -97,4 +99,73 @@ func tempfile(bytes []byte) (string, func(), error) {
 	}
 	cleanup := func() { _ = os.Remove(path) }
 	return path, cleanup, nil
+}
+
+// applyXKompoxResources parses x-kompox extensions and sets container resources.
+func applyXKompoxResources(c *corev1.Container, ext any) {
+	if ext == nil {
+		return
+	}
+	b, err := yaml.Marshal(ext)
+	if err != nil {
+		return
+	}
+	var x struct {
+		Resources struct {
+			CPU    string `yaml:"cpu"`
+			Memory string `yaml:"memory"`
+		} `yaml:"resources"`
+		Limits struct {
+			CPU    string `yaml:"cpu"`
+			Memory string `yaml:"memory"`
+		} `yaml:"limits"`
+	}
+	if err := yaml.Unmarshal(b, &x); err != nil {
+		return
+	}
+	rr := corev1.ResourceRequirements{}
+	if x.Resources.CPU != "" || x.Resources.Memory != "" {
+		rr.Requests = corev1.ResourceList{}
+	}
+	if x.Resources.CPU != "" {
+		if q, err := resource.ParseQuantity(x.Resources.CPU); err == nil {
+			rr.Requests[corev1.ResourceCPU] = q
+		}
+	}
+	if x.Resources.Memory != "" {
+		if q, err := resource.ParseQuantity(x.Resources.Memory); err == nil {
+			rr.Requests[corev1.ResourceMemory] = q
+		}
+	}
+	if x.Limits.CPU != "" || x.Limits.Memory != "" {
+		if rr.Limits == nil {
+			rr.Limits = corev1.ResourceList{}
+		}
+	}
+	if x.Limits.CPU != "" {
+		if q, err := resource.ParseQuantity(x.Limits.CPU); err == nil {
+			rr.Limits[corev1.ResourceCPU] = q
+		}
+	}
+	if x.Limits.Memory != "" {
+		if q, err := resource.ParseQuantity(x.Limits.Memory); err == nil {
+			rr.Limits[corev1.ResourceMemory] = q
+		}
+	}
+	if len(rr.Requests) > 0 || len(rr.Limits) > 0 {
+		c.Resources = rr
+	}
+}
+
+// bytesToQuantity converts bytes to a resource.Quantity, rounding up to Mi boundary.
+func bytesToQuantity(b int64) resource.Quantity {
+	if b <= 0 {
+		// Return zero-value quantity (interpreted as 0) to let API server raise validation error if invalid.
+		return resource.Quantity{}
+	}
+	const Mi = int64(1 << 20)
+	if b%Mi != 0 {
+		b = ((b / Mi) + 1) * Mi
+	}
+	return resource.MustParse(fmt.Sprintf("%dMi", b>>20))
 }
