@@ -37,8 +37,8 @@ func (o *ApplyOptions) defaults() {
 	}
 }
 
-// ServerSideApplyObjects performs server-side apply for a slice of typed runtime.Objects.
-func (c *Client) ServerSideApplyObjects(ctx context.Context, objs []runtime.Object, opts *ApplyOptions) error {
+// ApplyObjects performs server-side apply for a slice of typed runtime.Objects.
+func (c *Client) ApplyObjects(ctx context.Context, objs []runtime.Object, opts *ApplyOptions) error {
 	if c == nil || c.RESTConfig == nil {
 		return fmt.Errorf("kube client is not initialized")
 	}
@@ -66,15 +66,15 @@ func (c *Client) ServerSideApplyObjects(ctx context.Context, objs []runtime.Obje
 			return fmt.Errorf("to unstructured: %w", err)
 		}
 		u := &unstructured.Unstructured{Object: m}
-		if err := c.serverSideApplyUnstructured(ctx, u, m, opts, dy, mapper); err != nil {
+		if err := c.applyUnstructured(ctx, u, m, opts, dy, mapper); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// ServerSideApplyYAML performs server-side apply for a multi-document YAML/JSON byte stream.
-func (c *Client) ServerSideApplyYAML(ctx context.Context, data []byte, opts *ApplyOptions) error {
+// ApplyYAML performs server-side apply for a multi-document YAML/JSON byte stream.
+func (c *Client) ApplyYAML(ctx context.Context, data []byte, opts *ApplyOptions) error {
 	if c == nil || c.RESTConfig == nil {
 		return fmt.Errorf("kube client is not initialized")
 	}
@@ -106,15 +106,15 @@ func (c *Client) ServerSideApplyYAML(ctx context.Context, data []byte, opts *App
 			continue
 		}
 		u := &unstructured.Unstructured{Object: raw}
-		if err := c.serverSideApplyUnstructured(ctx, u, raw, opts, dy, mapper); err != nil {
+		if err := c.applyUnstructured(ctx, u, raw, opts, dy, mapper); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// serverSideApplyUnstructured performs SSA for one unstructured object.
-func (c *Client) serverSideApplyUnstructured(ctx context.Context, u *unstructured.Unstructured, raw map[string]any, opts *ApplyOptions, dy dynamic.Interface, mapper meta.RESTMapper) error {
+// applyUnstructured performs SSA for one unstructured object.
+func (c *Client) applyUnstructured(ctx context.Context, u *unstructured.Unstructured, raw map[string]any, opts *ApplyOptions, dy dynamic.Interface, mapper meta.RESTMapper) error {
 	if u.GetKind() == "" || u.GetAPIVersion() == "" {
 		return nil
 	}

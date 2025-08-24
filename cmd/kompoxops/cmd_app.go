@@ -269,7 +269,7 @@ func newCmdAppDeploy() *cobra.Command {
 			}
 
 			// Apply objects via server-side apply (SSA)
-			if err := kcli.ServerSideApplyObjects(ctx, vout.K8sObjects, &kube.ApplyOptions{FieldManager: "kompoxops", ForceConflicts: true}); err != nil {
+			if err := kcli.ApplyObjects(ctx, vout.K8sObjects, &kube.ApplyOptions{FieldManager: "kompoxops", ForceConflicts: true}); err != nil {
 				return fmt.Errorf("apply objects failed: %w", err)
 			}
 
