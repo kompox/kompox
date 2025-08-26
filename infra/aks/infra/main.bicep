@@ -17,6 +17,7 @@ param containerRegistryName string = ''
 param logAnalyticsName string = ''
 param applicationInsightsName string = ''
 param applicationInsightsDashboardName string = ''
+param storageAccountName string = ''
 param aksName string = ''
 param principalId string = deployer().objectId
 param ingressServiceAccountNamespace string = 'traefik'
@@ -119,6 +120,16 @@ module userIdentityFederation './app/user-identity-federation.bicep' = {
   }
 }
 
+module storageAccount './app/storage-account.bicep' = {
+  name: 'storageAccount'
+  scope: rg
+  params: {
+    name: !empty(storageAccountName) ? storageAccountName : '${abbrs.storageStorageAccounts}${resourceToken}'
+    location: location
+    tags: tags
+  }
+}
+
 module aks './app/aks.bicep' = {
   name: 'aks'
   scope: rg
@@ -126,12 +137,13 @@ module aks './app/aks.bicep' = {
     name: !empty(aksName) ? aksName : '${abbrs.containerServiceManagedClusters}${resourceToken}'
     location: location
     tags: tags
+    principalId: principalId
     nodeResourceGroupName: '${rg.name}_mc'
     containerRegistryName: containerRegistry.outputs.name
     logAnalyticsName: monitoring.outputs.logAnalyticsWorkspaceName
     keyVaultName: keyVault.outputs.name
+    storageAccountName: storageAccount.outputs.name
     kubernetesVersion: '1.33'
-    principalId: principalId
   }
 }
 
