@@ -14,6 +14,7 @@ import (
 	"github.com/yaegashi/kompoxops/adapters/kube"
 	"github.com/yaegashi/kompoxops/domain/model"
 	"github.com/yaegashi/kompoxops/internal/logging"
+	"sigs.k8s.io/yaml"
 )
 
 // Constants for template output keys
@@ -454,15 +455,19 @@ func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster, _ .
 	}
 
 	// Step 3: If static certificates are configured, ensure SecretProviderClass and TLS Secrets from Key Vault
+	var mounts []map[string]string // {name, mountPath}
+	var configs []map[string]any
 	if cluster.Ingress != nil && len(cluster.Ingress.Certificates) > 0 {
-		if err := d.ensureSecretProviderClassFromKeyVault(ctx, kc, cluster, tenantID, clientID); err != nil {
+		// Create SPCs and get mounts + cert files list to generate certs.yaml
+		mounts, configs, err = d.ensureSecretProviderClassFromKeyVault(ctx, kc, cluster, tenantID, clientID)
+		if err != nil {
 			return fmt.Errorf("ensure ingress TLS from key vault: %w", err)
 		}
 	}
 
 	// Step 4: Install Traefik via Helm (idempotent)
-	// Mount the SecretProviderClass on Traefik Pods so CSI sync is triggered without a separate sync Pod.
-	spcName := kube.SecretProviderClassName(cluster)
+	// Mount SecretProviderClass volumes created in ensureSecretProviderClassFromKeyVault.
+	// For multiple Key Vaults, mount one CSI volume per SPC with distinct mount paths.
 	mutator := func(ctx context.Context, _ *model.Cluster, _ string, values kube.HelmValues) {
 		// Ensure the nested map at values["deployment"] exists first.
 		dep, _ := values["deployment"].(map[string]any)
@@ -476,32 +481,48 @@ func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster, _ .
 		} else {
 			dep["podLabels"] = map[string]any{"azure.workload.identity/use": "true"}
 		}
-		// deployment.additionalVolumes
-		vol := map[string]any{
-			"name": "secrets-store-inline",
-			"csi": map[string]any{
-				"driver":   "secrets-store.csi.k8s.io",
-				"readOnly": true,
-				"volumeAttributes": map[string]any{
-					"secretProviderClass": spcName,
-				},
-			},
+		// Add one volume per SPC mount (captured from outer scope)
+		if len(mounts) > 0 {
+			for i, m := range mounts {
+				vol := map[string]any{
+					"name": fmt.Sprintf("secrets-store-inline-%d", i),
+					"csi": map[string]any{
+						"driver":   "secrets-store.csi.k8s.io",
+						"readOnly": true,
+						"volumeAttributes": map[string]any{
+							"secretProviderClass": m["name"],
+						},
+					},
+				}
+				if av, ok := dep["additionalVolumes"].([]any); ok {
+					dep["additionalVolumes"] = append(av, vol)
+				} else {
+					dep["additionalVolumes"] = []any{vol}
+				}
+
+				vm := map[string]any{
+					"name":      fmt.Sprintf("secrets-store-inline-%d", i),
+					"mountPath": m["mountPath"],
+					"readOnly":  true,
+				}
+				if avm, ok := values["additionalVolumeMounts"].([]any); ok {
+					values["additionalVolumeMounts"] = append(avm, vm)
+				} else {
+					values["additionalVolumeMounts"] = []any{vm}
+				}
+			}
 		}
-		if av, ok := dep["additionalVolumes"].([]any); ok {
-			dep["additionalVolumes"] = append(av, vol)
-		} else {
-			dep["additionalVolumes"] = []any{vol}
-		}
-		// additionalVolumeMounts
-		vm := map[string]any{
-			"name":      "secrets-store-inline",
-			"mountPath": "/mnt/secrets-store",
-			"readOnly":  true,
-		}
-		if avm, ok := values["additionalVolumeMounts"].([]any); ok {
-			values["additionalVolumeMounts"] = append(avm, vm)
-		} else {
-			values["additionalVolumeMounts"] = []any{vm}
+		// Inject certs.yaml if provided by driver
+		if len(configs) > 0 {
+			m := map[string]any{"tls": map[string]any{"certificates": configs}}
+			if b, err := yaml.Marshal(m); err == nil {
+				add, _ := values["additionalConfigFiles"].(map[string]string)
+				if add == nil {
+					add = map[string]string{}
+				}
+				add["certs.yaml"] = string(b)
+				values["additionalConfigFiles"] = add
+			}
 		}
 	}
 	if cluster.Ingress != nil && len(cluster.Ingress.Certificates) > 0 {

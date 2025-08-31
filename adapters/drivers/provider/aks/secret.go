@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/yaegashi/kompoxops/adapters/kube"
@@ -12,48 +14,82 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
+// Base mount path for TLS materials consumed by Traefik file provider
+const baseTLSMountPath = "/config/tls"
+
+// parseKeyVaultSecretURL parses an Azure Key Vault secret URL and returns (keyvaultName, objectName).
+// Supports URLs of the form: https://<vault>.vault.azure.net/secrets/<name>[/<version>]
+func (d *driver) parseKeyVaultSecretURL(raw string) (string, string, error) {
+	if raw == "" {
+		return "", "", fmt.Errorf("empty key vault url")
+	}
+	u, err := url.Parse(raw)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid key vault url: %w", err)
+	}
+	if !strings.HasSuffix(u.Host, ".vault.azure.net") {
+		return "", "", fmt.Errorf("unsupported host: %s", u.Host)
+	}
+	kvName := strings.TrimSuffix(u.Host, ".vault.azure.net")
+	elems := strings.Split(strings.Trim(path.Clean(u.Path), "/"), "/")
+	if len(elems) < 2 || elems[0] != "secrets" {
+		return "", "", fmt.Errorf("unsupported path: %s", u.Path)
+	}
+	objectName := elems[1]
+	return kvName, objectName, nil
+}
+
+// spcNameForVault returns the SecretProviderClass name for a given Key Vault.
+// When multiple vaults are present, the name will be suffixed with the sanitized vault name.
+func (d *driver) spcNameForVault(vault string) string {
+	base := kube.TraefikReleaseName + "-kv"
+	lower := strings.ToLower(vault)
+	re := regexp.MustCompile("[^a-z0-9-]")
+	return fmt.Sprintf("%s-%s", base, re.ReplaceAllString(lower, "-"))
+}
+
 // ensureSecretProviderClassFromKeyVault creates a SecretProviderClass and configures sync for kubernetes.io/tls
 // Secrets for each cluster.Ingress.Certificates entry whose source is an Azure Key Vault secret URL.
 // Requires AKS Workload Identity labels and CSI driver to be present (installed by provider infra).
-func (d *driver) ensureSecretProviderClassFromKeyVault(ctx context.Context, kc *kube.Client, cluster *model.Cluster, tenantID, clientID string) error {
+// ensureSecretProviderClassFromKeyVault creates SPC resources per Key Vault and returns:
+// - mounts: list of {name, mountPath} to be mounted into Pods
+// - certs: list of {certFile, keyFile} entries suitable for Traefik file provider (certs.yaml)
+func (d *driver) ensureSecretProviderClassFromKeyVault(ctx context.Context, kc *kube.Client, cluster *model.Cluster, tenantID, clientID string) (mounts []map[string]string, certs []map[string]any, err error) {
 	if kc == nil {
-		return fmt.Errorf("kube client is not initialized")
+		return nil, nil, fmt.Errorf("kube client is not initialized")
 	}
 	if cluster == nil || cluster.Ingress == nil || len(cluster.Ingress.Certificates) == 0 {
-		return nil
+		return nil, nil, nil
 	}
 
 	ns := kube.IngressNamespace(cluster)
-	spcName := kube.SecretProviderClassName(cluster)
-
-	type obj struct{ objectName string }
-	var (
+	// Group certificates by Key Vault name
+	type obj struct {
+		objectName  string
+		objectAlias string
+	}
+	type group struct {
+		keyvaultName string
 		objects      []obj
 		secretObjs   []map[string]any
-		keyvaultName string
-	)
+	}
+	groups := map[string]*group{}
 
 	for _, cert := range cluster.Ingress.Certificates {
 		if cert.Name == "" || cert.Source == "" {
 			continue
 		}
-		u, err := url.Parse(cert.Source)
+		kvName, objectName, err := d.parseKeyVaultSecretURL(cert.Source)
 		if err != nil {
-			return fmt.Errorf("invalid certificate source for %s: %w", cert.Name, err)
+			return nil, nil, fmt.Errorf("invalid certificate source for %s: %w", cert.Name, err)
 		}
-		if !strings.HasSuffix(u.Host, ".vault.azure.net") {
-			return fmt.Errorf("unsupported certificate source host for %s: %s", cert.Name, u.Host)
+		g := groups[kvName]
+		if g == nil {
+			g = &group{keyvaultName: kvName}
+			groups[kvName] = g
 		}
-		if keyvaultName == "" {
-			keyvaultName = strings.TrimSuffix(u.Host, ".vault.azure.net")
-		}
-		elems := strings.Split(strings.Trim(path.Clean(u.Path), "/"), "/")
-		if len(elems) < 2 || elems[0] != "secrets" {
-			return fmt.Errorf("unsupported key vault path for %s: %s", cert.Name, u.Path)
-		}
-		objectName := elems[1]
-		objects = append(objects, obj{objectName: objectName})
-		secretObjs = append(secretObjs, map[string]any{
+		g.objects = append(g.objects, obj{objectName: objectName, objectAlias: cert.Name})
+		g.secretObjs = append(g.secretObjs, map[string]any{
 			"secretName": kube.IngressTLSSecretName(cert.Name),
 			"type":       "kubernetes.io/tls",
 			"data": []map[string]any{
@@ -63,51 +99,86 @@ func (d *driver) ensureSecretProviderClassFromKeyVault(ctx context.Context, kc *
 			},
 		})
 	}
-	if keyvaultName == "" || len(objects) == 0 {
-		return nil
+
+	if len(groups) == 0 {
+		return nil, nil, nil
 	}
 
-	// Build objects: array: - | blocks (provider expects YAML literal without an extra leading '|')
-	var b strings.Builder
-	b.WriteString("array:\n")
-	for _, o := range objects {
-		b.WriteString("  - |\n")
-		b.WriteString("    objectName: ")
-		b.WriteString(o.objectName)
-		b.WriteString("\n    objectType: secret\n")
-		// Ensure provider splits into .key/.crt when syncing certificate secrets
-		b.WriteString("    contentType: application/x-pem-file\n")
+	// deterministic iteration for idempotency
+	kvNames := make([]string, 0, len(groups))
+	for name := range groups {
+		kvNames = append(kvNames, name)
 	}
+	sort.Strings(kvNames)
 
-	spc := map[string]any{
-		"apiVersion": "secrets-store.csi.x-k8s.io/v1",
-		"kind":       "SecretProviderClass",
-		"metadata": map[string]any{
-			"name":      spcName,
-			"namespace": ns,
-		},
-		"spec": map[string]any{
-			"provider":      "azure",
-			"secretObjects": secretObjs,
-			"parameters": map[string]any{
-				// Use AKS Workload Identity: do not use VM Managed Identity, specify clientID instead
-				"usePodIdentity":     "false",
-				"useManagedIdentity": "false",
-				"clientID":           clientID,
-				"keyvaultName":       keyvaultName,
-				"tenantId":           tenantID,
-				"objects":            b.String(),
+	for _, kvName := range kvNames {
+		g := groups[kvName]
+		// Build objects literal expected by provider
+		var b strings.Builder
+		b.WriteString("array:\n")
+		for _, o := range g.objects {
+			b.WriteString("  - |\n")
+			b.WriteString("    objectName: ")
+			b.WriteString(o.objectName)
+			b.WriteString("\n    objectType: secret\n")
+			b.WriteString("    contentType: application/x-pem-file\n")
+			if o.objectAlias != "" {
+				b.WriteString("    objectAlias: ")
+				b.WriteString(o.objectAlias)
+				b.WriteString("\n")
+			}
+		}
+
+		spcName := d.spcNameForVault(kvName)
+
+		spc := map[string]any{
+			"apiVersion": "secrets-store.csi.x-k8s.io/v1",
+			"kind":       "SecretProviderClass",
+			"metadata": map[string]any{
+				"name":      spcName,
+				"namespace": ns,
 			},
-		},
+			"spec": map[string]any{
+				"provider":      "azure",
+				"secretObjects": g.secretObjs,
+				"parameters": map[string]any{
+					// Use AKS Workload Identity: do not use VM Managed Identity, specify clientID instead
+					"usePodIdentity":     "false",
+					"useManagedIdentity": "false",
+					"clientID":           clientID,
+					"keyvaultName":       g.keyvaultName,
+					"tenantId":           tenantID,
+					"objects":            b.String(),
+				},
+			},
+		}
+
+		raw, mErr := yaml.Marshal(spc)
+		if mErr != nil {
+			return nil, nil, fmt.Errorf("marshal SecretProviderClass: %w", mErr)
+		}
+		if aErr := kc.ApplyYAML(ctx, raw, &kube.ApplyOptions{DefaultNamespace: ns}); aErr != nil {
+			return nil, nil, fmt.Errorf("apply SecretProviderClass: %w", aErr)
+		}
+
+		// Derive mount path subdir from SPC name suffix and list files for certs.yaml
+		base := kube.TraefikReleaseName + "-kv-"
+		dir := strings.TrimPrefix(spcName, base)
+		if dir == spcName { // fallback when no suffix
+			dir = strings.ToLower(kvName)
+		}
+		mountPath := path.Join(baseTLSMountPath, dir)
+		mounts = append(mounts, map[string]string{"name": spcName, "mountPath": mountPath})
+		for _, o := range g.objects {
+			if o.objectAlias == "" {
+				continue
+			}
+			certs = append(certs, map[string]any{
+				"certFile": path.Join(mountPath, o.objectAlias+".crt"),
+				"keyFile":  path.Join(mountPath, o.objectAlias+".key"),
+			})
+		}
 	}
 
-	raw, err := yaml.Marshal(spc)
-	if err != nil {
-		return fmt.Errorf("marshal SecretProviderClass: %w", err)
-	}
-	if err := kc.ApplyYAML(ctx, raw, &kube.ApplyOptions{DefaultNamespace: ns}); err != nil {
-		return fmt.Errorf("apply SecretProviderClass: %w", err)
-	}
-
-	return nil
+	return mounts, certs, nil
 }

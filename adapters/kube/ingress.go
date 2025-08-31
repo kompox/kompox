@@ -1,6 +1,8 @@
 package kube
 
-import "github.com/yaegashi/kompoxops/domain/model"
+import (
+	"github.com/yaegashi/kompoxops/domain/model"
+)
 
 // TraefikReleaseName is the Helm release name for Traefik and also used as the default Service/Deployment name.
 const TraefikReleaseName = "traefik"
@@ -42,10 +44,4 @@ func IngressTLSSecretName(certName string) string {
 		return ""
 	}
 	return "tls-" + certName
-}
-
-// SecretProviderClassName returns a stable name for the SecretProviderClass used by ingress.
-func SecretProviderClassName(cluster *model.Cluster) string {
-	// One SPC per cluster ingress namespace is sufficient; name it after the release.
-	return TraefikReleaseName + "-kv"
 }
