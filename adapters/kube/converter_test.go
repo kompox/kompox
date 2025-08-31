@@ -664,7 +664,7 @@ services:
 
 	svc := &model.Service{Name: "myservice"}
 	prv := &model.Provider{Name: "myprovider", Driver: "test"}
-	cls := &model.Cluster{Name: "mycluster", Domain: "ops.kompox.dev"}
+	cls := &model.Cluster{Name: "mycluster", Ingress: &model.ClusterIngress{Domain: "ops.kompox.dev"}}
 	app := &model.App{
 		Name:    "fullapp",
 		Compose: compose,

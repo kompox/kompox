@@ -28,7 +28,6 @@ type Provider struct {
 type Cluster struct {
 	Name     string            `yaml:"name"`
 	Existing bool              `yaml:"existing"` // whether to use existing cluster
-	Domain   string            `yaml:"domain"`   // e.g., "ops.kompox.dev"
 	Ingress  ClusterIngress    `yaml:"ingress"`  // ingress configuration
 	Settings map[string]string `yaml:"settings"` // cluster-specific settings
 }
@@ -41,6 +40,10 @@ type ClusterIngress struct {
 	Namespace      string `yaml:"namespace"`
 	Controller     string `yaml:"controller"`
 	ServiceAccount string `yaml:"serviceAccount,omitempty"`
+	// Domain is the default DNS domain used to generate app ingress hosts.
+	// This is accepted under cluster.ingress for convenience; it will be propagated
+	// to model.Cluster.Domain by the loader.
+	Domain string `yaml:"domain,omitempty"`
 	// CertResolver selects the Traefik ACME resolver to use (e.g., "staging" or "production").
 	CertResolver string `yaml:"certResolver,omitempty"`
 	// CertEmail is the email address used for ACME registration.

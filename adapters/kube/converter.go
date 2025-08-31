@@ -357,14 +357,18 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		}
 
 		// Build Default-domain Ingress (one host per rule based on hostPort)
-		if c.Cls != nil && strings.TrimSpace(c.Cls.Domain) != "" {
+		var defaultDomain string
+		if c.Cls != nil && c.Cls.Ingress != nil {
+			defaultDomain = strings.TrimSpace(c.Cls.Ingress.Domain)
+		}
+		if defaultDomain != "" {
 			var defaultRules []netv1.IngressRule
 			defaultHostSeen := map[string]struct{}{}
 			for _, r := range c.App.Ingress.Rules {
 				cp := hostPortToContainer[r.Port]
 				portName := containerPortName[cp]
 				path := netv1.HTTPIngressPath{Path: "/", PathType: ptr.To(netv1.PathTypePrefix), Backend: netv1.IngressBackend{Service: &netv1.IngressServiceBackend{Name: svcObj.Name, Port: netv1.ServiceBackendPort{Name: portName}}}}
-				host := fmt.Sprintf("%s-%s-%d.%s", c.App.Name, c.HashID, r.Port, c.Cls.Domain)
+				host := fmt.Sprintf("%s-%s-%d.%s", c.App.Name, c.HashID, r.Port, defaultDomain)
 				if _, dup := defaultHostSeen[host]; dup {
 					return nil, fmt.Errorf("generated default host %s duplicated", host)
 				}

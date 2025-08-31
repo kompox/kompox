@@ -11,7 +11,6 @@ type Cluster struct {
 	Name       string
 	ProviderID string // references Provider
 	Existing   bool
-	Domain     string
 	Ingress    *ClusterIngress
 	Settings   map[string]string
 	CreatedAt  time.Time
@@ -23,6 +22,9 @@ type ClusterIngress struct {
 	Namespace      string
 	Controller     string
 	ServiceAccount string
+	// Domain is the default DNS domain used to generate app ingress hosts.
+	// This value is sourced from configuration at cluster.ingress.domain.
+	Domain string
 	// CertResolver selects the Traefik ACME resolver (e.g., "staging", "production").
 	CertResolver string
 	// CertEmail is the email address used for ACME account registration.

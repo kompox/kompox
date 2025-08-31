@@ -22,8 +22,8 @@ provider:
 cluster:
   name: test-cluster
   existing: false
-  domain: ops.kompox.dev
   ingress:
+    domain: ops.kompox.dev
     controller: traefik
     namespace: traefik
     certEmail: admin@example.com
@@ -64,7 +64,7 @@ app:
 	if cfg.Provider.Name != "k3s1" || cfg.Provider.Driver != "k3s" {
 		t.Errorf("unexpected provider: %+v", cfg.Provider)
 	}
-	if cfg.Cluster.Name != "test-cluster" || cfg.Cluster.Domain != "ops.kompox.dev" {
+	if cfg.Cluster.Name != "test-cluster" || cfg.Cluster.Ingress.Domain != "ops.kompox.dev" {
 		t.Errorf("unexpected cluster: %+v", cfg.Cluster)
 	}
 	if cfg.Cluster.Ingress.Controller != "traefik" || cfg.Cluster.Ingress.Namespace != "traefik" {
