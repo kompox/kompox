@@ -36,14 +36,14 @@ func FromContext(ctx context.Context) Logger {
 	if v, ok := ctx.Value(loggerKey).(Logger); ok && v != nil {
 		return v
 	}
-	return humanLogger()
+	return humanLogger(slog.LevelInfo)
 }
 
 // New constructs a new Logger of given format (text|json|human) and level.
 func New(format string, level slog.Leveler) (Logger, error) {
 	switch format {
 	case "", "human":
-		return humanLogger(), nil
+		return humanLogger(level), nil
 	case "text":
 		return &slogWrapper{logger: slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level, AddSource: false}))}, nil
 	case "json":
@@ -88,7 +88,9 @@ var (
 	humanLoggerValue *slogWrapper
 )
 
-func humanLogger() *slogWrapper {
+func humanLogger(level slog.Leveler) *slogWrapper {
+	// Set level for the std log logger used by slog's default logger output.
+	slog.SetLogLoggerLevel(level.Level())
 	humanLoggerOnce.Do(func() {
 		humanLoggerValue = &slogWrapper{logger: slog.Default()}
 	})

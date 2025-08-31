@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"os"
+	"strings"
 
 	"log/slog"
 
@@ -30,13 +31,29 @@ func newRootCmd() *cobra.Command {
 	}
 	cmd.PersistentFlags().String("db-url", defaultDB, "Database URL (env KOMPOX_DB_URL) (file:/path/to/kompoxops.yml | sqlite:/path/to.db | postgres:// | mysql://)")
 	cmd.PersistentFlags().String("log-format", "human", "Log format (human|text|json) (env KOMPOX_LOG_FORMAT)")
+	cmd.PersistentFlags().String("log-level", "info", "Log level (debug|info|warn|error) (env KOMPOX_LOG_LEVEL)")
 
 	cmd.PersistentPreRunE = func(c *cobra.Command, _ []string) error {
 		format, _ := c.Flags().GetString("log-format")
 		if env := os.Getenv("KOMPOX_LOG_FORMAT"); env != "" { // env overrides flag
 			format = env
 		}
-		l, err := logging.New(format, slog.LevelInfo)
+		levelStr, _ := c.Flags().GetString("log-level")
+		if env := os.Getenv("KOMPOX_LOG_LEVEL"); env != "" { // env overrides flag
+			levelStr = env
+		}
+		var lvl slog.Level
+		switch strings.ToLower(strings.TrimSpace(levelStr)) {
+		case "debug":
+			lvl = slog.LevelDebug
+		case "warn", "warning":
+			lvl = slog.LevelWarn
+		case "error", "err":
+			lvl = slog.LevelError
+		default:
+			lvl = slog.LevelInfo
+		}
+		l, err := logging.New(format, lvl)
 		if err != nil {
 			return err
 		}
