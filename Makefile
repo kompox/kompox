@@ -7,6 +7,7 @@ test:
 # Run full build check
 build:
 	go build ./...
+	go build ./cmd/kompoxops
 
 # Build kompoxops CLI executable
 cmd:
