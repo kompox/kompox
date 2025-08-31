@@ -7,15 +7,20 @@ import (
 	"time"
 
 	"github.com/yaegashi/kompoxops/domain/model"
+	"github.com/yaegashi/kompoxops/internal/logging"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
 	helmdriver "helm.sh/helm/v3/pkg/storage/driver"
+	"sigs.k8s.io/yaml"
 )
 
 // InstallIngressTraefik installs or upgrades a minimal Traefik ingress controller into the ingress namespace.
 // This uses the Helm SDK with a temporary kubeconfig file derived from this client.
-func (c *Client) InstallIngressTraefik(ctx context.Context, cluster *model.Cluster) error {
+//
+// A provider may pass optional mutators to customize Helm values before install/upgrade
+// to support provider-specific needs (e.g., mounting SecretProviderClass via CSI driver).
+func (c *Client) InstallIngressTraefik(ctx context.Context, cluster *model.Cluster, mutators ...HelmValuesMutator) error {
 	if c == nil || c.RESTConfig == nil {
 		return fmt.Errorf("kube client is not initialized")
 	}
@@ -63,7 +68,7 @@ func (c *Client) InstallIngressTraefik(ctx context.Context, cluster *model.Clust
 
 	// Minimal values with ACME and persistence
 	saName := IngressServiceAccountName(cluster)
-	values := map[string]any{
+	values := HelmValues{
 		"service": map[string]any{
 			"type": "LoadBalancer",
 		},
@@ -105,12 +110,26 @@ func (c *Client) InstallIngressTraefik(ctx context.Context, cluster *model.Clust
 		"additionalArguments": []string{},
 	}
 
+	// Inject static TLS certificates list for Traefik Helm values if specified.
+	// Each entry maps to an existing Kubernetes TLS secret created separately.
+	if cluster != nil && cluster.Ingress != nil && len(cluster.Ingress.Certificates) > 0 {
+		certs := make([]map[string]any, 0, len(cluster.Ingress.Certificates))
+		for _, cdef := range cluster.Ingress.Certificates {
+			secretName := IngressTLSSecretName(cdef.Name)
+			if secretName == "" {
+				continue
+			}
+			certs = append(certs, map[string]any{"secretName": secretName})
+		}
+		if len(certs) > 0 {
+			values["tls"] = map[string]any{"certificates": certs}
+		}
+	}
+
 	// Configure Let's Encrypt (ACME) resolvers for staging and production
 	certEmail := ""
-	preferredResolver := ""
 	if cluster != nil && cluster.Ingress != nil {
 		certEmail = cluster.Ingress.CertEmail
-		preferredResolver = cluster.Ingress.CertResolver
 	}
 	if certEmail == "" {
 		// Fallback placeholder; users should configure a real email in cluster config
@@ -126,10 +145,19 @@ func (c *Client) InstallIngressTraefik(ctx context.Context, cluster *model.Clust
 		fmt.Sprintf("--certificatesresolvers.staging.acme.email=%s", certEmail),
 		"--certificatesresolvers.staging.acme.storage=/data/acme-staging.json",
 	}
-	if preferredResolver == "production" || preferredResolver == "staging" {
-		addArgs = append(addArgs, fmt.Sprintf("--entrypoints.websecure.http.tls.certresolver=%s", preferredResolver))
-	}
 	values["additionalArguments"] = addArgs
+
+	// Apply provider-specific value customizations, if any.
+	for _, m := range mutators {
+		if m != nil {
+			m(ctx, cluster, TraefikReleaseName, values)
+		}
+	}
+
+	// Debug log merged Helm values instead of writing to a file.
+	if b, err := yaml.Marshal(values); err == nil {
+		logging.FromContext(ctx).Debugf(ctx, "traefik helm values (yaml):\n%s", string(b))
+	}
 
 	if _, err := up.Run(TraefikReleaseName, ch, values); err != nil {
 		// If release doesn't exist, perform install instead

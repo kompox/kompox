@@ -177,15 +177,23 @@ func toModelVolumes(vs []AppVolume) []model.AppVolume {
 // toModelClusterIngress converts config ClusterIngress to domain ClusterIngress pointer.
 func toModelClusterIngress(ci ClusterIngress) *model.ClusterIngress {
 	// If all fields are empty, return nil to indicate unspecified
-	if ci.Namespace == "" && ci.Controller == "" && ci.ServiceAccount == "" && ci.CertResolver == "" && ci.CertEmail == "" {
+	if ci.Namespace == "" && ci.Controller == "" && ci.ServiceAccount == "" && ci.CertResolver == "" && ci.CertEmail == "" && len(ci.Certificates) == 0 {
 		return nil
 	}
 	// Apply minimal defaults if necessary (ServiceAccount may be empty; runtime has a default)
-	return &model.ClusterIngress{
+	mi := &model.ClusterIngress{
 		Namespace:      ci.Namespace,
 		Controller:     ci.Controller,
 		ServiceAccount: ci.ServiceAccount,
 		CertResolver:   ci.CertResolver,
 		CertEmail:      ci.CertEmail,
 	}
+	if len(ci.Certificates) > 0 {
+		certs := make([]model.ClusterIngressCertificate, 0, len(ci.Certificates))
+		for _, c := range ci.Certificates {
+			certs = append(certs, model.ClusterIngressCertificate{Name: c.Name, Source: c.Source})
+		}
+		mi.Certificates = certs
+	}
+	return mi
 }

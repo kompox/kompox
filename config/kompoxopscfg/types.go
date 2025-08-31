@@ -45,6 +45,21 @@ type ClusterIngress struct {
 	CertResolver string `yaml:"certResolver,omitempty"`
 	// CertEmail is the email address used for ACME registration.
 	CertEmail string `yaml:"certEmail,omitempty"`
+	// Certificates defines static TLS certificates sourced from Key Vault, etc.
+	Certificates []ClusterIngressCertificate `yaml:"certificates,omitempty"`
+}
+
+// ClusterIngressCertificate defines a named static certificate source.
+// Currently only Azure Key Vault secret URLs are supported, for example:
+//
+//	https://<vault-name>.vault.azure.net/secret/<object-name>
+//
+// The name will be used to derive the Kubernetes TLS secret name as:
+//
+//	tls-<name>
+type ClusterIngressCertificate struct {
+	Name   string `yaml:"name"`
+	Source string `yaml:"source"`
 }
 
 // App represents the target application to deploy.

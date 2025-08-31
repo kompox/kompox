@@ -34,3 +34,18 @@ func IngressServiceAccountName(cluster *model.Cluster) string {
 	}
 	return def
 }
+
+// IngressTLSSecretName returns the Kubernetes TLS Secret name for a static certificate entry.
+// It is derived as "tls-" + certificate.Name.
+func IngressTLSSecretName(certName string) string {
+	if certName == "" {
+		return ""
+	}
+	return "tls-" + certName
+}
+
+// SecretProviderClassName returns a stable name for the SecretProviderClass used by ingress.
+func SecretProviderClassName(cluster *model.Cluster) string {
+	// One SPC per cluster ingress namespace is sufficient; name it after the release.
+	return TraefikReleaseName + "-kv"
+}

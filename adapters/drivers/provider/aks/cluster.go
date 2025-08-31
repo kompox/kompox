@@ -453,9 +453,65 @@ func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster, _ .
 		return fmt.Errorf("create ingress serviceaccount %s/%s: %w", saNS, saName, err)
 	}
 
-	// Step 3: Install Traefik via Helm (idempotent)
-	if err := kc.InstallIngressTraefik(ctx, cluster); err != nil {
-		return err
+	// Step 3: If static certificates are configured, ensure SecretProviderClass and TLS Secrets from Key Vault
+	if cluster.Ingress != nil && len(cluster.Ingress.Certificates) > 0 {
+		if err := d.ensureSecretProviderClassFromKeyVault(ctx, kc, cluster, tenantID, clientID); err != nil {
+			return fmt.Errorf("ensure ingress TLS from key vault: %w", err)
+		}
+	}
+
+	// Step 4: Install Traefik via Helm (idempotent)
+	// Mount the SecretProviderClass on Traefik Pods so CSI sync is triggered without a separate sync Pod.
+	spcName := kube.SecretProviderClassName(cluster)
+	mutator := func(ctx context.Context, _ *model.Cluster, _ string, values kube.HelmValues) {
+		// Ensure the nested map at values["deployment"] exists first.
+		dep, _ := values["deployment"].(map[string]any)
+		if dep == nil {
+			dep = map[string]any{}
+			values["deployment"] = dep
+		}
+		// Ensure pod label for Workload Identity remains.
+		if pl, ok := dep["podLabels"].(map[string]any); ok {
+			pl["azure.workload.identity/use"] = "true"
+		} else {
+			dep["podLabels"] = map[string]any{"azure.workload.identity/use": "true"}
+		}
+		// deployment.additionalVolumes
+		vol := map[string]any{
+			"name": "secrets-store-inline",
+			"csi": map[string]any{
+				"driver":   "secrets-store.csi.k8s.io",
+				"readOnly": true,
+				"volumeAttributes": map[string]any{
+					"secretProviderClass": spcName,
+				},
+			},
+		}
+		if av, ok := dep["additionalVolumes"].([]any); ok {
+			dep["additionalVolumes"] = append(av, vol)
+		} else {
+			dep["additionalVolumes"] = []any{vol}
+		}
+		// additionalVolumeMounts
+		vm := map[string]any{
+			"name":      "secrets-store-inline",
+			"mountPath": "/mnt/secrets-store",
+			"readOnly":  true,
+		}
+		if avm, ok := values["additionalVolumeMounts"].([]any); ok {
+			values["additionalVolumeMounts"] = append(avm, vm)
+		} else {
+			values["additionalVolumeMounts"] = []any{vm}
+		}
+	}
+	if cluster.Ingress != nil && len(cluster.Ingress.Certificates) > 0 {
+		if err := kc.InstallIngressTraefik(ctx, cluster, mutator); err != nil {
+			return err
+		}
+	} else {
+		if err := kc.InstallIngressTraefik(ctx, cluster); err != nil {
+			return err
+		}
 	}
 
 	log.Info(ctx, "aks cluster install succeeded", "cluster", cluster.Name, "provider", d.ProviderName())

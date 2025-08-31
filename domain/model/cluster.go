@@ -27,6 +27,16 @@ type ClusterIngress struct {
 	CertResolver string
 	// CertEmail is the email address used for ACME account registration.
 	CertEmail string
+	// Certificates are static TLS certificates to be made available to the ingress controller.
+	Certificates []ClusterIngressCertificate
+}
+
+// ClusterIngressCertificate represents a static certificate reference.
+// Name is an arbitrary identifier; it determines the Kubernetes TLS Secret name as "tls-" + Name.
+// Source is a provider-specific locator. For AKS, a Key Vault secret URL is supported.
+type ClusterIngressCertificate struct {
+	Name   string
+	Source string
 }
 
 // Operation-scoped options and functional option types.
