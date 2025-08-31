@@ -50,7 +50,8 @@ type Converter struct {
 	Containers     []corev1.Container
 	InitContainers []corev1.Container
 	Service        *corev1.Service
-	Ingress        *netv1.Ingress
+	IngressDefault *netv1.Ingress
+	IngressCustom  *netv1.Ingress
 
 	// Bound storage state
 	VolumeBindings []ConverterVolumeBinding // input bindings (app.Volumes order), updated with chosen resource names
@@ -321,31 +322,68 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 	}
 
 	// Ingress generation (Traefik)
-	var ingObj *netv1.Ingress
+	var ingDefault, ingCustom *netv1.Ingress
 	if len(c.App.Ingress.Rules) > 0 && svcObj != nil {
-		var rules []netv1.IngressRule
+		// Build Custom-domain Ingress (hosts explicitly provided)
+		var customRules []netv1.IngressRule
+		customHostSeen := map[string]struct{}{}
 		for _, r := range c.App.Ingress.Rules {
 			cp := hostPortToContainer[r.Port]
 			portName := containerPortName[cp]
 			path := netv1.HTTPIngressPath{Path: "/", PathType: ptr.To(netv1.PathTypePrefix), Backend: netv1.IngressBackend{Service: &netv1.IngressServiceBackend{Name: svcObj.Name, Port: netv1.ServiceBackendPort{Name: portName}}}}
 			for _, host := range r.Hosts {
-				rules = append(rules, netv1.IngressRule{Host: host, IngressRuleValue: netv1.IngressRuleValue{HTTP: &netv1.HTTPIngressRuleValue{Paths: []netv1.HTTPIngressPath{path}}}})
+				if _, dup := customHostSeen[host]; dup {
+					return nil, fmt.Errorf("host %s duplicated across ingress entries", host)
+				}
+				customHostSeen[host] = struct{}{}
+				customRules = append(customRules, netv1.IngressRule{Host: host, IngressRuleValue: netv1.IngressRuleValue{HTTP: &netv1.HTTPIngressRuleValue{Paths: []netv1.HTTPIngressPath{path}}}})
 			}
 		}
-		ann := map[string]string{
-			"traefik.ingress.kubernetes.io/router.entrypoints": "websecure",
-			"traefik.ingress.kubernetes.io/router.tls":         "true",
+		if len(customRules) > 0 {
+			ann := map[string]string{
+				"traefik.ingress.kubernetes.io/router.entrypoints": "websecure",
+				"traefik.ingress.kubernetes.io/router.tls":         "true",
+			}
+			certResolver := ""
+			if c.App.Ingress.CertResolver != "" {
+				certResolver = c.App.Ingress.CertResolver
+			} else if c.Cls != nil && c.Cls.Ingress != nil && c.Cls.Ingress.CertResolver != "" {
+				certResolver = c.Cls.Ingress.CertResolver
+			}
+			if certResolver != "" {
+				ann["traefik.ingress.kubernetes.io/router.tls.certresolver"] = certResolver
+			}
+			ingCustom = &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("%s-custom", c.App.Name), Namespace: nsName, Labels: commonLabels, Annotations: ann}, Spec: netv1.IngressSpec{IngressClassName: ptr.To("traefik"), Rules: customRules}}
 		}
-		certResolver := ""
-		if c.App.Ingress.CertResolver != "" {
-			certResolver = c.App.Ingress.CertResolver
-		} else if c.Cls != nil && c.Cls.Ingress != nil && c.Cls.Ingress.CertResolver != "" {
-			certResolver = c.Cls.Ingress.CertResolver
+
+		// Build Default-domain Ingress (one host per rule based on hostPort)
+		if c.Cls != nil && strings.TrimSpace(c.Cls.Domain) != "" {
+			var defaultRules []netv1.IngressRule
+			defaultHostSeen := map[string]struct{}{}
+			for _, r := range c.App.Ingress.Rules {
+				cp := hostPortToContainer[r.Port]
+				portName := containerPortName[cp]
+				path := netv1.HTTPIngressPath{Path: "/", PathType: ptr.To(netv1.PathTypePrefix), Backend: netv1.IngressBackend{Service: &netv1.IngressServiceBackend{Name: svcObj.Name, Port: netv1.ServiceBackendPort{Name: portName}}}}
+				host := fmt.Sprintf("%s-%s-%d.%s", c.App.Name, c.HashID, r.Port, c.Cls.Domain)
+				if _, dup := defaultHostSeen[host]; dup {
+					return nil, fmt.Errorf("generated default host %s duplicated", host)
+				}
+				if ingCustom != nil { // ensure no collision with custom hosts
+					if _, exists := customHostSeen[host]; exists {
+						return nil, fmt.Errorf("generated default host %s collides with custom hosts", host)
+					}
+				}
+				defaultHostSeen[host] = struct{}{}
+				defaultRules = append(defaultRules, netv1.IngressRule{Host: host, IngressRuleValue: netv1.IngressRuleValue{HTTP: &netv1.HTTPIngressRuleValue{Paths: []netv1.HTTPIngressPath{path}}}})
+			}
+			if len(defaultRules) > 0 {
+				ann := map[string]string{
+					"traefik.ingress.kubernetes.io/router.entrypoints": "websecure",
+					"traefik.ingress.kubernetes.io/router.tls":         "true",
+				}
+				ingDefault = &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("%s-default", c.App.Name), Namespace: nsName, Labels: commonLabels, Annotations: ann}, Spec: netv1.IngressSpec{IngressClassName: ptr.To("traefik"), Rules: defaultRules}}
+			}
 		}
-		if certResolver != "" {
-			ann["traefik.ingress.kubernetes.io/router.tls.certresolver"] = certResolver
-		}
-		ingObj = &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: c.App.Name, Namespace: nsName, Labels: commonLabels, Annotations: ann}, Spec: netv1.IngressSpec{IngressClassName: ptr.To("traefik"), Rules: rules}}
 	}
 
 	c.Project = proj
@@ -354,7 +392,8 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 	c.Containers = containers
 	c.InitContainers = initContainers
 	c.Service = svcObj
-	c.Ingress = ingObj
+	c.IngressDefault = ingDefault
+	c.IngressCustom = ingCustom
 	c.warnings = warnings
 
 	return c.warnings, nil
@@ -523,8 +562,11 @@ func (c *Converter) Build() ([]runtime.Object, []string, error) {
 	if c.Service != nil {
 		objs = append(objs, c.Service)
 	}
-	if c.Ingress != nil {
-		objs = append(objs, c.Ingress)
+	if c.IngressDefault != nil {
+		objs = append(objs, c.IngressDefault)
+	}
+	if c.IngressCustom != nil {
+		objs = append(objs, c.IngressCustom)
 	}
 	return objs, c.warnings, nil
 }

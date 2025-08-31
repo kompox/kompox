@@ -1,8 +1,12 @@
-# Kompox Converter: Docker Compose to Kubernetes Manifest
+# Kompox Kube Converter ガイド v1
 
 ## 概要
 
-Kompox の Service/Provider/Cluster/App リソースがどのように Kubernetes マニフェストに変換されるかを説明します。
+本書は `adapters/kube` が提供するコンバータ `kube.Converter` の設計と公開契約を解説します。Docker Compose を入力として、Kubernetes マニフェストへ変換する方針とルールを示します。
+
+- 本書で扱う主な事項:
+  - Service/Provider/Cluster/App 定義からのマニフェスト生成規則
+
 
 ## 方針
 
@@ -15,7 +19,10 @@ Kompox の Service/Provider/Cluster/App リソースがどのように Kubernete
 - PVC 複数個 (PVを参照する)
 - Deployment 1個 (シングルレプリカ、strategy.type:Recreate)
 - Service 1個 (compose の host ポートを列挙)
-- Ingress 1個 (DNSホスト名からServiceへのルーティングを列挙)
+- Ingress 0〜2個 (DNSホスト名から Service へのルーティング)
+  - デフォルトドメイン用 Ingress: `<appName>-default`
+  - カスタムドメイン用 Ingress: `<appName>-custom`
+  - 生成条件は後述
 
 ### 名前・ラベル・アノテーション
 
@@ -23,8 +30,9 @@ Kompox の Service/Provider/Cluster/App リソースがどのように Kubernete
 
 - Namespace: `kompox-<appName>-<idHASH>`
 - PV/PVC: `kompox-<volName>-<idHASH>-<volHASH>`
-- Service/Deployment/Ingress: `<appName>`
-  - 当面は固定とする。将来的にはバージョン管理のために `<appName>-<version>` などの形式を導入。
+- Service/Deployment: `<appName>`
+- Ingress: デフォルトドメイン用は `<appName>-default`、カスタムドメイン用は `<appName>-custom`
+  - 将来的にバージョン管理のため `<appName>-<version>` などの形式を導入予定
 
 各リソースには次のラベルを設定する。セレクタとしては `app: <appName>` を使用する。
 
@@ -206,15 +214,40 @@ Service 生成の仕様
 - `port` = `hostPort`, `targetPort` = 対応する `containerPort`。
 - 複数サービス (Compose) が同一 containerPort を公開 (ports に含める) する構成はエラー。
 
-Ingress 生成の仕様
-- `rules` 出力順: app.ingress.rules 定義順、各エントリ内 host 配列順。
-- 各 host 1 rule, path は常に `/` (Prefix)。
-- 次の annotations を設定する
+デフォルトドメイン Ingress 生成の仕様
+- `app.ingress.rules` が空配列ではなく、かつ `cluster.ingress.domain` が空文字列でないときのみ生成
+- 名前は `<appName>-default`
+- ingressClassName は `traefik`
+- `rules`
+  - `app.ingress.rules` の各エントリに対して1つを出力
+  - `host` は `<appName>-idHASH-<port>.{cluster.ingress.domain}`
+    - ここで `<port>` は `app.ingress.rules.port`（Compose の `hostPort`）
+    - 例: `main(8080→80)` は `app1-idHASH-8080.ops.kompox.dev`、`admin(8081→8080)` は `app1-idHASH-8081.ops.kompox.dev`
+  - `path: /` および `pathType: Prefix`
+- annotations 設定（certresolver を設定せず静的 TLS 証明書を使用する）
+```yaml
+traefik.ingress.kubernetes.io/router.entrypoints: websecure
+traefik.ingress.kubernetes.io/router.tls: "true"
+```
+
+カスタムドメイン Ingress 生成の仕様
+- `app.ingress.rules` が空配列でないときのみ生成
+- 名前は `<appName>-custom`
+- ingressClassName は `traefik`
+- `rules`
+  - `app.ingress.rules` の `hosts` 配列の各要素ごとに1つを出力
+  - `path: /` および `pathType: Prefix`
+- annotations 設定（certresolver を設定して ACME TLS 証明書を使用する）
 ```yaml
 traefik.ingress.kubernetes.io/router.entrypoints: websecure
 traefik.ingress.kubernetes.io/router.tls: "true"
 traefik.ingress.kubernetes.io/router.tls.certresolver: {app.ingress.certResolver}
 ```
+
+補足（ホスト名の重複）
+- `app.ingress.rules` 内で同一 FQDN が複数回現れた場合:
+  - エントリ内重複は 1 回目のみ採用し警告、異なるエントリ間の重複はエラー
+- デフォルトドメインで自動生成されるホストと `app.ingress.rules.hosts` が衝突した場合はエラーとする
 
 参考: Traefik Helm values.yaml 設定
 ```yaml
@@ -264,12 +297,17 @@ provider:
   name: aks1
 cluster:
   name: cluster1
-  domain: ops.kompox.dev
   ingress:
     controller: traefik
     namespace: traefik
     certEmail: admin@example.com
     certResolver: staging
+    domain: ops.kompox.dev
+    certificates:
+      - name: foo-cert1
+        source: https://kv-foo.vault.azure.net/secrets/cert1
+      - name: bar-cert2
+        source: https://kv-bar.vault.azure.net/secrets/cert2
 app:
   name: app1
   compose:
@@ -545,7 +583,46 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: app1
+  name: app1-default
+  namespace: kompox-app1-idHASH
+  labels:
+    app: app1
+    app.kubernetes.io/name: app1
+    app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/managed-by: kompox
+    kompox.dev/app-instance-hash: inHASH
+    kompox.dev/app-id-hash: idHASH
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: websecure
+    traefik.ingress.kubernetes.io/router.tls: "true"
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: app1-idHASH-8080.ops.kompox.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: app1
+                port:
+                  name: main
+    - host: app1-idHASH-8081.ops.kompox.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: app1
+                port:
+                  name: admin
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app1-custom
   namespace: kompox-app1-idHASH
   labels:
     app: app1

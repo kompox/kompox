@@ -102,7 +102,7 @@ services:
 				if c.Service != nil {
 					t.Error("service should be nil when no ports defined")
 				}
-				if c.Ingress != nil {
+				if c.IngressDefault != nil || c.IngressCustom != nil {
 					t.Error("ingress should be nil when no ingress rules defined")
 				}
 			},
@@ -161,12 +161,12 @@ services:
 				if c.Service.Spec.Ports[0].Name != "web" {
 					t.Errorf("expected service port name 'web', got %q", c.Service.Spec.Ports[0].Name)
 				}
-				if c.Ingress == nil {
+				if c.IngressCustom == nil {
 					t.Error("ingress should be created when ingress rules are defined")
 					return
 				}
-				if len(c.Ingress.Spec.Rules) != 2 {
-					t.Errorf("expected 2 ingress rules (one per host), got %d", len(c.Ingress.Spec.Rules))
+				if len(c.IngressCustom.Spec.Rules) != 2 {
+					t.Errorf("expected 2 ingress rules (one per host), got %d", len(c.IngressCustom.Spec.Rules))
 				}
 			},
 		},
@@ -664,7 +664,7 @@ services:
 
 	svc := &model.Service{Name: "myservice"}
 	prv := &model.Provider{Name: "myprovider", Driver: "test"}
-	cls := &model.Cluster{Name: "mycluster"}
+	cls := &model.Cluster{Name: "mycluster", Domain: "ops.kompox.dev"}
 	app := &model.App{
 		Name:    "fullapp",
 		Compose: compose,
@@ -735,8 +735,8 @@ services:
 	t.Logf("Build warnings: %v", buildWarnings)
 
 	// Validate the final result
-	if len(objects) != 8 { // Namespace + 2PV + 2PVC + Deployment + Service + Ingress
-		t.Errorf("expected 8 objects, got %d", len(objects))
+	if len(objects) != 9 { // Namespace + 2PV + 2PVC + Deployment + Service + 2x Ingress
+		t.Errorf("expected 9 objects, got %d", len(objects))
 	}
 
 	// Count object types
@@ -766,7 +766,7 @@ services:
 		"PersistentVolumeClaim": 2,
 		"Deployment":            1,
 		"Service":               1,
-		"Ingress":               1,
+		"Ingress":               2,
 	}
 
 	for objType, expectedCount := range expected {
@@ -778,7 +778,8 @@ services:
 	// Find and validate key objects
 	var deployment *appsv1.Deployment
 	var service *corev1.Service
-	var ingress *netv1.Ingress
+	var ingDefault *netv1.Ingress
+	var ingCustom *netv1.Ingress
 
 	for _, obj := range objects {
 		switch v := obj.(type) {
@@ -787,7 +788,11 @@ services:
 		case *corev1.Service:
 			service = v
 		case *netv1.Ingress:
-			ingress = v
+			if v.Name == "fullapp-default" {
+				ingDefault = v
+			} else if v.Name == "fullapp-custom" {
+				ingCustom = v
+			}
 		}
 	}
 
@@ -811,17 +816,23 @@ services:
 	}
 
 	// Validate ingress
-	if ingress == nil {
-		t.Fatal("ingress not found")
+	if ingDefault == nil || ingCustom == nil {
+		t.Fatalf("both default and custom ingresses should exist (default:%v custom:%v)", ingDefault != nil, ingCustom != nil)
 	}
-	if len(ingress.Spec.Rules) != 2 { // 1 host for frontend + 1 host for api
-		t.Errorf("expected 2 ingress rules, got %d", len(ingress.Spec.Rules))
+	if len(ingDefault.Spec.Rules) != 2 { // 1 per rule using default domain
+		t.Errorf("expected 2 default ingress rules, got %d", len(ingDefault.Spec.Rules))
+	}
+	if len(ingCustom.Spec.Rules) != 2 { // 1 per explicit host
+		t.Errorf("expected 2 custom ingress rules, got %d", len(ingCustom.Spec.Rules))
 	}
 
-	// Check Traefik annotations
-	certResolver, ok := ingress.Annotations["traefik.ingress.kubernetes.io/router.tls.certresolver"]
+	// Check Traefik annotations on custom (certresolver set), default (no certresolver)
+	if _, ok := ingDefault.Annotations["traefik.ingress.kubernetes.io/router.tls.certresolver"]; ok {
+		t.Errorf("default ingress should not have certresolver")
+	}
+	certResolver, ok := ingCustom.Annotations["traefik.ingress.kubernetes.io/router.tls.certresolver"]
 	if !ok || certResolver != "letsencrypt" {
-		t.Errorf("expected cert resolver 'letsencrypt', got %q", certResolver)
+		t.Errorf("expected cert resolver 'letsencrypt' on custom ingress, got %q", certResolver)
 	}
 
 	t.Logf("Full workflow test completed successfully with %d objects", len(objects))
