@@ -1,6 +1,8 @@
-# Komprox Provider Driver ガイド v1
+# Kompox Provider Driver ガイド v1
 
-このドキュメントは、クラウドプロバイダ用ドライバ（以下、プロバイダドライバ）の目的、配置、公開契約（インターフェース）、および実装ガイドラインを示します。usecase はオーケストレーション、adapters は I/O 実装という責務分離に基づきます。
+## 概要
+
+本書は Kompox のクラウドプロバイダ用ドライバ（以下、プロバイダドライバ）の設計と公開契約を解説します。usecase はオーケストレーション、adapters は I/O 実装という責務分離に基づきます。
 
 ## 目的と範囲
 
@@ -177,3 +179,5 @@ if err := inst.EnsureIngressNamespace(ctx, cluster); err != nil {
 ---
 
 最終更新: v1（初版）
+
+注記: Ingress コントローラ（Traefik）のインストールや Helm values の拡張ポイントの詳細は kube クライアントのガイドに移動しました。`docs/Kompox-KubeClient-v1.ja.md` を参照してください。

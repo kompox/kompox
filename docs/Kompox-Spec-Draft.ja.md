@@ -204,15 +204,15 @@ Kompox PaaS REST API 実装仕様
   - ResourcesでPodの割り当てを指定する  
   - SettingsでCluster.Provider固有の設定を指定する  
 - 各 Cluster では Traefik Proxy をイングレスコントローラとしてデプロイする。
-- 各 Cluster ごとにデフォルト DNS として \*.{Cluster.Domain} のワイルドカードSSL証明書を Traefik Proxy に設定する。 証明書の取得・保持方法は Provider により異なる。
+- 各 Cluster ごとにデフォルト DNS として \*.{cluster.ingress.domain} のワイルドカードSSL証明書を Traefik Proxy に設定する。 証明書の取得・保持方法は Provider により異なる。
 - ユーザーは App を作成・所有・デプロイできる。
 - ユーザーが App をデプロイすることで次のようなことが起きる。
   - App.Compose が Kompose によって Kubernetes マニフェストに変換され App.Cluster で指定したクラスタに適用される。
   - App.Composeではボリュームを1つだけ参照でき、その実態としてディスクのクラウドリソースを割り当てるPVCが自動的に作成される。
   - Compose の ports でエクスポーズされた各ポート指定に対応する ServiceリソースとIngressリソースが自動的に作成される。IngresリソースにはTraefik Proxyが読み取るアノテーションが設定され、DNSバーチャルホストによる各サービスへのアクセスが可能になる。
   - エクスポーズされた各ポートには固有のDNSホスト名が自動的に割り当てられる。
-    - {App.Name}.{Cluster.Domain} → ポート80
-    - {App.Name}-8080.{cluster.Domain} → ポート8080  
+  - {App.Name}.{cluster.ingress.domain} → ポート80
+  - {App.Name}-8080.{cluster.ingress.domain} → ポート8080
   - エクスポーズされた各ポートには次のような App.Ingress によりカスタムDNSホスト名が割り当てられる。
       http_80: www.custom-apps.com
       http_8080: admin.custom-apps.com

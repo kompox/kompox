@@ -1,6 +1,8 @@
-# Provider Driver AKS 仕様
+# Kompox Provider Driver AKS ガイド v1
 
-本書は現行実装 (`adapters/drivers/provider/aks`) の **AKS プロバイダドライバ** の挙動仕様を記述する。コード実装からリバースエンジニアリングした現状仕様であり、拡張 / 将来計画は含めない。
+## 概要
+
+本書は Kompox の AKS プロバイダドライバ（`adapters/drivers/provider/aks`）の設計と現行実装の振る舞いを解説します。コード実装に基づく現状仕様であり、将来計画は含みません。
 
 ## 対象バージョン / スコープ
 * 対象: 現行 `main` ブランチ実装
