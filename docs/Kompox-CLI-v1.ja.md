@@ -56,10 +56,10 @@ provider:
 cluster:
   name: cluster1
   existing: false
-  domain: ops.kompox.dev
   ingress:
     controller: traefik
     namespace: traefik
+    domain: ops.kompox.dev
   settings:
     AZURE_RESOURCE_GROUP_NAME: rg-cluster1
 app:
@@ -157,27 +157,27 @@ provision/deprovision/install/uninstall は status により実行可否が変�
 |install|provisioned=false|installed=falseならK8sクラスタ内リソース作成開始|
 |uninstall||installed=trueならK8sクラスタ内リソース削除開始|
 
-### kompoxops cluster provision
+#### kompoxops cluster provision
 
 Cluster リソース準拠の AKS/K8s クラスタを作成開始します（idempotent）。`existing=true` の場合は何もしません。
 
-### kompoxops cluster deprovision
+#### kompoxops cluster deprovision
 
 対象クラスタのリソースグループを削除します（idempotent）。`installed=true` の場合はエラーです。
 
-### kompoxops cluster install
+#### kompoxops cluster install
 
 Ingress Controller などのクラスタ内リソースをインストールします。`provisioned=false` の場合はエラーです。
 
-### kompoxops cluster uninstall
+#### kompoxops cluster uninstall
 
 クラスタ内リソースをアンインストールします（best-effort）。
 
-### kompoxops cluster status
+#### kompoxops cluster status
 
 クラスタの `existing`/`provisioned`/`installed` に加えて Ingress のグローバル IP/FQDN を JSON で表示します（利用可能な場合）。
 
-### kompoxops cluster kubeconfig
+#### kompoxops cluster kubeconfig
 
 Provider Driver からクラスタの kubeconfig（管理者資格）を取得し、標準出力/ファイル保存/既存 kubeconfig への統合を行う。
 
@@ -238,17 +238,25 @@ YAML 構文エラーや制約違反が検出された場合はエラーを返す
 - `--out-compose FILE` を指定すると正規化した Docker Compose の YAML ドキュメントを出力する (`-` は stdout)
 - `--out-manifest FILE` を指定すると K8s マニフェストの YAML ドキュメントを出力する (`-` は stdout)
 
-### kompoxops app validate
+#### kompoxops app validate
 
 Compose の検証と K8s マニフェスト生成を行います。`--out-compose`/`--out-manifest` でファイル出力可能です。
 
-### kompoxops app deploy
+#### kompoxops app deploy
 
-検証・変換済みのオブジェクトを対象クラスタに適用します（サーバサイドアプライ）。
+検証・変換済みのリソースを対象クラスタに適用します（冪等)。
 
-### kompoxops app destroy
+#### kompoxops app destroy
 
-（将来拡張）デプロイ済みオブジェクトの削除を行います。
+デプロイ済みリソースをクラスタから削除します (冪等)。
+
+- 次のラベルがついたリソースのみ削除する
+  - `app.kubernetes.io/instance: app1-inHASH`
+  - `app.kubernetes.io/managed-by: kompox`
+- 既定で Namespace 以外のリソース（PV/PVC を含む）を削除
+- `--delete-namespace` を指定すると Namespace リソースも削除
+
+補足: PV/PVC を削除しても、StorageClass/PV の ReclaimPolicy が Retain の場合はクラウドディスク本体は保持されます。
 
 ### kompoxops volume
 
@@ -286,19 +294,19 @@ vol-202401  true      32Gi   1f3ab29 (az)  2024-01-10T12:00Z    2024-01-10T12:05
 vol-202312  false     32Gi   9ab1c02 (az)  2023-12-31T09:00Z    2024-01-10T12:05Z
 ```
 
-### kompoxops volume list
+#### kompoxops volume list
 
 ボリュームインスタンスの一覧を表示します。
 
-### kompoxops volume create
+#### kompoxops volume create
 
 新しいボリュームインスタンスを作成します（サイズは app.volumes 定義）。
 
-### kompoxops volume assign
+#### kompoxops volume assign
 
 指定インスタンスを Assigned=true に設定し、他を自動的に Unassign します。
 
-### kompoxops volume delete
+#### kompoxops volume delete
 
 指定インスタンスを削除します（Assigned 中は `--force` なしで拒否）。
 

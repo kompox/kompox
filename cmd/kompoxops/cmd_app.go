@@ -12,12 +12,17 @@ import (
 	"github.com/yaegashi/kompoxops/adapters/kube"
 	"github.com/yaegashi/kompoxops/domain/model"
 	"github.com/yaegashi/kompoxops/internal/logging"
+	"github.com/yaegashi/kompoxops/internal/naming"
 	"github.com/yaegashi/kompoxops/usecase/app"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/dynamic"
 )
 
 var flagAppName string
@@ -33,7 +38,7 @@ func newCmdApp() *cobra.Command {
 	}
 	// Persistent flag shared across subcommands
 	cmd.PersistentFlags().StringVarP(&flagAppName, "app-name", "A", "", "App name (default: app.name in kompoxops.yml)")
-	cmd.AddCommand(newCmdAppValidate(), newCmdAppDeploy())
+	cmd.AddCommand(newCmdAppValidate(), newCmdAppDeploy(), newCmdAppDestroy())
 	return cmd
 }
 
@@ -277,5 +282,156 @@ func newCmdAppDeploy() *cobra.Command {
 			return nil
 		},
 	}
+	return cmd
+}
+
+// newCmdAppDestroy removes deployed Kubernetes resources selected by labels and optionally deletes the Namespace.
+// Behavior:
+//   - Deletes only resources labeled with both:
+//     app.kubernetes.io/instance = <appName>-<inHASH>
+//     app.kubernetes.io/managed-by = kompox
+//   - By default deletes all namespaced resources (matching labels) and PV/PVC. Namespace itself is NOT deleted.
+//   - When --delete-namespace is provided, also delete the Namespace resource.
+func newCmdAppDestroy() *cobra.Command {
+	var deleteNamespace bool
+	cmd := &cobra.Command{
+		Use:                "destroy",
+		Short:              "Destroy app resources from cluster (label-selected delete)",
+		Args:               cobra.NoArgs,
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			appUC, err := buildAppUseCase(cmd)
+			if err != nil {
+				return err
+			}
+			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
+			defer cancel()
+			logger := logging.FromContext(ctx)
+
+			appName, err := getAppName(cmd, args)
+			if err != nil {
+				return err
+			}
+			// Find app by name
+			listOut, err := appUC.List(ctx, &app.ListInput{})
+			if err != nil {
+				return fmt.Errorf("failed to list apps: %w", err)
+			}
+			var target *model.App
+			for _, a := range listOut.Apps {
+				if a.Name == appName {
+					target = a
+					break
+				}
+			}
+			if target == nil {
+				return fmt.Errorf("app %s not found", appName)
+			}
+
+			// Retrieve related cluster/provider/service for kubeconfig and hashing
+			clusterObj, err := appUC.Repos.Cluster.Get(ctx, target.ClusterID)
+			if err != nil || clusterObj == nil {
+				return fmt.Errorf("failed to get cluster %s: %w", target.ClusterID, err)
+			}
+			providerObj, err := appUC.Repos.Provider.Get(ctx, clusterObj.ProviderID)
+			if err != nil || providerObj == nil {
+				return fmt.Errorf("failed to get provider %s: %w", clusterObj.ProviderID, err)
+			}
+			var serviceObj *model.Service
+			if providerObj.ServiceID != "" {
+				serviceObj, _ = appUC.Repos.Service.Get(ctx, providerObj.ServiceID)
+			}
+
+			// Compute labels and namespace consistent with converter
+			svcName := ""
+			if serviceObj != nil {
+				svcName = serviceObj.Name
+			}
+			hashes := naming.NewHashes(svcName, providerObj.Name, clusterObj.Name, target.Name)
+			in := fmt.Sprintf("%s-%s", target.Name, hashes.AppInstance)
+			nsName := fmt.Sprintf("kompox-%s-%s", target.Name, hashes.AppID)
+			labelSelector := fmt.Sprintf("app.kubernetes.io/instance=%s,app.kubernetes.io/managed-by=kompox", in)
+
+			// Provider driver for kubeconfig
+			factory, ok := providerdrv.GetDriverFactory(providerObj.Driver)
+			if !ok {
+				return fmt.Errorf("unknown provider driver: %s", providerObj.Driver)
+			}
+			drv, err := factory(serviceObj, providerObj)
+			if err != nil {
+				return fmt.Errorf("failed to create driver %s: %w", providerObj.Driver, err)
+			}
+			kubeconfig, err := drv.ClusterKubeconfig(ctx, clusterObj)
+			if err != nil {
+				return fmt.Errorf("failed to get cluster kubeconfig: %w", err)
+			}
+			kcli, err := kube.NewClientFromKubeconfig(ctx, kubeconfig, &kube.Options{UserAgent: "kompoxops"})
+			if err != nil {
+				return fmt.Errorf("failed to create kube client: %w", err)
+			}
+
+			// Build dynamic client only (avoid discovery to not touch core/v1 Endpoints etc.)
+			dy, err := dynamic.NewForConfig(kcli.RESTConfig)
+			if err != nil {
+				return fmt.Errorf("create dynamic client: %w", err)
+			}
+
+			// Delete selected resource kinds only (avoid touching Endpoints): Ingress, Service, Deployment, PVC, PV
+			var deletedCount int
+			logger.Info(ctx, "destroy planning", "namespace", nsName, "selector", labelSelector, "deleteNamespace", deleteNamespace)
+			deleteList := []struct {
+				gvr        schema.GroupVersionResource
+				namespaced bool
+				desc       string
+			}{
+				{schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingresses"}, true, "Ingress"},
+				{schema.GroupVersionResource{Group: "", Version: "v1", Resource: "services"}, true, "Service"},
+				{schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}, true, "Deployment"},
+				{schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumeclaims"}, true, "PVC"},
+				{schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}, false, "PV"},
+			}
+			for _, item := range deleteList {
+				var list *unstructured.UnstructuredList
+				var err error
+				if item.namespaced {
+					list, err = dy.Resource(item.gvr).Namespace(nsName).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
+				} else {
+					list, err = dy.Resource(item.gvr).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
+				}
+				if err != nil {
+					continue
+				}
+				for _, it := range list.Items {
+					name := it.GetName()
+					policy := metav1.DeletePropagationBackground
+					if item.namespaced {
+						logger.Info(ctx, "deleting", "kind", item.desc, "name", name, "namespace", nsName)
+						if err := dy.Resource(item.gvr).Namespace(nsName).Delete(ctx, name, metav1.DeleteOptions{PropagationPolicy: &policy}); err == nil {
+							deletedCount++
+						}
+					} else {
+						logger.Info(ctx, "deleting", "kind", item.desc, "name", name)
+						if err := dy.Resource(item.gvr).Delete(ctx, name, metav1.DeleteOptions{PropagationPolicy: &policy}); err == nil {
+							deletedCount++
+						}
+					}
+				}
+			}
+
+			// Optionally delete the Namespace itself
+			if deleteNamespace {
+				logger.Info(ctx, "deleting namespace", "name", nsName)
+				if err := kcli.DeleteNamespace(ctx, nsName); err != nil {
+					return fmt.Errorf("delete namespace %s failed: %w", nsName, err)
+				}
+			}
+
+			logger.Info(ctx, "destroy completed", "app", appName, "ns", nsName, "deleted", deletedCount, "deleteNamespace", deleteNamespace)
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&deleteNamespace, "delete-namespace", false, "Also delete the Namespace resource")
 	return cmd
 }
