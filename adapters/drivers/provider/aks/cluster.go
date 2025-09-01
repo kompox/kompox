@@ -11,9 +11,9 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/containerservice/armcontainerservice"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
-	"github.com/yaegashi/kompoxops/adapters/kube"
-	"github.com/yaegashi/kompoxops/domain/model"
-	"github.com/yaegashi/kompoxops/internal/logging"
+	"github.com/kompox/kompox/adapters/kube"
+	"github.com/kompox/kompox/domain/model"
+	"github.com/kompox/kompox/internal/logging"
 	"sigs.k8s.io/yaml"
 )
 

@@ -1,4 +1,4 @@
-module github.com/yaegashi/kompoxops
+module github.com/kompox/kompox
 
 go 1.23.0
 

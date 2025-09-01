@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/compose-spec/compose-go/v2/types"
-	"github.com/yaegashi/kompoxops/domain/model"
-	"github.com/yaegashi/kompoxops/internal/naming"
+	"github.com/kompox/kompox/domain/model"
+	"github.com/kompox/kompox/internal/naming"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"

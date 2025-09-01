@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/yaegashi/kompoxops/internal/logging"
-	vuc "github.com/yaegashi/kompoxops/usecase/volume"
+	"github.com/kompox/kompox/internal/logging"
+	vuc "github.com/kompox/kompox/usecase/volume"
 )
 
 // newCmdSnapshot returns the root snapshot command.

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/yaegashi/kompoxops/domain/model"
+	"github.com/kompox/kompox/domain/model"
 )
 
 // SnapshotCreateInput parameters for creating a snapshot.

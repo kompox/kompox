@@ -9,7 +9,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/yaegashi/kompoxops/domain/model"
+	"github.com/kompox/kompox/domain/model"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 

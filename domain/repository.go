@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/yaegashi/kompoxops/domain/model"
+	"github.com/kompox/kompox/domain/model"
 )
 
 // ServiceRepository stores and retrieves Service aggregates.

@@ -3,7 +3,7 @@ package providerdrv
 import (
 	"context"
 
-	"github.com/yaegashi/kompoxops/domain/model"
+	"github.com/kompox/kompox/domain/model"
 )
 
 // Driver abstracts provider-specific behavior (identifier, hooks, etc.).

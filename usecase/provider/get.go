@@ -3,7 +3,7 @@ package provider
 import (
 	"context"
 
-	"github.com/yaegashi/kompoxops/domain/model"
+	"github.com/kompox/kompox/domain/model"
 )
 
 // GetInput identifies the Provider to fetch.

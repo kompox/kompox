@@ -1,7 +1,7 @@
 package kube
 
 import (
-	"github.com/yaegashi/kompoxops/domain/model"
+	"github.com/kompox/kompox/domain/model"
 )
 
 // TraefikReleaseName is the Helm release name for Traefik and also used as the default Service/Deployment name.

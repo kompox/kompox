@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/yaegashi/kompoxops/config/kompoxopscfg"
+	"github.com/kompox/kompox/config/kompoxopscfg"
 )
 
 // newCmdConfig returns a command that reads and shows the current configuration.

@@ -15,8 +15,8 @@ package aks
 import (
 	"fmt"
 
-	"github.com/yaegashi/kompoxops/domain/model"
-	"github.com/yaegashi/kompoxops/internal/naming"
+	"github.com/kompox/kompox/domain/model"
+	"github.com/kompox/kompox/internal/naming"
 )
 
 // Resource group related limits and setting keys.

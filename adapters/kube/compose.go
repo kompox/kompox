@@ -6,7 +6,7 @@ import (
 
 	"github.com/compose-spec/compose-go/v2/loader"
 	"github.com/compose-spec/compose-go/v2/types"
-	"github.com/yaegashi/kompoxops/internal/logging"
+	"github.com/kompox/kompox/internal/logging"
 )
 
 // NewComposeProject loads a compose project from raw YAML string (single file only, includes disabled).

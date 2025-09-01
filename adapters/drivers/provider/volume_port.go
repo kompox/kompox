@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/yaegashi/kompoxops/domain"
-	"github.com/yaegashi/kompoxops/domain/model"
+	"github.com/kompox/kompox/domain"
+	"github.com/kompox/kompox/domain/model"
 )
 
 // volumePortAdapter implements model.VolumePort backed by provider drivers.

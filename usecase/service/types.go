@@ -1,6 +1,6 @@
 package service
 
-import "github.com/yaegashi/kompoxops/domain"
+import "github.com/kompox/kompox/domain"
 
 // Repos holds repositories needed for service use cases.
 type Repos struct {

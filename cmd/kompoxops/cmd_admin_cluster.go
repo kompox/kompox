@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/yaegashi/kompoxops/usecase/cluster"
+	"github.com/kompox/kompox/usecase/cluster"
 	"gopkg.in/yaml.v3"
 )
 

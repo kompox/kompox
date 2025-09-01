@@ -3,7 +3,7 @@ package app
 import (
 	"context"
 
-	"github.com/yaegashi/kompoxops/domain/model"
+	"github.com/kompox/kompox/domain/model"
 )
 
 // ListInput defines optional filters for listing Apps (reserved for future use).

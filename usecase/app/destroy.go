@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
-	providerdrv "github.com/yaegashi/kompoxops/adapters/drivers/provider"
-	"github.com/yaegashi/kompoxops/adapters/kube"
-	"github.com/yaegashi/kompoxops/domain/model"
-	"github.com/yaegashi/kompoxops/internal/logging"
-	"github.com/yaegashi/kompoxops/internal/naming"
+	providerdrv "github.com/kompox/kompox/adapters/drivers/provider"
+	"github.com/kompox/kompox/adapters/kube"
+	"github.com/kompox/kompox/domain/model"
+	"github.com/kompox/kompox/internal/logging"
+	"github.com/kompox/kompox/internal/naming"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

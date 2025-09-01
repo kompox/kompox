@@ -7,15 +7,15 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/yaegashi/kompoxops/adapters/store/inmem"
-	"github.com/yaegashi/kompoxops/adapters/store/rdb"
-	"github.com/yaegashi/kompoxops/config/kompoxopscfg"
-	"github.com/yaegashi/kompoxops/domain"
-	"github.com/yaegashi/kompoxops/usecase/app"
-	"github.com/yaegashi/kompoxops/usecase/cluster"
-	"github.com/yaegashi/kompoxops/usecase/provider"
-	"github.com/yaegashi/kompoxops/usecase/service"
-	"github.com/yaegashi/kompoxops/usecase/volume"
+	"github.com/kompox/kompox/adapters/store/inmem"
+	"github.com/kompox/kompox/adapters/store/rdb"
+	"github.com/kompox/kompox/config/kompoxopscfg"
+	"github.com/kompox/kompox/domain"
+	"github.com/kompox/kompox/usecase/app"
+	"github.com/kompox/kompox/usecase/cluster"
+	"github.com/kompox/kompox/usecase/provider"
+	"github.com/kompox/kompox/usecase/service"
+	"github.com/kompox/kompox/usecase/volume"
 )
 
 // configRoot holds the loaded configuration.

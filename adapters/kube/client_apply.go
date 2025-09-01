@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/yaegashi/kompoxops/internal/logging"
+	"github.com/kompox/kompox/internal/logging"
 	meta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"

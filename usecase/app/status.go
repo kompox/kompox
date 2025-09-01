@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"sort"
 
-	providerdrv "github.com/yaegashi/kompoxops/adapters/drivers/provider"
-	"github.com/yaegashi/kompoxops/adapters/kube"
-	"github.com/yaegashi/kompoxops/internal/naming"
+	providerdrv "github.com/kompox/kompox/adapters/drivers/provider"
+	"github.com/kompox/kompox/adapters/kube"
+	"github.com/kompox/kompox/internal/naming"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"

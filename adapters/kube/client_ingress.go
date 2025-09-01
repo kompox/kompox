@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/yaegashi/kompoxops/domain/model"
+	"github.com/kompox/kompox/domain/model"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 

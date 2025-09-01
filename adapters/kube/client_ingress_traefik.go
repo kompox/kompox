@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/yaegashi/kompoxops/domain/model"
-	"github.com/yaegashi/kompoxops/internal/logging"
+	"github.com/kompox/kompox/domain/model"
+	"github.com/kompox/kompox/internal/logging"
 	"helm.sh/helm/v3/pkg/action"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"

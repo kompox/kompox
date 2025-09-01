@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/yaegashi/kompoxops/domain/model"
+	"github.com/kompox/kompox/domain/model"
 )
 
 // CreateInput contains the data required to create a new App resource.

@@ -4,8 +4,8 @@ import (
 	"context"
 
 	"github.com/google/uuid"
-	"github.com/yaegashi/kompoxops/domain"
-	"github.com/yaegashi/kompoxops/domain/model"
+	"github.com/kompox/kompox/domain"
+	"github.com/kompox/kompox/domain/model"
 	"gorm.io/gorm"
 )
 

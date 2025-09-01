@@ -1,6 +1,6 @@
 package provider
 
-import "github.com/yaegashi/kompoxops/domain"
+import "github.com/kompox/kompox/domain"
 
 // Repos holds repositories needed for provider use cases.
 type Repos struct {

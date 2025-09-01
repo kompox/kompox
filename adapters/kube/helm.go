@@ -3,7 +3,7 @@ package kube
 import (
 	"context"
 
-	"github.com/yaegashi/kompoxops/domain/model"
+	"github.com/kompox/kompox/domain/model"
 )
 
 // HelmValues represents Helm chart values as a generic map.

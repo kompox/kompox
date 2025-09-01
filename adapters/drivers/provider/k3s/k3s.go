@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	providerdrv "github.com/yaegashi/kompoxops/adapters/drivers/provider"
-	"github.com/yaegashi/kompoxops/domain/model"
+	providerdrv "github.com/kompox/kompox/adapters/drivers/provider"
+	"github.com/kompox/kompox/domain/model"
 )
 
 // driver implements the K3s provider driver.

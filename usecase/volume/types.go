@@ -1,8 +1,8 @@
 package volume
 
 import (
-	"github.com/yaegashi/kompoxops/domain"
-	"github.com/yaegashi/kompoxops/domain/model"
+	"github.com/kompox/kompox/domain"
+	"github.com/kompox/kompox/domain/model"
 )
 
 // Repos holds repositories required for volume operations.

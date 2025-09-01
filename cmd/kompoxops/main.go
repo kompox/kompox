@@ -8,9 +8,9 @@ import (
 	"log/slog"
 
 	"github.com/spf13/cobra"
-	_ "github.com/yaegashi/kompoxops/adapters/drivers/provider/aks"
-	_ "github.com/yaegashi/kompoxops/adapters/drivers/provider/k3s"
-	"github.com/yaegashi/kompoxops/internal/logging"
+	_ "github.com/kompox/kompox/adapters/drivers/provider/aks"
+	_ "github.com/kompox/kompox/adapters/drivers/provider/k3s"
+	"github.com/kompox/kompox/internal/logging"
 )
 
 func newRootCmd() *cobra.Command {

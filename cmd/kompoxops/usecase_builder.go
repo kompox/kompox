@@ -2,12 +2,12 @@ package main
 
 import (
 	"github.com/spf13/cobra"
-	providerdrv "github.com/yaegashi/kompoxops/adapters/drivers/provider"
-	"github.com/yaegashi/kompoxops/usecase/app"
-	"github.com/yaegashi/kompoxops/usecase/cluster"
-	"github.com/yaegashi/kompoxops/usecase/provider"
-	"github.com/yaegashi/kompoxops/usecase/service"
-	"github.com/yaegashi/kompoxops/usecase/volume"
+	providerdrv "github.com/kompox/kompox/adapters/drivers/provider"
+	"github.com/kompox/kompox/usecase/app"
+	"github.com/kompox/kompox/usecase/cluster"
+	"github.com/kompox/kompox/usecase/provider"
+	"github.com/kompox/kompox/usecase/service"
+	"github.com/kompox/kompox/usecase/volume"
 )
 
 // buildAppUseCase creates app use case with required repositories.

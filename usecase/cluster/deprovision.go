@@ -3,7 +3,7 @@ package cluster
 import (
 	"context"
 
-	"github.com/yaegashi/kompoxops/domain/model"
+	"github.com/kompox/kompox/domain/model"
 )
 
 // DeprovisionInput represents a command to deprovision a cluster.

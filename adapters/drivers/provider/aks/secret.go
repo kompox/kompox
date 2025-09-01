@@ -9,8 +9,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/yaegashi/kompoxops/adapters/kube"
-	"github.com/yaegashi/kompoxops/domain/model"
+	"github.com/kompox/kompox/adapters/kube"
+	"github.com/kompox/kompox/domain/model"
 	"sigs.k8s.io/yaml"
 )
 

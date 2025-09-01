@@ -3,8 +3,8 @@ package inmem
 import (
 	"context"
 
-	"github.com/yaegashi/kompoxops/config/kompoxopscfg"
-	"github.com/yaegashi/kompoxops/domain"
+	"github.com/kompox/kompox/config/kompoxopscfg"
+	"github.com/kompox/kompox/domain"
 )
 
 // Store provides a unified interface for all in-memory repositories.
