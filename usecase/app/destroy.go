@@ -62,7 +62,7 @@ func (u *UseCase) Destroy(ctx context.Context, in *DestroyInput) (*DestroyOutput
 	}
 	hashes := naming.NewHashes(svcName, providerObj.Name, clusterObj.Name, appObj.Name)
 	inLabel := fmt.Sprintf("%s-%s", appObj.Name, hashes.AppInstance)
-	nsName := fmt.Sprintf("kompox-%s-%s", appObj.Name, hashes.AppID)
+	nsName := hashes.Namespace
 	labelSelector := fmt.Sprintf("app.kubernetes.io/instance=%s,app.kubernetes.io/managed-by=kompox", inLabel)
 
 	// Provider driver for kubeconfig.

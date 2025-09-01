@@ -26,6 +26,7 @@ type Hashes struct {
 	Cluster     string
 	AppID       string
 	AppInstance string
+	Namespace   string
 }
 
 // defaultLength defines the hex length of hashes (bits ~ length * 4).
@@ -41,16 +42,32 @@ func ShortHash(s string, n int) string {
 	return h[:n]
 }
 
+// VolumeHash returns a short hash for a volume handle or identifier.
+func VolumeHash(handle string) string {
+	return ShortHash(handle, defaultLength)
+}
+
 // NewHashes computes hierarchical hashes for the given identifiers.
 func NewHashes(service, provider, cluster, app string) Hashes {
-	return Hashes{
+	h := Hashes{
 		Service:     ShortHash(service, defaultLength),
 		Provider:    ShortHash(fmt.Sprintf("%s:%s", service, provider), defaultLength),
 		Cluster:     ShortHash(fmt.Sprintf("%s:%s:%s", service, provider, cluster), defaultLength),
 		AppID:       ShortHash(fmt.Sprintf("%s:%s:%s", service, provider, app), defaultLength),
 		AppInstance: ShortHash(fmt.Sprintf("%s:%s:%s:%s", service, provider, cluster, app), defaultLength),
 	}
+	h.Namespace = fmt.Sprintf("kompox-%s-%s", app, h.AppID)
+	return h
 }
 
-// VolumeHash returns a short hash for a volume handle or identifier.
-func VolumeHash(handle string) string { return ShortHash(handle, defaultLength) }
+// VolumeResourceName returns the default resource name used for both PV and PVC
+// generated from a logical volume and its provider-specific handle.
+// The format is:
+//
+//	kompox-<volumeName>-<AppID>-<volHASH>
+//
+// where volHASH is derived from the handle.
+func (h Hashes) VolumeResourceName(volumeName, handle string) string {
+	volHASH := VolumeHash(handle)
+	return fmt.Sprintf("kompox-%s-%s-%s", volumeName, h.AppID, volHASH)
+}

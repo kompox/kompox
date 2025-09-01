@@ -85,7 +85,7 @@ func NewConverter(svc *model.Service, prv *model.Provider, cls *model.Cluster, a
 		hashes := naming.NewHashes(svc.Name, prv.Name, cls.Name, a.Name)
 		c.HashID = hashes.AppID
 		c.HashIN = hashes.AppInstance
-		c.NSName = fmt.Sprintf("kompox-%s-%s", a.Name, c.HashID)
+		c.NSName = hashes.Namespace
 		c.CommonLabels = map[string]string{
 			"app":                          a.Name,
 			"app.kubernetes.io/name":       a.Name,
@@ -421,6 +421,8 @@ func (c *Converter) BindVolumes(ctx context.Context, vols []ConverterVolumeBindi
 		return fmt.Errorf("vols length %d does not match app volumes %d", len(vols), len(c.App.Volumes))
 	}
 
+	// Precompute hashes for consistent resource naming
+	hashes := naming.NewHashes(c.Svc.Name, c.Prv.Name, c.Cls.Name, c.App.Name)
 	for i, av := range c.App.Volumes {
 		vb := vols[i]
 		volHandle := strings.TrimSpace(vb.Handle)
@@ -431,10 +433,9 @@ func (c *Converter) BindVolumes(ctx context.Context, vols []ConverterVolumeBindi
 		if sizeBytes <= 0 {
 			sizeBytes = av.Size
 		}
-		volHASH := naming.VolumeHash(volHandle)
 		resourceName := strings.TrimSpace(vb.ResourceName)
 		if resourceName == "" {
-			resourceName = fmt.Sprintf("kompox-%s-%s-%s", av.Name, c.HashID, volHASH)
+			resourceName = hashes.VolumeResourceName(av.Name, volHandle)
 		}
 		sizeQty := bytesToQuantity(sizeBytes)
 
