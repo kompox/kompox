@@ -42,7 +42,7 @@ func (a *volumePortAdapter) getDriver(ctx context.Context, cluster *model.Cluste
 
 // VolumeInstanceList returns the list of volume instances associated with the
 // logical volume identified by volName for the specified cluster/app.
-func (a *volumePortAdapter) VolumeInstanceList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) ([]*model.AppVolumeInstance, error) {
+func (a *volumePortAdapter) VolumeInstanceList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) ([]*model.VolumeInstance, error) {
 	drv, err := a.getDriver(ctx, cluster, app)
 	if err != nil {
 		return nil, err
@@ -52,12 +52,22 @@ func (a *volumePortAdapter) VolumeInstanceList(ctx context.Context, cluster *mod
 
 // VolumeInstanceCreate creates (provisions) a new volume instance belonging to
 // the logical volume identified by volName for the specified cluster/app.
-func (a *volumePortAdapter) VolumeInstanceCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) (*model.AppVolumeInstance, error) {
+func (a *volumePortAdapter) VolumeInstanceCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) (*model.VolumeInstance, error) {
 	drv, err := a.getDriver(ctx, cluster, app)
 	if err != nil {
 		return nil, err
 	}
 	return drv.VolumeInstanceCreate(ctx, cluster, app, volName)
+}
+
+// VolumeInstanceDelete deletes the named volume instance (volInstName) belonging
+// to the logical volume volName for the specified cluster/app.
+func (a *volumePortAdapter) VolumeInstanceDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string) error {
+	drv, err := a.getDriver(ctx, cluster, app)
+	if err != nil {
+		return err
+	}
+	return drv.VolumeInstanceDelete(ctx, cluster, app, volName, volInstName)
 }
 
 // VolumeInstanceAssign assigns an existing volume instance (volInstName) to the
@@ -71,14 +81,40 @@ func (a *volumePortAdapter) VolumeInstanceAssign(ctx context.Context, cluster *m
 	return drv.VolumeInstanceAssign(ctx, cluster, app, volName, volInstName)
 }
 
-// VolumeInstanceDelete deletes the named volume instance (volInstName) belonging
-// to the logical volume volName for the specified cluster/app.
-func (a *volumePortAdapter) VolumeInstanceDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string) error {
+// VolumeSnapshotList lists snapshots for the given logical volume.
+func (a *volumePortAdapter) VolumeSnapshotList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) ([]*model.VolumeSnapshot, error) {
+	drv, err := a.getDriver(ctx, cluster, app)
+	if err != nil {
+		return nil, err
+	}
+	return drv.VolumeSnapshotList(ctx, cluster, app, volName)
+}
+
+// VolumeSnapshotCreate creates a snapshot from a specified volume instance.
+func (a *volumePortAdapter) VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string) (*model.VolumeSnapshot, error) {
+	drv, err := a.getDriver(ctx, cluster, app)
+	if err != nil {
+		return nil, err
+	}
+	return drv.VolumeSnapshotCreate(ctx, cluster, app, volName, volInstName)
+}
+
+// VolumeSnapshotDelete deletes the specified snapshot.
+func (a *volumePortAdapter) VolumeSnapshotDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string) error {
 	drv, err := a.getDriver(ctx, cluster, app)
 	if err != nil {
 		return err
 	}
-	return drv.VolumeInstanceDelete(ctx, cluster, app, volName, volInstName)
+	return drv.VolumeSnapshotDelete(ctx, cluster, app, volName, snapName)
+}
+
+// VolumeSnapshotRestore creates a new volume instance from the specified snapshot.
+func (a *volumePortAdapter) VolumeSnapshotRestore(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string) (*model.VolumeInstance, error) {
+	drv, err := a.getDriver(ctx, cluster, app)
+	if err != nil {
+		return nil, err
+	}
+	return drv.VolumeSnapshotRestore(ctx, cluster, app, volName, snapName)
 }
 
 // GetVolumePort returns a model.VolumePort implemented via provider drivers.

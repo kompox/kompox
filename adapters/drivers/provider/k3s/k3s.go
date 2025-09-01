@@ -54,17 +54,31 @@ func (d *driver) ClusterKubeconfig(ctx context.Context, cluster *model.Cluster) 
 }
 
 // Volume management (not implemented for k3s)
-func (d *driver) VolumeInstanceList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) ([]*model.AppVolumeInstance, error) {
+func (d *driver) VolumeInstanceList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) ([]*model.VolumeInstance, error) {
 	return nil, fmt.Errorf("VolumeInstanceList is not implemented for k3s provider")
 }
-func (d *driver) VolumeInstanceCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) (*model.AppVolumeInstance, error) {
+func (d *driver) VolumeInstanceCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) (*model.VolumeInstance, error) {
 	return nil, fmt.Errorf("VolumeInstanceCreate is not implemented for k3s provider")
+}
+func (d *driver) VolumeInstanceDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string) error {
+	return fmt.Errorf("VolumeInstanceDelete is not implemented for k3s provider")
 }
 func (d *driver) VolumeInstanceAssign(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string) error {
 	return fmt.Errorf("VolumeInstanceAssign is not implemented for k3s provider")
 }
-func (d *driver) VolumeInstanceDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string) error {
-	return fmt.Errorf("VolumeInstanceDelete is not implemented for k3s provider")
+
+// Snapshot operations (not implemented for k3s)
+func (d *driver) VolumeSnapshotList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) ([]*model.VolumeSnapshot, error) {
+	return nil, fmt.Errorf("VolumeSnapshotList is not implemented for k3s provider")
+}
+func (d *driver) VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string) (*model.VolumeSnapshot, error) {
+	return nil, fmt.Errorf("VolumeSnapshotCreate is not implemented for k3s provider")
+}
+func (d *driver) VolumeSnapshotDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string) error {
+	return fmt.Errorf("VolumeSnapshotDelete is not implemented for k3s provider")
+}
+func (d *driver) VolumeSnapshotRestore(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string) (*model.VolumeInstance, error) {
+	return nil, fmt.Errorf("VolumeSnapshotRestore is not implemented for k3s provider")
 }
 
 // VolumeClass returns empty spec (no opinion) for k3s provider.

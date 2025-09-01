@@ -105,7 +105,7 @@ func (u *UseCase) Validate(ctx context.Context, in *ValidateInput) (*ValidateOut
 				out.Errors = append(out.Errors, fmt.Sprintf("volume instances lookup failed for %s: %v", av.Name, lerr))
 				continue
 			}
-			var assigned []*model.AppVolumeInstance
+			var assigned []*model.VolumeInstance
 			for _, inst := range insts {
 				if inst.Assigned {
 					assigned = append(assigned, inst)

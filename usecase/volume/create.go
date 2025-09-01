@@ -18,7 +18,7 @@ type CreateInput struct {
 // CreateOutput result for Create use case.
 type CreateOutput struct {
 	// Instance is the created volume instance.
-	Instance *model.AppVolumeInstance `json:"instance"`
+	Instance *model.VolumeInstance `json:"instance"`
 }
 
 // Create creates a new volume instance.

@@ -18,7 +18,7 @@ type ListInput struct {
 // ListOutput result for List use case.
 type ListOutput struct {
 	// Items is the collection of volume instances.
-	Items []*model.AppVolumeInstance `json:"items"`
+	Items []*model.VolumeInstance `json:"items"`
 }
 
 // List returns volume instances for a logical volume.

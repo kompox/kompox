@@ -348,7 +348,7 @@ func volumeDefSize(app *model.App, volName string) (int64, bool) {
 }
 
 // VolumeInstanceList implements spec method.
-func (d *driver) VolumeInstanceList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) ([]*model.AppVolumeInstance, error) {
+func (d *driver) VolumeInstanceList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) ([]*model.VolumeInstance, error) {
 	if cluster == nil || app == nil {
 		return nil, fmt.Errorf("cluster/app nil")
 	}
@@ -362,9 +362,9 @@ func (d *driver) VolumeInstanceList(ctx context.Context, cluster *model.Cluster,
 	if err != nil {
 		return nil, err
 	}
-	out := make([]*model.AppVolumeInstance, 0, len(items))
+	out := make([]*model.VolumeInstance, 0, len(items))
 	for _, it := range items {
-		out = append(out, &model.AppVolumeInstance{
+		out = append(out, &model.VolumeInstance{
 			Name:       it.VolInst,
 			VolumeName: volName,
 			Assigned:   it.Assigned,
@@ -378,7 +378,7 @@ func (d *driver) VolumeInstanceList(ctx context.Context, cluster *model.Cluster,
 }
 
 // VolumeInstanceCreate implements spec method.
-func (d *driver) VolumeInstanceCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) (*model.AppVolumeInstance, error) {
+func (d *driver) VolumeInstanceCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) (*model.VolumeInstance, error) {
 	if cluster == nil || app == nil {
 		return nil, fmt.Errorf("cluster/app nil")
 	}
@@ -406,7 +406,7 @@ func (d *driver) VolumeInstanceCreate(ctx context.Context, cluster *model.Cluste
 	if err != nil {
 		return nil, err
 	}
-	return &model.AppVolumeInstance{
+	return &model.VolumeInstance{
 		Name:       meta.VolInst,
 		VolumeName: volName,
 		Assigned:   meta.Assigned,
@@ -443,6 +443,23 @@ func (d *driver) VolumeInstanceDelete(ctx context.Context, cluster *model.Cluste
 	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
 	idHASH := hashes.AppID
 	return d.azureVolumeInstanceDelete(ctx, rg, volName, idHASH, volInstName)
+}
+
+// Snapshot operations for AKS (skeleton placeholders for now)
+func (d *driver) VolumeSnapshotList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) ([]*model.VolumeSnapshot, error) {
+	return nil, fmt.Errorf("VolumeSnapshotList not implemented for AKS driver")
+}
+
+func (d *driver) VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string) (*model.VolumeSnapshot, error) {
+	return nil, fmt.Errorf("VolumeSnapshotCreate not implemented for AKS driver")
+}
+
+func (d *driver) VolumeSnapshotDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string) error {
+	return fmt.Errorf("VolumeSnapshotDelete not implemented for AKS driver")
+}
+
+func (d *driver) VolumeSnapshotRestore(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string) (*model.VolumeInstance, error) {
+	return nil, fmt.Errorf("VolumeSnapshotRestore not implemented for AKS driver")
 }
 
 // VolumeClass implements providerdrv.Driver VolumeClass method for AKS.

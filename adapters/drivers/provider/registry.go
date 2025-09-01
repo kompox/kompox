@@ -40,16 +40,29 @@ type Driver interface {
 	ClusterKubeconfig(ctx context.Context, cluster *model.Cluster) ([]byte, error)
 
 	// VolumeInstanceList returns a list of volume instances of the specified volume.
-	VolumeInstanceList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) ([]*model.AppVolumeInstance, error)
+	VolumeInstanceList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) ([]*model.VolumeInstance, error)
 
 	// VolumeInstanceCreate creates a volume instance of the specified volume.
-	VolumeInstanceCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) (*model.AppVolumeInstance, error)
+	VolumeInstanceCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) (*model.VolumeInstance, error)
+
+	// VolumeInstanceDelete deletes a volume instance of the specified volume.
+	VolumeInstanceDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string) error
 
 	// VolumeInstanceAssign assigns a volume instance to the specified volume.
 	VolumeInstanceAssign(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string) error
 
-	// VolumeInstanceDelete deletes a volume instance of the specified volume.
-	VolumeInstanceDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string) error
+	// VolumeSnapshotList returns a list of snapshots of the specified volume.
+	VolumeSnapshotList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) ([]*model.VolumeSnapshot, error)
+
+	// VolumeSnapshotCreate creates a snapshot from the specified volume instance.
+	VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string) (*model.VolumeSnapshot, error)
+
+	// VolumeSnapshotDelete deletes the specified snapshot.
+	VolumeSnapshotDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string) error
+
+	// VolumeSnapshotRestore creates a new volume instance from the specified snapshot.
+	// The returned instance should have Assigned=false; switching is handled by VolumeInstanceAssign.
+	VolumeSnapshotRestore(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string) (*model.VolumeInstance, error)
 
 	// VolumeClass returns provider specific volume provisioning parameters for the given logical volume.
 	// Empty fields mean "no opinion" and the caller should omit them from generated manifests rather than
