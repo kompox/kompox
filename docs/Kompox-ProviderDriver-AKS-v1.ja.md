@@ -174,6 +174,7 @@ AKS クラスタおよび付随する監視 / レジストリ / Key Vault / ユ�
 - Volume Disk Name (`diskName`): ULID (UTC, モノトニック生成) — 文字集合 Crockford Base32, 長さ 26。時刻順ソート可能。
 - Azure Disk Name: `volName-idHASH-diskName`
 - Assigned フラグ: タグ `kompox-disk-assigned` が `true` の Volume Disk はその Logical Volume に対し現在アクティブに選択された 1 個 (排他)。
+  - 初回に作成された Volume Disk は自動的に `kompox-disk-assigned=true` で作成される。それ以降に作成されるディスクは `false`。
 
 ### 共通仕様
 - 対象 Resource Group: `app.settings.AZURE_RESOURCE_GROUP_NAME`
@@ -200,7 +201,7 @@ AKS クラスタおよび付随する監視 / レジストリ / Key Vault / ユ�
 - Tags:
   - `kompox-volume` = `volName-idHASH`
   - `kompox-disk-name` = `<ULID>`
-  - `kompox-disk-assigned` = `false`
+  - `kompox-disk-assigned` = 初回ディスクのみ `true`、それ以外は `false`
   - `managed-by` = `kompox`
 - 冪等性: 同名 Disk が既に存在する場合は衝突 (409) とし再生成不可（ULID 重複は極稀でありエラー扱い）。
 - タイムアウト: 2 分 (推奨)。
@@ -214,7 +215,7 @@ AKS クラスタおよび付随する監視 / レジストリ / Key Vault / ユ�
   3. まとめてタグ更新:
   - 指定 Disk: `kompox-disk-assigned=true`
      - その他同一 Logical Volume Disk: `...=false`
-- 競合制御: ETag (If-Match) を用いた楽観ロック。409 (Precondition Failed) 時は最大 N 回指数バックオフで再試行。
+- 競合制御: なし（同一 Logical Volume に属する全ディスクのタグを順次更新して排他を担保）。
 - 冪等性: 既に指定 Disk が唯一 true なら無変更で成功。
 - タイムアウト: 1 分。
 
@@ -240,3 +241,54 @@ AKS クラスタおよび付随する監視 / レジストリ / Key Vault / ユ�
 - マルチ AZ / ZRS Disk
 - Disk 暗号化 (CMK) オプション
 - `assigned` を Kubernetes PVC 状態と同期する再協調処理
+
+---
+
+## Volume スナップショット (Azure Managed Disk Snapshot)
+
+本節は論理ボリュームに属する Azure Managed Disk のスナップショットを列挙/作成/削除/復元する AKS ドライバ実装の仕様を定義する。
+
+### 用語・命名
+- Logical Volume Key: `volName-idHASH`（上記 Volume と同一）
+- Snapshot 名 (`snapName`): ULID（UTC, モノトニック）
+- Azure Snapshot Name: `volName-idHASH-<ULID>`
+- 所属タグ:
+  - `kompox-volume` = `volName-idHASH`
+  - `kompox-snapshot-name` = `<ULID>`
+  - `kompox-disk-name` = `<Disk ULID>`（作成元の Volume Disk の ULID）
+  - `managed-by` = `kompox`
+
+### 共通仕様
+- 対象 Resource Group: Volume と同一（`app.settings.AZURE_RESOURCE_GROUP_NAME`）。
+- フィルタ条件（List）:
+  1. RG 一致
+  2. タグ `kompox-volume` 一致
+  3. リソース名がプレフィクス `volName-idHASH-` で始まる
+- 返却は `CreatedAt` 降順（同時刻は名前昇順で安定化は実装依存）。
+- SKU 既定: `Standard_LRS`（スナップショット）。
+- 作成は Incremental Snapshot（`incremental=true`）。
+
+### SnapshotList
+- RG 内の Snapshot を列挙し、上記フィルタに合致するものを返す。RG 不存在は空配列。
+
+### SnapshotCreate
+- 入力: `diskName`（作成元 Volume Disk の ULID）。
+- `CreationData` は `CreateOption=Copy`, `SourceResourceID` は作成元 Disk を指す。
+- 戻り値: 作成した Snapshot のメタ（`snapName`, `handle`, `sizeGiB`, `createdAt`）。
+
+### SnapshotDelete
+- 入力: `snapName`（ULID）。
+- 該当 Snapshot（`volName-idHASH-snapName`）を削除。`NotFound` は冪等成功。
+
+### SnapshotRestore
+- 入力: `snapName`（ULID）。
+- 指定 Snapshot から新しい Volume Disk を作成する。
+  - Disk `CreationData` は `CreateOption=Copy`, `SourceResourceID` に Snapshot を指定。
+  - Disk SKU は Volume Disk と同じ `Premium_LRS`。
+  - 返す Disk の `Assigned` は常に `false`（切替は `VolumeDiskAssign` で行う）。
+
+### 必要権限
+- `Microsoft.Compute/snapshots/*`, `Microsoft.Compute/disks/*`, `Microsoft.Resources/subscriptions/resourceGroups/*`（Create/Restore 時 RG 作成の可能性）。
+
+### タイムアウト（実装）
+- List: 1 分 / Create: 3 分 / Delete: 2 分 / Restore: 3 分。

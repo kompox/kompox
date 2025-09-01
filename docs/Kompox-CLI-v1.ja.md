@@ -337,6 +337,66 @@ vol-202312  false     32Gi   9ab1c02 (az)  2023-12-31T09:00Z    2024-01-10T12:05
 
 指定インスタンスを削除します（Assigned 中は `--force` なしで拒否）。
 
+### kompoxops snapshot
+
+app.volumes で定義された論理ボリュームに属するスナップショットを操作する。
+
+```
+kompoxops snapshot list    --app-name <appName> --vol-name <volName>                       スナップショット一覧表示
+kompoxops snapshot create  --app-name <appName> --vol-name <volName> --disk-name <disk>    指定ディスクからスナップショット作成
+kompoxops snapshot delete  --app-name <appName> --vol-name <volName> --snapshot-name <snap>指定スナップショットを削除 (NotFoundは成功)
+kompoxops snapshot restore --app-name <appName> --vol-name <volName> --snapshot-name <snap>スナップショットから新規ディスクを作成
+```
+
+共通オプション
+
+- `--app-name | -A` アプリ名を指定 (デフォルト: kompoxops.yml の app.name)
+- `--vol-name | -V` ボリューム名を指定
+
+サブコマンドごとの必須オプション
+
+- `create`: `--disk-name | -D` 作成元ディスク名を指定
+- `delete`/`restore`: `--snapshot-name | -S` 対象スナップショット名を指定
+
+仕様
+
+- list: `CreatedAt` の降順で返す。出力は JSON 配列。
+- create: 指定ディスクからクラウドネイティブのスナップショットを作成し、JSON で 1 件返す。
+- delete: 存在しない場合も成功（冪等）。
+- restore: 指定スナップショットから新しいディスクを作成し、JSON で 1 件返す。復元ディスクは `Assigned=false`。切替は `kompoxops disk assign` で行う。
+
+使用例
+
+```
+# 一覧
+kompoxops snapshot list -A app1 -V db
+
+# ディスク db の現在のアクティブインスタンスから作成（例: 名前が ULID）
+kompoxops snapshot create -A app1 -V db -D 01J8WXYZABCDEF1234567890GH
+
+# 復元して新規ディスクを作る
+kompoxops snapshot restore -A app1 -V db -S 01J8WXYZABCDEF1234567890JK
+
+# スナップショット削除
+kompoxops snapshot delete -A app1 -V db -S 01J8WXYZABCDEF1234567890JK
+```
+
+#### kompoxops snapshot list
+
+スナップショットの一覧を表示します。
+
+#### kompoxops snapshot create
+
+指定ディスクからスナップショットを作成します。
+
+#### kompoxops snapshot delete
+
+指定スナップショットを削除します（NotFound の場合も成功）。
+
+#### kompoxops snapshot restore
+
+指定スナップショットから新しいボリュームインスタンスを作成します（復元ディスクは Assigned=false）。
+
 ### kompoxops admin
 
 管理用途 CLI を提供する。
