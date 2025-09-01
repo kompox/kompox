@@ -8,21 +8,15 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	providerdrv "github.com/yaegashi/kompoxops/adapters/drivers/provider"
 	"github.com/yaegashi/kompoxops/adapters/kube"
 	"github.com/yaegashi/kompoxops/domain/model"
 	"github.com/yaegashi/kompoxops/internal/logging"
-	"github.com/yaegashi/kompoxops/internal/naming"
 	"github.com/yaegashi/kompoxops/usecase/app"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	unstructured "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	"k8s.io/client-go/dynamic"
 )
 
 var flagAppName string
@@ -185,18 +179,17 @@ func newCmdAppDeploy() *cobra.Command {
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
 			defer cancel()
-			logger := logging.FromContext(ctx)
 
 			appName, err := getAppName(cmd, args)
 			if err != nil {
 				return err
 			}
-			// Find app by name
+			// Resolve app by name
 			listOut, err := appUC.List(ctx, &app.ListInput{})
 			if err != nil {
 				return fmt.Errorf("failed to list apps: %w", err)
 			}
-			var target *model.App // need ID only
+			var target *model.App
 			for _, a := range listOut.Apps {
 				if a.Name == appName {
 					target = a
@@ -207,78 +200,9 @@ func newCmdAppDeploy() *cobra.Command {
 				return fmt.Errorf("app %s not found", appName)
 			}
 
-			// Perform validation + conversion to get objects (and volume instance resolutions)
-			vout, err := appUC.Validate(ctx, &app.ValidateInput{AppID: target.ID})
-			if err != nil {
-				return fmt.Errorf("validation failed: %w", err)
+			if _, err := appUC.Deploy(ctx, &app.DeployInput{AppID: target.ID}); err != nil {
+				return err
 			}
-			if len(vout.Errors) > 0 {
-				for _, e := range vout.Errors {
-					logger.Error(ctx, e, "app", appName)
-				}
-				return fmt.Errorf("validation failed (%d errors)", len(vout.Errors))
-			}
-			for _, w := range vout.Warnings {
-				logger.Warn(ctx, w, "app", appName)
-			}
-			if len(vout.K8sObjects) == 0 {
-				return fmt.Errorf("no Kubernetes objects generated for app %s", appName)
-			}
-
-			// Retrieve related cluster/provider/service for kubeconfig
-			// (Direct repo usage instead of new usecase to minimize dependencies)
-			clusterObj, err := appUC.Repos.Cluster.Get(ctx, target.ClusterID)
-			if err != nil || clusterObj == nil {
-				return fmt.Errorf("failed to get cluster %s: %w", target.ClusterID, err)
-			}
-			providerObj, err := appUC.Repos.Provider.Get(ctx, clusterObj.ProviderID)
-			if err != nil || providerObj == nil {
-				return fmt.Errorf("failed to get provider %s: %w", clusterObj.ProviderID, err)
-			}
-			var serviceObj *model.Service
-			if providerObj.ServiceID != "" {
-				serviceObj, _ = appUC.Repos.Service.Get(ctx, providerObj.ServiceID)
-			}
-
-			// Instantiate provider driver to access kubeconfig
-			factory, ok := providerdrv.GetDriverFactory(providerObj.Driver)
-			if !ok {
-				return fmt.Errorf("unknown provider driver: %s", providerObj.Driver)
-			}
-			drv, err := factory(serviceObj, providerObj)
-			if err != nil {
-				return fmt.Errorf("failed to create driver %s: %w", providerObj.Driver, err)
-			}
-			kubeconfig, err := drv.ClusterKubeconfig(ctx, clusterObj)
-			if err != nil {
-				return fmt.Errorf("failed to get cluster kubeconfig: %w", err)
-			}
-
-			kcli, err := kube.NewClientFromKubeconfig(ctx, kubeconfig, &kube.Options{UserAgent: "kompoxops"})
-			if err != nil {
-				return fmt.Errorf("failed to create kube client: %w", err)
-			}
-
-			// Ensure GVK is set on all objects before SSA; otherwise they are skipped as no-op.
-			scheme := runtime.NewScheme()
-			utilruntime.Must(appsv1.AddToScheme(scheme))
-			utilruntime.Must(corev1.AddToScheme(scheme))
-			utilruntime.Must(netv1.AddToScheme(scheme))
-			for _, obj := range vout.K8sObjects {
-				if obj == nil {
-					continue
-				}
-				if gvk, _, err := scheme.ObjectKinds(obj); err == nil && len(gvk) > 0 {
-					obj.GetObjectKind().SetGroupVersionKind(gvk[0])
-				}
-			}
-
-			// Apply objects via server-side apply (SSA)
-			if err := kcli.ApplyObjects(ctx, vout.K8sObjects, &kube.ApplyOptions{FieldManager: "kompoxops", ForceConflicts: true}); err != nil {
-				return fmt.Errorf("apply objects failed: %w", err)
-			}
-
-			logger.Info(ctx, "deploy success", "app", appName)
 			return nil
 		},
 	}
@@ -308,7 +232,6 @@ func newCmdAppDestroy() *cobra.Command {
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
 			defer cancel()
-			logger := logging.FromContext(ctx)
 
 			appName, err := getAppName(cmd, args)
 			if err != nil {
@@ -330,105 +253,9 @@ func newCmdAppDestroy() *cobra.Command {
 				return fmt.Errorf("app %s not found", appName)
 			}
 
-			// Retrieve related cluster/provider/service for kubeconfig and hashing
-			clusterObj, err := appUC.Repos.Cluster.Get(ctx, target.ClusterID)
-			if err != nil || clusterObj == nil {
-				return fmt.Errorf("failed to get cluster %s: %w", target.ClusterID, err)
+			if _, err := appUC.Destroy(ctx, &app.DestroyInput{AppID: target.ID, DeleteNamespace: deleteNamespace}); err != nil {
+				return err
 			}
-			providerObj, err := appUC.Repos.Provider.Get(ctx, clusterObj.ProviderID)
-			if err != nil || providerObj == nil {
-				return fmt.Errorf("failed to get provider %s: %w", clusterObj.ProviderID, err)
-			}
-			var serviceObj *model.Service
-			if providerObj.ServiceID != "" {
-				serviceObj, _ = appUC.Repos.Service.Get(ctx, providerObj.ServiceID)
-			}
-
-			// Compute labels and namespace consistent with converter
-			svcName := ""
-			if serviceObj != nil {
-				svcName = serviceObj.Name
-			}
-			hashes := naming.NewHashes(svcName, providerObj.Name, clusterObj.Name, target.Name)
-			in := fmt.Sprintf("%s-%s", target.Name, hashes.AppInstance)
-			nsName := fmt.Sprintf("kompox-%s-%s", target.Name, hashes.AppID)
-			labelSelector := fmt.Sprintf("app.kubernetes.io/instance=%s,app.kubernetes.io/managed-by=kompox", in)
-
-			// Provider driver for kubeconfig
-			factory, ok := providerdrv.GetDriverFactory(providerObj.Driver)
-			if !ok {
-				return fmt.Errorf("unknown provider driver: %s", providerObj.Driver)
-			}
-			drv, err := factory(serviceObj, providerObj)
-			if err != nil {
-				return fmt.Errorf("failed to create driver %s: %w", providerObj.Driver, err)
-			}
-			kubeconfig, err := drv.ClusterKubeconfig(ctx, clusterObj)
-			if err != nil {
-				return fmt.Errorf("failed to get cluster kubeconfig: %w", err)
-			}
-			kcli, err := kube.NewClientFromKubeconfig(ctx, kubeconfig, &kube.Options{UserAgent: "kompoxops"})
-			if err != nil {
-				return fmt.Errorf("failed to create kube client: %w", err)
-			}
-
-			// Build dynamic client only (avoid discovery to not touch core/v1 Endpoints etc.)
-			dy, err := dynamic.NewForConfig(kcli.RESTConfig)
-			if err != nil {
-				return fmt.Errorf("create dynamic client: %w", err)
-			}
-
-			// Delete selected resource kinds only (avoid touching Endpoints): Ingress, Service, Deployment, PVC, PV
-			var deletedCount int
-			logger.Info(ctx, "destroy planning", "namespace", nsName, "selector", labelSelector, "deleteNamespace", deleteNamespace)
-			deleteList := []struct {
-				gvr        schema.GroupVersionResource
-				namespaced bool
-				desc       string
-			}{
-				{schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingresses"}, true, "Ingress"},
-				{schema.GroupVersionResource{Group: "", Version: "v1", Resource: "services"}, true, "Service"},
-				{schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}, true, "Deployment"},
-				{schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumeclaims"}, true, "PVC"},
-				{schema.GroupVersionResource{Group: "", Version: "v1", Resource: "persistentvolumes"}, false, "PV"},
-			}
-			for _, item := range deleteList {
-				var list *unstructured.UnstructuredList
-				var err error
-				if item.namespaced {
-					list, err = dy.Resource(item.gvr).Namespace(nsName).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
-				} else {
-					list, err = dy.Resource(item.gvr).List(ctx, metav1.ListOptions{LabelSelector: labelSelector})
-				}
-				if err != nil {
-					continue
-				}
-				for _, it := range list.Items {
-					name := it.GetName()
-					policy := metav1.DeletePropagationBackground
-					if item.namespaced {
-						logger.Info(ctx, "deleting", "kind", item.desc, "name", name, "namespace", nsName)
-						if err := dy.Resource(item.gvr).Namespace(nsName).Delete(ctx, name, metav1.DeleteOptions{PropagationPolicy: &policy}); err == nil {
-							deletedCount++
-						}
-					} else {
-						logger.Info(ctx, "deleting", "kind", item.desc, "name", name)
-						if err := dy.Resource(item.gvr).Delete(ctx, name, metav1.DeleteOptions{PropagationPolicy: &policy}); err == nil {
-							deletedCount++
-						}
-					}
-				}
-			}
-
-			// Optionally delete the Namespace itself
-			if deleteNamespace {
-				logger.Info(ctx, "deleting namespace", "name", nsName)
-				if err := kcli.DeleteNamespace(ctx, nsName); err != nil {
-					return fmt.Errorf("delete namespace %s failed: %w", nsName, err)
-				}
-			}
-
-			logger.Info(ctx, "destroy completed", "app", appName, "ns", nsName, "deleted", deletedCount, "deleteNamespace", deleteNamespace)
 			return nil
 		},
 	}

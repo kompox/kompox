@@ -143,7 +143,7 @@ func (c *Client) applyUnstructured(ctx context.Context, u *unstructured.Unstruct
 	ri := resourceInterfaceFor(dy, mapping.Resource, u.GetNamespace())
 	force := opts.ForceConflicts
 
-	logging.FromContext(ctx).Info(ctx, "Applying", "kind", u.GetKind(), "name", u.GetName(), "namespace", u.GetNamespace(), "force", force)
+	logging.FromContext(ctx).Info(ctx, "applying", "kind", u.GetKind(), "name", u.GetName(), "namespace", u.GetNamespace(), "force", force)
 	if _, err := ri.Patch(ctx, u.GetName(), types.ApplyPatchType, body, metav1.PatchOptions{FieldManager: opts.FieldManager, Force: &force}); err != nil {
 		return fmt.Errorf("apply %s %s: %w", u.GetKind(), u.GetName(), err)
 	}
