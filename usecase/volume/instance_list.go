@@ -7,22 +7,22 @@ import (
 	"github.com/yaegashi/kompoxops/domain/model"
 )
 
-// ListInput parameters for List use case.
-type ListInput struct {
+// InstanceListInput parameters for InstanceList use case.
+type InstanceListInput struct {
 	// AppID owning application identifier.
 	AppID string `json:"app_id"`
 	// VolumeName logical volume name within the app.
 	VolumeName string `json:"volume_name"`
 }
 
-// ListOutput result for List use case.
-type ListOutput struct {
+// InstanceListOutput result for InstanceList use case.
+type InstanceListOutput struct {
 	// Items is the collection of volume instances.
 	Items []*model.VolumeInstance `json:"items"`
 }
 
-// List returns volume instances for a logical volume.
-func (u *UseCase) List(ctx context.Context, in *ListInput) (*ListOutput, error) {
+// InstanceList returns volume instances for a logical volume.
+func (u *UseCase) InstanceList(ctx context.Context, in *InstanceListInput) (*InstanceListOutput, error) {
 	if in == nil || in.AppID == "" || in.VolumeName == "" {
 		return nil, fmt.Errorf("missing parameters")
 	}
@@ -55,5 +55,5 @@ func (u *UseCase) List(ctx context.Context, in *ListInput) (*ListOutput, error) 
 	if err != nil {
 		return nil, err
 	}
-	return &ListOutput{Items: items}, nil
+	return &InstanceListOutput{Items: items}, nil
 }

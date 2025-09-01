@@ -7,22 +7,22 @@ import (
 	"github.com/yaegashi/kompoxops/domain/model"
 )
 
-// CreateInput parameters for Create use case.
-type CreateInput struct {
+// InstanceCreateInput parameters for InstanceCreate use case.
+type InstanceCreateInput struct {
 	// AppID owning application identifier.
 	AppID string `json:"app_id"`
 	// VolumeName logical volume name.
 	VolumeName string `json:"volume_name"`
 }
 
-// CreateOutput result for Create use case.
-type CreateOutput struct {
+// InstanceCreateOutput result for InstanceCreate use case.
+type InstanceCreateOutput struct {
 	// Instance is the created volume instance.
 	Instance *model.VolumeInstance `json:"instance"`
 }
 
-// Create creates a new volume instance.
-func (u *UseCase) Create(ctx context.Context, in *CreateInput) (*CreateOutput, error) {
+// InstanceCreate creates a new volume instance.
+func (u *UseCase) InstanceCreate(ctx context.Context, in *InstanceCreateInput) (*InstanceCreateOutput, error) {
 	if in == nil || in.AppID == "" || in.VolumeName == "" {
 		return nil, fmt.Errorf("missing parameters")
 	}
@@ -55,5 +55,5 @@ func (u *UseCase) Create(ctx context.Context, in *CreateInput) (*CreateOutput, e
 	if err != nil {
 		return nil, err
 	}
-	return &CreateOutput{Instance: inst}, nil
+	return &InstanceCreateOutput{Instance: inst}, nil
 }

@@ -5,19 +5,20 @@ import (
 	"fmt"
 )
 
-// AssignInput parameters.
-type AssignInput struct {
+// InstanceDeleteInput parameters.
+type InstanceDeleteInput struct {
 	// AppID owning application identifier.
 	AppID string `json:"app_id"`
 	// VolumeName logical volume name.
 	VolumeName string `json:"volume_name"`
-	// VolumeInstanceName instance name to assign.
+	// VolumeInstanceName target instance name.
 	VolumeInstanceName string `json:"volume_instance_name"`
 }
-type AssignOutput struct{}
 
-// Assign sets the specified instance as assigned for the logical volume.
-func (u *UseCase) Assign(ctx context.Context, in *AssignInput) (*AssignOutput, error) {
+type InstanceDeleteOutput struct{}
+
+// InstanceDelete deletes a volume instance.
+func (u *UseCase) InstanceDelete(ctx context.Context, in *InstanceDeleteInput) (*InstanceDeleteOutput, error) {
 	if in == nil || in.AppID == "" || in.VolumeName == "" || in.VolumeInstanceName == "" {
 		return nil, fmt.Errorf("missing parameters")
 	}
@@ -46,8 +47,8 @@ func (u *UseCase) Assign(ctx context.Context, in *AssignInput) (*AssignOutput, e
 	if !ok {
 		return nil, fmt.Errorf("volume not defined: %s", in.VolumeName)
 	}
-	if err := u.VolumePort.VolumeInstanceAssign(ctx, cluster, app, in.VolumeName, in.VolumeInstanceName); err != nil {
+	if err := u.VolumePort.VolumeInstanceDelete(ctx, cluster, app, in.VolumeName, in.VolumeInstanceName); err != nil {
 		return nil, err
 	}
-	return &AssignOutput{}, nil
+	return &InstanceDeleteOutput{}, nil
 }

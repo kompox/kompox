@@ -3,21 +3,24 @@ package volume
 import (
 	"context"
 	"fmt"
+
+	"github.com/yaegashi/kompoxops/domain/model"
 )
 
-// DeleteInput parameters.
-type DeleteInput struct {
-	// AppID owning application identifier.
-	AppID string `json:"app_id"`
-	// VolumeName logical volume name.
-	VolumeName string `json:"volume_name"`
-	// VolumeInstanceName target instance name.
+// SnapshotCreateInput parameters for creating a snapshot.
+type SnapshotCreateInput struct {
+	AppID              string `json:"app_id"`
+	VolumeName         string `json:"volume_name"`
 	VolumeInstanceName string `json:"volume_instance_name"`
 }
-type DeleteOutput struct{}
 
-// Delete deletes a volume instance.
-func (u *UseCase) Delete(ctx context.Context, in *DeleteInput) (*DeleteOutput, error) {
+// SnapshotCreateOutput result for creating a snapshot.
+type SnapshotCreateOutput struct {
+	Snapshot *model.VolumeSnapshot `json:"snapshot"`
+}
+
+// SnapshotCreate creates a snapshot for a given volume instance.
+func (u *UseCase) SnapshotCreate(ctx context.Context, in *SnapshotCreateInput) (*SnapshotCreateOutput, error) {
 	if in == nil || in.AppID == "" || in.VolumeName == "" || in.VolumeInstanceName == "" {
 		return nil, fmt.Errorf("missing parameters")
 	}
@@ -46,8 +49,9 @@ func (u *UseCase) Delete(ctx context.Context, in *DeleteInput) (*DeleteOutput, e
 	if !ok {
 		return nil, fmt.Errorf("volume not defined: %s", in.VolumeName)
 	}
-	if err := u.VolumePort.VolumeInstanceDelete(ctx, cluster, app, in.VolumeName, in.VolumeInstanceName); err != nil {
+	snap, err := u.VolumePort.VolumeSnapshotCreate(ctx, cluster, app, in.VolumeName, in.VolumeInstanceName)
+	if err != nil {
 		return nil, err
 	}
-	return &DeleteOutput{}, nil
+	return &SnapshotCreateOutput{Snapshot: snap}, nil
 }
