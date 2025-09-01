@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -32,7 +33,7 @@ func newCmdApp() *cobra.Command {
 	}
 	// Persistent flag shared across subcommands
 	cmd.PersistentFlags().StringVarP(&flagAppName, "app-name", "A", "", "App name (default: app.name in kompoxops.yml)")
-	cmd.AddCommand(newCmdAppValidate(), newCmdAppDeploy(), newCmdAppDestroy())
+	cmd.AddCommand(newCmdAppValidate(), newCmdAppDeploy(), newCmdAppDestroy(), newCmdAppStatus())
 	return cmd
 }
 
@@ -261,4 +262,54 @@ func newCmdAppDestroy() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&deleteNamespace, "delete-namespace", false, "Also delete the Namespace resource")
 	return cmd
+}
+
+// newCmdAppStatus shows app status as JSON (ingress hostnames, etc.).
+func newCmdAppStatus() *cobra.Command {
+	return &cobra.Command{
+		Use:                "status",
+		Short:              "Show app status (ingress hosts, etc.)",
+		Args:               cobra.NoArgs,
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			appUC, err := buildAppUseCase(cmd)
+			if err != nil {
+				return err
+			}
+			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
+			defer cancel()
+
+			appName, err := getAppName(cmd, args)
+			if err != nil {
+				return err
+			}
+
+			// Find app by name
+			listOut, err := appUC.List(ctx, &app.ListInput{})
+			if err != nil {
+				return fmt.Errorf("failed to list apps: %w", err)
+			}
+			var targetID string
+			for _, a := range listOut.Apps {
+				if a.Name == appName {
+					targetID = a.ID
+					break
+				}
+			}
+			if targetID == "" {
+				return fmt.Errorf("app %s not found", appName)
+			}
+
+			st, err := appUC.Status(ctx, &app.StatusInput{AppID: targetID})
+			if err != nil {
+				return err
+			}
+
+			enc := json.NewEncoder(cmd.OutOrStdout())
+			enc.SetIndent("", "  ")
+			return enc.Encode(st)
+		},
+	}
 }

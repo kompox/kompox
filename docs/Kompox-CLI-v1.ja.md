@@ -224,8 +224,9 @@ kompoxops cluster kubeconfig -C mycluster --merge --context kompox/prod --namesp
 
 ```
 kompoxops app validate --app-name <appName>
-kompoxops app deploy --app-name <appName>
-kompoxops app destroy --app-name <appName>
+kompoxops app deploy   --app-name <appName>
+kompoxops app destroy  --app-name <appName>
+kompoxops app status   --app-name <appName>
 ```
 
 共通オプション
@@ -256,7 +257,33 @@ Compose の検証と K8s マニフェスト生成を行います。`--out-compos
 - 既定で Namespace 以外のリソース（PV/PVC を含む）を削除
 - `--delete-namespace` を指定すると Namespace リソースも削除
 
-補足: PV/PVC を削除しても、StorageClass/PV の ReclaimPolicy が Retain の場合はクラウドディスク本体は保持されます。
+備考:
+- PV/PVC を削除しても、StorageClass/PV の ReclaimPolicy が Retain の場合はクラウドディスク本体は保持されます。
+
+#### kompoxops app status
+
+アプリの状態を JSON で表示します。Namespace、デプロイ状況、Ingress のホスト名一覧などを返します。
+
+出力例
+
+```json
+{
+  "app_id": "...",
+  "app_name": "app1",
+  "cluster_id": "...",
+  "cluster_name": "cluster1",
+  "namespace": "kompox-app1-<idHASH>",
+  "deployed": true,
+  "ingress_hosts": [
+    "app1-<idHASH>-8080.example.com",
+    "www.custom.example.com"
+  ]
+}
+```
+
+備考
+- `namespace` はアプリの実リソースが存在する Kubernetes Namespace を示します。
+- `ingress_hosts` には `app.ingress.rules.hosts` で指定したカスタムドメインに加え、`cluster.ingress.domain` が設定されている場合は `<appName>-<idHASH>-<port>.<domain>` の自動生成ドメインが含まれます。
 
 ### kompoxops volume
 
