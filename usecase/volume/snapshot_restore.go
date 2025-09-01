@@ -16,10 +16,10 @@ type SnapshotRestoreInput struct {
 
 // SnapshotRestoreOutput result for restoring a snapshot.
 type SnapshotRestoreOutput struct {
-	Instance *model.VolumeInstance `json:"instance"`
+	Disk *model.VolumeDisk `json:"disk"`
 }
 
-// SnapshotRestore restores a snapshot into a new volume instance (or per driver semantics).
+// SnapshotRestore restores a snapshot into a new volume disk (or per driver semantics).
 func (u *UseCase) SnapshotRestore(ctx context.Context, in *SnapshotRestoreInput) (*SnapshotRestoreOutput, error) {
 	if in == nil || in.AppID == "" || in.VolumeName == "" || in.SnapshotName == "" {
 		return nil, fmt.Errorf("missing parameters")
@@ -49,9 +49,9 @@ func (u *UseCase) SnapshotRestore(ctx context.Context, in *SnapshotRestoreInput)
 	if !ok {
 		return nil, fmt.Errorf("volume not defined: %s", in.VolumeName)
 	}
-	inst, err := u.VolumePort.VolumeSnapshotRestore(ctx, cluster, app, in.VolumeName, in.SnapshotName)
+	disk, err := u.VolumePort.VolumeSnapshotRestore(ctx, cluster, app, in.VolumeName, in.SnapshotName)
 	if err != nil {
 		return nil, err
 	}
-	return &SnapshotRestoreOutput{Instance: inst}, nil
+	return &SnapshotRestoreOutput{Disk: disk}, nil
 }

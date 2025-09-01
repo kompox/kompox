@@ -7,22 +7,22 @@ import (
 	"github.com/yaegashi/kompoxops/domain/model"
 )
 
-// InstanceListInput parameters for InstanceList use case.
-type InstanceListInput struct {
+// DiskCreateInput parameters for DiskCreate use case.
+type DiskCreateInput struct {
 	// AppID owning application identifier.
 	AppID string `json:"app_id"`
-	// VolumeName logical volume name within the app.
+	// VolumeName logical volume name.
 	VolumeName string `json:"volume_name"`
 }
 
-// InstanceListOutput result for InstanceList use case.
-type InstanceListOutput struct {
-	// Items is the collection of volume instances.
-	Items []*model.VolumeInstance `json:"items"`
+// DiskCreateOutput result for DiskCreate use case.
+type DiskCreateOutput struct {
+	// Disk is the created volume disk.
+	Disk *model.VolumeDisk `json:"disk"`
 }
 
-// InstanceList returns volume instances for a logical volume.
-func (u *UseCase) InstanceList(ctx context.Context, in *InstanceListInput) (*InstanceListOutput, error) {
+// DiskCreate creates a new volume disk.
+func (u *UseCase) DiskCreate(ctx context.Context, in *DiskCreateInput) (*DiskCreateOutput, error) {
 	if in == nil || in.AppID == "" || in.VolumeName == "" {
 		return nil, fmt.Errorf("missing parameters")
 	}
@@ -40,20 +40,20 @@ func (u *UseCase) InstanceList(ctx context.Context, in *InstanceListInput) (*Ins
 	if cluster == nil {
 		return nil, fmt.Errorf("cluster not found: %s", app.ClusterID)
 	}
-	// Ensure the logical volume exists
-	found := false
+	// Validate logical volume exists
+	exists := false
 	for _, v := range app.Volumes {
 		if v.Name == in.VolumeName {
-			found = true
+			exists = true
 			break
 		}
 	}
-	if !found {
+	if !exists {
 		return nil, fmt.Errorf("volume not defined: %s", in.VolumeName)
 	}
-	items, err := u.VolumePort.VolumeInstanceList(ctx, cluster, app, in.VolumeName)
+	disk, err := u.VolumePort.VolumeDiskCreate(ctx, cluster, app, in.VolumeName)
 	if err != nil {
 		return nil, err
 	}
-	return &InstanceListOutput{Items: items}, nil
+	return &DiskCreateOutput{Disk: disk}, nil
 }

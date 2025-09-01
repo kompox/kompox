@@ -40,45 +40,45 @@ func (a *volumePortAdapter) getDriver(ctx context.Context, cluster *model.Cluste
 	return drv, nil
 }
 
-// VolumeInstanceList returns the list of volume instances associated with the
+// VolumeDiskList returns the list of disks associated with the
 // logical volume identified by volName for the specified cluster/app.
-func (a *volumePortAdapter) VolumeInstanceList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, opts ...model.VolumeInstanceListOption) ([]*model.VolumeInstance, error) {
+func (a *volumePortAdapter) VolumeDiskList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, opts ...model.VolumeDiskListOption) ([]*model.VolumeDisk, error) {
 	drv, err := a.getDriver(ctx, cluster, app)
 	if err != nil {
 		return nil, err
 	}
-	return drv.VolumeInstanceList(ctx, cluster, app, volName, opts...)
+	return drv.VolumeDiskList(ctx, cluster, app, volName, opts...)
 }
 
-// VolumeInstanceCreate creates (provisions) a new volume instance belonging to
+// VolumeDiskCreate creates (provisions) a new disk belonging to
 // the logical volume identified by volName for the specified cluster/app.
-func (a *volumePortAdapter) VolumeInstanceCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, opts ...model.VolumeInstanceCreateOption) (*model.VolumeInstance, error) {
+func (a *volumePortAdapter) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, opts ...model.VolumeDiskCreateOption) (*model.VolumeDisk, error) {
 	drv, err := a.getDriver(ctx, cluster, app)
 	if err != nil {
 		return nil, err
 	}
-	return drv.VolumeInstanceCreate(ctx, cluster, app, volName, opts...)
+	return drv.VolumeDiskCreate(ctx, cluster, app, volName, opts...)
 }
 
-// VolumeInstanceDelete deletes the named volume instance (volInstName) belonging
+// VolumeDiskDelete deletes the named disk (diskName) belonging
 // to the logical volume volName for the specified cluster/app.
-func (a *volumePortAdapter) VolumeInstanceDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string, opts ...model.VolumeInstanceDeleteOption) error {
+func (a *volumePortAdapter) VolumeDiskDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, diskName string, opts ...model.VolumeDiskDeleteOption) error {
 	drv, err := a.getDriver(ctx, cluster, app)
 	if err != nil {
 		return err
 	}
-	return drv.VolumeInstanceDelete(ctx, cluster, app, volName, volInstName, opts...)
+	return drv.VolumeDiskDelete(ctx, cluster, app, volName, diskName, opts...)
 }
 
-// VolumeInstanceAssign assigns an existing volume instance (volInstName) to the
+// VolumeDiskAssign assigns an existing disk (diskName) to the
 // logical volume volName for the specified cluster/app. The exact semantics (e.g.
 // attachment vs. reference update) are implemented by the provider driver.
-func (a *volumePortAdapter) VolumeInstanceAssign(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string, opts ...model.VolumeInstanceAssignOption) error {
+func (a *volumePortAdapter) VolumeDiskAssign(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, diskName string, opts ...model.VolumeDiskAssignOption) error {
 	drv, err := a.getDriver(ctx, cluster, app)
 	if err != nil {
 		return err
 	}
-	return drv.VolumeInstanceAssign(ctx, cluster, app, volName, volInstName, opts...)
+	return drv.VolumeDiskAssign(ctx, cluster, app, volName, diskName, opts...)
 }
 
 // VolumeSnapshotList lists snapshots for the given logical volume.
@@ -90,13 +90,13 @@ func (a *volumePortAdapter) VolumeSnapshotList(ctx context.Context, cluster *mod
 	return drv.VolumeSnapshotList(ctx, cluster, app, volName, opts...)
 }
 
-// VolumeSnapshotCreate creates a snapshot from a specified volume instance.
-func (a *volumePortAdapter) VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string, opts ...model.VolumeSnapshotCreateOption) (*model.VolumeSnapshot, error) {
+// VolumeSnapshotCreate creates a snapshot from a specified volume disk.
+func (a *volumePortAdapter) VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, diskName string, opts ...model.VolumeSnapshotCreateOption) (*model.VolumeSnapshot, error) {
 	drv, err := a.getDriver(ctx, cluster, app)
 	if err != nil {
 		return nil, err
 	}
-	return drv.VolumeSnapshotCreate(ctx, cluster, app, volName, volInstName, opts...)
+	return drv.VolumeSnapshotCreate(ctx, cluster, app, volName, diskName, opts...)
 }
 
 // VolumeSnapshotDelete deletes the specified snapshot.
@@ -108,8 +108,8 @@ func (a *volumePortAdapter) VolumeSnapshotDelete(ctx context.Context, cluster *m
 	return drv.VolumeSnapshotDelete(ctx, cluster, app, volName, snapName, opts...)
 }
 
-// VolumeSnapshotRestore creates a new volume instance from the specified snapshot.
-func (a *volumePortAdapter) VolumeSnapshotRestore(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, opts ...model.VolumeSnapshotRestoreOption) (*model.VolumeInstance, error) {
+// VolumeSnapshotRestore creates a new volume disk from the specified snapshot.
+func (a *volumePortAdapter) VolumeSnapshotRestore(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, opts ...model.VolumeSnapshotRestoreOption) (*model.VolumeDisk, error) {
 	drv, err := a.getDriver(ctx, cluster, app)
 	if err != nil {
 		return nil, err

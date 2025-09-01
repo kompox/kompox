@@ -9,20 +9,20 @@ import (
 // These are placeholders for future extensions (e.g., Force, DryRun, Timeout).
 // Drivers and adapters should accept and may ignore them until used.
 
-type VolumeInstanceListOptions struct{ Force bool }
-type VolumeInstanceCreateOptions struct{ Force bool }
-type VolumeInstanceDeleteOptions struct{ Force bool }
-type VolumeInstanceAssignOptions struct{ Force bool }
+type VolumeDiskListOptions struct{ Force bool }
+type VolumeDiskCreateOptions struct{ Force bool }
+type VolumeDiskDeleteOptions struct{ Force bool }
+type VolumeDiskAssignOptions struct{ Force bool }
 
 type VolumeSnapshotListOptions struct{ Force bool }
 type VolumeSnapshotCreateOptions struct{ Force bool }
 type VolumeSnapshotDeleteOptions struct{ Force bool }
 type VolumeSnapshotRestoreOptions struct{ Force bool }
 
-type VolumeInstanceListOption func(*VolumeInstanceListOptions)
-type VolumeInstanceCreateOption func(*VolumeInstanceCreateOptions)
-type VolumeInstanceDeleteOption func(*VolumeInstanceDeleteOptions)
-type VolumeInstanceAssignOption func(*VolumeInstanceAssignOptions)
+type VolumeDiskListOption func(*VolumeDiskListOptions)
+type VolumeDiskCreateOption func(*VolumeDiskCreateOptions)
+type VolumeDiskDeleteOption func(*VolumeDiskDeleteOptions)
+type VolumeDiskAssignOption func(*VolumeDiskAssignOptions)
 
 type VolumeSnapshotListOption func(*VolumeSnapshotListOptions)
 type VolumeSnapshotCreateOption func(*VolumeSnapshotCreateOptions)
@@ -30,17 +30,17 @@ type VolumeSnapshotDeleteOption func(*VolumeSnapshotDeleteOptions)
 type VolumeSnapshotRestoreOption func(*VolumeSnapshotRestoreOptions)
 
 // Option helpers mirroring cluster options style.
-func WithVolumeInstanceListForce() VolumeInstanceListOption {
-	return func(o *VolumeInstanceListOptions) { o.Force = true }
+func WithVolumeDiskListForce() VolumeDiskListOption {
+	return func(o *VolumeDiskListOptions) { o.Force = true }
 }
-func WithVolumeInstanceCreateForce() VolumeInstanceCreateOption {
-	return func(o *VolumeInstanceCreateOptions) { o.Force = true }
+func WithVolumeDiskCreateForce() VolumeDiskCreateOption {
+	return func(o *VolumeDiskCreateOptions) { o.Force = true }
 }
-func WithVolumeInstanceDeleteForce() VolumeInstanceDeleteOption {
-	return func(o *VolumeInstanceDeleteOptions) { o.Force = true }
+func WithVolumeDiskDeleteForce() VolumeDiskDeleteOption {
+	return func(o *VolumeDiskDeleteOptions) { o.Force = true }
 }
-func WithVolumeInstanceAssignForce() VolumeInstanceAssignOption {
-	return func(o *VolumeInstanceAssignOptions) { o.Force = true }
+func WithVolumeDiskAssignForce() VolumeDiskAssignOption {
+	return func(o *VolumeDiskAssignOptions) { o.Force = true }
 }
 
 func WithVolumeSnapshotListForce() VolumeSnapshotListOption {
@@ -56,24 +56,24 @@ func WithVolumeSnapshotRestoreForce() VolumeSnapshotRestoreOption {
 	return func(o *VolumeSnapshotRestoreOptions) { o.Force = true }
 }
 
-// VolumePort abstracts volume instance operations provided by drivers.
+// VolumePort abstracts volume disk and snapshot operations provided by drivers.
 type VolumePort interface {
-	VolumeInstanceList(ctx context.Context, cluster *Cluster, app *App, volName string, opts ...VolumeInstanceListOption) ([]*VolumeInstance, error)
-	VolumeInstanceCreate(ctx context.Context, cluster *Cluster, app *App, volName string, opts ...VolumeInstanceCreateOption) (*VolumeInstance, error)
-	VolumeInstanceDelete(ctx context.Context, cluster *Cluster, app *App, volName string, volInstName string, opts ...VolumeInstanceDeleteOption) error
-	VolumeInstanceAssign(ctx context.Context, cluster *Cluster, app *App, volName string, volInstName string, opts ...VolumeInstanceAssignOption) error
+	VolumeDiskList(ctx context.Context, cluster *Cluster, app *App, volName string, opts ...VolumeDiskListOption) ([]*VolumeDisk, error)
+	VolumeDiskCreate(ctx context.Context, cluster *Cluster, app *App, volName string, opts ...VolumeDiskCreateOption) (*VolumeDisk, error)
+	VolumeDiskDelete(ctx context.Context, cluster *Cluster, app *App, volName string, diskName string, opts ...VolumeDiskDeleteOption) error
+	VolumeDiskAssign(ctx context.Context, cluster *Cluster, app *App, volName string, diskName string, opts ...VolumeDiskAssignOption) error
 	VolumeSnapshotList(ctx context.Context, cluster *Cluster, app *App, volName string, opts ...VolumeSnapshotListOption) ([]*VolumeSnapshot, error)
-	VolumeSnapshotCreate(ctx context.Context, cluster *Cluster, app *App, volName string, volInstName string, opts ...VolumeSnapshotCreateOption) (*VolumeSnapshot, error)
+	VolumeSnapshotCreate(ctx context.Context, cluster *Cluster, app *App, volName string, diskName string, opts ...VolumeSnapshotCreateOption) (*VolumeSnapshot, error)
 	VolumeSnapshotDelete(ctx context.Context, cluster *Cluster, app *App, volName string, snapName string, opts ...VolumeSnapshotDeleteOption) error
-	VolumeSnapshotRestore(ctx context.Context, cluster *Cluster, app *App, volName string, snapName string, opts ...VolumeSnapshotRestoreOption) (*VolumeInstance, error)
+	VolumeSnapshotRestore(ctx context.Context, cluster *Cluster, app *App, volName string, snapName string, opts ...VolumeSnapshotRestoreOption) (*VolumeDisk, error)
 }
 
-// VolumeInstance represents a specific instance of a logical volume.
-type VolumeInstance struct {
-	Name       string    `json:"name"`       // name of the volume instance
-	VolumeName string    `json:"volumeName"` // name of the volume this instance is based on
-	Assigned   bool      `json:"assigned"`   // whether this instance is assigned to the volume
-	Size       int64     `json:"size"`       // volume instance size in bytes
+// VolumeDisk represents a specific disk of a logical volume.
+type VolumeDisk struct {
+	Name       string    `json:"name"`       // name of the volume disk
+	VolumeName string    `json:"volumeName"` // name of the logical volume this disk belongs to
+	Assigned   bool      `json:"assigned"`   // whether this disk is assigned to the logical volume
+	Size       int64     `json:"size"`       // volume disk size in bytes
 	Handle     string    `json:"handle"`     // provider driver specific handle
 	CreatedAt  time.Time `json:"createdAt"`
 	UpdatedAt  time.Time `json:"updatedAt"`

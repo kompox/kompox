@@ -166,14 +166,14 @@ AKS クラスタおよび付随する監視 / レジストリ / Key Vault / ユ�
 
 ## Volume 管理 (Azure Disk)
 
-本節は論理ボリューム `app.volumes[volName]` に紐づく Azure Managed Disk (以下 Volume Instance) の列挙 / 作成 / 割当 / 削除操作を定義する。
+本節は論理ボリューム `app.volumes[volName]` に紐づく Azure Managed Disk (以下 Volume Disk) の列挙 / 作成 / 割当 / 削除操作を定義する。
 
 ### 用語
 - Logical Volume Key: `volName-idHASH`
 - idHASH: [Kompox-Convert-Draft.ja.md](Kompox-Convert-Draft.ja.md) を参照
-- Volume Instance Name (`volInstName`): ULID (UTC, モノトニック生成) — 文字集合 Crockford Base32, 長さ 26。時刻順ソート可能。
-- Azure Disk Name: `volName-idHASH-volInstName`
-- Assigned フラグ: タグ `kompox-volume-instance-assigned` が `true` の Volume Instance はその Logical Volume に対し現在アクティブに選択された 1 個 (排他)。
+- Volume Disk Name (`diskName`): ULID (UTC, モノトニック生成) — 文字集合 Crockford Base32, 長さ 26。時刻順ソート可能。
+- Azure Disk Name: `volName-idHASH-diskName`
+- Assigned フラグ: タグ `kompox-disk-assigned` が `true` の Volume Disk はその Logical Volume に対し現在アクティブに選択された 1 個 (排他)。
 
 ### 共通仕様
 - 対象 Resource Group: `app.settings.AZURE_RESOURCE_GROUP_NAME`
@@ -188,39 +188,39 @@ AKS クラスタおよび付随する監視 / レジストリ / Key Vault / ユ�
 - SKU: `Premium_LRS` (固定)。将来拡張時にパラメータ化。
 - タグ操作は指定タグのみ更新（既存の他ユーザタグは保持 / Merge）。
 
-### VolumeInstanceList
+### VolumeDiskList
 - 処理: Resource Group 内の Managed Disk を列挙 → 上記フィルタで抽出 → `timeCreated` を取得しクライアント側で降順ソート。
-- 返却項目例: `name`, `volInstName`, `sizeGiB`, `assigned(bool)`, `timeCreated`.
+- 返却項目例: `name`, `diskName`, `sizeGiB`, `assigned(bool)`, `timeCreated`.
 - エラー: RG 不存在 → 空配列。Azure API エラーは上位へ伝播。
 
-### VolumeInstanceCreate
+### VolumeDiskCreate
 - 入力: `volName`
 - 前提: `app.volumes[volName].sizeGiB` が仕様範囲内。
 - Disk 名: `volName-idHASH-<ULID>`
 - Tags:
   - `kompox-volume` = `volName-idHASH`
-  - `kompox-volume-instance-name` = `<ULID>`
-  - `kompox-volume-instance-assigned` = `false`
+  - `kompox-disk-name` = `<ULID>`
+  - `kompox-disk-assigned` = `false`
   - `managed-by` = `kompox`
 - 冪等性: 同名 Disk が既に存在する場合は衝突 (409) とし再生成不可（ULID 重複は極稀でありエラー扱い）。
 - タイムアウト: 2 分 (推奨)。
-- 戻り: 作成した Volume Instance のメタ。
+- 戻り: 作成した Volume Disk のメタ。
 
-### VolumeInstanceAssign
-- 入力: `volName`, `volInstName`
+### VolumeDiskAssign
+- 入力: `volName`, `diskName`
 - 手順:
   1. List を実行（最新状態取得）。
   2. 対象 Disk を特定。存在しなければ NotFound。
   3. まとめてタグ更新:
-     - 指定 Disk: `kompox-volume-instance-assigned=true`
+  - 指定 Disk: `kompox-disk-assigned=true`
      - その他同一 Logical Volume Disk: `...=false`
 - 競合制御: ETag (If-Match) を用いた楽観ロック。409 (Precondition Failed) 時は最大 N 回指数バックオフで再試行。
 - 冪等性: 既に指定 Disk が唯一 true なら無変更で成功。
 - タイムアウト: 1 分。
 
-### VolumeInstanceDelete
-- 入力: `volName`, `volInstName`
-- 手順: 対象 Disk 名=`volName-idHASH-volInstName` を取得し削除。存在しなければ冪等成功。
+### VolumeDiskDelete
+- 入力: `volName`, `diskName`
+- 手順: 対象 Disk 名=`volName-idHASH-diskName` を取得し削除。存在しなければ冪等成功。
 - 削除対象が `assigned=true` でも制約無し（運用側で事前に別インスタンスへ Assign することを推奨）。
 - タイムアウト: 2 分。
 
@@ -231,7 +231,7 @@ AKS クラスタおよび付随する監視 / レジストリ / Key Vault / ユ�
 | 必須設定欠如 (`AZURE_RESOURCE_GROUP_NAME`) | 直ちにエラー |
 | Disk API 429 / 5xx | バックオフリトライ (指数, 最大 3〜5 回) 後失敗 |
 | Assign 競合 (ETag) | リトライ枯渇でエラー |
-| NotFound (指定 volInstName) | Delete: 成功 / Assign: エラー |
+| NotFound (指定 diskName) | Delete: 成功 / Assign: エラー |
 | タグ欠如 (不正リソース混入) | スキップ |
 | タイムアウト | 操作失敗 (コンテキストエラー返却) |
 

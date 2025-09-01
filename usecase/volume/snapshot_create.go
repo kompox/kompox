@@ -9,9 +9,9 @@ import (
 
 // SnapshotCreateInput parameters for creating a snapshot.
 type SnapshotCreateInput struct {
-	AppID              string `json:"app_id"`
-	VolumeName         string `json:"volume_name"`
-	VolumeInstanceName string `json:"volume_instance_name"`
+	AppID      string `json:"app_id"`
+	VolumeName string `json:"volume_name"`
+	DiskName   string `json:"disk_name"`
 }
 
 // SnapshotCreateOutput result for creating a snapshot.
@@ -19,9 +19,9 @@ type SnapshotCreateOutput struct {
 	Snapshot *model.VolumeSnapshot `json:"snapshot"`
 }
 
-// SnapshotCreate creates a snapshot for a given volume instance.
+// SnapshotCreate creates a snapshot for a given volume disk.
 func (u *UseCase) SnapshotCreate(ctx context.Context, in *SnapshotCreateInput) (*SnapshotCreateOutput, error) {
-	if in == nil || in.AppID == "" || in.VolumeName == "" || in.VolumeInstanceName == "" {
+	if in == nil || in.AppID == "" || in.VolumeName == "" || in.DiskName == "" {
 		return nil, fmt.Errorf("missing parameters")
 	}
 	app, err := u.Repos.App.Get(ctx, in.AppID)
@@ -49,7 +49,7 @@ func (u *UseCase) SnapshotCreate(ctx context.Context, in *SnapshotCreateInput) (
 	if !ok {
 		return nil, fmt.Errorf("volume not defined: %s", in.VolumeName)
 	}
-	snap, err := u.VolumePort.VolumeSnapshotCreate(ctx, cluster, app, in.VolumeName, in.VolumeInstanceName)
+	snap, err := u.VolumePort.VolumeSnapshotCreate(ctx, cluster, app, in.VolumeName, in.DiskName)
 	if err != nil {
 		return nil, err
 	}

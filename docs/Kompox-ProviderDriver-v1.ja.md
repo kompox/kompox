@@ -56,30 +56,30 @@ type Driver interface {
     // Implementations may fetch admin/user credentials depending on provider capability.
     ClusterKubeconfig(ctx context.Context, cluster *model.Cluster) ([]byte, error)
 
-    // VolumeInstanceList returns a list of volume instances of the specified volume.
-    VolumeInstanceList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, opts ...model.VolumeInstanceListOption) ([]*model.VolumeInstance, error)
+    // VolumeDiskList returns a list of disks of the specified logical volume.
+    VolumeDiskList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, opts ...model.VolumeDiskListOption) ([]*model.VolumeDisk, error)
 
-    // VolumeInstanceCreate creates a volume instance of the specified volume.
-    VolumeInstanceCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, opts ...model.VolumeInstanceCreateOption) (*model.VolumeInstance, error)
+    // VolumeDiskCreate creates a disk of the specified logical volume.
+    VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, opts ...model.VolumeDiskCreateOption) (*model.VolumeDisk, error)
 
-    // VolumeInstanceAssign assigns a volume instance to the specified volume.
-    VolumeInstanceAssign(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string, opts ...model.VolumeInstanceAssignOption) error
+    // VolumeDiskAssign assigns a disk to the specified logical volume.
+    VolumeDiskAssign(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, diskName string, opts ...model.VolumeDiskAssignOption) error
 
-    // VolumeInstanceDelete deletes a volume instance of the specified volume.
-    VolumeInstanceDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string, opts ...model.VolumeInstanceDeleteOption) error
+    // VolumeDiskDelete deletes a disk of the specified logical volume.
+    VolumeDiskDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, diskName string, opts ...model.VolumeDiskDeleteOption) error
 
     // VolumeSnapshotList returns a list of snapshots of the specified volume.
     VolumeSnapshotList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, opts ...model.VolumeSnapshotListOption) ([]*model.VolumeSnapshot, error)
 
-    // VolumeSnapshotCreate creates a snapshot from the specified volume instance.
-    VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string, opts ...model.VolumeSnapshotCreateOption) (*model.VolumeSnapshot, error)
+    // VolumeSnapshotCreate creates a snapshot from the specified disk.
+    VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, diskName string, opts ...model.VolumeSnapshotCreateOption) (*model.VolumeSnapshot, error)
 
     // VolumeSnapshotDelete deletes the specified snapshot.
     VolumeSnapshotDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, opts ...model.VolumeSnapshotDeleteOption) error
 
-    // VolumeSnapshotRestore creates a new volume instance from the specified snapshot.
-    // The returned instance should have Assigned=false; switching is handled by VolumeInstanceAssign.
-    VolumeSnapshotRestore(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, opts ...model.VolumeSnapshotRestoreOption) (*model.VolumeInstance, error)
+    // VolumeSnapshotRestore creates a new disk from the specified snapshot.
+    // The returned disk should have Assigned=false; switching is handled by VolumeDiskAssign.
+    VolumeSnapshotRestore(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, opts ...model.VolumeSnapshotRestoreOption) (*model.VolumeDisk, error)
 
     // VolumeClass returns provider specific volume provisioning parameters for the given logical volume.
     // Empty fields mean "no opinion" and callers should omit them from manifests.
@@ -136,36 +136,36 @@ func init() {
 - プロバイダ SDK で管理者/ユーザ資格情報を取得し、kubeconfig のバイト列を返す。
 - 返却のみ（ファイル出力しない）。ドライバ外へはバイト配列で受け渡し。
 
-### VolumeInstanceList / VolumeInstanceCreate / VolumeInstanceAssign / VolumeInstanceDelete
+### VolumeDiskList / VolumeDiskCreate / VolumeDiskAssign / VolumeDiskDelete
 
 - app.volumes で定義された各ボリュームに対する操作。
 - app.volumes で定義された各ボリュームにつき、
-  - 複数の VolumeInstance が存在する。
+  - 複数の VolumeDisk が存在する。
   - Name メンバはドライバにより決定される。重複はエラーとする。
   - Size メンバはボリュームの指定値が使われる。
   - Handle メンバはクラウドディスクリソースの参照であり `volHASH` の生成に使われる。重複はエラーとする。
-  - Assigned メンバが true の VolumeInstance が 1 個だけ存在するのが正常な状態。この VolumeInstance から Manifest が生成される。非正常状態で Manifest を生成しようとするとエラーになる。
+  - Assigned メンバが true の VolumeDisk が 1 個だけ存在するのが正常な状態。この VolumeDisk から Manifest が生成される。非正常状態で Manifest を生成しようとするとエラーになる。
 - メソッド
-  - VolumeInstanceList は VolumeInstance の一覧を CreatedAt メンバの降順で取得する。同一時刻の場合は Name の昇順で安定化する。
-  - VolumeInstanceCreate は新規の VolumeInstance を作成する。該当ボリュームで最初の1件のみ Assigned を true として作成し、それ以外は false とする（この操作は他インスタンスの Assigned を変更しない）。
-  - VolumeInstanceAssign は指定した VolumeInstance の Assigned メンバを true として、それ以外のインスタンスの Assigned メンバを false とする。
-  - VolumeInstanceDelete は指定した VolumeInstance を削除する。
+  - VolumeDiskList は VolumeDisk の一覧を CreatedAt メンバの降順で取得する。同一時刻の場合は Name の昇順で安定化する。
+  - VolumeDiskCreate は新規の VolumeDisk を作成する。該当ボリュームで最初の1件のみ Assigned を true として作成し、それ以外は false とする（この操作は他ディスクの Assigned を変更しない）。
+  - VolumeDiskAssign は指定した VolumeDisk の Assigned メンバを true として、それ以外のディスクの Assigned メンバを false とする。
+  - VolumeDiskDelete は指定した VolumeDisk を削除する。
 - ドライバ実装
-  - 個々の VolumeInstance の Name, Handle の決定方法や Assigned メンバの記録方法はドライバの実装に任される。
-  - 同一のボリュームに属する VolumeInstance を識別するためのタグの値には `kompox-volName-idHASH` を使用する。これにより同一の VolumeInstance を維持したクラスタのフェイルオーバーが可能になる。
+  - 個々の VolumeDisk の Name, Handle の決定方法や Assigned メンバの記録方法はドライバの実装に任される。
+  - 同一のボリュームに属する VolumeDisk を識別するためのタグの値には `kompox-volName-idHASH` を使用する。これにより同一の VolumeDisk を維持したクラスタのフェイルオーバーが可能になる。
 
 ### VolumeSnapshotList / VolumeSnapshotCreate / VolumeSnapshotDelete / VolumeSnapshotRestore
 
 - 前提
   - ひとつの volume には複数の snapshots が所属する。
-  - 新しい snapshot は既存の特定の instance からのみ作成できる（`volInstName` で指定）。
-  - 新しい instance は特定の snapshot から作成できる（`VolumeSnapshotRestore`）。
+  - 新しい snapshot は既存の特定の disk からのみ作成できる（`diskName` で指定）。
+  - 新しい disk は特定の snapshot から作成できる（`VolumeSnapshotRestore`）。
 
 - メソッド
   - VolumeSnapshotList は Snapshot の一覧を `CreatedAt` の降順で返す。同一時刻の場合は Name の昇順で安定化する。
-  - VolumeSnapshotCreate は `volInstName` を必須とし、該当インスタンスのスナップショットを作成する。
+  - VolumeSnapshotCreate は `diskName` を必須とし、該当インスタンスのスナップショットを作成する。
   - VolumeSnapshotDelete は指定した Snapshot を削除する。`NotFound` は冪等性のため成功扱いとしてよい。
-  - VolumeSnapshotRestore は指定した Snapshot から新規の VolumeInstance を作成して返す。返値の `Assigned` は `false` とし、切替は `VolumeInstanceAssign` に委ねる。
+  - VolumeSnapshotRestore は指定した Snapshot から新規の VolumeDisk を作成して返す。返値の `Assigned` は `false` とし、切替は `VolumeDiskAssign` に委ねる。
 
 - ドライバ実装
   - Name/Handle の重複はエラー。`kompox-volName-idHASH` 等のタグで volume に所属する Snapshot を確実に識別する。
@@ -215,16 +215,10 @@ if err := inst.EnsureIngressNamespace(ctx, cluster); err != nil {
 - [ ] `ClusterKubeconfig()` がバイト列で返す（ファイルに書かない）
 - [ ] `ClusterInstall/Uninstall` は `kube.Installer` を使用
 - [ ] `ClusterProvision/Deprovision/Install/Uninstall` は可変オプション引数（Force 等）を受け取り尊重
-- [ ] Volume の各メソッド（Instance/Snapshot 系）も可変オプション引数を受け取り、将来の拡張（Force/DryRun 等）に備える（未使用でも受理）
+- [ ] Volume の各メソッド（Disk/Snapshot 系）も可変オプション引数を受け取り、将来の拡張（Force/DryRun 等）に備える（未使用でも受理）
 - [ ] `VolumeClass()` を実装し、不要なフィールドは空で返す
 - [ ] Snapshot の 4 メソッド（List/Create/Delete/Restore）を実装し、前提と契約（Assigned=false, NotFound冪等, タグ識別）を満たす
-- [ ] VolumeInstanceCreate は最初の1件を Assigned=true で作成し、それ以外は false。List は CreatedAt 降順（同時刻は Name 昇順）
+- [ ] VolumeDiskCreate は最初の1件を Assigned=true で作成し、それ以外は false。List は CreatedAt 降順（同時刻は Name 昇順）
 - [ ] 外部コマンドを使用しない（kubectl/helm 禁止）
 - [ ] ログと UserAgent を設定、シークレットはマスク
 - [ ] 冪等性とコンテキストキャンセルに対応
-
----
-
-最終更新: v1（初版）
-
-注記: Ingress コントローラ（Traefik）のインストールや Helm values の拡張ポイントの詳細は kube クライアントのガイドに移動しました。`docs/Kompox-KubeClient-v1.ja.md` を参照してください。

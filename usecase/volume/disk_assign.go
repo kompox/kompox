@@ -5,21 +5,21 @@ import (
 	"fmt"
 )
 
-// InstanceDeleteInput parameters.
-type InstanceDeleteInput struct {
+// DiskAssignInput parameters.
+type DiskAssignInput struct {
 	// AppID owning application identifier.
 	AppID string `json:"app_id"`
 	// VolumeName logical volume name.
 	VolumeName string `json:"volume_name"`
-	// VolumeInstanceName target instance name.
-	VolumeInstanceName string `json:"volume_instance_name"`
+	// DiskName disk name to assign.
+	DiskName string `json:"disk_name"`
 }
 
-type InstanceDeleteOutput struct{}
+type DiskAssignOutput struct{}
 
-// InstanceDelete deletes a volume instance.
-func (u *UseCase) InstanceDelete(ctx context.Context, in *InstanceDeleteInput) (*InstanceDeleteOutput, error) {
-	if in == nil || in.AppID == "" || in.VolumeName == "" || in.VolumeInstanceName == "" {
+// DiskAssign sets the specified disk as assigned for the logical volume.
+func (u *UseCase) DiskAssign(ctx context.Context, in *DiskAssignInput) (*DiskAssignOutput, error) {
+	if in == nil || in.AppID == "" || in.VolumeName == "" || in.DiskName == "" {
 		return nil, fmt.Errorf("missing parameters")
 	}
 	app, err := u.Repos.App.Get(ctx, in.AppID)
@@ -47,8 +47,8 @@ func (u *UseCase) InstanceDelete(ctx context.Context, in *InstanceDeleteInput) (
 	if !ok {
 		return nil, fmt.Errorf("volume not defined: %s", in.VolumeName)
 	}
-	if err := u.VolumePort.VolumeInstanceDelete(ctx, cluster, app, in.VolumeName, in.VolumeInstanceName); err != nil {
+	if err := u.VolumePort.VolumeDiskAssign(ctx, cluster, app, in.VolumeName, in.DiskName); err != nil {
 		return nil, err
 	}
-	return &InstanceDeleteOutput{}, nil
+	return &DiskAssignOutput{}, nil
 }

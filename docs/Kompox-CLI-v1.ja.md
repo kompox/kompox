@@ -20,7 +20,7 @@ kompoxops は Kompox PaaS 準拠のデプロイツールである。
 kompoxops init              設定ファイルの雛形作成
 kompoxops cluster           クラスタ操作
 kompoxops app               アプリ操作
-kompoxops volume            ボリューム操作
+kompoxops disk              ディスク操作
 kompoxops snapshot          スナップショット操作
 kompoxops admin             管理ツール
 ```
@@ -285,29 +285,29 @@ Compose の検証と K8s マニフェスト生成を行います。`--out-compos
 - `namespace` はアプリの実リソースが存在する Kubernetes Namespace を示します。
 - `ingress_hosts` には `app.ingress.rules.hosts` で指定したカスタムドメインに加え、`cluster.ingress.domain` が設定されている場合は `<appName>-<idHASH>-<port>.<domain>` の自動生成ドメインが含まれます。
 
-### kompoxops volume
+### kompoxops disk
 
-app.volumes で定義された論理ボリュームに属するボリュームインスタンスを操作する。
+app.volumes で定義された論理ボリュームに属するディスク（ボリュームインスタンス）を操作する。
 
 ```
-kompoxops volume list --app-name <appName> --vol-name <volName>                                      ボリュームインスタンス一覧表示
-kompoxops volume create --app-name <appName> --vol-name <volName>                                    新しいボリュームインスタンス作成 (サイズは app.volumes 定義を使用)
-kompoxops volume assign --app-name <appName> --vol-name <volName> --vol-inst-name <volInstanceName>  指定インスタンスを <volName> の Assigned に設定 (他は自動的に Unassign)
-kompoxops volume delete --app-name <appName> --vol-name <volName> --vol-inst-name <volInstanceName>  指定インスタンス削除 (Assigned 中はエラー)
+kompoxops disk list   --app-name <appName> --vol-name <volName>                     ディスク一覧表示
+kompoxops disk create --app-name <appName> --vol-name <volName>                     新しいディスク作成 (サイズは app.volumes 定義を使用)
+kompoxops disk assign --app-name <appName> --vol-name <volName> --disk-name <name>  指定ディスクを <volName> の Assigned に設定 (他は自動的に Unassign)
+kompoxops disk delete --app-name <appName> --vol-name <volName> --disk-name <name>  指定ディスク削除 (Assigned 中はエラー)
 ```
 
 共通オプション
 
 - `--app-name | -A` アプリ名を指定 (デフォルト: kompoxops.yml の app.naame)
 - `--vol-name | -V` ボリューム名を指定
-- `--vol-inst-name | -I` ボリュームインスタンス名を指定
+- `--disk-name | -D` ディスク名を指定
 
 仕様
 
 - `<volName>` は app.volumes に存在しない場合エラー。
-- create: インスタンス名は自動生成 (例: 時刻ベース) または `--name` 指定 (存在重複はエラー)。
-- assign: 1 論理ボリュームにつき同時に Assigned=true は 0 または 1。既に同一インスタンスが Assigned なら成功 (冪等)。別インスタンスが Assigned の場合は自動でそのインスタンスを Unassign 後に指定を Assign。
-- delete: 対象が存在しなければ成功 (冪等)。Assigned=true のインスタンスは `--force` 無しで拒否。
+- create: ディスク名は自動生成 (例: 時刻ベース) または `--name` 指定 (存在重複はエラー)。
+- assign: 1 論理ボリュームにつき同時に Assigned=true は 0 または 1。既に同一ディスクが Assigned なら成功 (冪等)。別ディスクが Assigned の場合は自動でそのディスクを Unassign 後に指定を Assign。
+- delete: 対象が存在しなければ成功 (冪等)。Assigned=true のディスクは `--force` 無しで拒否。
 - list 出力列例: NAME  ASSIGNED  SIZE  HANDLE(SHORT)  CREATED              UPDATED
 - SIZE 表示は Gi 単位 (内部は bytes)。
 - manifest 生成 (app deploy) 時: 各 volName で Assigned インスタンスがちょうど 1 件でない場合エラー。
@@ -315,25 +315,25 @@ kompoxops volume delete --app-name <appName> --vol-name <volName> --vol-inst-nam
 例
 
 ```
-$ kompoxops volume list default
+$ kompoxops disk list default
 NAME        ASSIGNED  SIZE   HANDLE        CREATED              UPDATED
 vol-202401  true      32Gi   1f3ab29 (az)  2024-01-10T12:00Z    2024-01-10T12:05Z
 vol-202312  false     32Gi   9ab1c02 (az)  2023-12-31T09:00Z    2024-01-10T12:05Z
 ```
 
-#### kompoxops volume list
+#### kompoxops disk list
 
 ボリュームインスタンスの一覧を表示します。
 
-#### kompoxops volume create
+#### kompoxops disk create
 
 新しいボリュームインスタンスを作成します（サイズは app.volumes 定義）。
 
-#### kompoxops volume assign
+#### kompoxops disk assign
 
 指定インスタンスを Assigned=true に設定し、他を自動的に Unassign します。
 
-#### kompoxops volume delete
+#### kompoxops disk delete
 
 指定インスタンスを削除します（Assigned 中は `--force` なしで拒否）。
 

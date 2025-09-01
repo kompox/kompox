@@ -39,30 +39,30 @@ type Driver interface {
 	// Implementations may fetch admin/user credentials depending on provider capability.
 	ClusterKubeconfig(ctx context.Context, cluster *model.Cluster) ([]byte, error)
 
-	// VolumeInstanceList returns a list of volume instances of the specified volume.
-	VolumeInstanceList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, opts ...model.VolumeInstanceListOption) ([]*model.VolumeInstance, error)
+	// VolumeDiskList returns a list of disks of the specified logical volume.
+	VolumeDiskList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, opts ...model.VolumeDiskListOption) ([]*model.VolumeDisk, error)
 
-	// VolumeInstanceCreate creates a volume instance of the specified volume.
-	VolumeInstanceCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, opts ...model.VolumeInstanceCreateOption) (*model.VolumeInstance, error)
+	// VolumeDiskCreate creates a disk of the specified logical volume.
+	VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, opts ...model.VolumeDiskCreateOption) (*model.VolumeDisk, error)
 
-	// VolumeInstanceDelete deletes a volume instance of the specified volume.
-	VolumeInstanceDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string, opts ...model.VolumeInstanceDeleteOption) error
+	// VolumeDiskDelete deletes a disk of the specified logical volume.
+	VolumeDiskDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, diskName string, opts ...model.VolumeDiskDeleteOption) error
 
-	// VolumeInstanceAssign assigns a volume instance to the specified volume.
-	VolumeInstanceAssign(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string, opts ...model.VolumeInstanceAssignOption) error
+	// VolumeDiskAssign assigns a disk to the specified logical volume.
+	VolumeDiskAssign(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, diskName string, opts ...model.VolumeDiskAssignOption) error
 
 	// VolumeSnapshotList returns a list of snapshots of the specified volume.
 	VolumeSnapshotList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, opts ...model.VolumeSnapshotListOption) ([]*model.VolumeSnapshot, error)
 
-	// VolumeSnapshotCreate creates a snapshot from the specified volume instance.
-	VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string, opts ...model.VolumeSnapshotCreateOption) (*model.VolumeSnapshot, error)
+	// VolumeSnapshotCreate creates a snapshot from the specified disk.
+	VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, diskName string, opts ...model.VolumeSnapshotCreateOption) (*model.VolumeSnapshot, error)
 
 	// VolumeSnapshotDelete deletes the specified snapshot.
 	VolumeSnapshotDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, opts ...model.VolumeSnapshotDeleteOption) error
 
-	// VolumeSnapshotRestore creates a new volume instance from the specified snapshot.
-	// The returned instance should have Assigned=false; switching is handled by VolumeInstanceAssign.
-	VolumeSnapshotRestore(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, opts ...model.VolumeSnapshotRestoreOption) (*model.VolumeInstance, error)
+	// VolumeSnapshotRestore creates a new disk from the specified snapshot.
+	// The returned disk should have Assigned=false; switching is handled by VolumeDiskAssign.
+	VolumeSnapshotRestore(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, opts ...model.VolumeSnapshotRestoreOption) (*model.VolumeDisk, error)
 
 	// VolumeClass returns provider specific volume provisioning parameters for the given logical volume.
 	// Empty fields mean "no opinion" and the caller should omit them from generated manifests rather than

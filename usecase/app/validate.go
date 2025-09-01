@@ -100,15 +100,15 @@ func (u *UseCase) Validate(ctx context.Context, in *ValidateInput) (*ValidateOut
 		var handle string
 		var vsize int64
 		if u.VolumePort != nil {
-			insts, lerr := u.VolumePort.VolumeInstanceList(ctx, cls, app, av.Name)
+			disks, lerr := u.VolumePort.VolumeDiskList(ctx, cls, app, av.Name)
 			if lerr != nil {
-				out.Errors = append(out.Errors, fmt.Sprintf("volume instances lookup failed for %s: %v", av.Name, lerr))
+				out.Errors = append(out.Errors, fmt.Sprintf("volume disk lookup failed for %s: %v", av.Name, lerr))
 				continue
 			}
-			var assigned []*model.VolumeInstance
-			for _, inst := range insts {
-				if inst.Assigned {
-					assigned = append(assigned, inst)
+			var assigned []*model.VolumeDisk
+			for _, disk := range disks {
+				if disk.Assigned {
+					assigned = append(assigned, disk)
 				}
 			}
 			if len(assigned) != 1 {

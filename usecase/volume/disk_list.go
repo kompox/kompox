@@ -7,22 +7,22 @@ import (
 	"github.com/yaegashi/kompoxops/domain/model"
 )
 
-// InstanceCreateInput parameters for InstanceCreate use case.
-type InstanceCreateInput struct {
+// DiskListInput parameters for DiskList use case.
+type DiskListInput struct {
 	// AppID owning application identifier.
 	AppID string `json:"app_id"`
-	// VolumeName logical volume name.
+	// VolumeName logical volume name within the app.
 	VolumeName string `json:"volume_name"`
 }
 
-// InstanceCreateOutput result for InstanceCreate use case.
-type InstanceCreateOutput struct {
-	// Instance is the created volume instance.
-	Instance *model.VolumeInstance `json:"instance"`
+// DiskListOutput result for DiskList use case.
+type DiskListOutput struct {
+	// Items is the collection of volume disks.
+	Items []*model.VolumeDisk `json:"items"`
 }
 
-// InstanceCreate creates a new volume instance.
-func (u *UseCase) InstanceCreate(ctx context.Context, in *InstanceCreateInput) (*InstanceCreateOutput, error) {
+// DiskList returns volume disks for a logical volume.
+func (u *UseCase) DiskList(ctx context.Context, in *DiskListInput) (*DiskListOutput, error) {
 	if in == nil || in.AppID == "" || in.VolumeName == "" {
 		return nil, fmt.Errorf("missing parameters")
 	}
@@ -40,20 +40,20 @@ func (u *UseCase) InstanceCreate(ctx context.Context, in *InstanceCreateInput) (
 	if cluster == nil {
 		return nil, fmt.Errorf("cluster not found: %s", app.ClusterID)
 	}
-	// Validate logical volume exists
-	exists := false
+	// Ensure the logical volume exists
+	found := false
 	for _, v := range app.Volumes {
 		if v.Name == in.VolumeName {
-			exists = true
+			found = true
 			break
 		}
 	}
-	if !exists {
+	if !found {
 		return nil, fmt.Errorf("volume not defined: %s", in.VolumeName)
 	}
-	inst, err := u.VolumePort.VolumeInstanceCreate(ctx, cluster, app, in.VolumeName)
+	items, err := u.VolumePort.VolumeDiskList(ctx, cluster, app, in.VolumeName)
 	if err != nil {
 		return nil, err
 	}
-	return &InstanceCreateOutput{Instance: inst}, nil
+	return &DiskListOutput{Items: items}, nil
 }

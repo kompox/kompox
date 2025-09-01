@@ -20,11 +20,11 @@ import (
 	"github.com/yaegashi/kompoxops/internal/naming"
 )
 
-// Volume instance tag keys
+// Disk tag keys
 const (
-	tagVolumeKey          = "kompox-volume"                   // logical volume key value: kompox-volName-idHASH
-	tagVolumeInstanceName = "kompox-volume-instance-name"     // ulid
-	tagVolumeAssigned     = "kompox-volume-instance-assigned" // true/false
+	tagVolumeKey    = "kompox-volume"        // logical volume key value: kompox-volName-idHASH
+	tagDiskName     = "kompox-disk-name"     // ulid
+	tagDiskAssigned = "kompox-disk-assigned" // true/false
 )
 
 // Built-in role definition IDs used by this driver
@@ -33,11 +33,11 @@ const (
 	contributorRoleDefinitionID = "b24988ac-6180-42a0-ab88-20f7382dd24c"
 )
 
-// volumeInstanceMeta represents returned metadata for a volume insta
-// (Internal structure; adapt to domain model when wiring into usecases.)
-type volumeInstanceMeta struct {
+// volumeDiskMeta represents returned metadata for a volume disk.
+// Internal structure; adapted to domain model when wiring into usecases.
+type volumeDiskMeta struct {
 	Name        string // Azure Disk name
-	VolInst     string // ULID
+	DiskID      string // ULID
 	SizeGiB     int32
 	Assigned    bool
 	TimeCreated time.Time
@@ -61,8 +61,8 @@ func logicalVolumeKey(volName, idHASH string) string {
 	return fmt.Sprintf("kompox-%s-%s", volName, idHASH)
 }
 
-// VolumeInstanceList lists Azure Managed Disks for a logical volume.
-func (d *driver) azureVolumeInstanceList(ctx context.Context, resourceGroupName, volName, idHASH string) ([]volumeInstanceMeta, error) {
+// VolumeDiskList lists Azure Managed Disks for a logical volume (internal helper).
+func (d *driver) azureVolumeDiskList(ctx context.Context, resourceGroupName, volName, idHASH string) ([]volumeDiskMeta, error) {
 	if resourceGroupName == "" {
 		return nil, errors.New("AZURE_RESOURCE_GROUP_NAME required")
 	}
@@ -77,12 +77,12 @@ func (d *driver) azureVolumeInstanceList(ctx context.Context, resourceGroupName,
 	lvKey := logicalVolumeKey(volName, idHASH)
 	prefix := lvKey + "-"
 	pager := disksClient.NewListByResourceGroupPager(resourceGroupName, nil)
-	out := []volumeInstanceMeta{}
+	out := []volumeDiskMeta{}
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
 			if strings.Contains(strings.ToLower(err.Error()), "could not be found") { // RG not found
-				return []volumeInstanceMeta{}, nil
+				return []volumeDiskMeta{}, nil
 			}
 			return nil, fmt.Errorf("list disks page: %w", err)
 		}
@@ -102,20 +102,20 @@ func (d *driver) azureVolumeInstanceList(ctx context.Context, resourceGroupName,
 			if v, ok := tags[tagVolumeKey]; !ok || v == nil || *v != lvKey {
 				continue
 			}
-			volInst := strings.TrimPrefix(name, prefix)
+			diskID := strings.TrimPrefix(name, prefix)
 			size := int32(0)
 			if disk.Properties.DiskSizeGB != nil {
 				size = *disk.Properties.DiskSizeGB
 			}
 			assigned := false
-			if v, ok := tags[tagVolumeAssigned]; ok && v != nil && strings.EqualFold(*v, "true") {
+			if v, ok := tags[tagDiskAssigned]; ok && v != nil && strings.EqualFold(*v, "true") {
 				assigned = true
 			}
 			created := time.Time{}
 			if disk.Properties.TimeCreated != nil {
 				created = *disk.Properties.TimeCreated
 			}
-			out = append(out, volumeInstanceMeta{Name: name, VolInst: volInst, SizeGiB: size, Assigned: assigned, TimeCreated: created})
+			out = append(out, volumeDiskMeta{Name: name, DiskID: diskID, SizeGiB: size, Assigned: assigned, TimeCreated: created})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].TimeCreated.After(out[j].TimeCreated) })
@@ -173,8 +173,8 @@ func (d *driver) ensureResourceGroup(ctx context.Context, resourceGroupName stri
 	return nil
 }
 
-// VolumeInstanceCreate creates an Azure Disk for logical volume.
-func (d *driver) azureVolumeInstanceCreate(ctx context.Context, resourceGroupName, volName, idHASH string, sizeGiB int32, principalID string) (*volumeInstanceMeta, error) {
+// VolumeDiskCreate creates an Azure Disk for logical volume (internal helper).
+func (d *driver) azureVolumeDiskCreate(ctx context.Context, resourceGroupName, volName, idHASH string, sizeGiB int32, principalID string) (*volumeDiskMeta, error) {
 	if resourceGroupName == "" {
 		return nil, errors.New("AZURE_RESOURCE_GROUP_NAME required")
 	}
@@ -199,9 +199,9 @@ func (d *driver) azureVolumeInstanceCreate(ctx context.Context, resourceGroupNam
 	lvKey := logicalVolumeKey(volName, idHASH)
 	diskName := buildDiskName(lvKey, ulidStr)
 
-	// If this is the first volume instance for the logical volume, mark it assigned=true.
+	// If this is the first volume disk for the logical volume, mark it assigned=true.
 	initialAssigned := false
-	if list, err := d.azureVolumeInstanceList(ctx, resourceGroupName, volName, idHASH); err == nil {
+	if list, err := d.azureVolumeDiskList(ctx, resourceGroupName, volName, idHASH); err == nil {
 		if len(list) == 0 {
 			initialAssigned = true
 		}
@@ -217,10 +217,10 @@ func (d *driver) azureVolumeInstanceCreate(ctx context.Context, resourceGroupNam
 	disk := armcompute.Disk{
 		Location: to.Ptr(d.AzureLocation),
 		Tags: map[string]*string{
-			tagVolumeKey:          to.Ptr(lvKey),
-			tagVolumeInstanceName: to.Ptr(ulidStr),
-			tagVolumeAssigned:     to.Ptr(assignedVal),
-			"managed-by":          to.Ptr("kompox"),
+			tagVolumeKey:    to.Ptr(lvKey),
+			tagDiskName:     to.Ptr(ulidStr),
+			tagDiskAssigned: to.Ptr(assignedVal),
+			"managed-by":    to.Ptr("kompox"),
 		},
 		Properties: &armcompute.DiskProperties{
 			CreationData: &armcompute.CreationData{CreateOption: to.Ptr(armcompute.DiskCreateOptionEmpty)},
@@ -237,15 +237,15 @@ func (d *driver) azureVolumeInstanceCreate(ctx context.Context, resourceGroupNam
 	if err != nil {
 		return nil, fmt.Errorf("create disk: %w", err)
 	}
-	meta := &volumeInstanceMeta{Name: diskName, VolInst: ulidStr, SizeGiB: sizeGiB, Assigned: assignedVal == "true", TimeCreated: time.Now().UTC()}
+	meta := &volumeDiskMeta{Name: diskName, DiskID: ulidStr, SizeGiB: sizeGiB, Assigned: assignedVal == "true", TimeCreated: time.Now().UTC()}
 	if res.Properties != nil && res.Properties.TimeCreated != nil {
 		meta.TimeCreated = *res.Properties.TimeCreated
 	}
 	return meta, nil
 }
 
-// VolumeInstanceAssign marks one disk assigned=true and others false using tag update with concurrency control.
-func (d *driver) azureVolumeInstanceAssign(ctx context.Context, resourceGroupName, volName, idHASH, volInstName string) error {
+// VolumeDiskAssign marks one disk assigned=true and others false using tag update with concurrency control.
+func (d *driver) azureVolumeDiskAssign(ctx context.Context, resourceGroupName, volName, idHASH, diskName string) error {
 	if resourceGroupName == "" {
 		return errors.New("AZURE_RESOURCE_GROUP_NAME required")
 	}
@@ -256,19 +256,19 @@ func (d *driver) azureVolumeInstanceAssign(ctx context.Context, resourceGroupNam
 		return fmt.Errorf("new disks client: %w", err)
 	}
 	lvKey := logicalVolumeKey(volName, idHASH)
-	list, err := d.azureVolumeInstanceList(ctx, resourceGroupName, volName, idHASH)
+	list, err := d.azureVolumeDiskList(ctx, resourceGroupName, volName, idHASH)
 	if err != nil {
 		return err
 	}
-	var target *volumeInstanceMeta
+	var target *volumeDiskMeta
 	for i := range list {
-		if list[i].VolInst == volInstName {
+		if list[i].DiskID == diskName {
 			target = &list[i]
 			break
 		}
 	}
 	if target == nil {
-		return fmt.Errorf("volume instance not found: %s", volInstName)
+		return fmt.Errorf("volume disk not found: %s", diskName)
 	}
 
 	for _, item := range list {
@@ -281,11 +281,11 @@ func (d *driver) azureVolumeInstanceAssign(ctx context.Context, resourceGroupNam
 			tags[k] = v
 		}
 		tags[tagVolumeKey] = to.Ptr(lvKey)
-		tags[tagVolumeInstanceName] = to.Ptr(item.VolInst)
-		assigned := strings.EqualFold(item.VolInst, volInstName)
+		tags[tagDiskName] = to.Ptr(item.DiskID)
+		assigned := strings.EqualFold(item.DiskID, diskName)
 		// Idempotency check
 		prevAssigned := false
-		if v, ok := getRes.Tags[tagVolumeAssigned]; ok && v != nil && strings.EqualFold(*v, "true") {
+		if v, ok := getRes.Tags[tagDiskAssigned]; ok && v != nil && strings.EqualFold(*v, "true") {
 			prevAssigned = true
 		}
 		if assigned && prevAssigned {
@@ -295,7 +295,7 @@ func (d *driver) azureVolumeInstanceAssign(ctx context.Context, resourceGroupNam
 		if assigned {
 			val = "true"
 		}
-		tags[tagVolumeAssigned] = to.Ptr(val)
+		tags[tagDiskAssigned] = to.Ptr(val)
 		update := armcompute.DiskUpdate{Tags: tags}
 		poller, err := disksClient.BeginUpdate(ctx, resourceGroupName, item.Name, update, nil)
 		if err != nil {
@@ -308,8 +308,8 @@ func (d *driver) azureVolumeInstanceAssign(ctx context.Context, resourceGroupNam
 	return nil
 }
 
-// VolumeInstanceDelete deletes a disk (idempotent).
-func (d *driver) azureVolumeInstanceDelete(ctx context.Context, resourceGroupName, volName, idHASH, volInstName string) error {
+// VolumeDiskDelete deletes a disk (idempotent).
+func (d *driver) azureVolumeDiskDelete(ctx context.Context, resourceGroupName, volName, idHASH, diskID string) error {
 	if resourceGroupName == "" {
 		return errors.New("AZURE_RESOURCE_GROUP_NAME required")
 	}
@@ -320,8 +320,8 @@ func (d *driver) azureVolumeInstanceDelete(ctx context.Context, resourceGroupNam
 		return fmt.Errorf("new disks client: %w", err)
 	}
 	lvKey := logicalVolumeKey(volName, idHASH)
-	diskName := buildDiskName(lvKey, volInstName)
-	poller, err := disksClient.BeginDelete(ctx, resourceGroupName, diskName, nil)
+	fullDiskName := buildDiskName(lvKey, diskID)
+	poller, err := disksClient.BeginDelete(ctx, resourceGroupName, fullDiskName, nil)
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "notfound") || strings.Contains(strings.ToLower(err.Error()), "could not be found") {
 			return nil
@@ -347,8 +347,8 @@ func volumeDefSize(app *model.App, volName string) (int64, bool) {
 	return 0, false
 }
 
-// VolumeInstanceList implements spec method.
-func (d *driver) VolumeInstanceList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, _ ...model.VolumeInstanceListOption) ([]*model.VolumeInstance, error) {
+// VolumeDiskList implements spec method.
+func (d *driver) VolumeDiskList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, _ ...model.VolumeDiskListOption) ([]*model.VolumeDisk, error) {
 	if cluster == nil || app == nil {
 		return nil, fmt.Errorf("cluster/app nil")
 	}
@@ -358,14 +358,14 @@ func (d *driver) VolumeInstanceList(ctx context.Context, cluster *model.Cluster,
 	}
 	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
 	idHASH := hashes.AppID
-	items, err := d.azureVolumeInstanceList(ctx, rg, volName, idHASH)
+	items, err := d.azureVolumeDiskList(ctx, rg, volName, idHASH)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]*model.VolumeInstance, 0, len(items))
+	out := make([]*model.VolumeDisk, 0, len(items))
 	for _, it := range items {
-		out = append(out, &model.VolumeInstance{
-			Name:       it.VolInst,
+		out = append(out, &model.VolumeDisk{
+			Name:       it.DiskID,
 			VolumeName: volName,
 			Assigned:   it.Assigned,
 			Size:       int64(it.SizeGiB) << 30,
@@ -377,8 +377,8 @@ func (d *driver) VolumeInstanceList(ctx context.Context, cluster *model.Cluster,
 	return out, nil
 }
 
-// VolumeInstanceCreate implements spec method.
-func (d *driver) VolumeInstanceCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, _ ...model.VolumeInstanceCreateOption) (*model.VolumeInstance, error) {
+// VolumeDiskCreate implements spec method.
+func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, _ ...model.VolumeDiskCreateOption) (*model.VolumeDisk, error) {
 	if cluster == nil || app == nil {
 		return nil, fmt.Errorf("cluster/app nil")
 	}
@@ -402,12 +402,12 @@ func (d *driver) VolumeInstanceCreate(ctx context.Context, cluster *model.Cluste
 	sizeGiB := int32((sizeBytes + (1 << 30) - 1) >> 30)
 	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
 	idHASH := hashes.AppID
-	meta, err := d.azureVolumeInstanceCreate(ctx, rg, volName, idHASH, sizeGiB, principalID)
+	meta, err := d.azureVolumeDiskCreate(ctx, rg, volName, idHASH, sizeGiB, principalID)
 	if err != nil {
 		return nil, err
 	}
-	return &model.VolumeInstance{
-		Name:       meta.VolInst,
+	return &model.VolumeDisk{
+		Name:       meta.DiskID,
 		VolumeName: volName,
 		Assigned:   meta.Assigned,
 		Size:       int64(meta.SizeGiB) << 30,
@@ -417,8 +417,8 @@ func (d *driver) VolumeInstanceCreate(ctx context.Context, cluster *model.Cluste
 	}, nil
 }
 
-// VolumeInstanceAssign implements spec method.
-func (d *driver) VolumeInstanceAssign(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string, _ ...model.VolumeInstanceAssignOption) error {
+// VolumeDiskAssign implements spec method.
+func (d *driver) VolumeDiskAssign(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, diskName string, _ ...model.VolumeDiskAssignOption) error {
 	if cluster == nil || app == nil {
 		return fmt.Errorf("cluster/app nil")
 	}
@@ -428,11 +428,11 @@ func (d *driver) VolumeInstanceAssign(ctx context.Context, cluster *model.Cluste
 	}
 	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
 	idHASH := hashes.AppID
-	return d.azureVolumeInstanceAssign(ctx, rg, volName, idHASH, volInstName)
+	return d.azureVolumeDiskAssign(ctx, rg, volName, idHASH, diskName)
 }
 
-// VolumeInstanceDelete implements spec method.
-func (d *driver) VolumeInstanceDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string, _ ...model.VolumeInstanceDeleteOption) error {
+// VolumeDiskDelete implements spec method.
+func (d *driver) VolumeDiskDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, diskName string, _ ...model.VolumeDiskDeleteOption) error {
 	if cluster == nil || app == nil {
 		return fmt.Errorf("cluster/app nil")
 	}
@@ -442,7 +442,7 @@ func (d *driver) VolumeInstanceDelete(ctx context.Context, cluster *model.Cluste
 	}
 	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
 	idHASH := hashes.AppID
-	return d.azureVolumeInstanceDelete(ctx, rg, volName, idHASH, volInstName)
+	return d.azureVolumeDiskDelete(ctx, rg, volName, idHASH, diskName)
 }
 
 // Snapshot operations for AKS (skeleton placeholders for now)
@@ -450,7 +450,7 @@ func (d *driver) VolumeSnapshotList(ctx context.Context, cluster *model.Cluster,
 	return nil, fmt.Errorf("VolumeSnapshotList not implemented for AKS driver")
 }
 
-func (d *driver) VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string, _ ...model.VolumeSnapshotCreateOption) (*model.VolumeSnapshot, error) {
+func (d *driver) VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, diskName string, _ ...model.VolumeSnapshotCreateOption) (*model.VolumeSnapshot, error) {
 	return nil, fmt.Errorf("VolumeSnapshotCreate not implemented for AKS driver")
 }
 
@@ -458,7 +458,7 @@ func (d *driver) VolumeSnapshotDelete(ctx context.Context, cluster *model.Cluste
 	return fmt.Errorf("VolumeSnapshotDelete not implemented for AKS driver")
 }
 
-func (d *driver) VolumeSnapshotRestore(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, _ ...model.VolumeSnapshotRestoreOption) (*model.VolumeInstance, error) {
+func (d *driver) VolumeSnapshotRestore(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, _ ...model.VolumeSnapshotRestoreOption) (*model.VolumeDisk, error) {
 	return nil, fmt.Errorf("VolumeSnapshotRestore not implemented for AKS driver")
 }
 
