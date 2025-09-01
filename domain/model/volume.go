@@ -5,16 +5,67 @@ import (
 	"time"
 )
 
+// Operation-scoped options and functional option types for volume operations.
+// These are placeholders for future extensions (e.g., Force, DryRun, Timeout).
+// Drivers and adapters should accept and may ignore them until used.
+
+type VolumeInstanceListOptions struct{ Force bool }
+type VolumeInstanceCreateOptions struct{ Force bool }
+type VolumeInstanceDeleteOptions struct{ Force bool }
+type VolumeInstanceAssignOptions struct{ Force bool }
+
+type VolumeSnapshotListOptions struct{ Force bool }
+type VolumeSnapshotCreateOptions struct{ Force bool }
+type VolumeSnapshotDeleteOptions struct{ Force bool }
+type VolumeSnapshotRestoreOptions struct{ Force bool }
+
+type VolumeInstanceListOption func(*VolumeInstanceListOptions)
+type VolumeInstanceCreateOption func(*VolumeInstanceCreateOptions)
+type VolumeInstanceDeleteOption func(*VolumeInstanceDeleteOptions)
+type VolumeInstanceAssignOption func(*VolumeInstanceAssignOptions)
+
+type VolumeSnapshotListOption func(*VolumeSnapshotListOptions)
+type VolumeSnapshotCreateOption func(*VolumeSnapshotCreateOptions)
+type VolumeSnapshotDeleteOption func(*VolumeSnapshotDeleteOptions)
+type VolumeSnapshotRestoreOption func(*VolumeSnapshotRestoreOptions)
+
+// Option helpers mirroring cluster options style.
+func WithVolumeInstanceListForce() VolumeInstanceListOption {
+	return func(o *VolumeInstanceListOptions) { o.Force = true }
+}
+func WithVolumeInstanceCreateForce() VolumeInstanceCreateOption {
+	return func(o *VolumeInstanceCreateOptions) { o.Force = true }
+}
+func WithVolumeInstanceDeleteForce() VolumeInstanceDeleteOption {
+	return func(o *VolumeInstanceDeleteOptions) { o.Force = true }
+}
+func WithVolumeInstanceAssignForce() VolumeInstanceAssignOption {
+	return func(o *VolumeInstanceAssignOptions) { o.Force = true }
+}
+
+func WithVolumeSnapshotListForce() VolumeSnapshotListOption {
+	return func(o *VolumeSnapshotListOptions) { o.Force = true }
+}
+func WithVolumeSnapshotCreateForce() VolumeSnapshotCreateOption {
+	return func(o *VolumeSnapshotCreateOptions) { o.Force = true }
+}
+func WithVolumeSnapshotDeleteForce() VolumeSnapshotDeleteOption {
+	return func(o *VolumeSnapshotDeleteOptions) { o.Force = true }
+}
+func WithVolumeSnapshotRestoreForce() VolumeSnapshotRestoreOption {
+	return func(o *VolumeSnapshotRestoreOptions) { o.Force = true }
+}
+
 // VolumePort abstracts volume instance operations provided by drivers.
 type VolumePort interface {
-	VolumeInstanceList(ctx context.Context, cluster *Cluster, app *App, volName string) ([]*VolumeInstance, error)
-	VolumeInstanceCreate(ctx context.Context, cluster *Cluster, app *App, volName string) (*VolumeInstance, error)
-	VolumeInstanceDelete(ctx context.Context, cluster *Cluster, app *App, volName string, volInstName string) error
-	VolumeInstanceAssign(ctx context.Context, cluster *Cluster, app *App, volName string, volInstName string) error
-	VolumeSnapshotList(ctx context.Context, cluster *Cluster, app *App, volName string) ([]*VolumeSnapshot, error)
-	VolumeSnapshotCreate(ctx context.Context, cluster *Cluster, app *App, volName string, volInstName string) (*VolumeSnapshot, error)
-	VolumeSnapshotDelete(ctx context.Context, cluster *Cluster, app *App, volName string, snapName string) error
-	VolumeSnapshotRestore(ctx context.Context, cluster *Cluster, app *App, volName string, snapName string) (*VolumeInstance, error)
+	VolumeInstanceList(ctx context.Context, cluster *Cluster, app *App, volName string, opts ...VolumeInstanceListOption) ([]*VolumeInstance, error)
+	VolumeInstanceCreate(ctx context.Context, cluster *Cluster, app *App, volName string, opts ...VolumeInstanceCreateOption) (*VolumeInstance, error)
+	VolumeInstanceDelete(ctx context.Context, cluster *Cluster, app *App, volName string, volInstName string, opts ...VolumeInstanceDeleteOption) error
+	VolumeInstanceAssign(ctx context.Context, cluster *Cluster, app *App, volName string, volInstName string, opts ...VolumeInstanceAssignOption) error
+	VolumeSnapshotList(ctx context.Context, cluster *Cluster, app *App, volName string, opts ...VolumeSnapshotListOption) ([]*VolumeSnapshot, error)
+	VolumeSnapshotCreate(ctx context.Context, cluster *Cluster, app *App, volName string, volInstName string, opts ...VolumeSnapshotCreateOption) (*VolumeSnapshot, error)
+	VolumeSnapshotDelete(ctx context.Context, cluster *Cluster, app *App, volName string, snapName string, opts ...VolumeSnapshotDeleteOption) error
+	VolumeSnapshotRestore(ctx context.Context, cluster *Cluster, app *App, volName string, snapName string, opts ...VolumeSnapshotRestoreOption) (*VolumeInstance, error)
 }
 
 // VolumeInstance represents a specific instance of a logical volume.

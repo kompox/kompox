@@ -348,7 +348,7 @@ func volumeDefSize(app *model.App, volName string) (int64, bool) {
 }
 
 // VolumeInstanceList implements spec method.
-func (d *driver) VolumeInstanceList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) ([]*model.VolumeInstance, error) {
+func (d *driver) VolumeInstanceList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, _ ...model.VolumeInstanceListOption) ([]*model.VolumeInstance, error) {
 	if cluster == nil || app == nil {
 		return nil, fmt.Errorf("cluster/app nil")
 	}
@@ -378,7 +378,7 @@ func (d *driver) VolumeInstanceList(ctx context.Context, cluster *model.Cluster,
 }
 
 // VolumeInstanceCreate implements spec method.
-func (d *driver) VolumeInstanceCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) (*model.VolumeInstance, error) {
+func (d *driver) VolumeInstanceCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, _ ...model.VolumeInstanceCreateOption) (*model.VolumeInstance, error) {
 	if cluster == nil || app == nil {
 		return nil, fmt.Errorf("cluster/app nil")
 	}
@@ -418,7 +418,7 @@ func (d *driver) VolumeInstanceCreate(ctx context.Context, cluster *model.Cluste
 }
 
 // VolumeInstanceAssign implements spec method.
-func (d *driver) VolumeInstanceAssign(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string) error {
+func (d *driver) VolumeInstanceAssign(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string, _ ...model.VolumeInstanceAssignOption) error {
 	if cluster == nil || app == nil {
 		return fmt.Errorf("cluster/app nil")
 	}
@@ -432,7 +432,7 @@ func (d *driver) VolumeInstanceAssign(ctx context.Context, cluster *model.Cluste
 }
 
 // VolumeInstanceDelete implements spec method.
-func (d *driver) VolumeInstanceDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string) error {
+func (d *driver) VolumeInstanceDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string, _ ...model.VolumeInstanceDeleteOption) error {
 	if cluster == nil || app == nil {
 		return fmt.Errorf("cluster/app nil")
 	}
@@ -446,19 +446,19 @@ func (d *driver) VolumeInstanceDelete(ctx context.Context, cluster *model.Cluste
 }
 
 // Snapshot operations for AKS (skeleton placeholders for now)
-func (d *driver) VolumeSnapshotList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string) ([]*model.VolumeSnapshot, error) {
+func (d *driver) VolumeSnapshotList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, _ ...model.VolumeSnapshotListOption) ([]*model.VolumeSnapshot, error) {
 	return nil, fmt.Errorf("VolumeSnapshotList not implemented for AKS driver")
 }
 
-func (d *driver) VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string) (*model.VolumeSnapshot, error) {
+func (d *driver) VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, volInstName string, _ ...model.VolumeSnapshotCreateOption) (*model.VolumeSnapshot, error) {
 	return nil, fmt.Errorf("VolumeSnapshotCreate not implemented for AKS driver")
 }
 
-func (d *driver) VolumeSnapshotDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string) error {
+func (d *driver) VolumeSnapshotDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, _ ...model.VolumeSnapshotDeleteOption) error {
 	return fmt.Errorf("VolumeSnapshotDelete not implemented for AKS driver")
 }
 
-func (d *driver) VolumeSnapshotRestore(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string) (*model.VolumeInstance, error) {
+func (d *driver) VolumeSnapshotRestore(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, _ ...model.VolumeSnapshotRestoreOption) (*model.VolumeInstance, error) {
 	return nil, fmt.Errorf("VolumeSnapshotRestore not implemented for AKS driver")
 }
 
