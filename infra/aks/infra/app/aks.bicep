@@ -18,6 +18,9 @@ param sku string = 'Free'
 @allowed(['azure', 'kubenet', 'none'])
 param networkPlugin string = 'azure'
 
+@allowed(['', 'overlay'])
+param networkPluginMode string = 'overlay'
+
 @allowed(['azure', 'calico'])
 param networkPolicy string = 'azure'
 
@@ -32,13 +35,15 @@ param systemPoolConfig object = {}
 
 param principalId string = deployer().objectId
 
-param kubernetesVersion string = '1.29'
+param kubernetesVersion string = '1.33'
 
 param aadTenantId string = tenant().tenantId
 
+param nodePoolMaxPods int = 250
+
 var nodePoolPresets = {
   CostOptimised: {
-    vmSize: 'Standard_B4ms'
+    vmSize: 'Standard_D2as_v5'
     count: 1
     minCount: 1
     maxCount: 3
@@ -46,7 +51,7 @@ var nodePoolPresets = {
     availabilityZones: []
   }
   Standard: {
-    vmSize: 'Standard_DS2_v2'
+    vmSize: 'Standard_D4as_v5'
     count: 3
     minCount: 3
     maxCount: 5
@@ -58,7 +63,7 @@ var nodePoolPresets = {
     ]
   }
   HighSpec: {
-    vmSize: 'Standard_D4s_v3'
+    vmSize: 'Standard_D8as_v5'
     count: 3
     minCount: 3
     maxCount: 5
@@ -75,7 +80,7 @@ var systemPoolSpec = !empty(systemPoolConfig) ? systemPoolConfig : nodePoolPrese
 
 var nodePoolBase = {
   osType: 'Linux'
-  maxPods: 30
+  maxPods: nodePoolMaxPods
   type: 'VirtualMachineScaleSets'
   upgradeSettings: {
     maxSurge: '33%'
@@ -113,6 +118,7 @@ resource aks 'Microsoft.ContainerService/managedClusters@2025-05-02-preview' = {
     networkProfile: {
       loadBalancerSku: 'standard'
       networkPlugin: networkPlugin
+      networkPluginMode: networkPlugin == 'azure' && !empty(networkPluginMode) ? networkPluginMode : null
       networkPolicy: networkPolicy
     }
     addonProfiles: {
@@ -131,7 +137,7 @@ resource aks 'Microsoft.ContainerService/managedClusters@2025-05-02-preview' = {
     }
     ingressProfile: {
       webAppRouting: {
-        enabled: true
+        enabled: false
       }
     }
     oidcIssuerProfile: {

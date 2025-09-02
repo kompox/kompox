@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "3854938018679596811"
+      "templateHash": "9252988601646047001"
     }
   },
   "parameters": {
@@ -2478,7 +2478,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "2567704857633430389"
+              "templateHash": "13132598935182317497"
             }
           },
           "parameters": {
@@ -2526,6 +2526,14 @@
                 "none"
               ]
             },
+            "networkPluginMode": {
+              "type": "string",
+              "defaultValue": "overlay",
+              "allowedValues": [
+                "",
+                "overlay"
+              ]
+            },
             "networkPolicy": {
               "type": "string",
               "defaultValue": "azure",
@@ -2562,17 +2570,21 @@
             },
             "kubernetesVersion": {
               "type": "string",
-              "defaultValue": "1.29"
+              "defaultValue": "1.33"
             },
             "aadTenantId": {
               "type": "string",
               "defaultValue": "[tenant().tenantId]"
+            },
+            "nodePoolMaxPods": {
+              "type": "int",
+              "defaultValue": 250
             }
           },
           "variables": {
             "nodePoolPresets": {
               "CostOptimised": {
-                "vmSize": "Standard_B4ms",
+                "vmSize": "Standard_D2as_v5",
                 "count": 1,
                 "minCount": 1,
                 "maxCount": 3,
@@ -2580,7 +2592,7 @@
                 "availabilityZones": []
               },
               "Standard": {
-                "vmSize": "Standard_DS2_v2",
+                "vmSize": "Standard_D4as_v5",
                 "count": 3,
                 "minCount": 3,
                 "maxCount": 5,
@@ -2592,7 +2604,7 @@
                 ]
               },
               "HighSpec": {
-                "vmSize": "Standard_D4s_v3",
+                "vmSize": "Standard_D8as_v5",
                 "count": 3,
                 "minCount": 3,
                 "maxCount": 5,
@@ -2607,7 +2619,7 @@
             "systemPoolSpec": "[if(not(empty(parameters('systemPoolConfig'))), parameters('systemPoolConfig'), variables('nodePoolPresets')[parameters('systemPoolType')])]",
             "nodePoolBase": {
               "osType": "Linux",
-              "maxPods": 30,
+              "maxPods": "[parameters('nodePoolMaxPods')]",
               "type": "VirtualMachineScaleSets",
               "upgradeSettings": {
                 "maxSurge": "33%"
@@ -2648,6 +2660,7 @@
                 "networkProfile": {
                   "loadBalancerSku": "standard",
                   "networkPlugin": "[parameters('networkPlugin')]",
+                  "networkPluginMode": "[if(and(equals(parameters('networkPlugin'), 'azure'), not(empty(parameters('networkPluginMode')))), parameters('networkPluginMode'), null())]",
                   "networkPolicy": "[parameters('networkPolicy')]"
                 },
                 "addonProfiles": {
@@ -2671,7 +2684,7 @@
                 },
                 "ingressProfile": {
                   "webAppRouting": {
-                    "enabled": true
+                    "enabled": false
                   }
                 },
                 "oidcIssuerProfile": {
