@@ -51,7 +51,7 @@ func (u *UseCase) DiskList(ctx context.Context, in *DiskListInput) (*DiskListOut
 	if !found {
 		return nil, fmt.Errorf("volume not defined: %s", in.VolumeName)
 	}
-	items, err := u.VolumePort.VolumeDiskList(ctx, cluster, app, in.VolumeName)
+	items, err := u.VolumePort.DiskList(ctx, cluster, app, in.VolumeName)
 	if err != nil {
 		return nil, err
 	}

@@ -48,7 +48,7 @@ func (u *UseCase) SnapshotList(ctx context.Context, in *SnapshotListInput) (*Sna
 	if !found {
 		return nil, fmt.Errorf("volume not defined: %s", in.VolumeName)
 	}
-	items, err := u.VolumePort.VolumeSnapshotList(ctx, cluster, app, in.VolumeName)
+	items, err := u.VolumePort.SnapshotList(ctx, cluster, app, in.VolumeName)
 	if err != nil {
 		return nil, err
 	}

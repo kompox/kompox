@@ -44,7 +44,7 @@ func (u *UseCase) SnapshotDelete(ctx context.Context, in *SnapshotDeleteInput) (
 	if !ok {
 		return nil, fmt.Errorf("volume not defined: %s", in.VolumeName)
 	}
-	if err := u.VolumePort.VolumeSnapshotDelete(ctx, cluster, app, in.VolumeName, in.SnapshotName); err != nil {
+	if err := u.VolumePort.SnapshotDelete(ctx, cluster, app, in.VolumeName, in.SnapshotName); err != nil {
 		return nil, err
 	}
 	return &SnapshotDeleteOutput{}, nil

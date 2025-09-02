@@ -49,7 +49,7 @@ func (u *UseCase) SnapshotCreate(ctx context.Context, in *SnapshotCreateInput) (
 	if !ok {
 		return nil, fmt.Errorf("volume not defined: %s", in.VolumeName)
 	}
-	snap, err := u.VolumePort.VolumeSnapshotCreate(ctx, cluster, app, in.VolumeName, in.DiskName)
+	snap, err := u.VolumePort.SnapshotCreate(ctx, cluster, app, in.VolumeName, in.DiskName)
 	if err != nil {
 		return nil, err
 	}

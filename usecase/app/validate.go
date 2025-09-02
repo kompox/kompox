@@ -100,7 +100,7 @@ func (u *UseCase) Validate(ctx context.Context, in *ValidateInput) (*ValidateOut
 		var handle string
 		var vsize int64
 		if u.VolumePort != nil {
-			disks, lerr := u.VolumePort.VolumeDiskList(ctx, cls, app, av.Name)
+			disks, lerr := u.VolumePort.DiskList(ctx, cls, app, av.Name)
 			if lerr != nil {
 				out.Errors = append(out.Errors, fmt.Sprintf("volume disk lookup failed for %s: %v", av.Name, lerr))
 				continue

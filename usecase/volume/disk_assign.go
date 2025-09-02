@@ -47,7 +47,7 @@ func (u *UseCase) DiskAssign(ctx context.Context, in *DiskAssignInput) (*DiskAss
 	if !ok {
 		return nil, fmt.Errorf("volume not defined: %s", in.VolumeName)
 	}
-	if err := u.VolumePort.VolumeDiskAssign(ctx, cluster, app, in.VolumeName, in.DiskName); err != nil {
+	if err := u.VolumePort.DiskAssign(ctx, cluster, app, in.VolumeName, in.DiskName); err != nil {
 		return nil, err
 	}
 	return &DiskAssignOutput{}, nil

@@ -49,7 +49,7 @@ func (u *UseCase) SnapshotRestore(ctx context.Context, in *SnapshotRestoreInput)
 	if !ok {
 		return nil, fmt.Errorf("volume not defined: %s", in.VolumeName)
 	}
-	disk, err := u.VolumePort.VolumeSnapshotRestore(ctx, cluster, app, in.VolumeName, in.SnapshotName)
+	disk, err := u.VolumePort.SnapshotRestore(ctx, cluster, app, in.VolumeName, in.SnapshotName)
 	if err != nil {
 		return nil, err
 	}

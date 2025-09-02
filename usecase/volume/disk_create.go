@@ -51,7 +51,7 @@ func (u *UseCase) DiskCreate(ctx context.Context, in *DiskCreateInput) (*DiskCre
 	if !exists {
 		return nil, fmt.Errorf("volume not defined: %s", in.VolumeName)
 	}
-	disk, err := u.VolumePort.VolumeDiskCreate(ctx, cluster, app, in.VolumeName)
+	disk, err := u.VolumePort.DiskCreate(ctx, cluster, app, in.VolumeName)
 	if err != nil {
 		return nil, err
 	}

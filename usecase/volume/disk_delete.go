@@ -47,7 +47,7 @@ func (u *UseCase) DiskDelete(ctx context.Context, in *DiskDeleteInput) (*DiskDel
 	if !ok {
 		return nil, fmt.Errorf("volume not defined: %s", in.VolumeName)
 	}
-	if err := u.VolumePort.VolumeDiskDelete(ctx, cluster, app, in.VolumeName, in.DiskName); err != nil {
+	if err := u.VolumePort.DiskDelete(ctx, cluster, app, in.VolumeName, in.DiskName); err != nil {
 		return nil, err
 	}
 	return &DiskDeleteOutput{}, nil

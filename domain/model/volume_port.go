@@ -58,14 +58,14 @@ func WithVolumeSnapshotRestoreForce() VolumeSnapshotRestoreOption {
 
 // VolumePort abstracts volume disk and snapshot operations provided by drivers.
 type VolumePort interface {
-	VolumeDiskList(ctx context.Context, cluster *Cluster, app *App, volName string, opts ...VolumeDiskListOption) ([]*VolumeDisk, error)
-	VolumeDiskCreate(ctx context.Context, cluster *Cluster, app *App, volName string, opts ...VolumeDiskCreateOption) (*VolumeDisk, error)
-	VolumeDiskDelete(ctx context.Context, cluster *Cluster, app *App, volName string, diskName string, opts ...VolumeDiskDeleteOption) error
-	VolumeDiskAssign(ctx context.Context, cluster *Cluster, app *App, volName string, diskName string, opts ...VolumeDiskAssignOption) error
-	VolumeSnapshotList(ctx context.Context, cluster *Cluster, app *App, volName string, opts ...VolumeSnapshotListOption) ([]*VolumeSnapshot, error)
-	VolumeSnapshotCreate(ctx context.Context, cluster *Cluster, app *App, volName string, diskName string, opts ...VolumeSnapshotCreateOption) (*VolumeSnapshot, error)
-	VolumeSnapshotDelete(ctx context.Context, cluster *Cluster, app *App, volName string, snapName string, opts ...VolumeSnapshotDeleteOption) error
-	VolumeSnapshotRestore(ctx context.Context, cluster *Cluster, app *App, volName string, snapName string, opts ...VolumeSnapshotRestoreOption) (*VolumeDisk, error)
+	DiskList(ctx context.Context, cluster *Cluster, app *App, volName string, opts ...VolumeDiskListOption) ([]*VolumeDisk, error)
+	DiskCreate(ctx context.Context, cluster *Cluster, app *App, volName string, opts ...VolumeDiskCreateOption) (*VolumeDisk, error)
+	DiskDelete(ctx context.Context, cluster *Cluster, app *App, volName string, diskName string, opts ...VolumeDiskDeleteOption) error
+	DiskAssign(ctx context.Context, cluster *Cluster, app *App, volName string, diskName string, opts ...VolumeDiskAssignOption) error
+	SnapshotList(ctx context.Context, cluster *Cluster, app *App, volName string, opts ...VolumeSnapshotListOption) ([]*VolumeSnapshot, error)
+	SnapshotCreate(ctx context.Context, cluster *Cluster, app *App, volName string, diskName string, opts ...VolumeSnapshotCreateOption) (*VolumeSnapshot, error)
+	SnapshotDelete(ctx context.Context, cluster *Cluster, app *App, volName string, snapName string, opts ...VolumeSnapshotDeleteOption) error
+	SnapshotRestore(ctx context.Context, cluster *Cluster, app *App, volName string, snapName string, opts ...VolumeSnapshotRestoreOption) (*VolumeDisk, error)
 }
 
 // VolumeDisk represents a specific disk of a logical volume.
