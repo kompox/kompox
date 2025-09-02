@@ -54,26 +54,33 @@ type Converter struct {
 	IngressCustom  *netv1.Ingress
 
 	// Bound storage state
-	VolumeBindings []ConverterVolumeBinding // input bindings (app.Volumes order), updated with chosen resource names
-	PVObjects      []runtime.Object         // generated PVs
-	PVCObjects     []runtime.Object         // generated PVCs
+	VolumeBindings []*ConverterVolumeBinding // input bindings (app.Volumes order), updated in-place with chosen resource names
+	PVObjects      []runtime.Object          // generated PVs
+	PVCObjects     []runtime.Object          // generated PVCs
 
 	// Non-fatal notes during planning
 	warnings []string
 }
 
-// ConverterVolumeBinding is an input item to BindVolumes. The slice must follow app.volumes order.
+// ConverterVolumeBinding represents a static binding for one logical volume.
+//
+// Usage contract:
+//   - With BindVolumes: provide a slice whose length and order match App.Volumes.
+//     Name may be empty and will be inferred from App.Volumes[i].Name.
+//   - With BuildVolumeObjects: provide any subset in any order; Name must be set.
 type ConverterVolumeBinding struct {
-	// Logical volume name (must match app.Volumes[i].Name). Optional if caller aligns by order only.
+	// Logical volume name defined in App.Volumes.
 	Name string
-	// Physical volume handle (provider-specific resource id for static PV). Required.
-	Handle string
-	// Size in bytes to request/capacity for PV/PVC. If zero, uses app.Volumes[i].Size.
-	Size int64
-	// Provider-specific volume class parameters.
-	VolumeClass model.VolumeClass
-	// ResourceName is the Kubernetes resource name for PV and PVC. If empty, BindVolumes generates a stable default.
+	// Kubernetes resource name for both PV and PVC. When empty, a stable name
+	// is generated from hashes and the provider-specific handle.
 	ResourceName string
+	// Resolved physical disk information for static provisioning.
+	// VolumeDisk.Handle must be a non-empty provider-specific identifier (CSI volumeHandle).
+	// VolumeDisk.Size is optional; when zero, the App volume size is used.
+	VolumeDisk *model.VolumeDisk
+	// VolumeClass controls CSI driver, StorageClass, access modes, volume mode, and attributes.
+	// The caller provides this explicitly to keep Converter free of provider lookups.
+	VolumeClass *model.VolumeClass
 }
 
 // NewConverter creates a converter bound to domain objects and precomputes
@@ -409,40 +416,86 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 //   - vols: array of ConverterVolumeBinding in the same order as app.Volumes.
 //
 // Output: claim names by logical volume and generated PV/PVC objects.
-func (c *Converter) BindVolumes(ctx context.Context, vols []ConverterVolumeBinding) error {
+func (c *Converter) BindVolumes(ctx context.Context, vols []*ConverterVolumeBinding) error {
 	if c.Project == nil || c.NSName == "" {
 		return fmt.Errorf("convert must be called before binding")
+	}
+	if len(vols) != len(c.App.Volumes) {
+		return fmt.Errorf("vols length %d does not match app volumes %d", len(vols), len(c.App.Volumes))
+	}
+	// Align order and infer names when empty, in-place on provided slice
+	for i, av := range c.App.Volumes {
+		vb := vols[i]
+		if vb == nil {
+			return fmt.Errorf("binding at index %d is nil; expected volume %s", i, av.Name)
+		}
+		if strings.TrimSpace(vb.Name) == "" {
+			vb.Name = av.Name
+		} else if vb.Name != av.Name {
+			return fmt.Errorf("binding at index %d is for volume %s; expected %s", i, vb.Name, av.Name)
+		}
+	}
+
+	pvObjs, pvcObjs, err := c.BuildVolumeObjects(ctx, vols)
+	if err != nil {
+		return err
+	}
+	// Set as-is per contract (the slice elements are already updated in-place)
+	c.VolumeBindings = vols
+	c.PVObjects = pvObjs
+	c.PVCObjects = pvcObjs
+	return nil
+}
+
+// BuildVolumeObjects builds PV/PVC objects for the provided bindings without mutating Converter state.
+// The input can be any subset and in any order. The provided bindings are updated in-place with ResourceName populated.
+func (c *Converter) BuildVolumeObjects(ctx context.Context, vols []*ConverterVolumeBinding) ([]runtime.Object, []runtime.Object, error) {
+	if c.Project == nil || c.NSName == "" {
+		return nil, nil, fmt.Errorf("convert must be called before building volume objects")
 	}
 
 	var pvObjs []runtime.Object
 	var pvcObjs []runtime.Object
 
-	if len(vols) != len(c.App.Volumes) {
-		return fmt.Errorf("vols length %d does not match app volumes %d", len(vols), len(c.App.Volumes))
+	// Index app volume definitions for validation and default sizes.
+	volDefs := map[string]model.AppVolume{}
+	for _, v := range c.App.Volumes {
+		volDefs[v.Name] = v
 	}
 
-	// Precompute hashes for consistent resource naming
 	hashes := naming.NewHashes(c.Svc.Name, c.Prv.Name, c.Cls.Name, c.App.Name)
-	for i, av := range c.App.Volumes {
-		vb := vols[i]
-		volHandle := strings.TrimSpace(vb.Handle)
-		if volHandle == "" {
-			return fmt.Errorf("volume %s has no handle in binding input", av.Name)
+
+	for i, in := range vols {
+		if in == nil {
+			return nil, nil, fmt.Errorf("nil binding at index %d", i)
 		}
-		sizeBytes := vb.Size
+		av, ok := volDefs[in.Name]
+		if !ok {
+			return nil, nil, fmt.Errorf("volume %s is not defined in app", in.Name)
+		}
+
+		if in.VolumeDisk == nil {
+			return nil, nil, fmt.Errorf("volume %s has no disk in binding input", av.Name)
+		}
+		handle := strings.TrimSpace(in.VolumeDisk.Handle)
+		if handle == "" {
+			return nil, nil, fmt.Errorf("volume %s has no handle in binding input", av.Name)
+		}
+		sizeBytes := in.VolumeDisk.Size
 		if sizeBytes <= 0 {
 			sizeBytes = av.Size
 		}
-		resourceName := strings.TrimSpace(vb.ResourceName)
+		resourceName := strings.TrimSpace(in.ResourceName)
 		if resourceName == "" {
-			resourceName = hashes.VolumeResourceName(av.Name, volHandle)
+			resourceName = hashes.VolumeResourceName(av.Name, handle)
 		}
 		sizeQty := bytesToQuantity(sizeBytes)
 
-		// Use provided VolumeClass only.
-		vc := vb.VolumeClass
-
-		// AccessModes mapping with defaults
+		if in.VolumeClass == nil {
+			return nil, nil, fmt.Errorf("no VolumeClass for volume %s", av.Name)
+		}
+		vc := in.VolumeClass
+		// AccessModes with defaults.
 		accessModes := []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
 		if len(vc.AccessModes) > 0 {
 			var am []corev1.PersistentVolumeAccessMode
@@ -454,6 +507,8 @@ func (c *Converter) BindVolumes(ctx context.Context, vols []ConverterVolumeBindi
 					am = append(am, corev1.ReadOnlyMany)
 				case "ReadWriteMany":
 					am = append(am, corev1.ReadWriteMany)
+				case "ReadWriteOncePod":
+					am = append(am, corev1.ReadWriteOncePod)
 				}
 			}
 			if len(am) > 0 {
@@ -468,11 +523,12 @@ func (c *Converter) BindVolumes(ctx context.Context, vols []ConverterVolumeBindi
 		if vc.VolumeMode == "Block" {
 			volMode = corev1.PersistentVolumeBlock
 		}
-		csiDriver := vc.CSIDriver
+		csiDriver := strings.TrimSpace(vc.CSIDriver)
 		if csiDriver == "" {
-			return fmt.Errorf("no CSIDriver for volume %s", av.Name)
+			return nil, nil, fmt.Errorf("no CSIDriver for volume %s", av.Name)
 		}
-		// Collect CSI attributes (fsType fallback to ext4)
+
+		// CSI attributes (fsType fallback to ext4).
 		attrs := map[string]string{}
 		for k, v := range vc.Attributes {
 			if v != "" {
@@ -491,12 +547,24 @@ func (c *Converter) BindVolumes(ctx context.Context, vols []ConverterVolumeBindi
 			PersistentVolumeReclaimPolicy: reclaim,
 			Capacity:                      corev1.ResourceList{corev1.ResourceStorage: sizeQty},
 			VolumeMode:                    ptr.To(volMode),
-			PersistentVolumeSource:        corev1.PersistentVolumeSource{CSI: &corev1.CSIPersistentVolumeSource{Driver: csiDriver, VolumeHandle: volHandle, VolumeAttributes: attrs}},
+			PersistentVolumeSource: corev1.PersistentVolumeSource{
+				CSI: &corev1.CSIPersistentVolumeSource{
+					Driver:           csiDriver,
+					VolumeHandle:     handle,
+					VolumeAttributes: attrs,
+				},
+			},
 		}
 		if vc.StorageClassName != "" {
 			pvSpec.StorageClassName = vc.StorageClassName
 		}
-		pv := &corev1.PersistentVolume{ObjectMeta: metav1.ObjectMeta{Name: resourceName, Labels: c.CommonLabels}, Spec: pvSpec}
+		pv := &corev1.PersistentVolume{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   resourceName,
+				Labels: c.CommonLabels,
+			},
+			Spec: pvSpec,
+		}
 
 		pvcSpec := corev1.PersistentVolumeClaimSpec{
 			AccessModes: accessModes,
@@ -507,18 +575,22 @@ func (c *Converter) BindVolumes(ctx context.Context, vols []ConverterVolumeBindi
 		if vc.StorageClassName != "" {
 			pvcSpec.StorageClassName = ptr.To(vc.StorageClassName)
 		}
-		pvc := &corev1.PersistentVolumeClaim{ObjectMeta: metav1.ObjectMeta{Name: resourceName, Namespace: c.NSName, Labels: c.CommonLabels}, Spec: pvcSpec}
+		pvc := &corev1.PersistentVolumeClaim{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      resourceName,
+				Namespace: c.NSName,
+				Labels:    c.CommonLabels,
+			},
+			Spec: pvcSpec,
+		}
 
 		pvObjs = append(pvObjs, pv)
 		pvcObjs = append(pvcObjs, pvc)
-		// persist chosen resource name back to bindings
-		vols[i].ResourceName = resourceName
+		// Update input binding in-place
+		in.ResourceName = resourceName
 	}
 
-	c.VolumeBindings = vols
-	c.PVObjects = pvObjs
-	c.PVCObjects = pvcObjs
-	return nil
+	return pvObjs, pvcObjs, nil
 }
 
 // Build composes the final list of Kubernetes objects using this plan and a given VolumeBinding.
@@ -533,6 +605,9 @@ func (c *Converter) Build() ([]runtime.Object, []string, error) {
 	// Pod volumes using binding claim names
 	var podVolumes []corev1.Volume
 	for i, av := range c.App.Volumes {
+		if c.VolumeBindings[i] == nil {
+			return nil, nil, fmt.Errorf("no binding at index %d for volume %s", i, av.Name)
+		}
 		claimName := strings.TrimSpace(c.VolumeBindings[i].ResourceName)
 		if claimName == "" {
 			return nil, nil, fmt.Errorf("no claim name bound for volume %s", av.Name)

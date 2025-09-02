@@ -330,18 +330,20 @@ services:
 
 	tests := []struct {
 		name        string
-		bindings    []ConverterVolumeBinding
+		bindings    []*ConverterVolumeBinding
 		wantErr     string
 		wantPVCount int
 	}{
 		{
 			name: "successful_binding",
-			bindings: []ConverterVolumeBinding{
+			bindings: []*ConverterVolumeBinding{
 				{
-					Name:   "data",
-					Handle: "test-handle-data",
-					Size:   1024,
-					VolumeClass: model.VolumeClass{
+					Name: "data",
+					VolumeDisk: &model.VolumeDisk{
+						Handle: "test-handle-data",
+						Size:   1024,
+					},
+					VolumeClass: &model.VolumeClass{
 						CSIDriver:        "test.csi.driver",
 						StorageClassName: "test-storage",
 						AccessModes:      []string{"ReadWriteOnce"},
@@ -351,10 +353,12 @@ services:
 					},
 				},
 				{
-					Name:   "cache",
-					Handle: "test-handle-cache",
-					Size:   512,
-					VolumeClass: model.VolumeClass{
+					Name: "cache",
+					VolumeDisk: &model.VolumeDisk{
+						Handle: "test-handle-cache",
+						Size:   512,
+					},
+					VolumeClass: &model.VolumeClass{
 						CSIDriver:        "test.csi.driver",
 						StorageClassName: "test-storage",
 						AccessModes:      []string{"ReadWriteOnce"},
@@ -368,30 +372,30 @@ services:
 		},
 		{
 			name: "wrong_binding_count",
-			bindings: []ConverterVolumeBinding{
-				{Name: "data", Handle: "test-handle-data"},
+			bindings: []*ConverterVolumeBinding{
+				{Name: "data", VolumeDisk: &model.VolumeDisk{Handle: "test-handle-data"}},
 			},
 			wantErr: "vols length 1 does not match app volumes 2",
 		},
 		{
 			name: "empty_handle_error",
-			bindings: []ConverterVolumeBinding{
-				{Name: "data", Handle: ""},
-				{Name: "cache", Handle: "test-handle-cache"},
+			bindings: []*ConverterVolumeBinding{
+				{Name: "data", VolumeDisk: &model.VolumeDisk{Handle: ""}},
+				{Name: "cache", VolumeDisk: &model.VolumeDisk{Handle: "test-handle-cache"}},
 			},
 			wantErr: "volume data has no handle in binding input",
 		},
 		{
 			name: "no_csi_driver_error",
-			bindings: []ConverterVolumeBinding{
+			bindings: []*ConverterVolumeBinding{
 				{
 					Name:        "data",
-					Handle:      "test-handle-data",
-					VolumeClass: model.VolumeClass{}, // missing CSIDriver
+					VolumeDisk:  &model.VolumeDisk{Handle: "test-handle-data"},
+					VolumeClass: nil, // missing CSIDriver via nil VolumeClass
 				},
-				{Name: "cache", Handle: "test-handle-cache"},
+				{Name: "cache", VolumeDisk: &model.VolumeDisk{Handle: "test-handle-cache"}},
 			},
-			wantErr: "no CSIDriver for volume data",
+			wantErr: "no VolumeClass for volume data",
 		},
 	}
 
@@ -478,11 +482,11 @@ services:
 	}
 
 	// Bind volumes phase
-	bindings := []ConverterVolumeBinding{
+	bindings := []*ConverterVolumeBinding{
 		{
-			Name:   "data",
-			Handle: "test-handle-data",
-			VolumeClass: model.VolumeClass{
+			Name:       "data",
+			VolumeDisk: &model.VolumeDisk{Handle: "test-handle-data"},
+			VolumeClass: &model.VolumeClass{
 				CSIDriver:        "test.csi.driver",
 				StorageClassName: "test-storage",
 				AccessModes:      []string{"ReadWriteOnce"},
@@ -695,11 +699,11 @@ services:
 	t.Logf("Convert warnings: %v", warnings)
 
 	// Step 3: Bind volumes
-	bindings := []ConverterVolumeBinding{
+	bindings := []*ConverterVolumeBinding{
 		{
-			Name:   "default",
-			Handle: "azure-disk-handle-default",
-			VolumeClass: model.VolumeClass{
+			Name:       "default",
+			VolumeDisk: &model.VolumeDisk{Handle: "azure-disk-handle-default"},
+			VolumeClass: &model.VolumeClass{
 				CSIDriver:        "disk.csi.azure.com",
 				StorageClassName: "managed-csi",
 				AccessModes:      []string{"ReadWriteOnce"},
@@ -709,9 +713,9 @@ services:
 			},
 		},
 		{
-			Name:   "logs",
-			Handle: "azure-disk-handle-logs",
-			VolumeClass: model.VolumeClass{
+			Name:       "logs",
+			VolumeDisk: &model.VolumeDisk{Handle: "azure-disk-handle-logs"},
+			VolumeClass: &model.VolumeClass{
 				CSIDriver:        "disk.csi.azure.com",
 				StorageClassName: "managed-csi",
 				AccessModes:      []string{"ReadWriteOnce"},

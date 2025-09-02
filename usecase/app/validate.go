@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	providerdrv "github.com/kompox/kompox/adapters/drivers/provider"
 	"github.com/kompox/kompox/adapters/kube"
@@ -95,10 +96,9 @@ func (u *UseCase) Validate(ctx context.Context, in *ValidateInput) (*ValidateOut
 		}
 	}
 	// Build volume bindings first and collect fatal errors.
-	binds := make([]kube.ConverterVolumeBinding, 0, len(app.Volumes))
+	binds := make([]*kube.ConverterVolumeBinding, 0, len(app.Volumes))
 	for _, av := range app.Volumes {
-		var handle string
-		var vsize int64
+		var chosenDisk *model.VolumeDisk
 		if u.VolumePort != nil {
 			disks, lerr := u.VolumePort.DiskList(ctx, cls, app, av.Name)
 			if lerr != nil {
@@ -115,18 +115,10 @@ func (u *UseCase) Validate(ctx context.Context, in *ValidateInput) (*ValidateOut
 				out.Errors = append(out.Errors, fmt.Sprintf("volume assignment invalid for %s (count=%d)", av.Name, len(assigned)))
 				continue
 			}
-			chosen := assigned[0]
-			handle = chosen.Handle
-			vsize = chosen.Size
+			chosenDisk = assigned[0]
 		}
-		if vsize <= 0 && av.Size > 0 {
-			vsize = av.Size
-		}
-		if vsize <= 0 {
-			vsize = 32 * (1 << 30)
-		}
-		if handle == "" {
-			out.Errors = append(out.Errors, fmt.Sprintf("no handle for volume %s", av.Name))
+		if chosenDisk == nil || strings.TrimSpace(chosenDisk.Handle) == "" {
+			out.Errors = append(out.Errors, fmt.Sprintf("no assigned disk handle for volume %s", av.Name))
 			continue
 		}
 		// Resolve provider-specific volume class (non-fatal on failure)
@@ -140,11 +132,10 @@ func (u *UseCase) Validate(ctx context.Context, in *ValidateInput) (*ValidateOut
 		} else {
 			out.Warnings = append(out.Warnings, "compose conversion failed: provider driver unavailable for volume class resolution")
 		}
-		binds = append(binds, kube.ConverterVolumeBinding{
+		binds = append(binds, &kube.ConverterVolumeBinding{
 			Name:        av.Name,
-			Handle:      handle,
-			Size:        vsize,
-			VolumeClass: vc,
+			VolumeDisk:  chosenDisk,
+			VolumeClass: &vc,
 		})
 	}
 
