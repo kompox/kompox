@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/kompox/kompox/adapters/store/inmem"
 	"github.com/kompox/kompox/adapters/store/rdb"
 	"github.com/kompox/kompox/config/kompoxopscfg"
@@ -15,7 +14,9 @@ import (
 	"github.com/kompox/kompox/usecase/cluster"
 	"github.com/kompox/kompox/usecase/provider"
 	"github.com/kompox/kompox/usecase/service"
+	tooluc "github.com/kompox/kompox/usecase/tool"
 	"github.com/kompox/kompox/usecase/volume"
+	"github.com/spf13/cobra"
 )
 
 // configRoot holds the loaded configuration.
@@ -94,10 +95,10 @@ func buildAppRepos(cmd *cobra.Command) (*app.Repos, error) {
 		return nil, err
 	}
 	return &app.Repos{
-		App:      repos.App,
 		Service:  repos.Service,
 		Provider: repos.Provider,
 		Cluster:  repos.Cluster,
+		App:      repos.App,
 	}, nil
 }
 
@@ -109,8 +110,8 @@ func buildClusterRepos(cmd *cobra.Command) (*cluster.Repos, error) {
 	}
 	return &cluster.Repos{
 		Service:  repos.Service,
-		Cluster:  repos.Cluster,
 		Provider: repos.Provider,
+		Cluster:  repos.Cluster,
 	}, nil
 }
 
@@ -142,5 +143,24 @@ func buildVolumeRepos(cmd *cobra.Command) (*volume.Repos, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &volume.Repos{Service: repos.Service, Provider: repos.Provider, Cluster: repos.Cluster, App: repos.App}, nil
+	return &volume.Repos{
+		Service:  repos.Service,
+		Provider: repos.Provider,
+		Cluster:  repos.Cluster,
+		App:      repos.App,
+	}, nil
+}
+
+// buildToolRepos creates repositories needed for tool (maintenance runner) use cases.
+func buildToolRepos(cmd *cobra.Command) (*tooluc.Repos, error) {
+	repos, err := buildRepos(cmd)
+	if err != nil {
+		return nil, err
+	}
+	return &tooluc.Repos{
+		Service:  repos.Service,
+		Provider: repos.Provider,
+		Cluster:  repos.Cluster,
+		App:      repos.App,
+	}, nil
 }

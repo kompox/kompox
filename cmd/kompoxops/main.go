@@ -7,10 +7,10 @@ import (
 
 	"log/slog"
 
-	"github.com/spf13/cobra"
 	_ "github.com/kompox/kompox/adapters/drivers/provider/aks"
 	_ "github.com/kompox/kompox/adapters/drivers/provider/k3s"
 	"github.com/kompox/kompox/internal/logging"
+	"github.com/spf13/cobra"
 )
 
 func newRootCmd() *cobra.Command {
@@ -66,6 +66,7 @@ func newRootCmd() *cobra.Command {
 	cmd.AddCommand(newCmdConfig())
 	cmd.AddCommand(newCmdCluster())
 	cmd.AddCommand(newCmdApp())
+	cmd.AddCommand(newCmdTool())
 	cmd.AddCommand(newCmdDisk())
 	cmd.AddCommand(newCmdSnapshot())
 	cmd.AddCommand(newCmdAdmin())
