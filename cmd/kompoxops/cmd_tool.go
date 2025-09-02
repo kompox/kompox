@@ -7,7 +7,8 @@ import (
 	"time"
 
 	"github.com/kompox/kompox/internal/logging"
-	tooluc "github.com/kompox/kompox/usecase/tool"
+	"github.com/kompox/kompox/internal/terminal"
+	tuc "github.com/kompox/kompox/usecase/tool"
 	"github.com/spf13/cobra"
 )
 
@@ -42,7 +43,7 @@ func getToolAppName(_ *cobra.Command, args []string) (string, error) {
 }
 
 // resolveAppIDByNameUsingToolUC lists apps via the same repositories used by toolUC to avoid ID mismatches.
-func resolveAppIDByNameUsingToolUC(ctx context.Context, toolUC *tooluc.UseCase, name string) (string, error) {
+func resolveAppIDByNameUsingToolUC(ctx context.Context, toolUC *tuc.UseCase, name string) (string, error) {
 	apps, err := toolUC.Repos.App.List(ctx)
 	if err != nil {
 		return "", err
@@ -83,7 +84,7 @@ func newCmdToolDeploy() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if _, err := toolUC.Deploy(ctx, &tooluc.DeployInput{AppID: appID, Image: image, Command: command, Args: argsFlag, Volumes: volumes}); err != nil {
+			if _, err := toolUC.Deploy(ctx, &tuc.DeployInput{AppID: appID, Image: image, Command: command, Args: argsFlag, Volumes: volumes}); err != nil {
 				return err
 			}
 			return nil
@@ -120,7 +121,7 @@ func newCmdToolDestroy() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if _, err := toolUC.Destroy(ctx, &tooluc.DestroyInput{AppID: appID}); err != nil {
+			if _, err := toolUC.Destroy(ctx, &tuc.DestroyInput{AppID: appID}); err != nil {
 				return err
 			}
 			return nil
@@ -153,7 +154,7 @@ func newCmdToolStatus() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			out, err := toolUC.Status(ctx, &tooluc.StatusInput{AppID: appID})
+			out, err := toolUC.Status(ctx, &tuc.StatusInput{AppID: appID})
 			if err != nil {
 				return err
 			}
@@ -177,7 +178,7 @@ func newCmdToolExec() *cobra.Command {
 		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// localize klog suppression only for exec
-			quietKlog()
+			terminal.QuietKlog()
 			toolUC, err := buildToolUseCase(cmd)
 			if err != nil {
 				return err
@@ -201,7 +202,7 @@ func newCmdToolExec() *cobra.Command {
 				if len(args) == 0 {
 					return fmt.Errorf("command is required after --")
 				}
-				_, err = toolUC.Exec(ctx, &tooluc.ExecInput{AppID: appID, Command: args, Stdin: stdin, TTY: tty, Escape: escape})
+				_, err = toolUC.Exec(ctx, &tuc.ExecInput{AppID: appID, Command: args, Stdin: stdin, TTY: tty, Escape: escape})
 				if err != nil {
 					logger.Error(ctx, "exec failed", "error", err)
 					return err

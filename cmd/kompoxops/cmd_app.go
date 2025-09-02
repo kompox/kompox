@@ -8,11 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/kompox/kompox/adapters/kube"
 	"github.com/kompox/kompox/domain/model"
 	"github.com/kompox/kompox/internal/logging"
+	"github.com/kompox/kompox/internal/terminal"
 	"github.com/kompox/kompox/usecase/app"
+	"github.com/spf13/cobra"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
@@ -33,7 +34,7 @@ func newCmdApp() *cobra.Command {
 	}
 	// Persistent flag shared across subcommands
 	cmd.PersistentFlags().StringVarP(&flagAppName, "app-name", "A", "", "App name (default: app.name in kompoxops.yml)")
-	cmd.AddCommand(newCmdAppValidate(), newCmdAppDeploy(), newCmdAppDestroy(), newCmdAppStatus())
+	cmd.AddCommand(newCmdAppValidate(), newCmdAppDeploy(), newCmdAppDestroy(), newCmdAppStatus(), newCmdAppExec())
 	return cmd
 }
 
@@ -312,4 +313,62 @@ func newCmdAppStatus() *cobra.Command {
 			return enc.Encode(st)
 		},
 	}
+}
+
+// newCmdAppExec executes a command in a selected pod of the app namespace.
+func newCmdAppExec() *cobra.Command {
+	var stdin bool
+	var tty bool
+	var escape string
+	var container string
+	cmd := &cobra.Command{
+		Use:                "exec -- <command> [args...]",
+		Short:              "Exec into an app pod",
+		Args:               cobra.ArbitraryArgs,
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// localize klog suppression only for exec
+			terminal.QuietKlog()
+			appUC, err := buildAppUseCase(cmd)
+			if err != nil {
+				return err
+			}
+			ctx := cmd.Context()
+			appName, err := getAppName(cmd, nil)
+			if err != nil {
+				return err
+			}
+			// Resolve app by name using a short-lived context
+			var appID string
+			{
+				rctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+				defer cancel()
+				listOut, err := appUC.List(rctx, &app.ListInput{})
+				if err != nil {
+					return fmt.Errorf("failed to list apps: %w", err)
+				}
+				for _, a := range listOut.Apps {
+					if a.Name == appName {
+						appID = a.ID
+						break
+					}
+				}
+			}
+			if appID == "" {
+				return fmt.Errorf("app %s not found", appName)
+			}
+			if len(args) == 0 {
+				return fmt.Errorf("command is required after --")
+			}
+			_, err = appUC.Exec(ctx, &app.ExecInput{AppID: appID, Command: args, Stdin: stdin, TTY: tty, Escape: escape, Container: container})
+			return err
+		},
+	}
+	cmd.Flags().BoolVarP(&stdin, "stdin", "i", false, "Pass stdin to the command")
+	cmd.Flags().BoolVarP(&tty, "tty", "t", false, "Allocate a TTY")
+	cmd.Flags().StringVarP(&escape, "escape", "e", "~.", "Escape sequence to detach (e.g. '~.'); set 'none' to disable")
+	cmd.Flags().StringVarP(&container, "container", "c", "", "Container name (optional)")
+	return cmd
 }

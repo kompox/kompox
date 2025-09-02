@@ -1,4 +1,4 @@
-package tool
+package app
 
 import (
 	"context"
@@ -18,9 +18,8 @@ import (
 )
 
 // termSizeQueue implements remotecommand.TerminalSizeQueue with a channel.
-// termSizeQueue removed; using internal/termexec.SetupTTYIfRequested
 
-// ExecInput contains parameters for executing a command in the runner Pod.
+// ExecInput defines parameters to execute a command in one of app pods.
 type ExecInput struct {
 	// AppID is the target application id.
 	AppID string `json:"app_id"`
@@ -30,18 +29,25 @@ type ExecInput struct {
 	TTY bool `json:"tty"`
 	// Stdin attaches stdin.
 	Stdin bool `json:"stdin"`
+	// Container is an optional container name. If empty, the first container is used.
+	Container string `json:"container"`
 	// Escape is an optional escape sequence to detach the session without sending the sequence to the remote.
 	// Examples: "^P^Q", "~.", "^]", "none" to disable.
 	Escape string `json:"escape"`
 }
 
-// ExecOutput may return the exit code and optional message.
+// ExecOutput returns the exit code and optional message.
 type ExecOutput struct {
 	ExitCode int    `json:"exit_code"`
 	Message  string `json:"message"`
 }
 
-// Exec executes a command in the running maintenance runner Pod.
+// Exec executes a command in a running Pod of the app's namespace.
+// Selection strategy:
+//   - Determine app namespace via kube converter
+//   - List pods in the namespace, skip those labeled as tool-runner
+//   - Prefer a pod that has at least one Ready container; fallback to the first non-terminating pod
+//   - Use specified container name if provided, otherwise first container
 func (u *UseCase) Exec(ctx context.Context, in *ExecInput) (*ExecOutput, error) {
 	if in == nil || in.AppID == "" {
 		return nil, fmt.Errorf("ExecInput.AppID is required")
@@ -50,7 +56,7 @@ func (u *UseCase) Exec(ctx context.Context, in *ExecInput) (*ExecOutput, error) 
 		return nil, fmt.Errorf("ExecInput.Command is required")
 	}
 
-	// Resolve env
+	// Resolve app environment
 	appObj, err := u.Repos.App.Get(ctx, in.AppID)
 	if err != nil || appObj == nil {
 		return nil, fmt.Errorf("failed to get app %s: %w", in.AppID, err)
@@ -85,43 +91,58 @@ func (u *UseCase) Exec(ctx context.Context, in *ExecInput) (*ExecOutput, error) 
 		return nil, fmt.Errorf("failed to create kube client: %w", err)
 	}
 
+	// Compute namespace via converter
 	c := kube.NewConverter(serviceObj, providerObj, clusterObj, appObj)
 	if _, err := c.Convert(ctx); err != nil {
 		return nil, fmt.Errorf("convert failed: %w", err)
 	}
 	ns := c.NSName
 
-	// Pick a running pod
-	pods, err := kcli.Clientset.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{LabelSelector: "kompox.dev/tool-runner=true"})
-	if err != nil || len(pods.Items) == 0 {
-		return nil, fmt.Errorf("runner pod not found")
+	// Find target pod
+	podsList, err := kcli.Clientset.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{})
+	if err != nil || len(podsList.Items) == 0 {
+		return nil, fmt.Errorf("app pod not found")
 	}
-	pod := ""
-	for i := range pods.Items {
-		p := pods.Items[i]
+	podName := ""
+	// Pick a pod: prefer Ready and not tool-runner
+	for i := range podsList.Items {
+		p := podsList.Items[i]
 		if p.DeletionTimestamp != nil {
 			continue
 		}
-		// Prefer Ready pod
+		if p.Labels["kompox.dev/tool-runner"] == "true" {
+			continue
+		}
 		ready := false
 		for _, cs := range p.Status.ContainerStatuses {
-			if cs.Name == "runner" && cs.Ready {
+			if cs.Ready {
 				ready = true
 				break
 			}
 		}
-		if ready || pod == "" {
-			pod = p.Name
+		if ready || podName == "" {
+			podName = p.Name
 		}
 	}
-	if pod == "" {
-		pod = pods.Items[0].Name
+	if podName == "" {
+		// fallback to the first non-terminating non tool-runner pod
+		for i := range podsList.Items {
+			p := podsList.Items[i]
+			if p.DeletionTimestamp == nil && p.Labels["kompox.dev/tool-runner"] != "true" {
+				podName = p.Name
+				break
+			}
+		}
+	}
+	if podName == "" {
+		// fallback to the first item
+		podName = podsList.Items[0].Name
 	}
 
-	// Build request
-	req := kcli.Clientset.CoreV1().RESTClient().Post().Resource("pods").Namespace(ns).Name(pod).SubResource("exec")
+	// Build exec request
+	req := kcli.Clientset.CoreV1().RESTClient().Post().Resource("pods").Namespace(ns).Name(podName).SubResource("exec")
 	req.VersionedParams(&corev1.PodExecOptions{
-		Container: "runner",
+		Container: in.Container,
 		Command:   in.Command,
 		Stdin:     in.Stdin,
 		Stdout:    true,
@@ -133,6 +154,7 @@ func (u *UseCase) Exec(ctx context.Context, in *ExecInput) (*ExecOutput, error) 
 	if err != nil {
 		return nil, fmt.Errorf("exec create: %w", err)
 	}
+
 	// Prepare terminal mode and window resize if TTY is requested
 	restore, sizeQueue := terminal.SetupTTYIfRequested(ctx, in.TTY)
 	if restore != nil {
@@ -150,11 +172,10 @@ func (u *UseCase) Exec(ctx context.Context, in *ExecInput) (*ExecOutput, error) 
 		defer cleanup()
 	}
 
-	// Stream to stdio (could be customized by caller later)
 	var stderrW io.Writer
 	if !in.TTY {
 		stderrW = os.Stderr
-	} // when TTY=true, stderr is merged into stdout; set nil to avoid extra stream
+	}
 	if err := ex.StreamWithContext(ctx, remotecommand.StreamOptions{
 		Stdin:             stdinR,
 		Stdout:            os.Stdout,
@@ -162,7 +183,6 @@ func (u *UseCase) Exec(ctx context.Context, in *ExecInput) (*ExecOutput, error) 
 		Tty:               in.TTY,
 		TerminalSizeQueue: sizeQueue,
 	}); err != nil {
-		// If the user requested detach via escape, our ctx will be canceled.
 		if ctx.Err() == context.Canceled {
 			return &ExecOutput{ExitCode: 0, Message: "detached"}, nil
 		}
@@ -170,3 +190,5 @@ func (u *UseCase) Exec(ctx context.Context, in *ExecInput) (*ExecOutput, error) 
 	}
 	return &ExecOutput{ExitCode: 0}, nil
 }
+
+// parseEscapeSequence removed in favor of internal/termexec.ParseEscapeSequence
