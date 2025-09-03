@@ -34,7 +34,7 @@ func newCmdApp() *cobra.Command {
 	}
 	// Persistent flag shared across subcommands
 	cmd.PersistentFlags().StringVarP(&flagAppName, "app-name", "A", "", "App name (default: app.name in kompoxops.yml)")
-	cmd.AddCommand(newCmdAppValidate(), newCmdAppDeploy(), newCmdAppDestroy(), newCmdAppStatus(), newCmdAppExec())
+	cmd.AddCommand(newCmdAppValidate(), newCmdAppDeploy(), newCmdAppDestroy(), newCmdAppStatus(), newCmdAppExec(), newCmdAppLogs())
 	return cmd
 }
 
@@ -369,6 +369,75 @@ func newCmdAppExec() *cobra.Command {
 	cmd.Flags().BoolVarP(&stdin, "stdin", "i", false, "Pass stdin to the command")
 	cmd.Flags().BoolVarP(&tty, "tty", "t", false, "Allocate a TTY")
 	cmd.Flags().StringVarP(&escape, "escape", "e", "~.", "Escape sequence to detach (e.g. '~.'); set 'none' to disable")
+	cmd.Flags().StringVarP(&container, "container", "c", "", "Container name (optional)")
+	return cmd
+}
+
+// newCmdAppLogs streams or prints logs from one pod of the app namespace.
+// Selection strategy matches exec: prefer a Ready non tool-runner pod.
+func newCmdAppLogs() *cobra.Command {
+	var follow bool
+	var tail int64
+	var container string
+	cmd := &cobra.Command{
+		Use:                "logs",
+		Short:              "Show logs from an app pod",
+		Args:               cobra.NoArgs,
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			terminal.QuietKlog()
+			appUC, err := buildAppUseCase(cmd)
+			if err != nil {
+				return err
+			}
+			appName, err := getAppName(cmd, nil)
+			if err != nil {
+				return err
+			}
+			// Resolve app ID
+			var appID string
+			{
+				rctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
+				defer cancel()
+				listOut, err := appUC.List(rctx, &app.ListInput{})
+				if err != nil {
+					return fmt.Errorf("failed to list apps: %w", err)
+				}
+				for _, a := range listOut.Apps {
+					if a.Name == appName {
+						appID = a.ID
+						break
+					}
+				}
+			}
+			if appID == "" {
+				return fmt.Errorf("app %s not found", appName)
+			}
+			in := &app.LogsInput{AppID: appID, Container: container, Follow: follow}
+			if tail > 0 {
+				in.TailLines = &tail
+			}
+			// Do not impose a timeout when following
+			ctx := cmd.Context()
+			if !follow {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithTimeout(ctx, 2*time.Minute)
+				defer cancel()
+			}
+			_, err = appUC.Logs(ctx, in)
+			if err != nil {
+				// treat context cancellation while following as normal termination
+				if follow && ctx.Err() == context.Canceled {
+					return nil
+				}
+			}
+			return err
+		},
+	}
+	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "Stream logs (follow)")
+	cmd.Flags().Int64Var(&tail, "tail", 200, "Number of lines from the end of the logs to show (0 to show all)")
 	cmd.Flags().StringVarP(&container, "container", "c", "", "Container name (optional)")
 	return cmd
 }

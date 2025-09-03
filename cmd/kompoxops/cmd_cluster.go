@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/spf13/cobra"
 	providerdrv "github.com/kompox/kompox/adapters/drivers/provider"
 	"github.com/kompox/kompox/domain/model"
 	"github.com/kompox/kompox/internal/logging"
 	uc "github.com/kompox/kompox/usecase/cluster"
+	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	yaml "sigs.k8s.io/yaml"
@@ -41,7 +41,73 @@ func newCmdCluster() *cobra.Command {
 		newCmdClusterUninstall(),
 		newCmdClusterStatus(),
 		newCmdClusterKubeconfig(),
+		newCmdClusterLogs(),
 	)
+	return cmd
+}
+
+// newCmdClusterLogs streams or prints logs from a traefik ingress pod in the cluster.
+func newCmdClusterLogs() *cobra.Command {
+	var follow bool
+	var tail int64
+	var container string
+	cmd := &cobra.Command{
+		Use:                "logs",
+		Short:              "Show logs from a traefik ingress pod",
+		Args:               cobra.NoArgs,
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clusterUC, err := buildClusterUseCase(cmd)
+			if err != nil {
+				return err
+			}
+			clusterName, err := getClusterName(cmd, nil)
+			if err != nil {
+				return err
+			}
+			// Find cluster by name
+			var clusterID string
+			{
+				rctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
+				defer cancel()
+				listOut, err := clusterUC.List(rctx, &uc.ListInput{})
+				if err != nil {
+					return fmt.Errorf("failed to list clusters: %w", err)
+				}
+				for _, c := range listOut.Clusters {
+					if c.Name == clusterName {
+						clusterID = c.ID
+						break
+					}
+				}
+			}
+			if clusterID == "" {
+				return fmt.Errorf("cluster %s not found", clusterName)
+			}
+			in := &uc.LogsInput{ClusterID: clusterID, Container: container, Follow: follow}
+			if tail > 0 {
+				in.TailLines = &tail
+			}
+			ctx := cmd.Context()
+			if !follow {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithTimeout(ctx, 2*time.Minute)
+				defer cancel()
+			}
+			_, err = clusterUC.Logs(ctx, in)
+			if err != nil {
+				if follow && ctx.Err() == context.Canceled {
+					return nil
+				}
+			}
+			return err
+		},
+	}
+	cmd.Flags().BoolVarP(&follow, "follow", "f", false, "Stream logs (follow)")
+	cmd.Flags().Int64Var(&tail, "tail", 200, "Number of lines from the end of the logs to show (0 to show all)")
+	cmd.Flags().StringVarP(&container, "container", "c", "", "Container name (optional)")
 	return cmd
 }
 
