@@ -1,4 +1,4 @@
-.PHONY: build test cmd bicep
+.PHONY: build test cmd bicep docker
 
 # Run full tests
 test:
@@ -26,3 +26,6 @@ diff-staged-changes:
 # You need it when you make changes in infra/aks
 bicep:
 	az bicep build -f infra/aks/infra/main.bicep --outdir adapters/drivers/provider/aks
+
+docker:
+	docker build -t kompoxops .
