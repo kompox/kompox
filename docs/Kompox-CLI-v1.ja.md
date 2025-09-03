@@ -22,6 +22,7 @@ kompoxops cluster           クラスタ操作
 kompoxops app               アプリ操作
 kompoxops disk              ディスク操作
 kompoxops snapshot          スナップショット操作
+kompoxops tool             メンテナンス用ランナー操作（アプリNS内）
 kompoxops admin             管理ツール
 ```
 
@@ -227,6 +228,7 @@ kompoxops app validate --app-name <appName>
 kompoxops app deploy   --app-name <appName>
 kompoxops app destroy  --app-name <appName>
 kompoxops app status   --app-name <appName>
+kompoxops app exec     --app-name <appName> -- <command> [args...]
 ```
 
 共通オプション
@@ -284,6 +286,41 @@ Compose の検証と K8s マニフェスト生成を行います。`--out-compos
 備考
 - `namespace` はアプリの実リソースが存在する Kubernetes Namespace を示します。
 - `ingress_hosts` には `app.ingress.rules.hosts` で指定したカスタムドメインに加え、`cluster.ingress.domain` が設定されている場合は `<appName>-<idHASH>-<port>.<domain>` の自動生成ドメインが含まれます。
+
+#### kompoxops app exec
+
+アプリの Namespace 内で稼働中の Pod に対してコマンドを実行します。対話モードにも対応します。
+
+使用法:
+
+```
+kompoxops app exec -A <appName> [-i] [-t] [-e ESC] [-c CONTAINER] -- <command> [args...]
+```
+
+オプション:
+
+- `-i, --stdin` 標準入力を接続
+- `-t, --tty` TTY を割り当て（bash 等の対話時に推奨）
+- `-e, --escape` デタッチ用エスケープシーケンス（既定: `~.`、`none` で無効化）
+- `-c, --container` 実行対象のコンテナ名（未指定時は最初のコンテナ）
+
+挙動:
+
+- 対象 Pod の選択はアプリの Namespace 内で実施します。
+- `kompox.dev/tool-runner=true` が付与されたメンテナンス用ランナー Pod は除外します。
+- 少なくとも 1 つの Ready コンテナを持つ Pod を優先し、無ければ非終了中の Pod を選択します。
+- `--tty` 指定時は stderr は stdout にマージされます（TTY の仕様）。
+- `--escape` で指定したシーケンスを送るとセッションを切断して終了できます（例: `~.`）。
+
+例:
+
+```
+# デプロイ中のアプリ Pod でシェルを開く（対話）
+kompoxops app exec -A app1 -it -- bash
+
+# コンテナ名を指定してログを確認
+kompoxops app exec -A app1 -t -c app -- sh -c 'tail -n 100 /var/log/app.log'
+```
 
 ### kompoxops disk
 
@@ -398,6 +435,104 @@ kompoxops snapshot delete -A app1 -V db -S 01J8WXYZABCDEF1234567890JK
 指定スナップショットから新しいボリュームインスタンスを作成します（復元ディスクは Assigned=false）。
 
 ### kompoxops admin
+
+### kompoxops tool
+
+アプリの Namespace に「メンテナンス用ランナー」(Deployment/Pod) をデプロイ・操作します。PV/PVC をアプリ定義のボリュームにバインドしてマウントでき、バックアップやメンテ作業、対話的なシェル実行に利用します。
+
+```
+kompoxops tool deploy   --app-name <appName> [--image IMG] [-V vol:disk:/path]... [-c CMD]... [-a ARG]...
+kompoxops tool destroy  --app-name <appName>
+kompoxops tool status   --app-name <appName>
+kompoxops tool exec     --app-name <appName> -- <command> [args...]
+```
+
+共通オプション
+
+- `--app-name | -A` 対象アプリ名 (デフォルト: `kompoxops.yml` の `app.name`)
+
+注意
+
+- ランナーはアプリの Namespace に `kompox.dev/tool-runner=true` ラベル付きでデプロイされます。名前は固定で `tool-runner` です。
+- PV/PVC は必要に応じて生成されますが、`destroy` は Deployment/Pod のみ削除します（PV/PVC は保持）。
+
+#### kompoxops tool deploy
+
+メンテナンス用ランナーをデプロイします（冪等）。アプリ定義のボリュームと既存ディスクを指定してマウントできます。
+
+主なオプション:
+
+- `--image IMG` ランナーのコンテナイメージ（既定: `busybox`）
+- `-V, --volume volName:diskName:/mount/path` マウント指定を繰り返し指定可能
+  - `volName` は `app.volumes` のボリューム名
+  - `diskName` はそのボリューム配下の既存ディスク名（例: `kompoxops disk list` で確認）
+  - `/mount/path` はコンテナ内の絶対パス
+- `-c, --command TOKEN` エントリポイント（複数指定でトークン分割、image の ENTRYPOINT を上書き）
+- `-a, --args TOKEN` 引数（複数指定でトークン分割、image の CMD を上書き）
+
+コマンド/引数の既定動作:
+
+- `--command` も `--args` も未指定: `sh -c` として `sleep infinity` を実行し待機
+- `--args` のみ指定: `sh -c` をエントリポイントにし、与えた引数をそのままシェルに渡す
+- `--command` のみ指定: 与えたエントリポイントのみを使用（引数なし）
+
+例:
+
+```
+# ボリューム db のディスク vol-202401 を /var/lib/postgresql にマウントし、シェルで待機
+kompoxops tool deploy -A app1 -V db:vol-202401:/var/lib/postgresql --image debian:stable
+
+# 1回のジョブ的にコマンドを流して終了（args のみ指定）
+kompoxops tool deploy -A app1 -V default:vol-01ABCD:/data -a "tar czf /data.bak.tgz /data"
+```
+
+#### kompoxops tool destroy
+
+ランナーの Deployment/Pod を削除します（冪等）。PV/PVC は保持されます。
+
+#### kompoxops tool status
+
+ランナーの状態を JSON で表示します。`ready`、`namespace`、`name`、`node_name`、`image`、`command`、`args` を返します。
+
+出力例
+
+```json
+{
+  "ready": true,
+  "namespace": "kompox-app1-01HXYZ...",
+  "name": "tool-runner",
+  "node_name": "aks-nodepool1-12345678-vmss000001",
+  "image": "debian:stable",
+  "command": ["sh", "-c"],
+  "args": ["sleep infinity"]
+}
+```
+
+#### kompoxops tool exec
+
+稼働中のランナーポッド内でコマンドを実行します。対話モードにも対応します。
+
+使用法:
+
+```
+kompoxops tool exec -A <appName> [-i] [-t] [-e ESC] -- <command> [args...]
+```
+
+オプション:
+
+- `-i, --stdin` 標準入力を接続
+- `-t, --tty` TTY を割り当て（bash 等の対話時に推奨）
+- `-e, --escape` デタッチ用エスケープシーケンス（既定: `~.`、`none` で無効化）
+
+例:
+
+```
+# 付与したマウントを確認
+kompoxops tool exec -A app1 -it -- sh -c 'df -hT; mount | grep pvc'
+
+# 進行中の操作からデタッチ（~. を入力）
+kompoxops tool exec -A app1 -it -- bash
+```
 
 管理用途 CLI を提供する。
 一般ユーザー向け REST API とは異なり認証認可を無視した OOB の接続により CRUD 操作を直接呼び出すことができる。
