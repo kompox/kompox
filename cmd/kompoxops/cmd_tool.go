@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/kompox/kompox/internal/logging"
@@ -11,6 +12,8 @@ import (
 	tuc "github.com/kompox/kompox/usecase/tool"
 	"github.com/spf13/cobra"
 )
+
+const defaultToolImage = "ghcr.io/kompox/kompox/kompoxops:main"
 
 var flagToolAppName string
 
@@ -24,7 +27,74 @@ func newCmdTool() *cobra.Command {
 		RunE:               func(cmd *cobra.Command, args []string) error { return fmt.Errorf("invalid command") },
 	}
 	cmd.PersistentFlags().StringVarP(&flagToolAppName, "app-name", "A", "", "App name (default: app.name in kompoxops.yml)")
-	cmd.AddCommand(newCmdToolDeploy(), newCmdToolDestroy(), newCmdToolStatus(), newCmdToolExec())
+	cmd.AddCommand(newCmdToolDeploy(), newCmdToolDestroy(), newCmdToolStatus(), newCmdToolExec(), newCmdToolRsync())
+	return cmd
+}
+
+// kompoxops tool rsync vol:/remote/path /local/path などの形式でrsyncを実行
+func newCmdToolRsync() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "rsync -- [rsync options...] <source> <destination>",
+		Short: "Rsync between local and tool runner vol:/...",
+		Long: `Rsync files between local filesystem and tool runner volumes.
+
+Examples:
+  kompoxops tool rsync -- vol:/data /local/backup
+  kompoxops tool rsync -- /local/data vol:/backup
+  kompoxops tool rsync -- -av --delete /local/data/ vol:/data/
+  kompoxops tool rsync -- vol:
+`,
+		Args: cobra.MinimumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			toolUC, err := buildToolUseCase(cmd)
+			if err != nil {
+				return err
+			}
+			ctx := cmd.Context()
+			appName, err := getToolAppName(cmd, nil)
+			if err != nil {
+				return err
+			}
+			appID, err := resolveAppIDByNameUsingToolUC(ctx, toolUC, appName)
+			if err != nil {
+				return err
+			}
+
+			// Parse arguments to separate rsync options from source/destination
+			// All arguments are passed directly as RsyncArgs for vol: path transformation
+			if len(args) == 0 {
+				return fmt.Errorf("rsync arguments required")
+			}
+
+			// Validate that at least one argument contains vol: prefix
+			hasVolPath := false
+			for _, arg := range args {
+				if strings.HasPrefix(arg, "vol:") {
+					hasVolPath = true
+					break
+				}
+			}
+			if !hasVolPath {
+				return fmt.Errorf("at least one argument must start with vol:")
+			}
+
+			in := &tuc.RsyncInput{
+				AppID:     appID,
+				RsyncArgs: args,
+			}
+			out, err := toolUC.Rsync(ctx, in)
+			if err != nil {
+				if out != nil && out.Stderr != "" {
+					fmt.Fprint(cmd.ErrOrStderr(), out.Stderr)
+				}
+				return fmt.Errorf("rsync failed: %w", err)
+			}
+			if out != nil && out.Stdout != "" {
+				fmt.Fprint(cmd.OutOrStdout(), out.Stdout)
+			}
+			return nil
+		},
+	}
 	return cmd
 }
 
@@ -61,6 +131,7 @@ func newCmdToolDeploy() *cobra.Command {
 	var volumes []string
 	var command []string
 	var argsFlag []string
+	var alwaysPull bool
 	cmd := &cobra.Command{
 		Use:                "deploy",
 		Short:              "Deploy tool runner (Deployment) with PV/PVC mounts",
@@ -84,16 +155,24 @@ func newCmdToolDeploy() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if _, err := toolUC.Deploy(ctx, &tuc.DeployInput{AppID: appID, Image: image, Command: command, Args: argsFlag, Volumes: volumes}); err != nil {
+			if _, err := toolUC.Deploy(ctx, &tuc.DeployInput{
+				AppID:      appID,
+				Image:      image,
+				Command:    command,
+				Args:       argsFlag,
+				Volumes:    volumes,
+				AlwaysPull: alwaysPull,
+			}); err != nil {
 				return err
 			}
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&image, "image", "busybox", "Container image for runner (default: busybox)")
+	cmd.Flags().StringVar(&image, "image", defaultToolImage, "Container image for runner")
 	cmd.Flags().StringArrayVarP(&command, "command", "c", nil, "Container entrypoint (repeat to pass multiple tokens)")
 	cmd.Flags().StringArrayVarP(&argsFlag, "args", "a", nil, "Container arguments (repeat to pass multiple tokens)")
 	cmd.Flags().StringArrayVarP(&volumes, "volume", "V", nil, "Volume mount spec 'volName:diskName:/mount/path' (repeat, optional)")
+	cmd.Flags().BoolVar(&alwaysPull, "always-pull", false, "Always pull container image (ImagePullPolicy: Always)")
 	return cmd
 }
 

@@ -441,10 +441,11 @@ kompoxops snapshot delete -A app1 -V db -S 01J8WXYZABCDEF1234567890JK
 アプリの Namespace に「メンテナンス用ランナー」(Deployment/Pod) をデプロイ・操作します。PV/PVC をアプリ定義のボリュームにバインドしてマウントでき、バックアップやメンテ作業、対話的なシェル実行に利用します。
 
 ```
-kompoxops tool deploy   --app-name <appName> [--image IMG] [-V vol:disk:/path]... [-c CMD]... [-a ARG]...
-kompoxops tool destroy  --app-name <appName>
-kompoxops tool status   --app-name <appName>
-kompoxops tool exec     --app-name <appName> -- <command> [args...]
+kompoxops tool deploy  --app-name <appName> [--image IMG] [-V vol:disk:/path]... [-c CMD]... [-a ARG]...
+kompoxops tool destroy --app-name <appName>
+kompoxops tool status  --app-name <appName>
+kompoxops tool exec    --app-name <appName> -- <command> [args...]
+kompoxops tool rsync   --app-name <appName> -- [rsync options...] <source> <destination>
 ```
 
 共通オプション
@@ -472,7 +473,7 @@ kompoxops tool exec     --app-name <appName> -- <command> [args...]
 
 コマンド/引数の既定動作:
 
-- `--command` も `--args` も未指定: `sh -c` として `sleep infinity` を実行し待機
+- `--command` も `--args` も未指定: rsync をデーモンモードで起動しポート 873 でモジュール `vol` を公開
 - `--args` のみ指定: `sh -c` をエントリポイントにし、与えた引数をそのままシェルに渡す
 - `--command` のみ指定: 与えたエントリポイントのみを使用（引数なし）
 
@@ -533,6 +534,25 @@ kompoxops tool exec -A app1 -it -- sh -c 'df -hT; mount | grep pvc'
 # 進行中の操作からデタッチ（~. を入力）
 kompoxops tool exec -A app1 -it -- bash
 ```
+
+#### kompoxops tool rsync
+
+tool コンテナ内で稼働する rsync デーモンと接続する rsync コマンドのラッパー。
+
+- ポートフォワードを設定し localhost にコンテナにつながるポートを開く
+- 引数に渡された `vol:path` のパスを `rsync://localhost:PORT/vol/path` に書き換える
+- rsync コマンドに引数を渡して起動する
+- ポートフォワードを閉じる
+
+次のような起動をサポートする。
+
+```
+kompoxops tool rsync /local/path vol:/remote/path
+kompoxops tool rsync vol:/remote/path /local/path
+kompoxops tool rsync vol:
+```
+
+### kompoxops admin
 
 管理用途 CLI を提供する。
 一般ユーザー向け REST API とは異なり認証認可を無視した OOB の接続により CRUD 操作を直接呼び出すことができる。

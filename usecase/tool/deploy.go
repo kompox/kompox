@@ -17,6 +17,11 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+var (
+	toolCommand = []string{"sh", "-c"}
+	toolArgs    = []string{"rsync --daemon --no-detach"}
+)
+
 // DeployInput contains parameters to deploy a maintenance runner for an App.
 type DeployInput struct {
 	// AppID is the target application id.
@@ -29,6 +34,8 @@ type DeployInput struct {
 	Args []string `json:"args"`
 	// Volumes is a list of mount specifications: "volName:diskName:/mount/path".
 	Volumes []string `json:"volumes"`
+	// AlwaysPull specifies whether to always pull the container image.
+	AlwaysPull bool `json:"always_pull"`
 }
 
 // DeployOutput returns metadata of the deployed runner.
@@ -198,17 +205,23 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 	switch {
 	case len(containerCommand) == 0 && len(containerArgs) == 0:
 		// Default long-running idle when both are unspecified
-		containerCommand = []string{"sh", "-c"}
-		containerArgs = []string{"sleep infinity"}
+		containerCommand = toolCommand
+		containerArgs = toolArgs
 	case len(containerCommand) == 0 && len(containerArgs) > 0:
 		// Only args specified: use a shell to execute the given args as a single command
-		containerCommand = []string{"sh", "-c"}
+		containerCommand = toolCommand
 		// containerArgs remains as provided
 	case len(containerCommand) > 0 && len(containerArgs) == 0:
 		// Only command specified: leave args empty (respect explicit command)
 		// no-op
 	default:
 		// both provided: use as-is
+	}
+
+	// Determine image pull policy
+	pullPolicy := corev1.PullIfNotPresent
+	if in.AlwaysPull {
+		pullPolicy = corev1.PullAlways
 	}
 
 	dep := &appsv1.Deployment{
@@ -221,7 +234,7 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 				Spec: corev1.PodSpec{Containers: []corev1.Container{{
 					Name:            "runner",
 					Image:           in.Image,
-					ImagePullPolicy: corev1.PullIfNotPresent,
+					ImagePullPolicy: pullPolicy,
 					Command:         containerCommand,
 					Args:            containerArgs,
 					VolumeMounts:    vm,
