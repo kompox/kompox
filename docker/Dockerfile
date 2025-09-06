@@ -24,7 +24,7 @@ FROM --platform=$TARGETPLATFORM ubuntu:24.04
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates wget curl git gnupg lsb-release rsync vim \
+    ca-certificates wget curl git gnupg lsb-release rsync vim sudo openssh-server tini \
     && wget -q -O - https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor -o /etc/apt/trusted.gpg.d/microsoft.gpg \
     && echo "deb [arch=amd64,arm64 signed-by=/etc/apt/trusted.gpg.d/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ noble main" > /etc/apt/sources.list.d/azure-cli.list \
     && apt-get update \
@@ -45,26 +45,22 @@ RUN set -eux; \
     azcopy --version; \
     rm -rf /tmp/azcopy*
 
+RUN useradd -m -s /bin/bash kompox \
+    && echo 'kompox ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/010-kompox \
+    && install -d -m 755 /var/run/sshd \
+    && printf '%s\n' \
+    'PermitRootLogin yes' \
+    'PubkeyAuthentication yes' \
+    'Ciphers chacha20-poly1305@openssh.com,aes128-ctr' \
+    'KexAlgorithms curve25519-sha256' \
+    'Match User root,kompox' \
+    'AuthorizedKeysFile /etc/ssh/authorized_keys .ssh/authorized_keys .ssh/authorized_keys2' \
+    > /etc/ssh/sshd_config.d/10-remote-ssh.conf
+
+EXPOSE 22
+
 COPY --from=builder /src/kompoxops /usr/local/bin/kompoxops
 
-# rsyncd.conf for exporting /vol as module "vol"
-RUN mkdir -p /vol && \
-    printf '%s\n' \
-      'uid = root' \
-      'gid = root' \
-      'use chroot = no' \
-      'max connections = 8' \
-      'pid file = /var/run/rsyncd.pid' \
-      'log file = /dev/stdout' \
-      '[vol]' \
-      '  path = /vol' \
-      '  read only = false' \
-      > /etc/rsyncd.conf
+COPY docker/entrypoint.sh /entrypoint.sh
 
-EXPOSE 873
-
-# Default entrypoint: kompoxops CLI
-ENTRYPOINT ["/usr/local/bin/kompoxops"]
-
-# Optional: rsyncd as a service (uncomment to use as rsyncd container)
-# ENTRYPOINT ["rsync", "--daemon", "--no-detach"]
+ENTRYPOINT ["/entrypoint.sh"]

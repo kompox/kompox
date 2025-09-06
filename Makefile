@@ -27,5 +27,6 @@ diff-staged-changes:
 bicep:
 	az bicep build -f infra/aks/infra/main.bicep --outdir adapters/drivers/provider/aks
 
+# Build Docker image
 docker:
-	docker build -t kompoxops .
+	docker build -f docker/Dockerfile -t kompoxops .
