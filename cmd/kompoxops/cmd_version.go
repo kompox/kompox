@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"runtime"
 
 	"github.com/spf13/cobra"
 )
@@ -16,6 +17,10 @@ func newCmdVersion() *cobra.Command {
 		DisableSuggestions: true,
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Fprintf(cmd.OutOrStdout(), "kompoxops version %s\n", version)
+			fmt.Fprintf(cmd.OutOrStdout(), "  commit: %s\n", commit)
+			fmt.Fprintf(cmd.OutOrStdout(), "  built: %s\n", date)
+			fmt.Fprintf(cmd.OutOrStdout(), "  go: %s\n", runtime.Version())
+			fmt.Fprintf(cmd.OutOrStdout(), "  platform: %s/%s\n", runtime.GOOS, runtime.GOARCH)
 		},
 	}
 }
