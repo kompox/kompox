@@ -14,7 +14,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const defaultBoxImage = "ghcr.io/kompox/kompox/kompoxops:main"
+const defaultBoxImage = "ghcr.io/kompox/kompox/box"
 
 var flagBoxAppName string
 

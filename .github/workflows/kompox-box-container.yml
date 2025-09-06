@@ -1,4 +1,4 @@
-name: KompoxOps Tools Container
+name: Kompox Box Container
 
 on:
   push:
@@ -13,7 +13,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE: ${{github.repository}}/kompoxops
+  IMAGE: ${{github.repository}}/box
 
 jobs:
   build:
