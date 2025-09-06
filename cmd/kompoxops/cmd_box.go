@@ -28,7 +28,7 @@ func newCmdBox() *cobra.Command {
 		RunE:               func(cmd *cobra.Command, args []string) error { return fmt.Errorf("invalid command") },
 	}
 	cmd.PersistentFlags().StringVarP(&flagBoxAppName, "app-name", "A", "", "App name (default: app.name in kompoxops.yml)")
-	cmd.AddCommand(newCmdBoxDeploy(), newCmdBoxDestroy(), newCmdBoxStatus(), newCmdBoxExec(), newCmdBoxSSH())
+	cmd.AddCommand(newCmdBoxDeploy(), newCmdBoxDestroy(), newCmdBoxStatus(), newCmdBoxExec(), newCmdBoxSsh(), newCmdBoxSCP())
 	return cmd
 }
 
@@ -274,7 +274,7 @@ func newCmdBoxExec() *cobra.Command {
 	return cmd
 }
 
-func newCmdBoxSSH() *cobra.Command {
+func newCmdBoxSsh() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                "ssh -- [ssh args...]",
 		Short:              "SSH into Kompox Box pod via port forwarding",
@@ -306,6 +306,48 @@ func newCmdBoxSSH() *cobra.Command {
 				_, err = boxUC.SSH(ctx, &boxuc.SSHInput{AppID: appID, SSHArgs: args})
 				if err != nil {
 					logger.Error(ctx, "SSH failed", "error", err)
+					return err
+				}
+			}
+			return nil
+		},
+	}
+	return cmd
+}
+
+func newCmdBoxSCP() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:                "scp -- [scp args...]",
+		Aliases:            []string{"cp"},
+		Short:              "Transfer files to/from Kompox Box pod via port forwarding",
+		Args:               cobra.ArbitraryArgs,
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			boxUC, err := buildBoxUseCase(cmd)
+			if err != nil {
+				return err
+			}
+			ctx := cmd.Context()
+			logger := logging.FromContext(ctx)
+
+			appName, err := getBoxAppName(cmd, nil)
+			if err != nil {
+				return err
+			}
+			// Resolve app ID using a short-lived context
+			{
+				rctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+				defer cancel()
+				appID, err := resolveAppIDByNameUsingBoxUC(rctx, boxUC, appName)
+				if err != nil {
+					return err
+				}
+
+				_, err = boxUC.SCP(ctx, &boxuc.SCPInput{AppID: appID, SCPArgs: args})
+				if err != nil {
+					logger.Error(ctx, "SCP failed", "error", err)
 					return err
 				}
 			}
