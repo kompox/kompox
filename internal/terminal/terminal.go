@@ -4,10 +4,7 @@ import (
 	"context"
 	"flag"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
-	"time"
 
 	"golang.org/x/term"
 	"k8s.io/client-go/tools/remotecommand"
@@ -48,26 +45,7 @@ func SetupTTYIfRequested(ctx context.Context, tty bool) (restore func(), queue r
 			ch <- remotecommand.TerminalSize{Width: uint16(w), Height: uint16(h)}
 		}
 	}
-	ch := make(chan remotecommand.TerminalSize, 1)
-	sendSize(ch)
-	sigch := make(chan os.Signal, 1)
-	signal.Notify(sigch, syscall.SIGWINCH)
-	go func() {
-		defer close(ch)
-		defer signal.Stop(sigch)
-		ticker := time.NewTicker(2 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-sigch:
-				sendSize(ch)
-			case <-ticker.C:
-				sendSize(ch)
-			}
-		}
-	}()
+	ch := setupTerminalSizeUpdate(ctx, sendSize)
 	return restore, &termSizeQueue{ch: ch}
 }
 
