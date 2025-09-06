@@ -1,4 +1,4 @@
-.PHONY: build test cmd bicep docker
+.PHONY: build test cmd bicep docker release release-snapshot release-check tidy diff-staged-changes
 
 # Run full tests
 test:
@@ -16,6 +16,18 @@ cmd:
 # Run go mod tidy
 tidy:
 	go mod tidy
+
+# Build multi-platform binaries using GoReleaser (requires git tag)
+release:
+	goreleaser release --clean
+
+# Build multi-platform binaries in snapshot mode (no git tag required)
+release-snapshot:
+	goreleaser build --snapshot --clean
+
+# Check GoReleaser configuration
+release-check:
+	goreleaser check
 
 # Show staged changes in Git
 diff-staged-changes:

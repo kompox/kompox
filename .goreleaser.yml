@@ -1,0 +1,78 @@
+# GoReleaser configuration for kompoxops
+version: 2
+
+project_name: kompoxops
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - id: kompoxops
+    main: ./cmd/kompoxops
+    binary: kompoxops
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: darwin
+        goarch: amd64
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X github.com/kompox/kompox/cmd/kompoxops.version={{.Version}}
+      - -X github.com/kompox/kompox/cmd/kompoxops.commit={{.Commit}}
+      - -X github.com/kompox/kompox/cmd/kompoxops.date={{.Date}}
+
+archives:
+  - id: kompoxops
+    name_template: >-
+      {{- .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    files:
+      - README.md
+      - LICENSE*
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - '^chore:'
+      - '^style:'
+      - '^refactor:'
+      - Merge pull request
+      - Merge branch
+
+# GitHub Releases configuration
+release:
+  github:
+    owner: kompox
+    name: kompox
+  draft: true
+  prerelease: auto
+  mode: replace
+  header: |
+    ## What's Changed
+  footer: |
+    **Full Changelog**: https://github.com/kompox/kompox/compare/{{ .PreviousTag }}...{{ .Tag }}
