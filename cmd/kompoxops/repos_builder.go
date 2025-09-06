@@ -15,7 +15,6 @@ import (
 	"github.com/kompox/kompox/usecase/cluster"
 	"github.com/kompox/kompox/usecase/provider"
 	"github.com/kompox/kompox/usecase/service"
-	tooluc "github.com/kompox/kompox/usecase/tool"
 	"github.com/kompox/kompox/usecase/volume"
 	"github.com/spf13/cobra"
 )
@@ -145,20 +144,6 @@ func buildVolumeRepos(cmd *cobra.Command) (*volume.Repos, error) {
 		return nil, err
 	}
 	return &volume.Repos{
-		Service:  repos.Service,
-		Provider: repos.Provider,
-		Cluster:  repos.Cluster,
-		App:      repos.App,
-	}, nil
-}
-
-// buildToolRepos creates repositories needed for tool (maintenance runner) use cases.
-func buildToolRepos(cmd *cobra.Command) (*tooluc.Repos, error) {
-	repos, err := buildRepos(cmd)
-	if err != nil {
-		return nil, err
-	}
-	return &tooluc.Repos{
 		Service:  repos.Service,
 		Provider: repos.Provider,
 		Cluster:  repos.Cluster,

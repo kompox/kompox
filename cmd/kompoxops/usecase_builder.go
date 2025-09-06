@@ -7,7 +7,6 @@ import (
 	"github.com/kompox/kompox/usecase/cluster"
 	"github.com/kompox/kompox/usecase/provider"
 	"github.com/kompox/kompox/usecase/service"
-	"github.com/kompox/kompox/usecase/tool"
 	"github.com/kompox/kompox/usecase/volume"
 	"github.com/spf13/cobra"
 )
@@ -61,18 +60,6 @@ func buildVolumeUseCase(cmd *cobra.Command) (*volume.UseCase, error) {
 		return nil, err
 	}
 	return &volume.UseCase{
-		Repos:      repos,
-		VolumePort: providerdrv.GetVolumePort(repos.Service, repos.Provider, repos.Cluster, repos.App),
-	}, nil
-}
-
-// buildToolUseCase creates tool use case with required repositories and ports.
-func buildToolUseCase(cmd *cobra.Command) (*tool.UseCase, error) {
-	repos, err := buildToolRepos(cmd)
-	if err != nil {
-		return nil, err
-	}
-	return &tool.UseCase{
 		Repos:      repos,
 		VolumePort: providerdrv.GetVolumePort(repos.Service, repos.Provider, repos.Cluster, repos.App),
 	}, nil
