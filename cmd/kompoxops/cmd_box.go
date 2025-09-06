@@ -28,7 +28,7 @@ func newCmdBox() *cobra.Command {
 		RunE:               func(cmd *cobra.Command, args []string) error { return fmt.Errorf("invalid command") },
 	}
 	cmd.PersistentFlags().StringVarP(&flagBoxAppName, "app-name", "A", "", "App name (default: app.name in kompoxops.yml)")
-	cmd.AddCommand(newCmdBoxDeploy(), newCmdBoxDestroy(), newCmdBoxStatus(), newCmdBoxExec(), newCmdBoxSsh(), newCmdBoxSCP())
+	cmd.AddCommand(newCmdBoxDeploy(), newCmdBoxDestroy(), newCmdBoxStatus(), newCmdBoxExec(), newCmdBoxSsh(), newCmdBoxSCP(), newCmdBoxRsync())
 	return cmd
 }
 
@@ -306,6 +306,47 @@ func newCmdBoxSsh() *cobra.Command {
 				_, err = boxUC.SSH(ctx, &boxuc.SSHInput{AppID: appID, SSHArgs: args})
 				if err != nil {
 					logger.Error(ctx, "SSH failed", "error", err)
+					return err
+				}
+			}
+			return nil
+		},
+	}
+	return cmd
+}
+
+func newCmdBoxRsync() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:                "rsync -- [rsync args...]",
+		Short:              "Synchronize files to/from Kompox Box pod via port forwarding",
+		Args:               cobra.ArbitraryArgs,
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			boxUC, err := buildBoxUseCase(cmd)
+			if err != nil {
+				return err
+			}
+			ctx := cmd.Context()
+			logger := logging.FromContext(ctx)
+
+			appName, err := getBoxAppName(cmd, nil)
+			if err != nil {
+				return err
+			}
+			// Resolve app ID using a short-lived context
+			{
+				rctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+				defer cancel()
+				appID, err := resolveAppIDByNameUsingBoxUC(rctx, boxUC, appName)
+				if err != nil {
+					return err
+				}
+
+				_, err = boxUC.Rsync(ctx, &boxuc.RsyncInput{AppID: appID, RsyncArgs: args})
+				if err != nil {
+					logger.Error(ctx, "rsync failed", "error", err)
 					return err
 				}
 			}

@@ -437,26 +437,28 @@ kompoxops snapshot delete -V db -S 01J8WXYZABCDEF1234567890JK
 
 ### kompoxops box
 
-アプリの Namespace に Kompox Box (Deployment/Pod) をデプロイ・操作します。
+アプリの Namespace に Kompox Box (Deployment/Pod) をデプロイ・操作する。
 
 ```
-kompoxops box deploy  --app-name <appName> [--image IMG] [-V vol:disk:/path]... [-c CMD]... [-a ARG]...
-kompoxops box destroy --app-name <appName>
-kompoxops box status  --app-name <appName>
-kompoxops box exec    --app-name <appName> [-i] [-t] [-e ESC] -- <command> [args...]
-kompoxops box ssh     --app-name <appName> -- <ssh args...>
+kompoxops box deploy  --app-name <appName> [--image IMG] [-V vol:disk:/path]... [-c CMD]... [-a ARG]...   Kompox Box のデプロイ
+kompoxops box destroy --app-name <appName>                                                                 Kompox Box の削除
+kompoxops box status  --app-name <appName>                                                                 Kompox Box の状態表示
+kompoxops box exec    --app-name <appName> [-i] [-t] [-e ESC] -- <command> [args...]                     Kompox Box 内でコマンド実行
+kompoxops box ssh     --app-name <appName> -- <ssh args...>                                               Kompox Box への SSH 接続
+kompoxops box scp     --app-name <appName> -- <scp args...>                                               Kompox Box とのファイル転送 (SCP)
+kompoxops box rsync   --app-name <appName> -- <rsync args...>                                             Kompox Box とのファイル同期 (rsync)
 ```
 
 共通オプション
 
-- `--app-name | -A` 対象アプリ名 (デフォルト: `kompoxops.yml` の `app.name`)
+- `--app-name | -A` 対象アプリ名 (デフォルト: kompoxops.yml の app.name)
 
 仕様
 
-- Kompox Box はアプリの Namespace に `kompox.dev/box=true` ラベル付きでデプロイされます。
-- リソース名は固定で `kompox-box` です。
-- PV/PVC は必要に応じて自動生成されます。
-- PV/PVC をアプリ定義のボリュームにバインドしてマウントでき、メンテナンスや開発の環境として利用できます。
+- Kompox Box はアプリの Namespace に `kompox.dev/box=true` ラベル付きでデプロイされる。
+- リソース名は固定で `kompox-box`。
+- PV/PVC は必要に応じて自動生成される。
+- PV/PVC をアプリ定義のボリュームにバインドしてマウントでき、メンテナンスや開発の環境として利用できる。
 
 #### kompoxops box deploy
 
@@ -474,12 +476,7 @@ Kompox Box のリソースをデプロイします (冪等)。
 - `--ssh-pubkey FILE` SSH公開鍵ファイル (既定: `~/.ssh/id_rsa.pub`)
 - `--always-pull` コンテナイメージを常に pull する
 
-挙動:
-
-- アプリ定義のボリュームと既存ディスクを指定してマウントできます。
-- SSH公開鍵はコンテナ内で `/etc/ssh/authorized_keys` に登録されます。
-
-例:
+使用例:
 
 ```
 # 基本的なデプロイ
@@ -491,6 +488,10 @@ kompoxops box deploy --image debian:stable -V data:disk1:/mnt/data
 # コマンドと引数を指定
 kompoxops box deploy -c sleep -a infinity
 ```
+
+備考:
+- アプリ定義のボリュームと既存ディスクを指定してマウントできます。
+- SSH公開鍵はコンテナ内で `/etc/ssh/authorized_keys` に登録されます。
 
 #### kompoxops box destroy
 
@@ -518,22 +519,21 @@ Kompox Box の状態を JSON で表示します。
 
 #### kompoxops box exec
 
-稼働中の Kompox Box 内でコマンドを実行します。
+稼働中の Kompox Box 内でコマンドを実行します。対話モードにも対応します。
+
+使用法:
+
+```
+kompoxops box exec -A <appName> [-i] [-t] [-e ESC] -- <command> [args...]
+```
 
 オプション:
 
 - `-i, --stdin` 標準入力を接続
 - `-t, --tty` TTY を割り当て (bash 等の対話時に推奨)
-- `-e, --escape` デタッチ用エスケープシーケンス（既定: `~.`、`none` で無効化）
+- `-e, --escape` デタッチ用エスケープシーケンス (既定: `~.`、`none` で無効化)
 
-挙動:
-
-- `kompox.dev/box=true` ラベルが付与された Pod を対象とします。
-- Ready 状態の Pod を優先し、無ければ非終了中の Pod を選択します。
-- `--tty` 指定時は stderr は stdout にマージされます（TTY の仕様）。
-- `--escape` で指定したシーケンスを送るとセッションを切断して終了できます。
-
-例:
+使用例:
 
 ```
 # 対話シェル
@@ -542,6 +542,13 @@ kompoxops box exec -it -- bash
 # ワンライナー実行
 kompoxops box exec -t -- ls -la /mnt
 ```
+
+備考:
+
+- `kompox.dev/box=true` ラベルが付与された Pod を対象とします。
+- Ready 状態の Pod を優先し、無ければ非終了中の Pod を選択します。
+- `--tty` 指定時は stderr は stdout にマージされます (TTY の仕様)。
+- `--escape` で指定したシーケンスを送るとセッションを切断して終了できます (例: `~.`)。
 
 #### kompoxops box ssh
 
@@ -553,19 +560,7 @@ kompoxops box exec -t -- ls -la /mnt
 kompoxops box ssh -- <ssh args...>
 ```
 
-挙動:
-
-- Kubernetes API でポートフォワードを設定し、localhost にコンテナに接続するポートを開きます。
-- SSH コマンドを起動し、`-o Hostname=localhost -p <port>` を自動設定してコンテナに接続します。
-- 接続終了後、ポートフォワードを自動的に閉じます。
-
-注意:
-
-- ユーザー名は明示的に指定する必要があります (`user@host` 形式または `-l user` オプション)。
-- `host` 部分は任意の文字列で構いません (例: `a`、`dummy`、`example.com`)。
-- デフォルトイメージ (`ghcr.io/kompox/kompox/box`) では一般ユーザーは `kompox` です。`root` でも接続可能です。
-
-例:
+使用例:
 
 ```
 # user@host 形式
@@ -579,6 +574,136 @@ kompoxops box ssh -- hostname -l root
 # ポートフォワード付き
 kompoxops box ssh -- -L 8080:localhost:8080 kompox@host
 ```
+
+備考:
+
+- Kubernetes API でポートフォワードを設定し、localhost にコンテナに接続するポートを開きます。
+- SSH コマンドを起動し、`-o Hostname=localhost -p <port>` を自動設定してコンテナに接続します。
+- 接続終了後、ポートフォワードを自動的に閉じます。
+
+注意:
+
+- ユーザー名は明示的に指定する必要があります (`user@host` 形式または `-l user` オプション)。
+- `host` 部分は任意の文字列で構いません (例: `a`、`dummy`、`example.com`)。
+- デフォルトイメージ (`ghcr.io/kompox/kompox/box`) では一般ユーザーは `kompox` です。`root` でも接続可能です。
+
+#### kompoxops box scp
+
+稼働中の Kompox Box と scp でファイル転送します。
+
+使用法:
+
+```
+kompoxops box scp -- <scp args...>
+```
+
+使用例:
+
+```
+# ローカルファイルをリモートにコピー
+kompoxops box scp -- localfile kompox@host:/path/to/remotefile
+
+# リモートファイルをローカルにコピー
+kompoxops box scp -- kompox@host:/path/to/remotefile localfile
+
+# ディレクトリを再帰的にコピー
+kompoxops box scp -- -r localdir kompox@host:/path/to/remotedir
+
+# 複数ファイルの転送
+kompoxops box scp -- file1.txt file2.txt kompox@host:/tmp/
+
+# 圧縮転送（大きなファイル向け）
+kompoxops box scp -- -C largefile.zip kompox@host:/data/
+
+# 詳細モードでの転送
+kompoxops box scp -- -v localfile kompox@host:/path/to/remotefile
+```
+
+主要なSCPオプション:
+
+- `-r` ディレクトリを再帰的にコピー
+- `-C` 圧縮を有効にして転送速度を向上
+- `-v` 詳細な転送情報を表示
+- `-p` ファイルの権限とタイムスタンプを保持
+- `-q` 静音モード（進行状況を表示しない）
+
+備考:
+
+- SSH ポートフォワードを通じて SCP プロトコルでファイル転送を行います。
+- 標準的な scp コマンドと同じオプションが使用できます。
+- `host` 部分は任意の文字列で構いません（SSH と同様）。
+- バイナリファイルやテキストファイルを問わず転送可能です。
+
+#### kompoxops box rsync
+
+稼働中の Kompox Box と rsync でファイル同期します。
+
+使用法:
+
+```
+kompoxops box rsync -- <rsync args...>
+```
+
+使用例:
+
+```
+# 基本的な同期（アーカイブモード、詳細表示、圧縮）
+kompoxops box rsync -- -avz localdir/ root@host:/path/to/remotedir/
+
+# リモートからローカルへの同期
+kompoxops box rsync -- -avz root@host:/path/to/remotedir/ localdir/
+
+# 削除も含む完全同期（ミラーリング）
+kompoxops box rsync -- -avz --delete localdir/ root@host:/path/to/remotedir/
+
+# 特定のファイルを除外
+kompoxops box rsync -- -avz --exclude='*.log' --exclude='tmp/' localdir/ root@host:/remotedir/
+
+# ドライラン（実際の転送前に変更内容を確認）
+kompoxops box rsync -- -avzn localdir/ root@host:/remotedir/
+
+# 進行状況を表示
+kompoxops box rsync -- -avz --progress localdir/ root@host:/remotedir/
+
+# 帯域制限付きの転送
+kompoxops box rsync -- -avz --bwlimit=1000 largedir/ root@host:/remotedir/
+
+# バックアップ作成（既存ファイルを .bak で保存）
+kompoxops box rsync -- -avz --backup --suffix=.bak localdir/ root@host:/remotedir/
+```
+
+主要なrsyncオプション:
+
+- `-a, --archive` アーカイブモード（-rlptgoD と同等）
+- `-v, --verbose` 詳細情報を表示
+- `-z, --compress` 転送時にデータを圧縮
+- `-r, --recursive` ディレクトリを再帰的に処理
+- `-l, --links` シンボリックリンクをそのまま転送
+- `-p, --perms` ファイル権限を保持
+- `-t, --times` ファイルのタイムスタンプを保持
+- `-g, --group` グループ所有権を保持
+- `-o, --owner` ファイル所有者を保持
+- `-D` デバイスファイルと特殊ファイルを保持
+- `--delete` 送信先の余分なファイルを削除
+- `--exclude=PATTERN` 指定パターンのファイルを除外
+- `--progress` 転送進行状況を表示
+- `-n, --dry-run` 実際の変更は行わず、何が変更されるかのみ表示
+- `--bwlimit=RATE` 帯域制限（KB/s単位）
+- `--backup` 既存ファイルをバックアップ
+
+SCPとrsyncの使い分け:
+
+- **SCP**: シンプルなファイル転送。一回限りのコピーに適している
+- **rsync**: 差分同期、継続的な同期。大量のファイルや定期的な同期に適している
+
+備考:
+
+- SSH ポートフォワードを通じて rsync プロトコルでファイル同期を行います。
+- rsync は差分転送により効率的な同期が可能です。
+- 大量のファイルや定期的な同期作業に適しています。
+- ディレクトリの末尾の `/` の有無で動作が変わるため注意が必要です。
+  - `localdir/` → ディレクトリの**内容**を転送
+  - `localdir` → ディレクトリ**自体**を転送
 
 ### kompoxops admin
 
