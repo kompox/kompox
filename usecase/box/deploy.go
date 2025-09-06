@@ -26,7 +26,7 @@ type DeployInput struct {
 	Args       []string `json:"args"`
 	Volumes    []string `json:"volumes"`
 	AlwaysPull bool     `json:"always_pull"`
-	SshPubkey  []byte   `json:"ssh_pubkey"`
+	SSHPubkey  []byte   `json:"ssh_pubkey"`
 }
 
 type DeployOutput struct {
@@ -172,9 +172,9 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 	labels[LabelBox] = LabelBoxValue
 	depName := BoxResourceName
 
-	// Create SSH Secret if SshPubkey is provided
+	// Create SSH Secret if SSHPubkey is provided
 	var secretObj *corev1.Secret
-	if len(in.SshPubkey) > 0 {
+	if len(in.SSHPubkey) > 0 {
 		secretObj = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      BoxResourceName,
@@ -183,7 +183,7 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 			},
 			Type: corev1.SecretTypeOpaque,
 			Data: map[string][]byte{
-				"authorized_keys": in.SshPubkey,
+				"authorized_keys": in.SSHPubkey,
 			},
 		}
 	}
@@ -236,7 +236,7 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 			dep.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
 		}
 		// Calculate SHA256 hash of the SSH public key to trigger restart only when content changes
-		hash := sha256.Sum256(in.SshPubkey)
+		hash := sha256.Sum256(in.SSHPubkey)
 		dep.Spec.Template.ObjectMeta.Annotations[AnnotationBoxSSHPubkeyHash] = fmt.Sprintf("%x", hash)
 	}
 

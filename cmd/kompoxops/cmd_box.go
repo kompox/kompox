@@ -28,7 +28,7 @@ func newCmdBox() *cobra.Command {
 		RunE:               func(cmd *cobra.Command, args []string) error { return fmt.Errorf("invalid command") },
 	}
 	cmd.PersistentFlags().StringVarP(&flagBoxAppName, "app-name", "A", "", "App name (default: app.name in kompoxops.yml)")
-	cmd.AddCommand(newCmdBoxDeploy(), newCmdBoxDestroy(), newCmdBoxStatus(), newCmdBoxExec(), newCmdBoxSsh())
+	cmd.AddCommand(newCmdBoxDeploy(), newCmdBoxDestroy(), newCmdBoxStatus(), newCmdBoxExec(), newCmdBoxSSH())
 	return cmd
 }
 
@@ -138,7 +138,7 @@ func newCmdBoxDeploy() *cobra.Command {
 				Args:       argsFlag,
 				Volumes:    volumes,
 				AlwaysPull: alwaysPull,
-				SshPubkey:  sshPubkey,
+				SSHPubkey:  sshPubkey,
 			}); err != nil {
 				return err
 			}
@@ -274,7 +274,7 @@ func newCmdBoxExec() *cobra.Command {
 	return cmd
 }
 
-func newCmdBoxSsh() *cobra.Command {
+func newCmdBoxSSH() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                "ssh -- [ssh args...]",
 		Short:              "SSH into Kompox Box pod via port forwarding",
@@ -303,7 +303,7 @@ func newCmdBoxSsh() *cobra.Command {
 					return err
 				}
 
-				_, err = boxUC.Ssh(ctx, &boxuc.SshInput{AppID: appID, SSHArgs: args})
+				_, err = boxUC.SSH(ctx, &boxuc.SSHInput{AppID: appID, SSHArgs: args})
 				if err != nil {
 					logger.Error(ctx, "SSH failed", "error", err)
 					return err

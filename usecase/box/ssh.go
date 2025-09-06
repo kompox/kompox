@@ -14,20 +14,20 @@ import (
 	"github.com/kompox/kompox/internal/logging"
 )
 
-// SshInput defines the input for the SSH operation.
-type SshInput struct {
+// SSHInput defines the input for the SSH operation.
+type SSHInput struct {
 	AppID   string   // Target app ID
 	SSHArgs []string // Complete SSH arguments including hostname
 }
 
-// SshOutput defines the output/result of the SSH operation.
-type SshOutput struct {
+// SSHOutput defines the output/result of the SSH operation.
+type SSHOutput struct {
 	ExitCode int
 	Message  string
 }
 
-// Ssh connects to the Kompox Box via SSH through port forwarding.
-func (u *UseCase) Ssh(ctx context.Context, in *SshInput) (*SshOutput, error) {
+// SSH connects to the Kompox Box via SSH through port forwarding.
+func (u *UseCase) SSH(ctx context.Context, in *SSHInput) (*SSHOutput, error) {
 	logger := logging.FromContext(ctx)
 
 	logger.Debug(ctx, "starting SSH connection",
@@ -35,7 +35,7 @@ func (u *UseCase) Ssh(ctx context.Context, in *SshInput) (*SshOutput, error) {
 		"ssh_args", strings.Join(in.SSHArgs, " "))
 
 	// Set up port-forward to SSH daemon in Kompox Box pod
-	localPort, stopFunc, err := u.setupSshPortForward(ctx, in.AppID)
+	localPort, stopFunc, err := u.setupSSHPortForward(ctx, in.AppID)
 	if err != nil {
 		return nil, err
 	}
@@ -84,14 +84,14 @@ func (u *UseCase) Ssh(ctx context.Context, in *SshInput) (*SshOutput, error) {
 		logger.Debug(ctx, "SSH command completed successfully")
 	}
 
-	return &SshOutput{
+	return &SSHOutput{
 		ExitCode: exitCode,
 		Message:  "SSH session completed",
 	}, nil
 }
 
-// setupSshPortForward sets up port forwarding to the SSH daemon in the Kompox Box pod
-func (u *UseCase) setupSshPortForward(ctx context.Context, appID string) (localPort int, stopFunc func(), err error) {
+// setupSSHPortForward sets up port forwarding to the SSH daemon in the Kompox Box pod
+func (u *UseCase) setupSSHPortForward(ctx context.Context, appID string) (localPort int, stopFunc func(), err error) {
 	logger := logging.FromContext(ctx)
 
 	// Resolve environment dependencies
