@@ -22,7 +22,7 @@ kompoxops cluster           クラスタ操作
 kompoxops app               アプリ操作
 kompoxops disk              ディスク操作
 kompoxops snapshot          スナップショット操作
-kompoxops tool             メンテナンス用ランナー操作（アプリNS内）
+kompoxops tool             メンテナンス用ランナー操作(アプリNS内)
 kompoxops admin             管理ツール
 ```
 
@@ -143,8 +143,8 @@ status コマンドにより K8s クラスタと内部リソースの状態に�
 existing: bool          cluster.existing の設定値
 provisioned: bool       K8s クラスタが存在するとき true (existingがtrueの場合も実際に存在するか調べる)
 installed: bool         K8s クラスタ内のリソースが存在するとき true
-ingressGlobalIP: string クラスタ Ingress/LoadBalancer のグローバル IP アドレス（存在する場合）
-ingressFQDN: string     クラスタ Ingress/LoadBalancer の FQDN（存在する場合）
+ingressGlobalIP: string クラスタ Ingress/LoadBalancer のグローバル IP アドレス(存在する場合)
+ingressFQDN: string     クラスタ Ingress/LoadBalancer の FQDN(存在する場合)
 ```
 
 provision/deprovision/install/uninstall は status により実行可否が変わる。
@@ -160,11 +160,11 @@ provision/deprovision/install/uninstall は status により実行可否が変�
 
 #### kompoxops cluster provision
 
-Cluster リソース準拠の AKS/K8s クラスタを作成開始します（idempotent）。`existing=true` の場合は何もしません。
+Cluster リソース準拠の AKS/K8s クラスタを作成開始します(idempotent)。`existing=true` の場合は何もしません。
 
 #### kompoxops cluster deprovision
 
-対象クラスタのリソースグループを削除します（idempotent）。`installed=true` の場合はエラーです。
+対象クラスタのリソースグループを削除します(idempotent)。`installed=true` の場合はエラーです。
 
 #### kompoxops cluster install
 
@@ -172,41 +172,41 @@ Ingress Controller などのクラスタ内リソースをインストールし�
 
 #### kompoxops cluster uninstall
 
-クラスタ内リソースをアンインストールします（best-effort）。
+クラスタ内リソースをアンインストールします(best-effort)。
 
 #### kompoxops cluster status
 
-クラスタの `existing`/`provisioned`/`installed` に加えて Ingress のグローバル IP/FQDN を JSON で表示します（利用可能な場合）。
+クラスタの `existing`/`provisioned`/`installed` に加えて Ingress のグローバル IP/FQDN を JSON で表示します(利用可能な場合)。
 
 #### kompoxops cluster kubeconfig
 
-Provider Driver からクラスタの kubeconfig（管理者資格）を取得し、標準出力/ファイル保存/既存 kubeconfig への統合を行う。
+Provider Driver からクラスタの kubeconfig(管理者資格)を取得し、標準出力/ファイル保存/既存 kubeconfig への統合を行う。
 
 主なオプション:
 
-- `-o, --out FILE` 出力先（`-` は標準出力。stdout は必ず明示的に `-o -` を指定）
-- `--merge` 既存 kubeconfig に統合（既定: `~/.kube/config`）
-- `--kubeconfig PATH` 統合先ファイル（既定: `~/.kube/config`）
-- `--context NAME` 生成する context 名（既定: `kompoxops-<clusterName>`）
+- `-o, --out FILE` 出力先(`-` は標準出力。stdout は必ず明示的に `-o -` を指定)
+- `--merge` 既存 kubeconfig に統合(既定: `~/.kube/config`)
+- `--kubeconfig PATH` 統合先ファイル(既定: `~/.kube/config`)
+- `--context NAME` 生成する context 名(既定: `kompoxops-<clusterName>`)
 - `--namespace NS` context のデフォルト namespace
 - `--set-current` 統合後に current-context を新しい context に設定
-- `--force` 同名エントリがある場合に上書き（未指定時は `-1`, `-2` のように自動ユニーク化）
+- `--force` 同名エントリがある場合に上書き(未指定時は `-1`, `-2` のように自動ユニーク化)
 - `--temp` セキュアな一時ファイルに保存してパスを出力
-- `--print-export` `export KUBECONFIG=...` を出力（`--out` か `--temp` と併用）
-- `--format yaml|json` 標準出力時のフォーマット（既定: `yaml`）
-- `--dry-run` 統合時の差分を要約表示のみ（書き込み無し）
-- `--cred admin|user` 要求する資格（現状 `admin` のみサポート）
-- `--timeout DURATION` 取得のタイムアウト（既定: `2m`）
+- `--print-export` `export KUBECONFIG=...` を出力(`--out` か `--temp` と併用)
+- `--format yaml|json` 標準出力時のフォーマット(既定: `yaml`)
+- `--dry-run` 統合時の差分を要約表示のみ(書き込み無し)
+- `--cred admin|user` 要求する資格(現状 `admin` のみサポート)
+- `--timeout DURATION` 取得のタイムアウト(既定: `2m`)
 
 注意:
 
-- 何も出力先を指定しない（`--merge` なし、`--temp` なし、`--out` 未指定）の場合はエラーになります。
+- 何も出力先を指定しない(`--merge` なし、`--temp` なし、`--out` 未指定)の場合はエラーになります。
 - stdout 出力は `-o -` を明示したときのみ行われます。
 
 使用例:
 
 ```
-# 標準出力へ（明示）
+# 標準出力へ(明示)
 kompoxops cluster kubeconfig -C mycluster -o -
 
 # 一時ファイル化と KUBECONFIG エクスポート
@@ -247,7 +247,7 @@ Compose の検証と K8s マニフェスト生成を行います。`--out-compos
 
 #### kompoxops app deploy
 
-検証・変換済みのリソースを対象クラスタに適用します（冪等)。
+検証・変換済みのリソースを対象クラスタに適用します(冪等)。
 
 #### kompoxops app destroy
 
@@ -256,7 +256,7 @@ Compose の検証と K8s マニフェスト生成を行います。`--out-compos
 - 次のラベルがついたリソースのみ削除する
   - `app.kubernetes.io/instance: app1-inHASH`
   - `app.kubernetes.io/managed-by: kompox`
-- 既定で Namespace 以外のリソース（PV/PVC を含む）を削除
+- 既定で Namespace 以外のリソース(PV/PVC を含む)を削除
 - `--delete-namespace` を指定すると Namespace リソースも削除
 
 備考:
@@ -300,31 +300,31 @@ kompoxops app exec -A <appName> [-i] [-t] [-e ESC] [-c CONTAINER] -- <command> [
 オプション:
 
 - `-i, --stdin` 標準入力を接続
-- `-t, --tty` TTY を割り当て（bash 等の対話時に推奨）
-- `-e, --escape` デタッチ用エスケープシーケンス（既定: `~.`、`none` で無効化）
-- `-c, --container` 実行対象のコンテナ名（未指定時は最初のコンテナ）
+- `-t, --tty` TTY を割り当て (bash 等の対話時に推奨)
+- `-e, --escape` デタッチ用エスケープシーケンス (既定: `~.`、`none` で無効化)
+- `-c, --container` 実行対象のコンテナ名 (未指定時は最初のコンテナ)
 
 挙動:
 
 - 対象 Pod の選択はアプリの Namespace 内で実施します。
 - `kompox.dev/tool-runner=true` が付与されたメンテナンス用ランナー Pod は除外します。
 - 少なくとも 1 つの Ready コンテナを持つ Pod を優先し、無ければ非終了中の Pod を選択します。
-- `--tty` 指定時は stderr は stdout にマージされます（TTY の仕様）。
-- `--escape` で指定したシーケンスを送るとセッションを切断して終了できます（例: `~.`）。
+- `--tty` 指定時は stderr は stdout にマージされます (TTY の仕様)。
+- `--escape` で指定したシーケンスを送るとセッションを切断して終了できます (例: `~.`)。
 
 例:
 
 ```
-# デプロイ中のアプリ Pod でシェルを開く（対話）
-kompoxops app exec -A app1 -it -- bash
+# デプロイ中のアプリ Pod でシェルを開く (対話)
+kompoxops app exec -it -- bash
 
 # コンテナ名を指定してログを確認
-kompoxops app exec -A app1 -t -c app -- sh -c 'tail -n 100 /var/log/app.log'
+kompoxops app exec -t -c app -- sh -c 'tail -n 100 /var/log/app.log'
 ```
 
 ### kompoxops disk
 
-app.volumes で定義された論理ボリュームに属するディスク（ボリュームインスタンス）を操作する。
+app.volumes で定義された論理ボリュームに属するディスク (ボリュームインスタンス) を操作する。
 
 ```
 kompoxops disk list   --app-name <appName> --vol-name <volName>                     ディスク一覧表示
@@ -364,7 +364,7 @@ vol-202312  false     32Gi   9ab1c02 (az)  2023-12-31T09:00Z    2024-01-10T12:05
 
 #### kompoxops disk create
 
-新しいボリュームインスタンスを作成します（サイズは app.volumes 定義）。
+新しいボリュームインスタンスを作成します (サイズは app.volumes 定義)。
 
 #### kompoxops disk assign
 
@@ -372,10 +372,9 @@ vol-202312  false     32Gi   9ab1c02 (az)  2023-12-31T09:00Z    2024-01-10T12:05
 
 #### kompoxops disk delete
 
-指定インスタンスを削除します（Assigned 中は `--force` なしで拒否）。
+指定インスタンスを削除します (Assigned 中は `--force` なしで拒否)。
 
 ### kompoxops snapshot
-
 app.volumes で定義された論理ボリュームに属するスナップショットを操作する。
 
 ```
@@ -399,23 +398,23 @@ kompoxops snapshot restore --app-name <appName> --vol-name <volName> --snapshot-
 
 - list: `CreatedAt` の降順で返す。出力は JSON 配列。
 - create: 指定ディスクからクラウドネイティブのスナップショットを作成し、JSON で 1 件返す。
-- delete: 存在しない場合も成功（冪等）。
+- delete: 存在しない場合も成功 (冪等)。
 - restore: 指定スナップショットから新しいディスクを作成し、JSON で 1 件返す。復元ディスクは `Assigned=false`。切替は `kompoxops disk assign` で行う。
 
 使用例
 
 ```
 # 一覧
-kompoxops snapshot list -A app1 -V db
+kompoxops snapshot list -V db
 
-# ディスク db の現在のアクティブインスタンスから作成（例: 名前が ULID）
-kompoxops snapshot create -A app1 -V db -D 01J8WXYZABCDEF1234567890GH
+# ディスク db の現在のアクティブインスタンスから作成 (例: 名前が ULID)
+kompoxops snapshot create -V db -D 01J8WXYZABCDEF1234567890GH
 
 # 復元して新規ディスクを作る
-kompoxops snapshot restore -A app1 -V db -S 01J8WXYZABCDEF1234567890JK
+kompoxops snapshot restore -V db -S 01J8WXYZABCDEF1234567890JK
 
 # スナップショット削除
-kompoxops snapshot delete -A app1 -V db -S 01J8WXYZABCDEF1234567890JK
+kompoxops snapshot delete -V db -S 01J8WXYZABCDEF1234567890JK
 ```
 
 #### kompoxops snapshot list
@@ -428,128 +427,157 @@ kompoxops snapshot delete -A app1 -V db -S 01J8WXYZABCDEF1234567890JK
 
 #### kompoxops snapshot delete
 
-指定スナップショットを削除します（NotFound の場合も成功）。
+指定スナップショットを削除します (NotFound の場合も成功)。
 
 #### kompoxops snapshot restore
 
-指定スナップショットから新しいボリュームインスタンスを作成します（復元ディスクは Assigned=false）。
+指定スナップショットから新しいボリュームインスタンスを作成します (復元ディスクは Assigned=false)。
 
 ### kompoxops admin
 
-### kompoxops tool
+### kompoxops box
 
-アプリの Namespace に「メンテナンス用ランナー」(Deployment/Pod) をデプロイ・操作します。PV/PVC をアプリ定義のボリュームにバインドしてマウントでき、バックアップやメンテ作業、対話的なシェル実行に利用します。
+アプリの Namespace に Kompox Box (Deployment/Pod) をデプロイ・操作します。
 
 ```
-kompoxops tool deploy  --app-name <appName> [--image IMG] [-V vol:disk:/path]... [-c CMD]... [-a ARG]...
-kompoxops tool destroy --app-name <appName>
-kompoxops tool status  --app-name <appName>
-kompoxops tool exec    --app-name <appName> -- <command> [args...]
-kompoxops tool rsync   --app-name <appName> -- [rsync options...] <source> <destination>
+kompoxops box deploy  --app-name <appName> [--image IMG] [-V vol:disk:/path]... [-c CMD]... [-a ARG]...
+kompoxops box destroy --app-name <appName>
+kompoxops box status  --app-name <appName>
+kompoxops box exec    --app-name <appName> [-i] [-t] [-e ESC] -- <command> [args...]
+kompoxops box ssh     --app-name <appName> -- <ssh args...>
 ```
 
 共通オプション
 
 - `--app-name | -A` 対象アプリ名 (デフォルト: `kompoxops.yml` の `app.name`)
 
-注意
+仕様
 
-- ランナーはアプリの Namespace に `kompox.dev/tool-runner=true` ラベル付きでデプロイされます。名前は固定で `tool-runner` です。
-- PV/PVC は必要に応じて生成されますが、`destroy` は Deployment/Pod のみ削除します（PV/PVC は保持）。
+- Kompox Box はアプリの Namespace に `kompox.dev/box=true` ラベル付きでデプロイされます。
+- リソース名は固定で `kompox-box` です。
+- PV/PVC は必要に応じて自動生成されます。
+- PV/PVC をアプリ定義のボリュームにバインドしてマウントでき、メンテナンスや開発の環境として利用できます。
 
-#### kompoxops tool deploy
+#### kompoxops box deploy
 
-メンテナンス用ランナーをデプロイします（冪等）。アプリ定義のボリュームと既存ディスクを指定してマウントできます。
+Kompox Box のリソースをデプロイします (冪等)。
 
-主なオプション:
+オプション:
 
-- `--image IMG` ランナーのコンテナイメージ（既定: `busybox`）
-- `-V, --volume volName:diskName:/mount/path` マウント指定を繰り返し指定可能
+- `--image IMG` ランナーのコンテナイメージ (既定: `ghcr.io/kompox/kompox/box`)
+- `-V, --volume volName:diskName:/mount/path` マウント指定 (複数指定可能)
   - `volName` は `app.volumes` のボリューム名
-  - `diskName` はそのボリューム配下の既存ディスク名（例: `kompoxops disk list` で確認）
+  - `diskName` はそのボリューム配下の既存ディスク名
   - `/mount/path` はコンテナ内の絶対パス
-- `-c, --command TOKEN` エントリポイント（複数指定でトークン分割、image の ENTRYPOINT を上書き）
-- `-a, --args TOKEN` 引数（複数指定でトークン分割、image の CMD を上書き）
+- `-c, --command TOKEN` エントリポイント (複数指定でトークン分割、image の ENTRYPOINT を上書き)
+- `-a, --args TOKEN` 引数 (複数指定でトークン分割、image の CMD を上書き)
+- `--ssh-pubkey FILE` SSH公開鍵ファイル (既定: `~/.ssh/id_rsa.pub`)
+- `--always-pull` コンテナイメージを常に pull する
 
-コマンド/引数の既定動作:
+挙動:
 
-- `--command` も `--args` も未指定: rsync をデーモンモードで起動しポート 873 でモジュール `vol` を公開
-- `--args` のみ指定: `sh -c` をエントリポイントにし、与えた引数をそのままシェルに渡す
-- `--command` のみ指定: 与えたエントリポイントのみを使用（引数なし）
+- アプリ定義のボリュームと既存ディスクを指定してマウントできます。
+- SSH公開鍵はコンテナ内で `/etc/ssh/authorized_keys` に登録されます。
 
 例:
 
 ```
-# ボリューム db のディスク vol-202401 を /var/lib/postgresql にマウントし、シェルで待機
-kompoxops tool deploy -A app1 -V db:vol-202401:/var/lib/postgresql --image debian:stable
+# 基本的なデプロイ
+kompoxops box deploy
 
-# 1回のジョブ的にコマンドを流して終了（args のみ指定）
-kompoxops tool deploy -A app1 -V default:vol-01ABCD:/data -a "tar czf /data.bak.tgz /data"
+# カスタムイメージとボリュームマウント
+kompoxops box deploy --image debian:stable -V data:disk1:/mnt/data
+
+# コマンドと引数を指定
+kompoxops box deploy -c sleep -a infinity
 ```
 
-#### kompoxops tool destroy
+#### kompoxops box destroy
 
-ランナーの Deployment/Pod を削除します（冪等）。PV/PVC は保持されます。
+Kompox Box のリソースを削除します (冪等)。
 
-#### kompoxops tool status
+#### kompoxops box status
 
-ランナーの状態を JSON で表示します。`ready`、`namespace`、`name`、`node_name`、`image`、`command`、`args` を返します。
+Kompox Box の状態を JSON で表示します。
 
-出力例
+出力例:
 
 ```json
 {
   "ready": true,
-  "namespace": "kompox-app1-01HXYZ...",
-  "name": "tool-runner",
-  "node_name": "aks-nodepool1-12345678-vmss000001",
-  "image": "debian:stable",
-  "command": ["sh", "-c"],
-  "args": ["sleep infinity"]
+  "image": "ghcr.io/kompox/kompox/box",
+  "namespace": "kompox-app1-2ebe3c",
+  "node": "aks-npsystem-32536790-vmss000001",
+  "deployment": "kompox-box",
+  "pod": "kompox-box-5dbc9cc965-hzvp5",
+  "container": "box",
+  "command": null,
+  "args": null
 }
 ```
 
-#### kompoxops tool exec
+#### kompoxops box exec
 
-稼働中のランナーポッド内でコマンドを実行します。対話モードにも対応します。
-
-使用法:
-
-```
-kompoxops tool exec -A <appName> [-i] [-t] [-e ESC] -- <command> [args...]
-```
+稼働中の Kompox Box 内でコマンドを実行します。
 
 オプション:
 
 - `-i, --stdin` 標準入力を接続
-- `-t, --tty` TTY を割り当て（bash 等の対話時に推奨）
+- `-t, --tty` TTY を割り当て (bash 等の対話時に推奨)
 - `-e, --escape` デタッチ用エスケープシーケンス（既定: `~.`、`none` で無効化）
+
+挙動:
+
+- `kompox.dev/box=true` ラベルが付与された Pod を対象とします。
+- Ready 状態の Pod を優先し、無ければ非終了中の Pod を選択します。
+- `--tty` 指定時は stderr は stdout にマージされます（TTY の仕様）。
+- `--escape` で指定したシーケンスを送るとセッションを切断して終了できます。
 
 例:
 
 ```
-# 付与したマウントを確認
-kompoxops tool exec -A app1 -it -- sh -c 'df -hT; mount | grep pvc'
+# 対話シェル
+kompoxops box exec -it -- bash
 
-# 進行中の操作からデタッチ（~. を入力）
-kompoxops tool exec -A app1 -it -- bash
+# ワンライナー実行
+kompoxops box exec -t -- ls -la /mnt
 ```
 
-#### kompoxops tool rsync
+#### kompoxops box ssh
 
-tool コンテナ内で稼働する rsync デーモンと接続する rsync コマンドのラッパー。
+稼働中の Kompox Box に SSH 接続します。
 
-- ポートフォワードを設定し localhost にコンテナにつながるポートを開く
-- 引数に渡された `vol:path` のパスを `rsync://localhost:PORT/vol/path` に書き換える
-- rsync コマンドに引数を渡して起動する
-- ポートフォワードを閉じる
-
-次のような起動をサポートする。
+使用法:
 
 ```
-kompoxops tool rsync /local/path vol:/remote/path
-kompoxops tool rsync vol:/remote/path /local/path
-kompoxops tool rsync vol:
+kompoxops box ssh -- <ssh args...>
+```
+
+挙動:
+
+- Kubernetes API でポートフォワードを設定し、localhost にコンテナに接続するポートを開きます。
+- SSH コマンドを起動し、`-o Hostname=localhost -p <port>` を自動設定してコンテナに接続します。
+- 接続終了後、ポートフォワードを自動的に閉じます。
+
+注意:
+
+- ユーザー名は明示的に指定する必要があります (`user@host` 形式または `-l user` オプション)。
+- `host` 部分は任意の文字列で構いません (例: `a`、`dummy`、`example.com`)。
+- デフォルトイメージ (`ghcr.io/kompox/kompox/box`) では一般ユーザーは `kompox` です。`root` でも接続可能です。
+
+例:
+
+```
+# user@host 形式
+kompoxops box ssh -- kompox@a
+kompoxops box ssh -- root@dummy
+
+# -l オプション形式  
+kompoxops box ssh -- -l kompox hostname
+kompoxops box ssh -- hostname -l root
+
+# ポートフォワード付き
+kompoxops box ssh -- -L 8080:localhost:8080 kompox@host
 ```
 
 ### kompoxops admin

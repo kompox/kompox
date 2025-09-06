@@ -3,6 +3,7 @@ package main
 import (
 	providerdrv "github.com/kompox/kompox/adapters/drivers/provider"
 	"github.com/kompox/kompox/usecase/app"
+	"github.com/kompox/kompox/usecase/box"
 	"github.com/kompox/kompox/usecase/cluster"
 	"github.com/kompox/kompox/usecase/provider"
 	"github.com/kompox/kompox/usecase/service"
@@ -72,6 +73,18 @@ func buildToolUseCase(cmd *cobra.Command) (*tool.UseCase, error) {
 		return nil, err
 	}
 	return &tool.UseCase{
+		Repos:      repos,
+		VolumePort: providerdrv.GetVolumePort(repos.Service, repos.Provider, repos.Cluster, repos.App),
+	}, nil
+}
+
+// buildBoxUseCase creates box use case with required repositories and ports.
+func buildBoxUseCase(cmd *cobra.Command) (*box.UseCase, error) {
+	repos, err := buildBoxRepos(cmd)
+	if err != nil {
+		return nil, err
+	}
+	return &box.UseCase{
 		Repos:      repos,
 		VolumePort: providerdrv.GetVolumePort(repos.Service, repos.Provider, repos.Cluster, repos.App),
 	}, nil

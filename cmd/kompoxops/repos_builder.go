@@ -11,6 +11,7 @@ import (
 	"github.com/kompox/kompox/config/kompoxopscfg"
 	"github.com/kompox/kompox/domain"
 	"github.com/kompox/kompox/usecase/app"
+	"github.com/kompox/kompox/usecase/box"
 	"github.com/kompox/kompox/usecase/cluster"
 	"github.com/kompox/kompox/usecase/provider"
 	"github.com/kompox/kompox/usecase/service"
@@ -158,6 +159,20 @@ func buildToolRepos(cmd *cobra.Command) (*tooluc.Repos, error) {
 		return nil, err
 	}
 	return &tooluc.Repos{
+		Service:  repos.Service,
+		Provider: repos.Provider,
+		Cluster:  repos.Cluster,
+		App:      repos.App,
+	}, nil
+}
+
+// buildBoxRepos creates repositories needed for box use cases.
+func buildBoxRepos(cmd *cobra.Command) (*box.Repos, error) {
+	repos, err := buildRepos(cmd)
+	if err != nil {
+		return nil, err
+	}
+	return &box.Repos{
 		Service:  repos.Service,
 		Provider: repos.Provider,
 		Cluster:  repos.Cluster,
