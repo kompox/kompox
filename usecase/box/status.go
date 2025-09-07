@@ -62,11 +62,11 @@ func (u *UseCase) Status(ctx context.Context, in *StatusInput) (*StatusOutput, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kube client: %w", err)
 	}
-	c := kube.NewConverter(serviceObj, providerObj, clusterObj, appObj)
+	c := kube.NewConverter(serviceObj, providerObj, clusterObj, appObj, "box")
 	if _, err := c.Convert(ctx); err != nil {
 		return nil, fmt.Errorf("convert failed: %w", err)
 	}
-	ns := c.NSName
+	ns := c.Namespace
 	name := BoxResourceName
 
 	dep, err := kcli.Clientset.AppsV1().Deployments(ns).Get(ctx, name, metav1.GetOptions{})

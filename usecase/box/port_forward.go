@@ -51,11 +51,11 @@ func (u *UseCase) setupPortForward(ctx context.Context, appID string, remotePort
 	}
 
 	// Get namespace using converter
-	c := kube.NewConverter(serviceObj, providerObj, clusterObj, appObj)
+	c := kube.NewConverter(serviceObj, providerObj, clusterObj, appObj, "box")
 	if _, err := c.Convert(ctx); err != nil {
 		return 0, nil, fmt.Errorf("convert failed: %w", err)
 	}
-	ns := c.NSName
+	ns := c.Namespace
 
 	logger.Debug(ctx, "setting up port forward",
 		"namespace", ns,

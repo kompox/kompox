@@ -82,11 +82,11 @@ func (u *UseCase) Exec(ctx context.Context, in *ExecInput) (*ExecOutput, error) 
 		return nil, fmt.Errorf("failed to create kube client: %w", err)
 	}
 
-	c := kube.NewConverter(serviceObj, providerObj, clusterObj, appObj)
+	c := kube.NewConverter(serviceObj, providerObj, clusterObj, appObj, "box")
 	if _, err := c.Convert(ctx); err != nil {
 		return nil, fmt.Errorf("convert failed: %w", err)
 	}
-	ns := c.NSName
+	ns := c.Namespace
 
 	// Pick a running pod with the box label
 	pods, err := kcli.Clientset.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{LabelSelector: LabelBoxSelector})

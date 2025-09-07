@@ -143,7 +143,7 @@ func (u *UseCase) Validate(ctx context.Context, in *ValidateInput) (*ValidateOut
 	if len(out.Errors) > 0 {
 		return out, nil
 	}
-	conv := kube.NewConverter(svc, prv, cls, app)
+	conv := kube.NewConverter(svc, prv, cls, app, "app")
 	if conv == nil {
 		out.Warnings = append(out.Warnings, "compose conversion failed: converter initialization failed")
 		return out, nil

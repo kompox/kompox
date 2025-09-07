@@ -52,7 +52,7 @@ func (u *UseCase) Destroy(ctx context.Context, in *DestroyInput) (*DestroyOutput
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kube client: %w", err)
 	}
-	c := kube.NewConverter(serviceObj, providerObj, clusterObj, appObj)
+	c := kube.NewConverter(serviceObj, providerObj, clusterObj, appObj, "box")
 	if _, err := c.Convert(ctx); err != nil {
 		return nil, fmt.Errorf("convert failed: %w", err)
 	}
@@ -61,7 +61,7 @@ func (u *UseCase) Destroy(ctx context.Context, in *DestroyInput) (*DestroyOutput
 		{GVR: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}, Namespaced: true, Kind: "Deployment"},
 		{GVR: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, Namespaced: true, Kind: "Pod"},
 	}
-	if _, err := kcli.DeleteByLabelSelector(ctx, c.NSName, targets, selector, &kube.DeleteBySelectorOptions{}); err != nil {
+	if _, err := kcli.DeleteByLabelSelector(ctx, c.Namespace, targets, selector, &kube.DeleteBySelectorOptions{}); err != nil {
 		return nil, fmt.Errorf("delete box runner failed: %w", err)
 	}
 	return &DestroyOutput{}, nil

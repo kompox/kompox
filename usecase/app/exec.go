@@ -92,11 +92,11 @@ func (u *UseCase) Exec(ctx context.Context, in *ExecInput) (*ExecOutput, error) 
 	}
 
 	// Compute namespace via converter
-	c := kube.NewConverter(serviceObj, providerObj, clusterObj, appObj)
+	c := kube.NewConverter(serviceObj, providerObj, clusterObj, appObj, "app")
 	if _, err := c.Convert(ctx); err != nil {
 		return nil, fmt.Errorf("convert failed: %w", err)
 	}
-	ns := c.NSName
+	ns := c.Namespace
 
 	// Find target pod
 	podsList, err := kcli.Clientset.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{})

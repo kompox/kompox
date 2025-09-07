@@ -77,7 +77,7 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 		return nil, fmt.Errorf("failed to create kube client: %w", err)
 	}
 
-	c := kube.NewConverter(serviceObj, providerObj, clusterObj, appObj)
+	c := kube.NewConverter(serviceObj, providerObj, clusterObj, appObj, "box")
 	if _, err := c.Convert(ctx); err != nil {
 		return nil, fmt.Errorf("convert app for box deploy failed: %w", err)
 	}
@@ -167,7 +167,7 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 		vm = append(vm, corev1.VolumeMount{Name: m.volName, MountPath: m.mountPath})
 	}
 	labels := map[string]string{}
-	maps.Copy(labels, c.CommonLabels)
+	maps.Copy(labels, c.Labels)
 	labels[LabelComponent] = LabelComponentValue
 	labels[LabelBox] = LabelBoxValue
 	depName := BoxResourceName
@@ -178,7 +178,7 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 		secretObj = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      BoxResourceName,
-				Namespace: c.NSName,
+				Namespace: c.Namespace,
 				Labels:    labels,
 			},
 			Type: corev1.SecretTypeOpaque,
@@ -211,7 +211,7 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 	}
 
 	dep := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: depName, Namespace: c.NSName, Labels: labels},
+		ObjectMeta: metav1.ObjectMeta{Name: depName, Namespace: c.Namespace, Labels: labels},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: ptr.To[int32](1),
 			Selector: &metav1.LabelSelector{MatchLabels: labels},
@@ -243,10 +243,10 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 	sch := runtime.NewScheme()
 	utilruntime.Must(appsv1.AddToScheme(sch))
 	utilruntime.Must(corev1.AddToScheme(sch))
-	if gvk, _, err := sch.ObjectKinds(c.Namespace); err == nil && len(gvk) > 0 {
-		c.Namespace.GetObjectKind().SetGroupVersionKind(gvk[0])
+	if gvk, _, err := sch.ObjectKinds(c.K8sNamespace); err == nil && len(gvk) > 0 {
+		c.K8sNamespace.GetObjectKind().SetGroupVersionKind(gvk[0])
 	}
-	if err := kcli.ApplyObjects(ctx, []runtime.Object{c.Namespace}, &kube.ApplyOptions{FieldManager: "kompoxops"}); err != nil {
+	if err := kcli.ApplyObjects(ctx, []runtime.Object{c.K8sNamespace}, &kube.ApplyOptions{FieldManager: "kompoxops"}); err != nil {
 		return nil, fmt.Errorf("apply Namespace failed: %w", err)
 	}
 	if len(pvObjs) > 0 {
@@ -284,6 +284,6 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 		return nil, fmt.Errorf("apply Deployment failed: %w", err)
 	}
 
-	logger.Info(ctx, "box runner deployed", "namespace", c.NSName, "name", depName, "image", in.Image, "command", in.Command, "args", in.Args)
-	return &DeployOutput{Namespace: c.NSName, Name: depName}, nil
+	logger.Info(ctx, "box runner deployed", "namespace", c.Namespace, "name", depName, "image", in.Image, "command", in.Command, "args", in.Args)
+	return &DeployOutput{Namespace: c.Namespace, Name: depName}, nil
 }

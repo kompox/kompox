@@ -66,11 +66,11 @@ func (u *UseCase) Logs(ctx context.Context, in *LogsInput) (*LogsOutput, error) 
 	}
 
 	// Determine namespace via converter
-	c := kube.NewConverter(serviceObj, providerObj, clusterObj, appObj)
+	c := kube.NewConverter(serviceObj, providerObj, clusterObj, appObj, "app")
 	if _, err := c.Convert(ctx); err != nil {
 		return nil, fmt.Errorf("convert failed: %w", err)
 	}
-	ns := c.NSName
+	ns := c.Namespace
 
 	// List pods
 	podsList, err := kcli.Clientset.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{})

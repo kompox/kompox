@@ -16,6 +16,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/utils/ptr"
@@ -41,23 +42,24 @@ type Converter struct {
 	HashID string // service/provider/app (cluster independent)
 	HashIN string // service/provider/cluster/app (cluster dependent)
 
-	// Naming/labels/selector
-	NSName       string
-	CommonLabels map[string]string
-	Selector     map[string]string
+	// Stable namespace/label/selector namings
+	Namespace      string
+	Labels         map[string]string
+	Selector       map[string]string
+	SelectorString string // String representation of Selector for Kubernetes API calls
 
 	// Provider-agnostic K8s pieces
-	Namespace      *corev1.Namespace
-	Containers     []corev1.Container
-	InitContainers []corev1.Container
-	Service        *corev1.Service
-	IngressDefault *netv1.Ingress
-	IngressCustom  *netv1.Ingress
+	K8sNamespace      *corev1.Namespace
+	K8sContainers     []corev1.Container
+	K8sInitContainers []corev1.Container
+	K8sService        *corev1.Service
+	K8sIngressDefault *netv1.Ingress
+	K8sIngressCustom  *netv1.Ingress
 
 	// Bound storage state
 	VolumeBindings []*ConverterVolumeBinding // input bindings (app.Volumes order), updated in-place with chosen resource names
-	PVObjects      []runtime.Object          // generated PVs
-	PVCObjects     []runtime.Object          // generated PVCs
+	K8sPVs         []runtime.Object          // generated PVs
+	K8sPVCs        []runtime.Object          // generated PVCs
 
 	// Non-fatal notes during planning
 	warnings []string
@@ -87,23 +89,26 @@ type ConverterVolumeBinding struct {
 // NewConverter creates a converter bound to domain objects and precomputes
 // identifiers that do not require Compose parsing (hashes, namespace, labels).
 // Compose parsing and plan construction are performed by Convert.
-func NewConverter(svc *model.Service, prv *model.Provider, cls *model.Cluster, a *model.App) *Converter {
+func NewConverter(svc *model.Service, prv *model.Provider, cls *model.Cluster, a *model.App, component string) *Converter {
 	c := &Converter{Svc: svc, Prv: prv, Cls: cls, App: a}
 	if svc != nil && prv != nil && cls != nil && a != nil {
 		hashes := naming.NewHashes(svc.Name, prv.Name, cls.Name, a.Name)
 		c.HashID = hashes.AppID
 		c.HashIN = hashes.AppInstance
-		c.NSName = hashes.Namespace
-		c.CommonLabels = map[string]string{
-			"app":                          a.Name + "-app",
+		c.Namespace = hashes.Namespace
+		c.Labels = map[string]string{
+			"app":                          fmt.Sprintf("%s-%s", a.Name, component),
 			"app.kubernetes.io/name":       a.Name,
 			"app.kubernetes.io/instance":   fmt.Sprintf("%s-%s", a.Name, c.HashIN),
-			"app.kubernetes.io/component":  "app",
+			"app.kubernetes.io/component":  component,
 			"app.kubernetes.io/managed-by": "kompox",
 			"kompox.dev/app-instance-hash": c.HashIN,
 			"kompox.dev/app-id-hash":       c.HashID,
 		}
-		c.Selector = map[string]string{"app": a.Name + "-app"}
+		c.Selector = map[string]string{
+			"app": c.Labels["app"],
+		}
+		c.SelectorString = labels.Set(c.Selector).String()
 	}
 	return c
 }
@@ -122,8 +127,8 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 
 	// Hashes, namespace name and labels are precomputed by NewConverter.
 	// Keep local aliases for readability.
-	nsName := c.NSName
-	commonLabels := c.CommonLabels
+	nsName := c.Namespace
+	commonLabels := c.Labels
 
 	// Build volume definition index
 	volDefs := map[string]model.AppVolume{}
@@ -402,12 +407,12 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 
 	c.Project = proj
 	// HashID/HashIN/NSName/CommonLabels were set in NewConverter
-	c.Namespace = ns
-	c.Containers = containers
-	c.InitContainers = initContainers
-	c.Service = svcObj
-	c.IngressDefault = ingDefault
-	c.IngressCustom = ingCustom
+	c.K8sNamespace = ns
+	c.K8sContainers = containers
+	c.K8sInitContainers = initContainers
+	c.K8sService = svcObj
+	c.K8sIngressDefault = ingDefault
+	c.K8sIngressCustom = ingCustom
 	c.warnings = warnings
 
 	return c.warnings, nil
@@ -420,7 +425,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 //
 // Output: claim names by logical volume and generated PV/PVC objects.
 func (c *Converter) BindVolumes(ctx context.Context, vols []*ConverterVolumeBinding) error {
-	if c.Project == nil || c.NSName == "" {
+	if c.Project == nil || c.Namespace == "" {
 		return fmt.Errorf("convert must be called before binding")
 	}
 	if len(vols) != len(c.App.Volumes) {
@@ -445,15 +450,15 @@ func (c *Converter) BindVolumes(ctx context.Context, vols []*ConverterVolumeBind
 	}
 	// Set as-is per contract (the slice elements are already updated in-place)
 	c.VolumeBindings = vols
-	c.PVObjects = pvObjs
-	c.PVCObjects = pvcObjs
+	c.K8sPVs = pvObjs
+	c.K8sPVCs = pvcObjs
 	return nil
 }
 
 // BuildVolumeObjects builds PV/PVC objects for the provided bindings without mutating Converter state.
 // The input can be any subset and in any order. The provided bindings are updated in-place with ResourceName populated.
 func (c *Converter) BuildVolumeObjects(ctx context.Context, vols []*ConverterVolumeBinding) ([]runtime.Object, []runtime.Object, error) {
-	if c.Project == nil || c.NSName == "" {
+	if c.Project == nil || c.Namespace == "" {
 		return nil, nil, fmt.Errorf("convert must be called before building volume objects")
 	}
 
@@ -564,7 +569,7 @@ func (c *Converter) BuildVolumeObjects(ctx context.Context, vols []*ConverterVol
 		pv := &corev1.PersistentVolume{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   resourceName,
-				Labels: c.CommonLabels,
+				Labels: c.Labels,
 			},
 			Spec: pvSpec,
 		}
@@ -581,8 +586,8 @@ func (c *Converter) BuildVolumeObjects(ctx context.Context, vols []*ConverterVol
 		pvc := &corev1.PersistentVolumeClaim{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      resourceName,
-				Namespace: c.NSName,
-				Labels:    c.CommonLabels,
+				Namespace: c.Namespace,
+				Labels:    c.Labels,
 			},
 			Spec: pvcSpec,
 		}
@@ -599,7 +604,7 @@ func (c *Converter) BuildVolumeObjects(ctx context.Context, vols []*ConverterVol
 // Build composes the final list of Kubernetes objects using this plan and a given VolumeBinding.
 // Output order: Namespace, PV/PVC (if any), Deployment, Service (optional), Ingress (optional).
 func (c *Converter) Build() ([]runtime.Object, []string, error) {
-	if c.Project == nil || c.NSName == "" {
+	if c.Project == nil || c.Namespace == "" {
 		return nil, nil, fmt.Errorf("convert must be called before build")
 	}
 	if len(c.VolumeBindings) != len(c.App.Volumes) {
@@ -625,31 +630,31 @@ func (c *Converter) Build() ([]runtime.Object, []string, error) {
 
 	// Deployment (single replica, Recreate)
 	dep := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: c.App.Name, Namespace: c.NSName, Labels: c.CommonLabels},
+		ObjectMeta: metav1.ObjectMeta{Name: c.App.Name, Namespace: c.Namespace, Labels: c.Labels},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: ptr.To[int32](1),
 			Strategy: appsv1.DeploymentStrategy{Type: appsv1.RecreateDeploymentStrategyType},
 			Selector: &metav1.LabelSelector{MatchLabels: c.Selector},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: c.CommonLabels},
-				Spec:       corev1.PodSpec{Containers: c.Containers, InitContainers: c.InitContainers, Volumes: podVolumes},
+				ObjectMeta: metav1.ObjectMeta{Labels: c.Labels},
+				Spec:       corev1.PodSpec{Containers: c.K8sContainers, InitContainers: c.K8sInitContainers, Volumes: podVolumes},
 			},
 		},
 	}
 
 	var objs []runtime.Object
-	objs = append(objs, c.Namespace)
-	objs = append(objs, c.PVObjects...)
-	objs = append(objs, c.PVCObjects...)
+	objs = append(objs, c.K8sNamespace)
+	objs = append(objs, c.K8sPVs...)
+	objs = append(objs, c.K8sPVCs...)
 	objs = append(objs, dep)
-	if c.Service != nil {
-		objs = append(objs, c.Service)
+	if c.K8sService != nil {
+		objs = append(objs, c.K8sService)
 	}
-	if c.IngressDefault != nil {
-		objs = append(objs, c.IngressDefault)
+	if c.K8sIngressDefault != nil {
+		objs = append(objs, c.K8sIngressDefault)
 	}
-	if c.IngressCustom != nil {
-		objs = append(objs, c.IngressCustom)
+	if c.K8sIngressCustom != nil {
+		objs = append(objs, c.K8sIngressCustom)
 	}
 	return objs, c.warnings, nil
 }

@@ -19,7 +19,7 @@ func TestNewConverter(t *testing.T) {
 	cls := &model.Cluster{Name: "testcls"}
 	app := &model.App{Name: "testapp", Compose: ""}
 
-	c := NewConverter(svc, prv, cls, app)
+	c := NewConverter(svc, prv, cls, app, "app")
 
 	if c.Svc != svc || c.Prv != prv || c.Cls != cls || c.App != app {
 		t.Error("domain references not properly stored")
@@ -30,8 +30,8 @@ func TestNewConverter(t *testing.T) {
 	}
 
 	expectedNS := "kompox-testapp-" + c.HashID
-	if c.NSName != expectedNS {
-		t.Errorf("expected namespace %q, got %q", expectedNS, c.NSName)
+	if c.Namespace != expectedNS {
+		t.Errorf("expected namespace %q, got %q", expectedNS, c.Namespace)
 	}
 
 	expectedLabels := map[string]string{
@@ -44,21 +44,21 @@ func TestNewConverter(t *testing.T) {
 	}
 
 	for k, v := range expectedLabels {
-		if c.CommonLabels[k] != v {
-			t.Errorf("expected label %q=%q, got %q", k, v, c.CommonLabels[k])
+		if c.Labels[k] != v {
+			t.Errorf("expected label %q=%q, got %q", k, v, c.Labels[k])
 		}
 	}
 }
 
 // TestNewConverterNilInputs tests behavior with nil inputs
 func TestNewConverterNilInputs(t *testing.T) {
-	c := NewConverter(nil, nil, nil, nil)
+	c := NewConverter(nil, nil, nil, nil, "app")
 
-	if c.HashID != "" || c.HashIN != "" || c.NSName != "" {
+	if c.HashID != "" || c.HashIN != "" || c.Namespace != "" {
 		t.Error("expected empty identifiers with nil inputs")
 	}
 
-	if len(c.CommonLabels) != 0 {
+	if len(c.Labels) != 0 {
 		t.Error("expected empty labels with nil inputs")
 	}
 }
@@ -90,19 +90,19 @@ services:
 				if c.Project == nil {
 					t.Error("project not set")
 				}
-				if c.Namespace == nil {
+				if c.K8sNamespace == nil {
 					t.Error("namespace not created")
 				}
-				if len(c.Containers) != 1 {
-					t.Errorf("expected 1 container, got %d", len(c.Containers))
+				if len(c.K8sContainers) != 1 {
+					t.Errorf("expected 1 container, got %d", len(c.K8sContainers))
 				}
-				if c.Containers[0].Name != "web" || c.Containers[0].Image != "nginx:1.20" {
-					t.Errorf("unexpected container: %+v", c.Containers[0])
+				if c.K8sContainers[0].Name != "web" || c.K8sContainers[0].Image != "nginx:1.20" {
+					t.Errorf("unexpected container: %+v", c.K8sContainers[0])
 				}
-				if c.Service != nil {
+				if c.K8sService != nil {
 					t.Error("service should be nil when no ports defined")
 				}
-				if c.IngressDefault != nil || c.IngressCustom != nil {
+				if c.K8sIngressDefault != nil || c.K8sIngressCustom != nil {
 					t.Error("ingress should be nil when no ingress rules defined")
 				}
 			},
@@ -119,19 +119,19 @@ services:
 `,
 			wantErr: "",
 			validate: func(t *testing.T, c *Converter) {
-				if c.Service == nil {
+				if c.K8sService == nil {
 					t.Error("service should be created when ports are defined")
 					return
 				}
-				if len(c.Service.Spec.Ports) != 2 {
-					t.Errorf("expected 2 service ports, got %d", len(c.Service.Spec.Ports))
+				if len(c.K8sService.Spec.Ports) != 2 {
+					t.Errorf("expected 2 service ports, got %d", len(c.K8sService.Spec.Ports))
 				}
 				// Check ports are sorted by host port
-				if c.Service.Spec.Ports[0].Name != "p8080" || int(c.Service.Spec.Ports[0].Port) != 8080 {
-					t.Errorf("unexpected first port: %+v", c.Service.Spec.Ports[0])
+				if c.K8sService.Spec.Ports[0].Name != "p8080" || int(c.K8sService.Spec.Ports[0].Port) != 8080 {
+					t.Errorf("unexpected first port: %+v", c.K8sService.Spec.Ports[0])
 				}
-				if c.Service.Spec.Ports[1].Name != "p8443" || int(c.Service.Spec.Ports[1].Port) != 8443 {
-					t.Errorf("unexpected second port: %+v", c.Service.Spec.Ports[1])
+				if c.K8sService.Spec.Ports[1].Name != "p8443" || int(c.K8sService.Spec.Ports[1].Port) != 8443 {
+					t.Errorf("unexpected second port: %+v", c.K8sService.Spec.Ports[1])
 				}
 			},
 		},
@@ -151,22 +151,22 @@ services:
 			},
 			wantErr: "",
 			validate: func(t *testing.T, c *Converter) {
-				if c.Service == nil {
+				if c.K8sService == nil {
 					t.Error("service should be created when ingress rules are defined")
 					return
 				}
-				if len(c.Service.Spec.Ports) != 1 {
-					t.Errorf("expected 1 service port, got %d", len(c.Service.Spec.Ports))
+				if len(c.K8sService.Spec.Ports) != 1 {
+					t.Errorf("expected 1 service port, got %d", len(c.K8sService.Spec.Ports))
 				}
-				if c.Service.Spec.Ports[0].Name != "web" {
-					t.Errorf("expected service port name 'web', got %q", c.Service.Spec.Ports[0].Name)
+				if c.K8sService.Spec.Ports[0].Name != "web" {
+					t.Errorf("expected service port name 'web', got %q", c.K8sService.Spec.Ports[0].Name)
 				}
-				if c.IngressCustom == nil {
+				if c.K8sIngressCustom == nil {
 					t.Error("ingress should be created when ingress rules are defined")
 					return
 				}
-				if len(c.IngressCustom.Spec.Rules) != 2 {
-					t.Errorf("expected 2 ingress rules (one per host), got %d", len(c.IngressCustom.Spec.Rules))
+				if len(c.K8sIngressCustom.Spec.Rules) != 2 {
+					t.Errorf("expected 2 ingress rules (one per host), got %d", len(c.K8sIngressCustom.Spec.Rules))
 				}
 			},
 		},
@@ -186,11 +186,11 @@ services:
 			},
 			wantErr: "",
 			validate: func(t *testing.T, c *Converter) {
-				if len(c.InitContainers) != 1 {
-					t.Errorf("expected 1 init container for subpath creation, got %d", len(c.InitContainers))
+				if len(c.K8sInitContainers) != 1 {
+					t.Errorf("expected 1 init container for subpath creation, got %d", len(c.K8sInitContainers))
 				}
-				if len(c.InitContainers) > 0 && c.InitContainers[0].Name != "init-volume-subpaths" {
-					t.Errorf("expected init container name 'init-volume-subpaths', got %q", c.InitContainers[0].Name)
+				if len(c.K8sInitContainers) > 0 && c.K8sInitContainers[0].Name != "init-volume-subpaths" {
+					t.Errorf("expected init container name 'init-volume-subpaths', got %q", c.K8sInitContainers[0].Name)
 				}
 			},
 		},
@@ -269,7 +269,7 @@ services:
 				Ingress: tt.appIngress,
 			}
 
-			c := NewConverter(svc, prv, cls, app)
+			c := NewConverter(svc, prv, cls, app, "app")
 			warnings, err := c.Convert(ctx)
 
 			if tt.wantErr != "" {
@@ -322,7 +322,7 @@ services:
 		},
 	}
 
-	c := NewConverter(svc, prv, cls, app)
+	c := NewConverter(svc, prv, cls, app, "app")
 	_, err := c.Convert(ctx)
 	if err != nil {
 		t.Fatalf("convert failed: %v", err)
@@ -402,7 +402,7 @@ services:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a fresh converter for each test
-			testC := NewConverter(svc, prv, cls, app)
+			testC := NewConverter(svc, prv, cls, app, "app")
 			_, err := testC.Convert(ctx)
 			if err != nil {
 				t.Fatalf("convert failed: %v", err)
@@ -424,7 +424,7 @@ services:
 				t.Fatalf("unexpected error: %v", err)
 			}
 
-			totalPVObjects := len(testC.PVObjects) + len(testC.PVCObjects)
+			totalPVObjects := len(testC.K8sPVs) + len(testC.K8sPVCs)
 			if totalPVObjects != tt.wantPVCount {
 				t.Errorf("expected %d PV/PVC objects, got %d", tt.wantPVCount, totalPVObjects)
 			}
@@ -473,7 +473,7 @@ services:
 		},
 	}
 
-	c := NewConverter(svc, prv, cls, app)
+	c := NewConverter(svc, prv, cls, app, "app")
 
 	// Convert phase
 	_, err := c.Convert(ctx)
@@ -602,7 +602,7 @@ services:
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create a fresh converter for each test
-			testC := NewConverter(svc, prv, cls, app)
+			testC := NewConverter(svc, prv, cls, app, "app")
 			_, err := testC.Convert(ctx)
 			if err != nil {
 				t.Fatalf("convert failed: %v", err)
@@ -686,7 +686,7 @@ services:
 	}
 
 	// Step 1: Create converter
-	c := NewConverter(svc, prv, cls, app)
+	c := NewConverter(svc, prv, cls, app, "app")
 	if c == nil {
 		t.Fatal("failed to create converter")
 	}
