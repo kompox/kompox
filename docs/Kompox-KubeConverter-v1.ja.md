@@ -34,26 +34,34 @@
 - Ingress: デフォルトドメイン用は `<appName>-default`、カスタムドメイン用は `<appName>-custom`
   - 将来的にバージョン管理のため `<appName>-<version>` などの形式を導入予定
 
-各リソースには次のラベルを設定する。セレクタとしては `app: <appName>` を使用する。
+各リソースには次のラベルを設定する。
 
 ```yaml
 metadata:
   labels:
-    app: <appName>
+    app: <appName>-app
     app.kubernetes.io/name: <appName>
     app.kubernetes.io/instance: <appName>-<inHASH>
+    app.kubernetes.io/component: app
     app.kubernetes.io/managed-by: kompox
     kompox.dev/app-instance-hash: <inHASH>
     kompox.dev/app-id-hash: <idHASH>
 ```
 
-ラベル意味:
-- app / app.kubernetes.io/name: Pod セレクタ・表示用短名
-- app.kubernetes.io/instance: 人間可読なインスタンス名 (= <appName>-<inHASH>)
-- kompox.dev/app-instance-hash: クラスタ依存インスタンスハッシュ (inHASH)
-- kompox.dev/app-id-hash: クラスタ非依存アプリ識別ハッシュ (idHASH, cluster.name を含まない)
+ラベルの意味
 
-Pod (Deployment の template) にも同一集合を付与し、selector は `app` のみ利用する。
+- `app`: セレクタラベル (Deployment/Service などで使用)
+- `app.kubernetes.io/name`: 表示名
+- `app.kubernetes.io/instance`: インスタンス名
+- `app.kubernetes.io/component`: コンポーネント種別 (`app` 固定、他に `box` などが存在する)
+- `kompox.dev/app-instance-hash`: クラスタ依存インスタンスハッシュ
+- `kompox.dev/app-id-hash`: クラスタ非依存アプリ識別ハッシュ
+
+Pod (Deployment の template) にも同一のラベルを付与する。 Deployment や Service の Pod セレクタでは次のラベルを照合する。
+
+```yaml
+app: <appName>-app
+```
 
 Namespace には次のアノテーションを設定する。
 
@@ -366,7 +374,7 @@ kind: Namespace
 metadata:
   name: kompox-app1-idHASH
   labels:
-    app: app1
+    app: app1-app
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
     app.kubernetes.io/managed-by: kompox
@@ -381,7 +389,7 @@ kind: PersistentVolume
 metadata:
   name: kompox-default-idHASH-volHASH
   labels:
-    app: app1
+    app: app1-app
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
     app.kubernetes.io/managed-by: kompox
@@ -407,7 +415,7 @@ kind: PersistentVolume
 metadata:
   name: kompox-db-idHASH-volHASH
   labels:
-    app: app1
+    app: app1-app
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
     app.kubernetes.io/managed-by: kompox
@@ -434,7 +442,7 @@ metadata:
   name: kompox-default-idHASH-volHASH
   namespace: kompox-app1-idHASH
   labels:
-    app: app1
+    app: app1-app
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
     app.kubernetes.io/managed-by: kompox
@@ -455,7 +463,7 @@ metadata:
   name: kompox-db-idHASH-volHASH
   namespace: kompox-app1-idHASH
   labels:
-    app: app1
+    app: app1-app
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
     app.kubernetes.io/managed-by: kompox
@@ -476,7 +484,7 @@ metadata:
   name: app1
   namespace: kompox-app1-idHASH
   labels:
-    app: app1
+    app: app1-app
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
     app.kubernetes.io/managed-by: kompox
@@ -488,11 +496,11 @@ spec:
     type: Recreate
   selector:
     matchLabels:
-      app: app1
+      app: app1-app
   template:
     metadata:
       labels:
-        app: app1
+        app: app1-app
         app.kubernetes.io/name: app1
         app.kubernetes.io/instance: app1-inHASH
         app.kubernetes.io/managed-by: kompox
@@ -563,7 +571,7 @@ metadata:
   name: app1
   namespace: kompox-app1-idHASH
   labels:
-    app: app1
+    app: app1-app
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
     app.kubernetes.io/managed-by: kompox
@@ -578,7 +586,7 @@ spec:
     port: 8081
     targetPort: 8080
   selector:
-    app: app1
+    app: app1-app
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
@@ -586,7 +594,7 @@ metadata:
   name: app1-default
   namespace: kompox-app1-idHASH
   labels:
-    app: app1
+    app: app1-app
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
     app.kubernetes.io/managed-by: kompox
@@ -625,7 +633,7 @@ metadata:
   name: app1-custom
   namespace: kompox-app1-idHASH
   labels:
-    app: app1
+    app: app1-app
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
     app.kubernetes.io/managed-by: kompox

@@ -35,7 +35,7 @@ func TestNewConverter(t *testing.T) {
 	}
 
 	expectedLabels := map[string]string{
-		"app":                          "testapp",
+		"app":                          "testapp-app",
 		"app.kubernetes.io/name":       "testapp",
 		"app.kubernetes.io/instance":   "testapp-" + c.HashIN,
 		"app.kubernetes.io/managed-by": "kompox",

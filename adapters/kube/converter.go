@@ -41,9 +41,10 @@ type Converter struct {
 	HashID string // service/provider/app (cluster independent)
 	HashIN string // service/provider/cluster/app (cluster dependent)
 
-	// Naming/labels
+	// Naming/labels/selector
 	NSName       string
 	CommonLabels map[string]string
+	Selector     map[string]string
 
 	// Provider-agnostic K8s pieces
 	Namespace      *corev1.Namespace
@@ -94,13 +95,15 @@ func NewConverter(svc *model.Service, prv *model.Provider, cls *model.Cluster, a
 		c.HashIN = hashes.AppInstance
 		c.NSName = hashes.Namespace
 		c.CommonLabels = map[string]string{
-			"app":                          a.Name,
+			"app":                          a.Name + "-app",
 			"app.kubernetes.io/name":       a.Name,
 			"app.kubernetes.io/instance":   fmt.Sprintf("%s-%s", a.Name, c.HashIN),
+			"app.kubernetes.io/component":  "app",
 			"app.kubernetes.io/managed-by": "kompox",
 			"kompox.dev/app-instance-hash": c.HashIN,
 			"kompox.dev/app-id-hash":       c.HashID,
 		}
+		c.Selector = map[string]string{"app": a.Name + "-app"}
 	}
 	return c
 }
@@ -314,7 +317,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 				hostSeen[host] = r.Name
 			}
 		}
-		svcObj = &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: c.App.Name, Namespace: nsName, Labels: commonLabels}, Spec: corev1.ServiceSpec{Selector: map[string]string{"app": c.App.Name}, Ports: servicePorts}}
+		svcObj = &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: c.App.Name, Namespace: nsName, Labels: commonLabels}, Spec: corev1.ServiceSpec{Selector: c.Selector, Ports: servicePorts}}
 	} else if len(hostPortToContainer) > 0 {
 		var ports []corev1.ServicePort
 		var hps []int
@@ -325,7 +328,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		for _, hp := range hps {
 			ports = append(ports, corev1.ServicePort{Name: fmt.Sprintf("p%d", hp), Port: int32(hp), TargetPort: intstr.FromInt(hostPortToContainer[hp])})
 		}
-		svcObj = &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: c.App.Name, Namespace: nsName, Labels: commonLabels}, Spec: corev1.ServiceSpec{Selector: map[string]string{"app": c.App.Name}, Ports: ports}}
+		svcObj = &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: c.App.Name, Namespace: nsName, Labels: commonLabels}, Spec: corev1.ServiceSpec{Selector: c.Selector, Ports: ports}}
 	}
 
 	// Ingress generation (Traefik)
@@ -626,7 +629,7 @@ func (c *Converter) Build() ([]runtime.Object, []string, error) {
 		Spec: appsv1.DeploymentSpec{
 			Replicas: ptr.To[int32](1),
 			Strategy: appsv1.DeploymentStrategy{Type: appsv1.RecreateDeploymentStrategyType},
-			Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": c.App.Name}},
+			Selector: &metav1.LabelSelector{MatchLabels: c.Selector},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: c.CommonLabels},
 				Spec:       corev1.PodSpec{Containers: c.Containers, InitContainers: c.InitContainers, Volumes: podVolumes},
