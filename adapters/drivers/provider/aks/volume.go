@@ -259,7 +259,7 @@ func (d *driver) azureVolumeDiskCreate(ctx context.Context, resourceGroupName, v
 	}
 
 	// Apply SKU and performance options from volume configuration
-	applyDiskOptions(&disk, options)
+	setDiskOptions(&disk, options)
 
 	poller, err := disksClient.BeginCreateOrUpdate(ctx, resourceGroupName, diskName, disk, nil)
 	if err != nil {
@@ -598,7 +598,7 @@ func (d *driver) azureVolumeDiskCreateFromSnapshot(ctx context.Context, resource
 	}
 
 	// Apply SKU and performance options from volume configuration
-	applyDiskOptions(&disk, options)
+	setDiskOptions(&disk, options)
 
 	poller, err := disksClient.BeginCreateOrUpdate(ctx, resourceGroupName, diskName, disk, nil)
 	if err != nil {
@@ -642,9 +642,9 @@ func volumeDefOptions(app *model.App, volName string) (map[string]any, bool) {
 	return nil, false
 }
 
-// applyDiskOptions applies Azure Disk SKU and performance options from volume options.
+// setDiskOptions applies Azure Disk SKU and performance options from volume options.
 // Default SKU is Premium_LRS if not specified.
-func applyDiskOptions(disk *armcompute.Disk, options map[string]any) {
+func setDiskOptions(disk *armcompute.Disk, options map[string]any) {
 	// Initialize SKU with default
 	if disk.SKU == nil {
 		disk.SKU = &armcompute.DiskSKU{}
@@ -706,6 +706,29 @@ func applyDiskOptions(disk *armcompute.Disk, options map[string]any) {
 	}
 }
 
+// getDiskOptions extracts Azure Disk SKU and performance options into an options map.
+func getDiskOptions(disk *armcompute.Disk) map[string]any {
+	options := make(map[string]any)
+
+	// Extract SKU
+	if disk.SKU != nil && disk.SKU.Name != nil {
+		skuName := string(*disk.SKU.Name)
+		options["sku"] = skuName
+	}
+
+	// Extract performance options
+	if disk.Properties != nil {
+		if disk.Properties.DiskIOPSReadWrite != nil {
+			options["iops"] = *disk.Properties.DiskIOPSReadWrite
+		}
+		if disk.Properties.DiskMBpsReadWrite != nil {
+			options["mbps"] = *disk.Properties.DiskMBpsReadWrite
+		}
+	}
+
+	return options
+}
+
 // VolumeDiskList implements spec method.
 func (d *driver) VolumeDiskList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, _ ...model.VolumeDiskListOption) ([]*model.VolumeDisk, error) {
 	if cluster == nil || app == nil {
@@ -721,8 +744,23 @@ func (d *driver) VolumeDiskList(ctx context.Context, cluster *model.Cluster, app
 	if err != nil {
 		return nil, err
 	}
+
+	// Create disks client to get detailed information for each disk
+	disksClient, err := armcompute.NewDisksClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+	if err != nil {
+		return nil, fmt.Errorf("new disks client: %w", err)
+	}
+
 	out := make([]*model.VolumeDisk, 0, len(items))
 	for _, it := range items {
+		// Get detailed disk information to extract options
+		diskRes, err := disksClient.Get(ctx, rg, it.Name, nil)
+		options := make(map[string]any)
+		if err == nil {
+			// Extract options from the disk resource
+			options = getDiskOptions(&diskRes.Disk)
+		}
+
 		out = append(out, &model.VolumeDisk{
 			Name:       it.DiskID,
 			VolumeName: volName,
@@ -730,6 +768,7 @@ func (d *driver) VolumeDiskList(ctx context.Context, cluster *model.Cluster, app
 			Size:       int64(it.SizeGiB) << 30,
 			Zone:       it.Zone,
 			Handle:     fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/disks/%s", d.AzureSubscriptionId, rg, it.Name),
+			Options:    options,
 			CreatedAt:  it.TimeCreated,
 			UpdatedAt:  it.TimeCreated,
 		})
@@ -777,6 +816,7 @@ func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, a
 		Size:       int64(meta.SizeGiB) << 30,
 		Zone:       app.Deployment.Zone,
 		Handle:     fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/disks/%s", d.AzureSubscriptionId, rg, meta.Name),
+		Options:    options,
 		CreatedAt:  meta.TimeCreated,
 		UpdatedAt:  meta.TimeCreated,
 	}, nil

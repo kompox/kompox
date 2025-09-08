@@ -70,14 +70,15 @@ type VolumePort interface {
 
 // VolumeDisk represents a specific disk of a logical volume.
 type VolumeDisk struct {
-	Name       string    `json:"name"`       // name of the volume disk
-	VolumeName string    `json:"volumeName"` // name of the logical volume this disk belongs to
-	Assigned   bool      `json:"assigned"`   // whether this disk is assigned to the logical volume
-	Size       int64     `json:"size"`       // volume disk size in bytes
-	Zone       string    `json:"zone"`       // availability zone where the disk is located (empty for regional)
-	Handle     string    `json:"handle"`     // provider driver specific handle
-	CreatedAt  time.Time `json:"createdAt"`
-	UpdatedAt  time.Time `json:"updatedAt"`
+	Name       string         `json:"name"`       // name of the volume disk
+	VolumeName string         `json:"volumeName"` // name of the logical volume this disk belongs to
+	Assigned   bool           `json:"assigned"`   // whether this disk is assigned to the logical volume
+	Size       int64          `json:"size"`       // volume disk size in bytes
+	Zone       string         `json:"zone"`       // availability zone where the disk is located (empty for regional)
+	Options    map[string]any `json:"options"`    // provider-specific configuration options
+	Handle     string         `json:"handle"`     // provider driver specific handle
+	CreatedAt  time.Time      `json:"createdAt"`
+	UpdatedAt  time.Time      `json:"updatedAt"`
 }
 
 // VolumeSnapshot represents a snapshot artifact belonging to a logical volume.
