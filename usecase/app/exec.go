@@ -45,7 +45,7 @@ type ExecOutput struct {
 // Exec executes a command in a running Pod of the app's namespace.
 // Selection strategy:
 //   - Determine app namespace via kube converter
-//   - List pods in the namespace, skip those labeled as tool-runner
+//   - List pods in the namespace using converter selector
 //   - Prefer a pod that has at least one Ready container; fallback to the first non-terminating pod
 //   - Use specified container name if provided, otherwise first container
 func (u *UseCase) Exec(ctx context.Context, in *ExecInput) (*ExecOutput, error) {
@@ -98,19 +98,16 @@ func (u *UseCase) Exec(ctx context.Context, in *ExecInput) (*ExecOutput, error) 
 	}
 	ns := c.Namespace
 
-	// Find target pod
-	podsList, err := kcli.Clientset.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{})
+	// Find target pod using converter selector
+	podsList, err := kcli.Clientset.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{LabelSelector: c.SelectorString})
 	if err != nil || len(podsList.Items) == 0 {
 		return nil, fmt.Errorf("app pod not found")
 	}
 	podName := ""
-	// Pick a pod: prefer Ready and not tool-runner
+	// Pick a pod: prefer Ready
 	for i := range podsList.Items {
 		p := podsList.Items[i]
 		if p.DeletionTimestamp != nil {
-			continue
-		}
-		if p.Labels["kompox.dev/tool-runner"] == "true" {
 			continue
 		}
 		ready := false
@@ -125,10 +122,10 @@ func (u *UseCase) Exec(ctx context.Context, in *ExecInput) (*ExecOutput, error) 
 		}
 	}
 	if podName == "" {
-		// fallback to the first non-terminating non tool-runner pod
+		// fallback to the first non-terminating pod
 		for i := range podsList.Items {
 			p := podsList.Items[i]
-			if p.DeletionTimestamp == nil && p.Labels["kompox.dev/tool-runner"] != "true" {
+			if p.DeletionTimestamp == nil {
 				podName = p.Name
 				break
 			}

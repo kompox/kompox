@@ -8,7 +8,6 @@ import (
 
 	providerdrv "github.com/kompox/kompox/adapters/drivers/provider"
 	"github.com/kompox/kompox/adapters/kube"
-	"github.com/kompox/kompox/internal/naming"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -21,18 +20,21 @@ type StatusInput struct {
 }
 
 // StatusOutput represents the response of app status.
-// For now it focuses on the generated ingress hostnames like cluster status does for cluster fields.
 type StatusOutput struct {
-	AppID       string `json:"app_id"`
-	AppName     string `json:"app_name"`
-	ClusterID   string `json:"cluster_id"`
-	ClusterName string `json:"cluster_name"`
-	// Namespace is the actual Kubernetes namespace where the app resources reside (if found).
-	Namespace string `json:"namespace,omitempty"`
-	// Deployed indicates whether the app namespace exists in the cluster.
-	Deployed bool `json:"deployed"`
-	// IngressHosts is a combined unique list of hosts from custom and default-domain ingresses.
-	IngressHosts []string `json:"ingress_hosts,omitempty"`
+	AppID        string   `json:"app_id"`
+	AppName      string   `json:"app_name"`
+	ClusterID    string   `json:"cluster_id"`
+	ClusterName  string   `json:"cluster_name"`
+	Ready        bool     `json:"ready"`
+	Image        string   `json:"image"`
+	Namespace    string   `json:"namespace"`
+	Node         string   `json:"node"`
+	Deployment   string   `json:"deployment"`
+	Pod          string   `json:"pod"`
+	Container    string   `json:"container"`
+	Command      []string `json:"command"`
+	Args         []string `json:"args"`
+	IngressHosts []string `json:"ingress_hosts"`
 }
 
 // Status returns status information about an app, including generated ingress hostnames.
@@ -68,9 +70,12 @@ func (u *UseCase) Status(ctx context.Context, in *StatusInput) (*StatusOutput, e
 		return nil, fmt.Errorf("failed to get service: %w", err)
 	}
 
-	// Compute expected namespace and find actual target namespace by labels
-	hashes := naming.NewHashes(svc.Name, prv.Name, cls.Name, appObj.Name)
-	expectedNS := hashes.Namespace
+	// Compute namespace and selector via converter
+	c := kube.NewConverter(svc, prv, cls, appObj, "app")
+	if _, err := c.Convert(ctx); err != nil {
+		return nil, fmt.Errorf("convert failed: %w", err)
+	}
+	expectedNS := c.Namespace
 
 	// Build provider driver and kube client
 	factory, ok := providerdrv.GetDriverFactory(prv.Driver)
@@ -100,10 +105,7 @@ func (u *UseCase) Status(ctx context.Context, in *StatusInput) (*StatusOutput, e
 		}
 	} else {
 		// Verify required labels are present and match the expected values.
-		want := labels.Set(map[string]string{
-			"app.kubernetes.io/instance":   fmt.Sprintf("%s-%s", appObj.Name, hashes.AppInstance),
-			"app.kubernetes.io/managed-by": "kompox",
-		})
+		want := labels.Set(c.Labels)
 		has := labels.Set(ns.Labels)
 		ok := true
 		for k, v := range want {
@@ -117,22 +119,54 @@ func (u *UseCase) Status(ctx context.Context, in *StatusInput) (*StatusOutput, e
 		}
 	}
 
-	// Determine if deployed by checking if any Deployment exists in the target namespace
-	deployed := false
+	// Determine if deployed and get deployment details
+	ready := false
+	var image string
+	var command, args []string
+	var deployment, pod, container, node string
+
 	if nsName != "" {
-		if deps, err := kcli.Clientset.AppsV1().Deployments(nsName).List(ctx, metav1.ListOptions{}); err == nil {
-			if len(deps.Items) > 0 {
-				deployed = true
+		// Get deployment using converter selector
+		deps, err := kcli.Clientset.AppsV1().Deployments(nsName).List(ctx, metav1.ListOptions{LabelSelector: c.SelectorString})
+		if err == nil && len(deps.Items) > 0 {
+			dep := deps.Items[0] // Use first deployment
+			deployment = dep.Name
+			ready = dep.Status.ReadyReplicas >= 1
+
+			// Get container details from first container
+			if len(dep.Spec.Template.Spec.Containers) > 0 {
+				ct := dep.Spec.Template.Spec.Containers[0]
+				container = ct.Name
+				image = ct.Image
+				if len(ct.Command) > 0 {
+					command = append([]string(nil), ct.Command...)
+				}
+				if len(ct.Args) > 0 {
+					args = append([]string(nil), ct.Args...)
+				}
 			}
-		} else if !apierrors.IsNotFound(err) {
-			return nil, fmt.Errorf("failed to list deployments in namespace %s: %w", nsName, err)
+		}
+
+		// Get pod details
+		pods, err := kcli.Clientset.CoreV1().Pods(nsName).List(ctx, metav1.ListOptions{LabelSelector: c.SelectorString})
+		if err == nil {
+			for i := range pods.Items {
+				p := pods.Items[i]
+				if p.DeletionTimestamp != nil {
+					continue
+				}
+				// Use first non-deleting pod
+				pod = p.Name
+				node = p.Spec.NodeName
+				break
+			}
 		}
 	}
 
-	// List all Ingress resources in the namespace and collect hostnames
+	// List all Ingress resources using converter selector and collect hostnames
 	hostsSet := map[string]struct{}{}
 	if nsName != "" {
-		ings, err := kcli.Clientset.NetworkingV1().Ingresses(nsName).List(ctx, metav1.ListOptions{})
+		ings, err := kcli.Clientset.NetworkingV1().Ingresses(nsName).List(ctx, metav1.ListOptions{LabelSelector: c.SelectorString})
 		if err != nil {
 			if !apierrors.IsNotFound(err) {
 				return nil, fmt.Errorf("failed to list ingresses in namespace %s: %w", nsName, err)
@@ -159,8 +193,15 @@ func (u *UseCase) Status(ctx context.Context, in *StatusInput) (*StatusOutput, e
 		AppName:      appObj.Name,
 		ClusterID:    cls.ID,
 		ClusterName:  cls.Name,
+		Ready:        ready,
+		Image:        image,
 		Namespace:    nsName,
-		Deployed:     deployed,
+		Node:         node,
+		Deployment:   deployment,
+		Pod:          pod,
+		Container:    container,
+		Command:      command,
+		Args:         args,
 		IngressHosts: hosts,
 	}
 	// keep types stable (no-op use): ensure JSON tags compile

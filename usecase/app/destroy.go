@@ -8,7 +8,6 @@ import (
 	"github.com/kompox/kompox/adapters/kube"
 	"github.com/kompox/kompox/domain/model"
 	"github.com/kompox/kompox/internal/logging"
-	"github.com/kompox/kompox/internal/naming"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -55,15 +54,13 @@ func (u *UseCase) Destroy(ctx context.Context, in *DestroyInput) (*DestroyOutput
 		serviceObj, _ = u.Repos.Service.Get(ctx, providerObj.ServiceID)
 	}
 
-	// Compute labels and namespace consistent with converter.
-	svcName := ""
-	if serviceObj != nil {
-		svcName = serviceObj.Name
+	// Compute namespace and selector via converter.
+	c := kube.NewConverter(serviceObj, providerObj, clusterObj, appObj, "app")
+	if _, err := c.Convert(ctx); err != nil {
+		return nil, fmt.Errorf("convert failed: %w", err)
 	}
-	hashes := naming.NewHashes(svcName, providerObj.Name, clusterObj.Name, appObj.Name)
-	inLabel := fmt.Sprintf("%s-%s", appObj.Name, hashes.AppInstance)
-	nsName := hashes.Namespace
-	labelSelector := fmt.Sprintf("app.kubernetes.io/instance=%s,app.kubernetes.io/managed-by=kompox", inLabel)
+	nsName := c.Namespace
+	labelSelector := c.SelectorString
 
 	// Provider driver for kubeconfig.
 	factory, ok := providerdrv.GetDriverFactory(providerObj.Driver)

@@ -72,15 +72,15 @@ func (u *UseCase) Logs(ctx context.Context, in *LogsInput) (*LogsOutput, error) 
 	}
 	ns := c.Namespace
 
-	// List pods
-	podsList, err := kcli.Clientset.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{})
+	// List pods using converter selector
+	podsList, err := kcli.Clientset.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{LabelSelector: c.SelectorString})
 	if err != nil || len(podsList.Items) == 0 {
 		return nil, fmt.Errorf("app pod not found")
 	}
 	podName := ""
 	for i := range podsList.Items {
 		p := podsList.Items[i]
-		if p.DeletionTimestamp != nil || p.Labels["kompox.dev/tool-runner"] == "true" {
+		if p.DeletionTimestamp != nil {
 			continue
 		}
 		ready := false
