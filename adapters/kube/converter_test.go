@@ -848,3 +848,133 @@ services:
 
 	t.Logf("Full workflow test completed successfully with %d objects", len(objects))
 }
+
+// TestDeploymentNodeSelector tests the nodeSelector functionality from app.deployment spec
+func TestDeploymentNodeSelector(t *testing.T) {
+	svc := &model.Service{Name: "ops"}
+	prv := &model.Provider{Name: "aks1", Driver: "aks"}
+	cls := &model.Cluster{Name: "cluster1"}
+
+	// Test case 1: Default node pool (no deployment config)
+	app1 := &model.App{
+		Name:    "app1",
+		Compose: `services: {app: {image: "test"}}`,
+	}
+	c1 := NewConverter(svc, prv, cls, app1, "app")
+	warnings, err := c1.Convert(context.Background())
+	if err != nil {
+		t.Fatalf("convert failed: %v", err)
+	}
+	if len(warnings) > 0 {
+		t.Logf("warnings: %v", warnings)
+	}
+
+	objects, warnings, err := c1.Build()
+	if err != nil {
+		t.Fatalf("build failed: %v", err)
+	}
+
+	// Find deployment
+	var deployment *appsv1.Deployment
+	for _, obj := range objects {
+		if dep, ok := obj.(*appsv1.Deployment); ok {
+			deployment = dep
+			break
+		}
+	}
+	if deployment == nil {
+		t.Fatal("deployment not found")
+	}
+
+	// Check default pool
+	nodeSelector := deployment.Spec.Template.Spec.NodeSelector
+	if nodeSelector["kompox.dev/node-pool"] != "user" {
+		t.Errorf("expected default node pool 'user', got %q", nodeSelector["kompox.dev/node-pool"])
+	}
+	if _, hasZone := nodeSelector["kompox.dev/node-zone"]; hasZone {
+		t.Errorf("expected no zone selector by default, but found: %q", nodeSelector["kompox.dev/node-zone"])
+	}
+
+	// Test case 2: Custom pool and zone
+	app2 := &model.App{
+		Name:    "app2",
+		Compose: `services: {app: {image: "test"}}`,
+		Deployment: model.AppDeployment{
+			Pool: "system",
+			Zone: "japaneast-1",
+		},
+	}
+	c2 := NewConverter(svc, prv, cls, app2, "app")
+	warnings, err = c2.Convert(context.Background())
+	if err != nil {
+		t.Fatalf("convert failed: %v", err)
+	}
+
+	objects, warnings, err = c2.Build()
+	if err != nil {
+		t.Fatalf("build failed: %v", err)
+	}
+
+	// Find deployment
+	deployment = nil
+	for _, obj := range objects {
+		if dep, ok := obj.(*appsv1.Deployment); ok {
+			deployment = dep
+			break
+		}
+	}
+	if deployment == nil {
+		t.Fatal("deployment not found")
+	}
+
+	// Check custom pool and zone
+	nodeSelector = deployment.Spec.Template.Spec.NodeSelector
+	if nodeSelector["kompox.dev/node-pool"] != "system" {
+		t.Errorf("expected node pool 'system', got %q", nodeSelector["kompox.dev/node-pool"])
+	}
+	if nodeSelector["kompox.dev/node-zone"] != "japaneast-1" {
+		t.Errorf("expected node zone 'japaneast-1', got %q", nodeSelector["kompox.dev/node-zone"])
+	}
+
+	// Test case 3: Only zone specified (pool should default to "user")
+	app3 := &model.App{
+		Name:    "app3",
+		Compose: `services: {app: {image: "test"}}`,
+		Deployment: model.AppDeployment{
+			Zone: "westus2-2",
+		},
+	}
+	c3 := NewConverter(svc, prv, cls, app3, "app")
+	warnings, err = c3.Convert(context.Background())
+	if err != nil {
+		t.Fatalf("convert failed: %v", err)
+	}
+
+	objects, warnings, err = c3.Build()
+	if err != nil {
+		t.Fatalf("build failed: %v", err)
+	}
+
+	// Find deployment
+	deployment = nil
+	for _, obj := range objects {
+		if dep, ok := obj.(*appsv1.Deployment); ok {
+			deployment = dep
+			break
+		}
+	}
+	if deployment == nil {
+		t.Fatal("deployment not found")
+	}
+
+	// Check default pool with custom zone
+	nodeSelector = deployment.Spec.Template.Spec.NodeSelector
+	if nodeSelector["kompox.dev/node-pool"] != "user" {
+		t.Errorf("expected default node pool 'user', got %q", nodeSelector["kompox.dev/node-pool"])
+	}
+	if nodeSelector["kompox.dev/node-zone"] != "westus2-2" {
+		t.Errorf("expected node zone 'westus2-2', got %q", nodeSelector["kompox.dev/node-zone"])
+	}
+
+	t.Logf("All deployment nodeSelector tests completed successfully")
+}

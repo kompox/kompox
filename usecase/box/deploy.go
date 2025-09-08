@@ -211,14 +211,18 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 			Selector: &metav1.LabelSelector{MatchLabels: c.Labels},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: c.Labels},
-				Spec: corev1.PodSpec{Containers: []corev1.Container{{
-					Name:            BoxContainerName,
-					Image:           in.Image,
-					ImagePullPolicy: pullPolicy,
-					Command:         in.Command,
-					Args:            in.Args,
-					VolumeMounts:    vm,
-				}}, Volumes: podVolumes},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{{
+						Name:            BoxContainerName,
+						Image:           in.Image,
+						ImagePullPolicy: pullPolicy,
+						Command:         in.Command,
+						Args:            in.Args,
+						VolumeMounts:    vm,
+					}},
+					Volumes:      podVolumes,
+					NodeSelector: c.NodeSelector,
+				},
 			},
 			Strategy: appsv1.DeploymentStrategy{Type: appsv1.RecreateDeploymentStrategyType},
 		},

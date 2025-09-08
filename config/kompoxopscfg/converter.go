@@ -78,16 +78,17 @@ func (r *Root) ToModels() (*model.Service, *model.Provider, *model.Cluster, *mod
 
 	// Create App (references Cluster)
 	app := &model.App{
-		ID:        appID,
-		Name:      r.App.Name,
-		ClusterID: clusterID,
-		Compose:   composeContent,
-		Ingress:   toModelAppIngress(r.App.Ingress),
-		Volumes:   toModelVolumes(r.App.Volumes),
-		Resources: r.App.Resources,
-		Settings:  r.App.Settings,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:         appID,
+		Name:       r.App.Name,
+		ClusterID:  clusterID,
+		Compose:    composeContent,
+		Ingress:    toModelAppIngress(r.App.Ingress),
+		Volumes:    toModelVolumes(r.App.Volumes),
+		Deployment: toModelAppDeployment(r.App.Deployment),
+		Resources:  r.App.Resources,
+		Settings:   r.App.Settings,
+		CreatedAt:  now,
+		UpdatedAt:  now,
 	}
 
 	return service, provider, cluster, app, nil
@@ -171,6 +172,14 @@ func toModelVolumes(vs []AppVolume) []model.AppVolume {
 		out = append(out, model.AppVolume{Name: v.Name, Size: q.Value()})
 	}
 	return out
+}
+
+// toModelAppDeployment converts config AppDeployment to domain AppDeployment.
+func toModelAppDeployment(ad AppDeployment) model.AppDeployment {
+	return model.AppDeployment{
+		Pool: ad.Pool,
+		Zone: ad.Zone,
+	}
 }
 
 // toModelClusterIngress converts config ClusterIngress to domain ClusterIngress pointer.

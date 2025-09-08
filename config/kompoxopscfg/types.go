@@ -67,12 +67,13 @@ type ClusterIngressCertificate struct {
 
 // App represents the target application to deploy.
 type App struct {
-	Name      string            `yaml:"name"`
-	Compose   any               `yaml:"compose"` // compose.yml content or URL to fetch
-	Ingress   AppIngress        `yaml:"ingress,omitempty"`
-	Volumes   []AppVolume       `yaml:"volumes,omitempty"`
-	Resources map[string]string `yaml:"resources,omitempty"` // pod resources (e.g., cpu, memory)
-	Settings  map[string]string `yaml:"settings,omitempty"`  // app-specific settings
+	Name       string            `yaml:"name"`
+	Compose    any               `yaml:"compose"` // compose.yml content or URL to fetch
+	Ingress    AppIngress        `yaml:"ingress,omitempty"`
+	Volumes    []AppVolume       `yaml:"volumes,omitempty"`
+	Deployment AppDeployment     `yaml:"deployment,omitempty"`
+	Resources  map[string]string `yaml:"resources,omitempty"` // pod resources (e.g., cpu, memory)
+	Settings   map[string]string `yaml:"settings,omitempty"`  // app-specific settings
 }
 
 // AppIngress groups ingress-wide settings and routing rules.
@@ -94,4 +95,14 @@ type AppIngressRule struct {
 type AppVolume struct {
 	Name string `yaml:"name"`
 	Size string `yaml:"size"`
+}
+
+// AppDeployment defines deployment configuration for the app.
+type AppDeployment struct {
+	// Pool specifies the node pool for deployment.
+	// Defaults to "user" if unspecified.
+	Pool string `yaml:"pool,omitempty"`
+	// Zone specifies the availability zone for deployment.
+	// Only sets nodeSelector when specified.
+	Zone string `yaml:"zone,omitempty"`
 }

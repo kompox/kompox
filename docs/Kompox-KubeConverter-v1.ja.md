@@ -297,6 +297,22 @@ additionalArguments:
 3. PV 削除 (クラウド側 detach 完了確認)
 4. 新クラスタで Namespace / PV / PVC / Deployment / Service / Ingress を apply
 
+### Deployment
+
+app.deployment スキーマ
+
+```yaml
+app:
+  deployment:
+    pool: <pool>
+    zone: <zone>
+```
+
+- pool: ノードプールの種類。未指定の場合は `user`。
+Deployment.spec.template.spec.nodeSelector に `kompox.dev/node-pool: <pool>` を設定する。
+- zone: プロバイダドライバがサポートするゾーン名 (例: `"1"')。
+指定があった場合のみ Deployment.spec.template.spec.nodeSelector に `kompox.dev/node-zone: <zone>` を設定する。
+
 ## 例1
 
 ### kompoxops.yml
@@ -367,6 +383,8 @@ app:
       size: 32Gi
     - name: db
       size: 64Gi
+  deployment:
+    zone: "1"
 ```
 
 ### Kubernetes Manifest
@@ -501,6 +519,9 @@ spec:
   selector:
     matchLabels:
       app: app1-app
+  nodeSelector:
+    kompox.dev/node-pool: user
+    kompox.dev/node-zone: "1"
   template:
     metadata:
       labels:

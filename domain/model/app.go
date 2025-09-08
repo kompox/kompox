@@ -4,16 +4,17 @@ import "time"
 
 // App represents an application deployed to a cluster.
 type App struct {
-	ID        string
-	Name      string
-	ClusterID string // references Cluster
-	Compose   string
-	Ingress   AppIngress
-	Volumes   []AppVolume
-	Resources map[string]string
-	Settings  map[string]string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID         string
+	Name       string
+	ClusterID  string // references Cluster
+	Compose    string
+	Ingress    AppIngress
+	Volumes    []AppVolume
+	Deployment AppDeployment
+	Resources  map[string]string
+	Settings   map[string]string
+	CreatedAt  time.Time
+	UpdatedAt  time.Time
 }
 
 // AppIngress defines ingress-wide settings and rules for an app.
@@ -34,4 +35,14 @@ type AppIngressRule struct {
 type AppVolume struct {
 	Name string
 	Size int64 // in bytes (parsed from user configuration quantities like "32Gi").
+}
+
+// AppDeployment defines deployment configuration for the app.
+type AppDeployment struct {
+	// Pool specifies the node pool for deployment.
+	// Defaults to "user" if unspecified.
+	Pool string
+	// Zone specifies the availability zone for deployment.
+	// Only sets nodeSelector when specified.
+	Zone string
 }

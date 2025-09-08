@@ -47,7 +47,8 @@ type Converter struct {
 	ResourceName   string // <appName>-<componentName> for Deployment/Service/Ingress
 	Labels         map[string]string
 	Selector       map[string]string
-	SelectorString string // String representation of Selector for Kubernetes API calls
+	SelectorString string
+	NodeSelector   map[string]string
 
 	// Provider-agnostic K8s pieces
 	K8sNamespace      *corev1.Namespace
@@ -111,6 +112,19 @@ func NewConverter(svc *model.Service, prv *model.Provider, cls *model.Cluster, a
 			"app": c.Labels["app"],
 		}
 		c.SelectorString = labels.Set(c.Selector).String()
+
+		// Precompute NodeSelector from app deployment settings
+		c.NodeSelector = map[string]string{}
+		// Default pool is "user" if not specified
+		pool := "user"
+		if a.Deployment.Pool != "" {
+			pool = a.Deployment.Pool
+		}
+		c.NodeSelector["kompox.dev/node-pool"] = pool
+		// Zone is optional and only set if specified
+		if a.Deployment.Zone != "" {
+			c.NodeSelector["kompox.dev/node-zone"] = a.Deployment.Zone
+		}
 	}
 	return c
 }
@@ -612,6 +626,7 @@ func (c *Converter) Build() ([]runtime.Object, []string, error) {
 	if len(c.VolumeBindings) != len(c.App.Volumes) {
 		return nil, nil, fmt.Errorf("bind must be called before build")
 	}
+
 	// Pod volumes using binding claim names
 	var podVolumes []corev1.Volume
 	for i, av := range c.App.Volumes {
@@ -630,6 +645,9 @@ func (c *Converter) Build() ([]runtime.Object, []string, error) {
 		})
 	}
 
+	// Use precomputed NodeSelector from NewConverter
+	nodeSelector := c.NodeSelector
+
 	// Deployment (single replica, Recreate)
 	dep := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{Name: c.ResourceName, Namespace: c.Namespace, Labels: c.Labels},
@@ -639,7 +657,7 @@ func (c *Converter) Build() ([]runtime.Object, []string, error) {
 			Selector: &metav1.LabelSelector{MatchLabels: c.Selector},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: c.Labels},
-				Spec:       corev1.PodSpec{Containers: c.K8sContainers, InitContainers: c.K8sInitContainers, Volumes: podVolumes},
+				Spec:       corev1.PodSpec{Containers: c.K8sContainers, InitContainers: c.K8sInitContainers, Volumes: podVolumes, NodeSelector: nodeSelector},
 			},
 		},
 	}
