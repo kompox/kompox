@@ -97,11 +97,8 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 		mounts = append(mounts, mountSpec{volName: vn, diskName: dn, mountPath: mp})
 	}
 
-	bindingsByVol := map[string]*kube.ConverterVolumeBinding{}
+	var bindings []*kube.ConverterVolumeBinding
 	for _, m := range mounts {
-		if _, exists := bindingsByVol[m.volName]; exists {
-			continue
-		}
 		var appVol *model.AppVolume
 		for i := range appObj.Volumes {
 			if appObj.Volumes[i].Name == m.volName {
@@ -130,15 +127,11 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 		if err != nil {
 			return nil, fmt.Errorf("get VolumeClass for volume %s: %w", m.volName, err)
 		}
-		bindingsByVol[m.volName] = &kube.ConverterVolumeBinding{
+		bindings = append(bindings, &kube.ConverterVolumeBinding{
 			Name:        m.volName,
 			VolumeDisk:  d,
 			VolumeClass: &vc,
-		}
-	}
-	var bindings []*kube.ConverterVolumeBinding
-	for _, b := range bindingsByVol {
-		bindings = append(bindings, b)
+		})
 	}
 
 	var pvObjs, pvcObjs []runtime.Object
@@ -151,19 +144,27 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 	}
 
 	var podVolumes []corev1.Volume
-	for volName, b := range bindingsByVol {
+	for i, b := range bindings {
 		claim := strings.TrimSpace(b.ResourceName)
 		if claim == "" {
-			return nil, fmt.Errorf("internal: empty claim name for volume %s", volName)
+			return nil, fmt.Errorf("internal: empty claim name for binding %d", i)
 		}
+		// Use PV/PVC resource name as pod volume name to avoid conflicts when same logical volume is mounted multiple times
 		podVolumes = append(podVolumes, corev1.Volume{
-			Name:         volName,
+			Name:         claim,
 			VolumeSource: corev1.VolumeSource{PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{ClaimName: claim}},
 		})
 	}
 	var vm []corev1.VolumeMount
-	for _, m := range mounts {
-		vm = append(vm, corev1.VolumeMount{Name: m.volName, MountPath: m.mountPath})
+	for i, m := range mounts {
+		if i >= len(bindings) {
+			return nil, fmt.Errorf("internal: mount index %d out of bounds", i)
+		}
+		claim := strings.TrimSpace(bindings[i].ResourceName)
+		if claim == "" {
+			return nil, fmt.Errorf("internal: empty claim name for mount %d", i)
+		}
+		vm = append(vm, corev1.VolumeMount{Name: claim, MountPath: m.mountPath})
 	}
 
 	// Create SSH Secret if SSHPubkey is provided
