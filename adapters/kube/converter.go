@@ -44,6 +44,7 @@ type Converter struct {
 
 	// Stable namespace/label/selector namings
 	Namespace      string
+	ResourceName   string // <appName>-<componentName> for Deployment/Service/Ingress
 	Labels         map[string]string
 	Selector       map[string]string
 	SelectorString string // String representation of Selector for Kubernetes API calls
@@ -96,6 +97,7 @@ func NewConverter(svc *model.Service, prv *model.Provider, cls *model.Cluster, a
 		c.HashID = hashes.AppID
 		c.HashIN = hashes.AppInstance
 		c.Namespace = hashes.Namespace
+		c.ResourceName = fmt.Sprintf("%s-%s", a.Name, component)
 		c.Labels = map[string]string{
 			"app":                          fmt.Sprintf("%s-%s", a.Name, component),
 			"app.kubernetes.io/name":       a.Name,
@@ -322,7 +324,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 				hostSeen[host] = r.Name
 			}
 		}
-		svcObj = &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: c.App.Name, Namespace: nsName, Labels: commonLabels}, Spec: corev1.ServiceSpec{Selector: c.Selector, Ports: servicePorts}}
+		svcObj = &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: c.ResourceName, Namespace: nsName, Labels: commonLabels}, Spec: corev1.ServiceSpec{Selector: c.Selector, Ports: servicePorts}}
 	} else if len(hostPortToContainer) > 0 {
 		var ports []corev1.ServicePort
 		var hps []int
@@ -333,7 +335,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		for _, hp := range hps {
 			ports = append(ports, corev1.ServicePort{Name: fmt.Sprintf("p%d", hp), Port: int32(hp), TargetPort: intstr.FromInt(hostPortToContainer[hp])})
 		}
-		svcObj = &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: c.App.Name, Namespace: nsName, Labels: commonLabels}, Spec: corev1.ServiceSpec{Selector: c.Selector, Ports: ports}}
+		svcObj = &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: c.ResourceName, Namespace: nsName, Labels: commonLabels}, Spec: corev1.ServiceSpec{Selector: c.Selector, Ports: ports}}
 	}
 
 	// Ingress generation (Traefik)
@@ -368,7 +370,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 			if certResolver != "" {
 				ann["traefik.ingress.kubernetes.io/router.tls.certresolver"] = certResolver
 			}
-			ingCustom = &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("%s-custom", c.App.Name), Namespace: nsName, Labels: commonLabels, Annotations: ann}, Spec: netv1.IngressSpec{IngressClassName: ptr.To("traefik"), Rules: customRules}}
+			ingCustom = &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("%s-custom", c.ResourceName), Namespace: nsName, Labels: commonLabels, Annotations: ann}, Spec: netv1.IngressSpec{IngressClassName: ptr.To("traefik"), Rules: customRules}}
 		}
 
 		// Build Default-domain Ingress (one host per rule based on hostPort)
@@ -400,7 +402,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 					"traefik.ingress.kubernetes.io/router.entrypoints": "websecure",
 					"traefik.ingress.kubernetes.io/router.tls":         "true",
 				}
-				ingDefault = &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("%s-default", c.App.Name), Namespace: nsName, Labels: commonLabels, Annotations: ann}, Spec: netv1.IngressSpec{IngressClassName: ptr.To("traefik"), Rules: defaultRules}}
+				ingDefault = &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("%s-default", c.ResourceName), Namespace: nsName, Labels: commonLabels, Annotations: ann}, Spec: netv1.IngressSpec{IngressClassName: ptr.To("traefik"), Rules: defaultRules}}
 			}
 		}
 	}
@@ -630,7 +632,7 @@ func (c *Converter) Build() ([]runtime.Object, []string, error) {
 
 	// Deployment (single replica, Recreate)
 	dep := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: c.App.Name, Namespace: c.Namespace, Labels: c.Labels},
+		ObjectMeta: metav1.ObjectMeta{Name: c.ResourceName, Namespace: c.Namespace, Labels: c.Labels},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: ptr.To[int32](1),
 			Strategy: appsv1.DeploymentStrategy{Type: appsv1.RecreateDeploymentStrategyType},

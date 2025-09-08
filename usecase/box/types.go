@@ -6,7 +6,6 @@ import (
 )
 
 const (
-	BoxResourceName            = "kompox-box"
 	BoxContainerName           = "box"
 	BoxUserName                = "kompox"
 	AnnotationBoxSSHPubkeyHash = "kompox.dev/box-ssh-pubkey-hash"

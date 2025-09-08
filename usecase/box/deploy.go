@@ -165,17 +165,15 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 	for _, m := range mounts {
 		vm = append(vm, corev1.VolumeMount{Name: m.volName, MountPath: m.mountPath})
 	}
-	labels := c.Labels
-	depName := BoxResourceName
 
 	// Create SSH Secret if SSHPubkey is provided
 	var secretObj *corev1.Secret
 	if len(in.SSHPubkey) > 0 {
 		secretObj = &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      BoxResourceName,
+				Name:      c.ResourceName,
 				Namespace: c.Namespace,
-				Labels:    labels,
+				Labels:    c.Labels,
 			},
 			Type: corev1.SecretTypeOpaque,
 			Data: map[string][]byte{
@@ -195,7 +193,7 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 			Name: "authorized-keys",
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: BoxResourceName,
+					SecretName: c.ResourceName,
 				},
 			},
 		})
@@ -207,12 +205,12 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 	}
 
 	dep := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: depName, Namespace: c.Namespace, Labels: labels},
+		ObjectMeta: metav1.ObjectMeta{Name: c.ResourceName, Namespace: c.Namespace, Labels: c.Labels},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: ptr.To[int32](1),
-			Selector: &metav1.LabelSelector{MatchLabels: labels},
+			Selector: &metav1.LabelSelector{MatchLabels: c.Labels},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: labels},
+				ObjectMeta: metav1.ObjectMeta{Labels: c.Labels},
 				Spec: corev1.PodSpec{Containers: []corev1.Container{{
 					Name:            BoxContainerName,
 					Image:           in.Image,
@@ -280,6 +278,6 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 		return nil, fmt.Errorf("apply Deployment failed: %w", err)
 	}
 
-	logger.Info(ctx, "box runner deployed", "namespace", c.Namespace, "name", depName, "image", in.Image, "command", in.Command, "args", in.Args)
-	return &DeployOutput{Namespace: c.Namespace, Name: depName}, nil
+	logger.Info(ctx, "box runner deployed", "namespace", c.Namespace, "name", c.ResourceName, "image", in.Image, "command", in.Command, "args", in.Args)
+	return &DeployOutput{Namespace: c.Namespace, Name: c.ResourceName}, nil
 }

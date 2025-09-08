@@ -15,15 +15,19 @@ type StatusInput struct {
 }
 
 type StatusOutput struct {
-	Ready      bool     `json:"ready"`
-	Image      string   `json:"image"`
-	Namespace  string   `json:"namespace"`
-	Node       string   `json:"node"`
-	Deployment string   `json:"deployment"`
-	Pod        string   `json:"pod"`
-	Container  string   `json:"container"`
-	Command    []string `json:"command"`
-	Args       []string `json:"args"`
+	AppID       string   `json:"app_id"`
+	AppName     string   `json:"app_name"`
+	ClusterID   string   `json:"cluster_id"`
+	ClusterName string   `json:"cluster_name"`
+	Ready       bool     `json:"ready"`
+	Image       string   `json:"image"`
+	Namespace   string   `json:"namespace"`
+	Node        string   `json:"node"`
+	Deployment  string   `json:"deployment"`
+	Pod         string   `json:"pod"`
+	Container   string   `json:"container"`
+	Command     []string `json:"command"`
+	Args        []string `json:"args"`
 }
 
 func (u *UseCase) Status(ctx context.Context, in *StatusInput) (*StatusOutput, error) {
@@ -66,21 +70,23 @@ func (u *UseCase) Status(ctx context.Context, in *StatusInput) (*StatusOutput, e
 	if _, err := c.Convert(ctx); err != nil {
 		return nil, fmt.Errorf("convert failed: %w", err)
 	}
-	ns := c.Namespace
-	name := BoxResourceName
 
-	dep, err := kcli.Clientset.AppsV1().Deployments(ns).Get(ctx, name, metav1.GetOptions{})
+	dep, err := kcli.Clientset.AppsV1().Deployments(c.Namespace).Get(ctx, c.ResourceName, metav1.GetOptions{})
 	if err != nil {
 		return &StatusOutput{
-			Ready:      false,
-			Image:      "",
-			Namespace:  ns,
-			Node:       "",
-			Deployment: name,
-			Pod:        "",
-			Container:  BoxContainerName,
-			Command:    nil,
-			Args:       nil,
+			AppID:       appObj.ID,
+			AppName:     appObj.Name,
+			ClusterID:   clusterObj.ID,
+			ClusterName: clusterObj.Name,
+			Ready:       false,
+			Image:       "",
+			Namespace:   c.Namespace,
+			Node:        "",
+			Deployment:  c.ResourceName,
+			Pod:         "",
+			Container:   BoxContainerName,
+			Command:     nil,
+			Args:        nil,
 		}, nil
 	}
 	ready := dep.Status.ReadyReplicas >= 1
@@ -100,7 +106,7 @@ func (u *UseCase) Status(ctx context.Context, in *StatusInput) (*StatusOutput, e
 		}
 	}
 
-	pods, err := kcli.Clientset.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{LabelSelector: c.SelectorString})
+	pods, err := kcli.Clientset.CoreV1().Pods(c.Namespace).List(ctx, metav1.ListOptions{LabelSelector: c.SelectorString})
 	node := ""
 	podName := ""
 	if err == nil {
@@ -117,14 +123,18 @@ func (u *UseCase) Status(ctx context.Context, in *StatusInput) (*StatusOutput, e
 	}
 
 	return &StatusOutput{
-		Ready:      ready,
-		Image:      image,
-		Namespace:  ns,
-		Node:       node,
-		Deployment: name,
-		Pod:        podName,
-		Container:  BoxContainerName,
-		Command:    command,
-		Args:       args,
+		AppID:       appObj.ID,
+		AppName:     appObj.Name,
+		ClusterID:   clusterObj.ID,
+		ClusterName: clusterObj.Name,
+		Ready:       ready,
+		Image:       image,
+		Namespace:   c.Namespace,
+		Node:        node,
+		Deployment:  c.ResourceName,
+		Pod:         podName,
+		Container:   BoxContainerName,
+		Command:     command,
+		Args:        args,
 	}, nil
 }

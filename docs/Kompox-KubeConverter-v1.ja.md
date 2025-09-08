@@ -7,7 +7,6 @@
 - 本書で扱う主な事項:
   - Service/Provider/Cluster/App 定義からのマニフェスト生成規則
 
-
 ## 方針
 
 ### リソース
@@ -17,32 +16,37 @@
 - Namespace 1個 (アプリごとに作成)
 - PV 複数個 (Provider のライフサイクルで管理される静的なクラウドディスクリソースを参照する RWO ボリューム)
 - PVC 複数個 (PVを参照する)
-- Deployment 1個 (シングルレプリカ、strategy.type:Recreate)
-- Service 1個 (compose の host ポートを列挙)
-- Ingress 0〜2個 (DNSホスト名から Service へのルーティング)
-  - デフォルトドメイン用 Ingress: `<appName>-default`
-  - カスタムドメイン用 Ingress: `<appName>-custom`
-  - 生成条件は後述
+- コンポーネント (`app` `box` など) ごとに以下を生成
+  - Deployment 1個 (シングルレプリカ、strategy.type:Recreate)
+  - Service 1個 (compose の host ポートを列挙)
+  - Ingress 0〜2個 (DNSホスト名から Service へのルーティング)
+    - デフォルトドメイン用 Ingress: `<appName>-default`
+    - カスタムドメイン用 Ingress: `<appName>-custom`
+    - 生成条件は後述
 
 ### 名前・ラベル・アノテーション
+
+変換時に次のようなコンポーネント名 `<componentName>` を指定する。
+
+- `app` (アプリ)
+- `box` (Kompox Box)
 
 リソース命名規則
 
 - Namespace: `kompox-<appName>-<idHASH>`
 - PV/PVC: `kompox-<volName>-<idHASH>-<volHASH>`
-- Service/Deployment: `<appName>`
-- Ingress: デフォルトドメイン用は `<appName>-default`、カスタムドメイン用は `<appName>-custom`
-  - 将来的にバージョン管理のため `<appName>-<version>` などの形式を導入予定
+- Service/Deployment: `<appName>-<componentName>`
+- Ingress: デフォルトドメイン用は `<appName>-<componentName>-default`、カスタムドメイン用は `<appName>-<componentName>-custom`
 
 各リソースには次のラベルを設定する。
 
 ```yaml
 metadata:
   labels:
-    app: <appName>-app
+    app: <appName>-<componentName>
     app.kubernetes.io/name: <appName>
     app.kubernetes.io/instance: <appName>-<inHASH>
-    app.kubernetes.io/component: app
+    app.kubernetes.io/component: <componentName>
     app.kubernetes.io/managed-by: kompox
     kompox.dev/app-instance-hash: <inHASH>
     kompox.dev/app-id-hash: <idHASH>
@@ -53,7 +57,7 @@ metadata:
 - `app`: セレクタラベル (Deployment/Service などで使用)
 - `app.kubernetes.io/name`: 表示名
 - `app.kubernetes.io/instance`: インスタンス名
-- `app.kubernetes.io/component`: コンポーネント種別 (`app` 固定、他に `box` などが存在する)
+- `app.kubernetes.io/component`: コンポーネント名
 - `kompox.dev/app-instance-hash`: クラスタ依存インスタンスハッシュ
 - `kompox.dev/app-id-hash`: クラスタ非依存アプリ識別ハッシュ
 
@@ -481,7 +485,7 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: app1
+  name: app1-app
   namespace: kompox-app1-idHASH
   labels:
     app: app1-app
@@ -568,7 +572,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: app1
+  name: app1-app
   namespace: kompox-app1-idHASH
   labels:
     app: app1-app
@@ -591,7 +595,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: app1-default
+  name: app1-app-default
   namespace: kompox-app1-idHASH
   labels:
     app: app1-app
@@ -613,7 +617,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: app1
+                name: app1-app
                 port:
                   name: main
     - host: app1-idHASH-8081.ops.kompox.dev
@@ -623,14 +627,14 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: app1
+                name: app1-app
                 port:
                   name: admin
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: app1-custom
+  name: app1-app-custom
   namespace: kompox-app1-idHASH
   labels:
     app: app1-app
@@ -653,7 +657,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: app1
+                name: app1-app
                 port:
                   name: main
     - host: admin.custom.kompox.dev
@@ -663,7 +667,7 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: app1
+                name: app1-app
                 port:
                   name: admin
 ```

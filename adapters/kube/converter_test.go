@@ -792,9 +792,10 @@ services:
 		case *corev1.Service:
 			service = v
 		case *netv1.Ingress:
-			if v.Name == "fullapp-default" {
+			switch v.Name {
+			case "fullapp-app-default":
 				ingDefault = v
-			} else if v.Name == "fullapp-custom" {
+			case "fullapp-app-custom":
 				ingCustom = v
 			}
 		}
@@ -803,6 +804,9 @@ services:
 	// Validate deployment
 	if deployment == nil {
 		t.Fatal("deployment not found")
+	}
+	if deployment.Name != "fullapp-app" {
+		t.Errorf("expected deployment name 'fullapp-app', got %q", deployment.Name)
 	}
 	if len(deployment.Spec.Template.Spec.Containers) != 2 {
 		t.Errorf("expected 2 containers, got %d", len(deployment.Spec.Template.Spec.Containers))
@@ -814,6 +818,9 @@ services:
 	// Validate service
 	if service == nil {
 		t.Fatal("service not found")
+	}
+	if service.Name != "fullapp-app" {
+		t.Errorf("expected service name 'fullapp-app', got %q", service.Name)
 	}
 	if len(service.Spec.Ports) != 2 {
 		t.Errorf("expected 2 service ports, got %d", len(service.Spec.Ports))
