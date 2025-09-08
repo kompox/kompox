@@ -28,11 +28,6 @@ param dnsPrefix string = ''
 
 param nodeResourceGroupName string = ''
 
-@allowed(['CostOptimised', 'Standard', 'HighSpec', 'Custom'])
-param systemPoolType string = 'CostOptimised'
-
-param systemPoolConfig object = {}
-
 param principalId string = deployer().objectId
 
 param kubernetesVersion string = '1.33'
@@ -41,51 +36,105 @@ param aadTenantId string = tenant().tenantId
 
 param nodePoolMaxPods int = 250
 
-var nodePoolPresets = {
-  CostOptimised: {
-    vmSize: 'Standard_D2as_v5'
-    count: 1
-    minCount: 1
-    maxCount: 3
-    enableAutoScaling: true
-    availabilityZones: []
-  }
-  Standard: {
-    vmSize: 'Standard_D4as_v5'
-    count: 3
-    minCount: 3
-    maxCount: 5
-    enableAutoScaling: true
-    availabilityZones: [
-      '1'
-      '2'
-      '3'
-    ]
-  }
-  HighSpec: {
-    vmSize: 'Standard_D8as_v5'
-    count: 3
-    minCount: 3
-    maxCount: 5
-    enableAutoScaling: true
-    availabilityZones: [
-      '1'
-      '2'
-      '3'
-    ]
-  }
-}
+param systemPoolConfig object = {}
+param systemPoolVmSize string = 'Standard_D2as_v5'
+param systemPoolVmZones array = ['1', '2', '3']
+param userPoolConfig object = {}
+param userPoolVmSize string = 'Standard_D2as_v5'
+param userPoolVmZones array = ['1', '2', '3']
 
-var systemPoolSpec = !empty(systemPoolConfig) ? systemPoolConfig : nodePoolPresets[systemPoolType]
+var systemPoolBase = !empty(systemPoolConfig)
+  ? systemPoolConfig
+  : {
+      vmSize: systemPoolVmSize
+      availabilityZones: systemPoolVmZones
+      osType: 'Linux'
+      maxPods: nodePoolMaxPods
+      type: 'VirtualMachineScaleSets'
+      enableAutoScaling: true
+      count: 1
+      minCount: 1
+      maxCount: 3
+      upgradeSettings: {
+        maxSurge: '33%'
+      }
+    }
 
-var nodePoolBase = {
-  osType: 'Linux'
-  maxPods: nodePoolMaxPods
-  type: 'VirtualMachineScaleSets'
-  upgradeSettings: {
-    maxSurge: '33%'
-  }
-}
+var userPoolBase = !empty(userPoolConfig)
+  ? userPoolConfig
+  : {
+      vmSize: userPoolVmSize
+      osType: 'Linux'
+      maxPods: nodePoolMaxPods
+      type: 'VirtualMachineScaleSets'
+      enableAutoScaling: true
+      count: 1
+      minCount: 0
+      maxCount: 10
+    }
+
+var agentPoolProfiles = concat(
+  [
+    union(
+      {
+        name: 'npsystem'
+        mode: 'System'
+        nodeLabels: {
+          'kompox.dev/node-pool': 'system'
+        }
+      },
+      systemPoolBase
+    )
+  ],
+  contains(userPoolVmZones, '1')
+    ? [
+        union(
+          {
+            name: 'npuser1'
+            mode: 'User'
+            availabilityZones: ['1']
+            nodeLabels: {
+              'kompox.dev/node-pool': 'user'
+              'kompox.dev/node-zone': '1'
+            }
+          },
+          userPoolBase
+        )
+      ]
+    : [],
+  contains(userPoolVmZones, '2')
+    ? [
+        union(
+          {
+            name: 'npuser2'
+            mode: 'User'
+            availabilityZones: ['2']
+            nodeLabels: {
+              'kompox.dev/node-pool': 'user'
+              'kompox.dev/node-zone': '2'
+            }
+          },
+          userPoolBase
+        )
+      ]
+    : [],
+  contains(userPoolVmZones, '3')
+    ? [
+        union(
+          {
+            name: 'npuser3'
+            mode: 'User'
+            availabilityZones: ['3']
+            nodeLabels: {
+              'kompox.dev/node-pool': 'user'
+              'kompox.dev/node-zone': '3'
+            }
+          },
+          userPoolBase
+        )
+      ]
+    : []
+)
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2021-12-01-preview' existing = if (!empty(logAnalyticsName)) {
   name: logAnalyticsName
@@ -112,9 +161,7 @@ resource aks 'Microsoft.ContainerService/managedClusters@2025-05-02-preview' = {
       enableAzureRBAC: true
       tenantID: aadTenantId
     }
-    agentPoolProfiles: [
-      union({ name: 'npsystem', mode: 'System' }, nodePoolBase, systemPoolSpec)
-    ]
+    agentPoolProfiles: agentPoolProfiles
     networkProfile: {
       loadBalancerSku: 'standard'
       networkPlugin: networkPlugin

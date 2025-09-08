@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "9252988601646047001"
+      "templateHash": "11681695173008329328"
     }
   },
   "parameters": {
@@ -30,10 +30,6 @@
       "maxLength": 80
     },
     "keyVaultName": {
-      "type": "string",
-      "defaultValue": ""
-    },
-    "containerRegistryName": {
       "type": "string",
       "defaultValue": ""
     },
@@ -68,6 +64,22 @@
     "ingressServiceAccountName": {
       "type": "string",
       "defaultValue": "traefik"
+    },
+    "aksSystemVmSize": {
+      "type": "string",
+      "defaultValue": "Standard_B4ms"
+    },
+    "aksSystemVmZones": {
+      "type": "string",
+      "defaultValue": "1,2,3"
+    },
+    "aksUserVmSize": {
+      "type": "string",
+      "defaultValue": "Standard_B4ms"
+    },
+    "aksUserVmZones": {
+      "type": "string",
+      "defaultValue": "1,2,3"
     }
   },
   "variables": {
@@ -324,282 +336,6 @@
         }
       },
       "dependsOn": [
-        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName'))))]"
-      ]
-    },
-    {
-      "type": "Microsoft.Resources/deployments",
-      "apiVersion": "2022-09-01",
-      "name": "containerRegistry",
-      "resourceGroup": "[if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))]",
-      "properties": {
-        "expressionEvaluationOptions": {
-          "scope": "inner"
-        },
-        "mode": "Incremental",
-        "parameters": {
-          "location": {
-            "value": "[parameters('location')]"
-          },
-          "tags": {
-            "value": "[variables('tags')]"
-          },
-          "name": "[if(not(empty(parameters('containerRegistryName'))), createObject('value', parameters('containerRegistryName')), createObject('value', format('{0}{1}', variables('abbrs').containerRegistryRegistries, variables('resourceToken'))))]",
-          "workspaceId": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))), 'Microsoft.Resources/deployments', 'monitoring'), '2022-09-01').outputs.logAnalyticsWorkspaceId.value]"
-          }
-        },
-        "template": {
-          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
-          "contentVersion": "1.0.0.0",
-          "metadata": {
-            "_generator": {
-              "name": "bicep",
-              "version": "0.37.4.10188",
-              "templateHash": "7478263124271405840"
-            },
-            "description": "Creates an Azure Container Registry."
-          },
-          "parameters": {
-            "name": {
-              "type": "string"
-            },
-            "location": {
-              "type": "string",
-              "defaultValue": "[resourceGroup().location]"
-            },
-            "tags": {
-              "type": "object",
-              "defaultValue": {}
-            },
-            "adminUserEnabled": {
-              "type": "bool",
-              "defaultValue": false,
-              "metadata": {
-                "description": "Indicates whether admin user is enabled"
-              }
-            },
-            "anonymousPullEnabled": {
-              "type": "bool",
-              "defaultValue": false,
-              "metadata": {
-                "description": "Indicates whether anonymous pull is enabled"
-              }
-            },
-            "azureADAuthenticationAsArmPolicy": {
-              "type": "object",
-              "defaultValue": {
-                "status": "enabled"
-              },
-              "metadata": {
-                "description": "Azure ad authentication as arm policy settings"
-              }
-            },
-            "dataEndpointEnabled": {
-              "type": "bool",
-              "defaultValue": false,
-              "metadata": {
-                "description": "Indicates whether data endpoint is enabled"
-              }
-            },
-            "encryption": {
-              "type": "object",
-              "defaultValue": {
-                "status": "disabled"
-              },
-              "metadata": {
-                "description": "Encryption settings"
-              }
-            },
-            "exportPolicy": {
-              "type": "object",
-              "defaultValue": {
-                "status": "enabled"
-              },
-              "metadata": {
-                "description": "Export policy settings"
-              }
-            },
-            "metadataSearch": {
-              "type": "string",
-              "defaultValue": "Disabled",
-              "metadata": {
-                "description": "Metadata search settings"
-              }
-            },
-            "networkRuleBypassOptions": {
-              "type": "string",
-              "defaultValue": "AzureServices",
-              "metadata": {
-                "description": "Options for bypassing network rules"
-              }
-            },
-            "publicNetworkAccess": {
-              "type": "string",
-              "defaultValue": "Enabled",
-              "metadata": {
-                "description": "Public network access setting"
-              }
-            },
-            "quarantinePolicy": {
-              "type": "object",
-              "defaultValue": {
-                "status": "disabled"
-              },
-              "metadata": {
-                "description": "Quarantine policy settings"
-              }
-            },
-            "retentionPolicy": {
-              "type": "object",
-              "defaultValue": {
-                "days": 7,
-                "status": "disabled"
-              },
-              "metadata": {
-                "description": "Retention policy settings"
-              }
-            },
-            "scopeMaps": {
-              "type": "array",
-              "defaultValue": [],
-              "metadata": {
-                "description": "Scope maps setting"
-              }
-            },
-            "sku": {
-              "type": "object",
-              "defaultValue": {
-                "name": "Basic"
-              },
-              "metadata": {
-                "description": "SKU settings"
-              }
-            },
-            "softDeletePolicy": {
-              "type": "object",
-              "defaultValue": {
-                "retentionDays": 7,
-                "status": "disabled"
-              },
-              "metadata": {
-                "description": "Soft delete policy settings"
-              }
-            },
-            "trustPolicy": {
-              "type": "object",
-              "defaultValue": {
-                "type": "Notary",
-                "status": "disabled"
-              },
-              "metadata": {
-                "description": "Trust policy settings"
-              }
-            },
-            "zoneRedundancy": {
-              "type": "string",
-              "defaultValue": "Disabled",
-              "metadata": {
-                "description": "Zone redundancy setting"
-              }
-            },
-            "workspaceId": {
-              "type": "string",
-              "defaultValue": "",
-              "metadata": {
-                "description": "The log analytics workspace ID used for logging and monitoring"
-              }
-            }
-          },
-          "resources": [
-            {
-              "copy": {
-                "name": "containerRegistry::scopeMap",
-                "count": "[length(parameters('scopeMaps'))]"
-              },
-              "type": "Microsoft.ContainerRegistry/registries/scopeMaps",
-              "apiVersion": "2023-11-01-preview",
-              "name": "[format('{0}/{1}', parameters('name'), parameters('scopeMaps')[copyIndex()].name)]",
-              "properties": "[parameters('scopeMaps')[copyIndex()].properties]",
-              "dependsOn": [
-                "[resourceId('Microsoft.ContainerRegistry/registries', parameters('name'))]"
-              ]
-            },
-            {
-              "type": "Microsoft.ContainerRegistry/registries",
-              "apiVersion": "2023-11-01-preview",
-              "name": "[parameters('name')]",
-              "location": "[parameters('location')]",
-              "tags": "[parameters('tags')]",
-              "sku": "[parameters('sku')]",
-              "properties": {
-                "adminUserEnabled": "[parameters('adminUserEnabled')]",
-                "anonymousPullEnabled": "[parameters('anonymousPullEnabled')]",
-                "dataEndpointEnabled": "[parameters('dataEndpointEnabled')]",
-                "encryption": "[parameters('encryption')]",
-                "metadataSearch": "[parameters('metadataSearch')]",
-                "networkRuleBypassOptions": "[parameters('networkRuleBypassOptions')]",
-                "policies": {
-                  "quarantinePolicy": "[parameters('quarantinePolicy')]",
-                  "trustPolicy": "[parameters('trustPolicy')]",
-                  "retentionPolicy": "[parameters('retentionPolicy')]",
-                  "exportPolicy": "[parameters('exportPolicy')]",
-                  "azureADAuthenticationAsArmPolicy": "[parameters('azureADAuthenticationAsArmPolicy')]",
-                  "softDeletePolicy": "[parameters('softDeletePolicy')]"
-                },
-                "publicNetworkAccess": "[parameters('publicNetworkAccess')]",
-                "zoneRedundancy": "[parameters('zoneRedundancy')]"
-              }
-            },
-            {
-              "condition": "[not(empty(parameters('workspaceId')))]",
-              "type": "Microsoft.Insights/diagnosticSettings",
-              "apiVersion": "2021-05-01-preview",
-              "scope": "[format('Microsoft.ContainerRegistry/registries/{0}', parameters('name'))]",
-              "name": "registry-diagnostics",
-              "properties": {
-                "workspaceId": "[parameters('workspaceId')]",
-                "logs": [
-                  {
-                    "category": "ContainerRegistryRepositoryEvents",
-                    "enabled": true
-                  },
-                  {
-                    "category": "ContainerRegistryLoginEvents",
-                    "enabled": true
-                  }
-                ],
-                "metrics": [
-                  {
-                    "category": "AllMetrics",
-                    "enabled": true,
-                    "timeGrain": "PT1M"
-                  }
-                ]
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.ContainerRegistry/registries', parameters('name'))]"
-              ]
-            }
-          ],
-          "outputs": {
-            "id": {
-              "type": "string",
-              "value": "[resourceId('Microsoft.ContainerRegistry/registries', parameters('name'))]"
-            },
-            "loginServer": {
-              "type": "string",
-              "value": "[reference(resourceId('Microsoft.ContainerRegistry/registries', parameters('name')), '2023-11-01-preview').loginServer]"
-            },
-            "name": {
-              "type": "string",
-              "value": "[parameters('name')]"
-            }
-          }
-        }
-      },
-      "dependsOn": [
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))), 'Microsoft.Resources/deployments', 'monitoring')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName'))))]"
       ]
     },
@@ -2455,9 +2191,6 @@
           "nodeResourceGroupName": {
             "value": "[format('{0}_mc', if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName'))))]"
           },
-          "containerRegistryName": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))), 'Microsoft.Resources/deployments', 'containerRegistry'), '2022-09-01').outputs.name.value]"
-          },
           "logAnalyticsName": {
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))), 'Microsoft.Resources/deployments', 'monitoring'), '2022-09-01').outputs.logAnalyticsWorkspaceName.value]"
           },
@@ -2469,6 +2202,18 @@
           },
           "kubernetesVersion": {
             "value": "1.33"
+          },
+          "systemPoolVmSize": {
+            "value": "[parameters('aksSystemVmSize')]"
+          },
+          "systemPoolVmZones": {
+            "value": "[split(parameters('aksSystemVmZones'), ',')]"
+          },
+          "userPoolVmSize": {
+            "value": "[parameters('aksUserVmSize')]"
+          },
+          "userPoolVmZones": {
+            "value": "[split(parameters('aksUserVmZones'), ',')]"
           }
         },
         "template": {
@@ -2478,7 +2223,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "13132598935182317497"
+              "templateHash": "11904600792499713497"
             }
           },
           "parameters": {
@@ -2550,20 +2295,6 @@
               "type": "string",
               "defaultValue": ""
             },
-            "systemPoolType": {
-              "type": "string",
-              "defaultValue": "CostOptimised",
-              "allowedValues": [
-                "CostOptimised",
-                "Standard",
-                "HighSpec",
-                "Custom"
-              ]
-            },
-            "systemPoolConfig": {
-              "type": "object",
-              "defaultValue": {}
-            },
             "principalId": {
               "type": "string",
               "defaultValue": "[deployer().objectId]"
@@ -2579,52 +2310,44 @@
             "nodePoolMaxPods": {
               "type": "int",
               "defaultValue": 250
+            },
+            "systemPoolConfig": {
+              "type": "object",
+              "defaultValue": {}
+            },
+            "systemPoolVmSize": {
+              "type": "string",
+              "defaultValue": "Standard_D2as_v5"
+            },
+            "systemPoolVmZones": {
+              "type": "array",
+              "defaultValue": [
+                "1",
+                "2",
+                "3"
+              ]
+            },
+            "userPoolConfig": {
+              "type": "object",
+              "defaultValue": {}
+            },
+            "userPoolVmSize": {
+              "type": "string",
+              "defaultValue": "Standard_D2as_v5"
+            },
+            "userPoolVmZones": {
+              "type": "array",
+              "defaultValue": [
+                "1",
+                "2",
+                "3"
+              ]
             }
           },
           "variables": {
-            "nodePoolPresets": {
-              "CostOptimised": {
-                "vmSize": "Standard_D2as_v5",
-                "count": 1,
-                "minCount": 1,
-                "maxCount": 3,
-                "enableAutoScaling": true,
-                "availabilityZones": []
-              },
-              "Standard": {
-                "vmSize": "Standard_D4as_v5",
-                "count": 3,
-                "minCount": 3,
-                "maxCount": 5,
-                "enableAutoScaling": true,
-                "availabilityZones": [
-                  "1",
-                  "2",
-                  "3"
-                ]
-              },
-              "HighSpec": {
-                "vmSize": "Standard_D8as_v5",
-                "count": 3,
-                "minCount": 3,
-                "maxCount": 5,
-                "enableAutoScaling": true,
-                "availabilityZones": [
-                  "1",
-                  "2",
-                  "3"
-                ]
-              }
-            },
-            "systemPoolSpec": "[if(not(empty(parameters('systemPoolConfig'))), parameters('systemPoolConfig'), variables('nodePoolPresets')[parameters('systemPoolType')])]",
-            "nodePoolBase": {
-              "osType": "Linux",
-              "maxPods": "[parameters('nodePoolMaxPods')]",
-              "type": "VirtualMachineScaleSets",
-              "upgradeSettings": {
-                "maxSurge": "33%"
-              }
-            },
+            "systemPoolBase": "[if(not(empty(parameters('systemPoolConfig'))), parameters('systemPoolConfig'), createObject('vmSize', parameters('systemPoolVmSize'), 'availabilityZones', parameters('systemPoolVmZones'), 'osType', 'Linux', 'maxPods', parameters('nodePoolMaxPods'), 'type', 'VirtualMachineScaleSets', 'enableAutoScaling', true(), 'count', 1, 'minCount', 1, 'maxCount', 3, 'upgradeSettings', createObject('maxSurge', '33%')))]",
+            "userPoolBase": "[if(not(empty(parameters('userPoolConfig'))), parameters('userPoolConfig'), createObject('vmSize', parameters('userPoolVmSize'), 'osType', 'Linux', 'maxPods', parameters('nodePoolMaxPods'), 'type', 'VirtualMachineScaleSets', 'enableAutoScaling', true(), 'count', 1, 'minCount', 0, 'maxCount', 10))]",
+            "agentPoolProfiles": "[concat(createArray(union(createObject('name', 'npsystem', 'mode', 'System', 'nodeLabels', createObject('kompox.dev/node-pool', 'system')), variables('systemPoolBase'))), if(contains(parameters('userPoolVmZones'), '1'), createArray(union(createObject('name', 'npuser1', 'mode', 'User', 'availabilityZones', createArray('1'), 'nodeLabels', createObject('kompox.dev/node-pool', 'user', 'kompox.dev/node-zone', '1')), variables('userPoolBase'))), createArray()), if(contains(parameters('userPoolVmZones'), '2'), createArray(union(createObject('name', 'npuser2', 'mode', 'User', 'availabilityZones', createArray('2'), 'nodeLabels', createObject('kompox.dev/node-pool', 'user', 'kompox.dev/node-zone', '2')), variables('userPoolBase'))), createArray()), if(contains(parameters('userPoolVmZones'), '3'), createArray(union(createObject('name', 'npuser3', 'mode', 'User', 'availabilityZones', createArray('3'), 'nodeLabels', createObject('kompox.dev/node-pool', 'user', 'kompox.dev/node-zone', '3')), variables('userPoolBase'))), createArray()))]",
             "aksClusterAdminRole": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b1ff04bb-8a4e-4dc4-8eb5-8693973ce19b')]",
             "keyVaultSecretsUserRole": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')]",
             "keyVaultCertificateUserRole": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'db79e9a7-68ee-4b58-9aeb-b90e7c24fcba')]",
@@ -2654,9 +2377,7 @@
                   "enableAzureRBAC": true,
                   "tenantID": "[parameters('aadTenantId')]"
                 },
-                "agentPoolProfiles": [
-                  "[union(createObject('name', 'npsystem', 'mode', 'System'), variables('nodePoolBase'), variables('systemPoolSpec'))]"
-                ],
+                "agentPoolProfiles": "[variables('agentPoolProfiles')]",
                 "networkProfile": {
                   "loadBalancerSku": "standard",
                   "networkPlugin": "[parameters('networkPlugin')]",
@@ -2799,7 +2520,6 @@
         }
       },
       "dependsOn": [
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))), 'Microsoft.Resources/deployments', 'containerRegistry')]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))), 'Microsoft.Resources/deployments', 'keyVault')]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))), 'Microsoft.Resources/deployments', 'monitoring')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName'))))]",
@@ -2835,14 +2555,6 @@
     "AZURE_AKS_OIDC_ISSUER_URL": {
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))), 'Microsoft.Resources/deployments', 'aks'), '2022-09-01').outputs.oidcIssuerUrl.value]"
-    },
-    "AZURE_CONTAINER_REGISTRY_ENDPOINT": {
-      "type": "string",
-      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))), 'Microsoft.Resources/deployments', 'containerRegistry'), '2022-09-01').outputs.loginServer.value]"
-    },
-    "AZURE_CONTAINER_REGISTRY_NAME": {
-      "type": "string",
-      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))), 'Microsoft.Resources/deployments', 'containerRegistry'), '2022-09-01').outputs.name.value]"
     },
     "AZURE_INGRESS_SERVICE_ACCOUNT_NAMESPACE": {
       "type": "string",

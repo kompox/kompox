@@ -106,6 +106,10 @@ func (c *Client) InstallIngressTraefik(ctx context.Context, cluster *model.Clust
 				"azure.workload.identity/use": "true",
 			},
 		},
+		// Ensure the Traefik pods are only on nodes labeled with kompox.dev/node-pool=system.
+		"nodeSelector": map[string]any{
+			"kompox.dev/node-pool": "system",
+		},
 		// Will populate below
 		"additionalArguments": []string{},
 	}

@@ -13,7 +13,6 @@ param location string
 param resourceGroupName string = ''
 
 param keyVaultName string = ''
-param containerRegistryName string = ''
 param logAnalyticsName string = ''
 param applicationInsightsName string = ''
 param applicationInsightsDashboardName string = ''
@@ -22,6 +21,10 @@ param aksName string = ''
 param principalId string = deployer().objectId
 param ingressServiceAccountNamespace string = 'traefik'
 param ingressServiceAccountName string = 'traefik'
+param aksSystemVmSize string = 'Standard_B4ms'
+param aksSystemVmZones string = '1,2,3'
+param aksUserVmSize string = 'Standard_B4ms'
+param aksUserVmZones string = '1,2,3'
 
 var abbrs = loadJsonContent('./abbreviations.json')
 
@@ -66,17 +69,6 @@ module keyVault './core/security/keyvault.bicep' = {
     tags: tags
     name: !empty(keyVaultName) ? keyVaultName : '${abbrs.keyVaultVaults}${resourceToken}'
     principalId: principalId
-  }
-}
-
-module containerRegistry './core/host/container-registry.bicep' = {
-  name: 'containerRegistry'
-  scope: rg
-  params: {
-    location: location
-    tags: tags
-    name: !empty(containerRegistryName) ? containerRegistryName : '${abbrs.containerRegistryRegistries}${resourceToken}'
-    workspaceId: monitoring.outputs.logAnalyticsWorkspaceId
   }
 }
 
@@ -139,11 +131,14 @@ module aks './app/aks.bicep' = {
     tags: tags
     principalId: principalId
     nodeResourceGroupName: '${rg.name}_mc'
-    containerRegistryName: containerRegistry.outputs.name
     logAnalyticsName: monitoring.outputs.logAnalyticsWorkspaceName
     keyVaultName: keyVault.outputs.name
     storageAccountName: storageAccount.outputs.name
     kubernetesVersion: '1.33'
+    systemPoolVmSize: aksSystemVmSize
+    systemPoolVmZones: split(aksSystemVmZones, ',')
+    userPoolVmSize: aksUserVmSize
+    userPoolVmZones: split(aksUserVmZones, ',')
   }
 }
 
@@ -154,8 +149,6 @@ output AZURE_RESOURCE_GROUP_NAME string = rg.name
 output AZURE_AKS_CLUSTER_NAME string = aks.outputs.clusterName
 output AZURE_AKS_PRINCIPAL_ID string = aks.outputs.principalId
 output AZURE_AKS_OIDC_ISSUER_URL string = aks.outputs.oidcIssuerUrl
-output AZURE_CONTAINER_REGISTRY_ENDPOINT string = containerRegistry.outputs.loginServer
-output AZURE_CONTAINER_REGISTRY_NAME string = containerRegistry.outputs.name
 output AZURE_INGRESS_SERVICE_ACCOUNT_NAMESPACE string = ingressServiceAccountNamespace
 output AZURE_INGRESS_SERVICE_ACCOUNT_NAME string = ingressServiceAccountName
 output AZURE_INGRESS_SERVICE_ACCOUNT_PRINCIPAL_ID string = userIdentity.outputs.principalId
