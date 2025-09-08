@@ -56,7 +56,7 @@ func (u *UseCase) Destroy(ctx context.Context, in *DestroyInput) (*DestroyOutput
 	if _, err := c.Convert(ctx); err != nil {
 		return nil, fmt.Errorf("convert failed: %w", err)
 	}
-	selector := LabelBoxSelector
+	selector := c.SelectorString
 	targets := []kube.DeleteResourceTarget{
 		{GVR: schema.GroupVersionResource{Group: "apps", Version: "v1", Resource: "deployments"}, Namespaced: true, Kind: "Deployment"},
 		{GVR: schema.GroupVersionResource{Group: "", Version: "v1", Resource: "pods"}, Namespaced: true, Kind: "Pod"},

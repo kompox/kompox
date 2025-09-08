@@ -100,7 +100,7 @@ func (u *UseCase) Status(ctx context.Context, in *StatusInput) (*StatusOutput, e
 		}
 	}
 
-	pods, err := kcli.Clientset.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{LabelSelector: LabelBoxSelector})
+	pods, err := kcli.Clientset.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{LabelSelector: c.SelectorString})
 	node := ""
 	podName := ""
 	if err == nil {

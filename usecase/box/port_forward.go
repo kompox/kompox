@@ -50,7 +50,7 @@ func (u *UseCase) setupPortForward(ctx context.Context, appID string, remotePort
 		return 0, nil, fmt.Errorf("failed to create kube client: %w", err)
 	}
 
-	// Get namespace using converter
+	// Get namespace and selector using converter
 	c := kube.NewConverter(serviceObj, providerObj, clusterObj, appObj, "box")
 	if _, err := c.Convert(ctx); err != nil {
 		return 0, nil, fmt.Errorf("convert failed: %w", err)
@@ -63,8 +63,8 @@ func (u *UseCase) setupPortForward(ctx context.Context, appID string, remotePort
 		"cluster_name", clusterObj.Name,
 		"remote_port", remotePort)
 
-	// Find the Kompox Box pod
-	pod, err := kcli.FindPodByLabels(ctx, ns, LabelBoxSelector)
+	// Find the Kompox Box pod using converter's selector
+	pod, err := kcli.FindPodByLabels(ctx, ns, c.SelectorString)
 	if err != nil {
 		return 0, nil, fmt.Errorf("find Kompox Box pod: %w", err)
 	}

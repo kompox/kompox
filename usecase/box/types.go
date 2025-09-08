@@ -9,11 +9,6 @@ const (
 	BoxResourceName            = "kompox-box"
 	BoxContainerName           = "box"
 	BoxUserName                = "kompox"
-	LabelComponent             = "app.kubernetes.io/component"
-	LabelComponentValue        = "kompox-box"
-	LabelBox                   = "kompox.dev/box"
-	LabelBoxValue              = "true"
-	LabelBoxSelector           = LabelBox + "=" + LabelBoxValue
 	AnnotationBoxSSHPubkeyHash = "kompox.dev/box-ssh-pubkey-hash"
 )
 

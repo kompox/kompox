@@ -89,7 +89,7 @@ func (u *UseCase) Exec(ctx context.Context, in *ExecInput) (*ExecOutput, error) 
 	ns := c.Namespace
 
 	// Pick a running pod with the box label
-	pods, err := kcli.Clientset.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{LabelSelector: LabelBoxSelector})
+	pods, err := kcli.Clientset.CoreV1().Pods(ns).List(ctx, metav1.ListOptions{LabelSelector: c.SelectorString})
 	if err != nil || len(pods.Items) == 0 {
 		return nil, fmt.Errorf("kompox box pod not found")
 	}

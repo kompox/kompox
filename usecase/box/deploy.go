@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
-	"maps"
 	"strings"
 
 	providerdrv "github.com/kompox/kompox/adapters/drivers/provider"
@@ -166,10 +165,7 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 	for _, m := range mounts {
 		vm = append(vm, corev1.VolumeMount{Name: m.volName, MountPath: m.mountPath})
 	}
-	labels := map[string]string{}
-	maps.Copy(labels, c.Labels)
-	labels[LabelComponent] = LabelComponentValue
-	labels[LabelBox] = LabelBoxValue
+	labels := c.Labels
 	depName := BoxResourceName
 
 	// Create SSH Secret if SSHPubkey is provided
