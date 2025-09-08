@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/kompox/kompox/internal/logging"
 	vuc "github.com/kompox/kompox/usecase/volume"
+	"github.com/spf13/cobra"
 )
 
 // newCmdSnapshot returns the root snapshot command.
@@ -162,8 +162,29 @@ func newCmdSnapshotRestore() *cobra.Command {
 		if err != nil {
 			return err
 		}
+
+		// Parse zone and options flags
+		zone, _ := cmd.Flags().GetString("zone")
+		optionsStr, _ := cmd.Flags().GetString("options")
+
+		input := &vuc.SnapshotRestoreInput{
+			AppID:        appID,
+			VolumeName:   volName,
+			SnapshotName: snapName,
+			Zone:         zone,
+		}
+
+		// Parse JSON options if provided
+		if optionsStr != "" {
+			var options map[string]any
+			if err := json.Unmarshal([]byte(optionsStr), &options); err != nil {
+				return fmt.Errorf("invalid JSON in --options: %w", err)
+			}
+			input.Options = options
+		}
+
 		logger.Info(ctx, "restore snapshot", "app", appName, "volume", volName, "snapshot", snapName)
-		out, err := u.SnapshotRestore(ctx, &vuc.SnapshotRestoreInput{AppID: appID, VolumeName: volName, SnapshotName: snapName})
+		out, err := u.SnapshotRestore(ctx, input)
 		if err != nil {
 			return err
 		}
@@ -172,5 +193,7 @@ func newCmdSnapshotRestore() *cobra.Command {
 		return enc.Encode(out.Disk)
 	}}
 	cmd.Flags().StringP("snapshot-name", "S", "", "Snapshot name (required)")
+	cmd.Flags().StringP("zone", "Z", "", "Override deployment zone")
+	cmd.Flags().StringP("options", "O", "", "Override volume options (JSON)")
 	return cmd
 }

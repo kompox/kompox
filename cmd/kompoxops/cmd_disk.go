@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/kompox/kompox/internal/logging"
 	vuc "github.com/kompox/kompox/usecase/volume"
+	"github.com/spf13/cobra"
 )
 
 var flagVolumeAppName string
@@ -97,8 +97,28 @@ func newCmdDiskCreate() *cobra.Command {
 		if err != nil {
 			return err
 		}
+
+		// Parse zone and options flags
+		zone, _ := cmd.Flags().GetString("zone")
+		optionsStr, _ := cmd.Flags().GetString("options")
+
+		input := &vuc.DiskCreateInput{
+			AppID:      appID,
+			VolumeName: volName,
+			Zone:       zone,
+		}
+
+		// Parse JSON options if provided
+		if optionsStr != "" {
+			var options map[string]any
+			if err := json.Unmarshal([]byte(optionsStr), &options); err != nil {
+				return fmt.Errorf("invalid JSON in --options: %w", err)
+			}
+			input.Options = options
+		}
+
 		logger.Info(ctx, "create volume instance start", "app", appName, "volume", volName)
-		out, err := u.DiskCreate(ctx, &vuc.DiskCreateInput{AppID: appID, VolumeName: volName})
+		out, err := u.DiskCreate(ctx, input)
 		if err != nil {
 			return err
 		}
@@ -106,6 +126,8 @@ func newCmdDiskCreate() *cobra.Command {
 		enc.SetIndent("", "  ")
 		return enc.Encode(out.Disk)
 	}}
+	cmd.Flags().StringP("zone", "Z", "", "Override deployment zone")
+	cmd.Flags().StringP("options", "O", "", "Override volume options (JSON)")
 	return cmd
 }
 

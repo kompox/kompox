@@ -12,6 +12,10 @@ type SnapshotRestoreInput struct {
 	AppID        string `json:"app_id"`
 	VolumeName   string `json:"volume_name"`
 	SnapshotName string `json:"snapshot_name"`
+	// Zone overrides app.deployment.zone when specified.
+	Zone string `json:"zone,omitempty"`
+	// Options overrides/merges with app.volumes.options when specified.
+	Options map[string]any `json:"options,omitempty"`
 }
 
 // SnapshotRestoreOutput result for restoring a snapshot.
@@ -49,7 +53,17 @@ func (u *UseCase) SnapshotRestore(ctx context.Context, in *SnapshotRestoreInput)
 	if !ok {
 		return nil, fmt.Errorf("volume not defined: %s", in.VolumeName)
 	}
-	disk, err := u.VolumePort.SnapshotRestore(ctx, cluster, app, in.VolumeName, in.SnapshotName)
+
+	// Build options based on input
+	var opts []model.VolumeSnapshotRestoreOption
+	if in.Zone != "" {
+		opts = append(opts, model.WithVolumeSnapshotRestoreZone(in.Zone))
+	}
+	if in.Options != nil {
+		opts = append(opts, model.WithVolumeSnapshotRestoreOptions(in.Options))
+	}
+
+	disk, err := u.VolumePort.SnapshotRestore(ctx, cluster, app, in.VolumeName, in.SnapshotName, opts...)
 	if err != nil {
 		return nil, err
 	}

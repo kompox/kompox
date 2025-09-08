@@ -10,14 +10,22 @@ import (
 // Drivers and adapters should accept and may ignore them until used.
 
 type VolumeDiskListOptions struct{ Force bool }
-type VolumeDiskCreateOptions struct{ Force bool }
+type VolumeDiskCreateOptions struct {
+	Force   bool
+	Zone    string         // Override zone from app.deployment.zone config
+	Options map[string]any // Override/merge with app.volumes.options config
+}
 type VolumeDiskDeleteOptions struct{ Force bool }
 type VolumeDiskAssignOptions struct{ Force bool }
 
 type VolumeSnapshotListOptions struct{ Force bool }
 type VolumeSnapshotCreateOptions struct{ Force bool }
 type VolumeSnapshotDeleteOptions struct{ Force bool }
-type VolumeSnapshotRestoreOptions struct{ Force bool }
+type VolumeSnapshotRestoreOptions struct {
+	Force   bool
+	Zone    string         // Override zone from app.deployment.zone config
+	Options map[string]any // Override/merge with app.volumes.options config
+}
 
 type VolumeDiskListOption func(*VolumeDiskListOptions)
 type VolumeDiskCreateOption func(*VolumeDiskCreateOptions)
@@ -35,6 +43,12 @@ func WithVolumeDiskListForce() VolumeDiskListOption {
 }
 func WithVolumeDiskCreateForce() VolumeDiskCreateOption {
 	return func(o *VolumeDiskCreateOptions) { o.Force = true }
+}
+func WithVolumeDiskCreateZone(zone string) VolumeDiskCreateOption {
+	return func(o *VolumeDiskCreateOptions) { o.Zone = zone }
+}
+func WithVolumeDiskCreateOptions(options map[string]any) VolumeDiskCreateOption {
+	return func(o *VolumeDiskCreateOptions) { o.Options = options }
 }
 func WithVolumeDiskDeleteForce() VolumeDiskDeleteOption {
 	return func(o *VolumeDiskDeleteOptions) { o.Force = true }
@@ -54,6 +68,12 @@ func WithVolumeSnapshotDeleteForce() VolumeSnapshotDeleteOption {
 }
 func WithVolumeSnapshotRestoreForce() VolumeSnapshotRestoreOption {
 	return func(o *VolumeSnapshotRestoreOptions) { o.Force = true }
+}
+func WithVolumeSnapshotRestoreZone(zone string) VolumeSnapshotRestoreOption {
+	return func(o *VolumeSnapshotRestoreOptions) { o.Zone = zone }
+}
+func WithVolumeSnapshotRestoreOptions(options map[string]any) VolumeSnapshotRestoreOption {
+	return func(o *VolumeSnapshotRestoreOptions) { o.Options = options }
 }
 
 // VolumePort abstracts volume disk and snapshot operations provided by drivers.

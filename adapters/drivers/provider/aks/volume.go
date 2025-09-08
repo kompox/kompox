@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 	"time"
@@ -642,6 +643,24 @@ func volumeDefOptions(app *model.App, volName string) (map[string]any, bool) {
 	return nil, false
 }
 
+// mergeOptions merges base options with override options.
+// Override options take precedence over base options.
+func mergeOptions(base, override map[string]any) map[string]any {
+	if base == nil && override == nil {
+		return nil
+	}
+
+	result := make(map[string]any)
+
+	// Copy base options
+	maps.Copy(result, base)
+
+	// Override with new options
+	maps.Copy(result, override)
+
+	return result
+}
+
 // setDiskOptions applies Azure Disk SKU and performance options from volume options.
 // Default SKU is Premium_LRS if not specified.
 func setDiskOptions(disk *armcompute.Disk, options map[string]any) {
@@ -777,10 +796,17 @@ func (d *driver) VolumeDiskList(ctx context.Context, cluster *model.Cluster, app
 }
 
 // VolumeDiskCreate implements spec method.
-func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, _ ...model.VolumeDiskCreateOption) (*model.VolumeDisk, error) {
+func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, opts ...model.VolumeDiskCreateOption) (*model.VolumeDisk, error) {
 	if cluster == nil || app == nil {
 		return nil, fmt.Errorf("cluster/app nil")
 	}
+
+	// Process options
+	options := &model.VolumeDiskCreateOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
 	// Retrieve AKS principal ID from deployment outputs (per-cluster)
 	outputs, err := d.getDeploymentOutputs(ctx, cluster)
 	if err != nil {
@@ -800,12 +826,19 @@ func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, a
 	}
 	sizeGiB := int32((sizeBytes + (1 << 30) - 1) >> 30)
 
-	// Get volume options from app configuration
-	options, _ := volumeDefOptions(app, volName)
+	// Get volume options from app configuration and merge with passed options
+	volumeOptions, _ := volumeDefOptions(app, volName)
+	finalOptions := mergeOptions(volumeOptions, options.Options)
+
+	// Determine zone (options override app config)
+	zone := app.Deployment.Zone
+	if options.Zone != "" {
+		zone = options.Zone
+	}
 
 	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
 	idHASH := hashes.AppID
-	meta, err := d.azureVolumeDiskCreate(ctx, rg, volName, idHASH, sizeGiB, principalID, app.Deployment.Zone, options)
+	meta, err := d.azureVolumeDiskCreate(ctx, rg, volName, idHASH, sizeGiB, principalID, zone, finalOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -814,9 +847,9 @@ func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, a
 		VolumeName: volName,
 		Assigned:   meta.Assigned,
 		Size:       int64(meta.SizeGiB) << 30,
-		Zone:       app.Deployment.Zone,
+		Zone:       zone,
 		Handle:     fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/disks/%s", d.AzureSubscriptionId, rg, meta.Name),
-		Options:    options,
+		Options:    finalOptions,
 		CreatedAt:  meta.TimeCreated,
 		UpdatedAt:  meta.TimeCreated,
 	}, nil
@@ -916,10 +949,17 @@ func (d *driver) VolumeSnapshotDelete(ctx context.Context, cluster *model.Cluste
 	return d.azureVolumeSnapshotDelete(ctx, rg, volName, idHASH, snapName)
 }
 
-func (d *driver) VolumeSnapshotRestore(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, _ ...model.VolumeSnapshotRestoreOption) (*model.VolumeDisk, error) {
+func (d *driver) VolumeSnapshotRestore(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, opts ...model.VolumeSnapshotRestoreOption) (*model.VolumeDisk, error) {
 	if cluster == nil || app == nil {
 		return nil, fmt.Errorf("cluster/app nil")
 	}
+
+	// Process options
+	options := &model.VolumeSnapshotRestoreOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
 	// Retrieve AKS principal ID from deployment outputs (per-cluster)
 	outputs, err := d.getDeploymentOutputs(ctx, cluster)
 	if err != nil {
@@ -932,12 +972,19 @@ func (d *driver) VolumeSnapshotRestore(ctx context.Context, cluster *model.Clust
 		return nil, err
 	}
 
-	// Get volume options from app configuration
-	options, _ := volumeDefOptions(app, volName)
+	// Get volume options from app configuration and merge with passed options
+	volumeOptions, _ := volumeDefOptions(app, volName)
+	finalOptions := mergeOptions(volumeOptions, options.Options)
+
+	// Determine zone (options override app config)
+	zone := app.Deployment.Zone
+	if options.Zone != "" {
+		zone = options.Zone
+	}
 
 	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
 	idHASH := hashes.AppID
-	meta, err := d.azureVolumeDiskCreateFromSnapshot(ctx, rg, volName, idHASH, snapName, principalID, app.Deployment.Zone, options)
+	meta, err := d.azureVolumeDiskCreateFromSnapshot(ctx, rg, volName, idHASH, snapName, principalID, zone, finalOptions)
 	if err != nil {
 		return nil, err
 	}
@@ -949,7 +996,8 @@ func (d *driver) VolumeSnapshotRestore(ctx context.Context, cluster *model.Clust
 		Handle:     fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/disks/%s", d.AzureSubscriptionId, rg, meta.Name),
 		CreatedAt:  meta.TimeCreated,
 		UpdatedAt:  meta.TimeCreated,
-		Zone:       meta.Zone,
+		Zone:       zone,
+		Options:    finalOptions,
 	}, nil
 }
 

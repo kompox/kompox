@@ -13,6 +13,10 @@ type DiskCreateInput struct {
 	AppID string `json:"app_id"`
 	// VolumeName logical volume name.
 	VolumeName string `json:"volume_name"`
+	// Zone overrides app.deployment.zone when specified.
+	Zone string `json:"zone,omitempty"`
+	// Options overrides/merges with app.volumes.options when specified.
+	Options map[string]any `json:"options,omitempty"`
 }
 
 // DiskCreateOutput result for DiskCreate use case.
@@ -51,7 +55,17 @@ func (u *UseCase) DiskCreate(ctx context.Context, in *DiskCreateInput) (*DiskCre
 	if !exists {
 		return nil, fmt.Errorf("volume not defined: %s", in.VolumeName)
 	}
-	disk, err := u.VolumePort.DiskCreate(ctx, cluster, app, in.VolumeName)
+
+	// Build options based on input
+	var opts []model.VolumeDiskCreateOption
+	if in.Zone != "" {
+		opts = append(opts, model.WithVolumeDiskCreateZone(in.Zone))
+	}
+	if in.Options != nil {
+		opts = append(opts, model.WithVolumeDiskCreateOptions(in.Options))
+	}
+
+	disk, err := u.VolumePort.DiskCreate(ctx, cluster, app, in.VolumeName, opts...)
 	if err != nil {
 		return nil, err
 	}
