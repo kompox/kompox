@@ -74,6 +74,7 @@ type VolumeDisk struct {
 	VolumeName string    `json:"volumeName"` // name of the logical volume this disk belongs to
 	Assigned   bool      `json:"assigned"`   // whether this disk is assigned to the logical volume
 	Size       int64     `json:"size"`       // volume disk size in bytes
+	Zone       string    `json:"zone"`       // availability zone where the disk is located (empty for regional)
 	Handle     string    `json:"handle"`     // provider driver specific handle
 	CreatedAt  time.Time `json:"createdAt"`
 	UpdatedAt  time.Time `json:"updatedAt"`

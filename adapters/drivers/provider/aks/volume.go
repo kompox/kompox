@@ -14,10 +14,10 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/google/uuid"
-	"github.com/oklog/ulid/v2"
 	"github.com/kompox/kompox/domain/model"
 	"github.com/kompox/kompox/internal/logging"
 	"github.com/kompox/kompox/internal/naming"
+	"github.com/oklog/ulid/v2"
 )
 
 // Disk tag keys
@@ -41,6 +41,7 @@ type volumeDiskMeta struct {
 	DiskID      string // ULID
 	SizeGiB     int32
 	Assigned    bool
+	Zone        string // Availability Zone (empty for regional)
 	TimeCreated time.Time
 }
 
@@ -73,6 +74,16 @@ func buildSnapshotName(lvKey, ulid string) string { return fmt.Sprintf("%s-%s", 
 // logicalVolumeKey returns kompox-volName-idHASH
 func logicalVolumeKey(volName, idHASH string) string {
 	return fmt.Sprintf("kompox-%s-%s", volName, idHASH)
+}
+
+// buildZones creates zones array from app deployment zone setting.
+// Returns nil if zone is empty (regional disk), or []*string with zone value if zone is specified.
+func buildZones(zone string) []*string {
+	zone = strings.TrimSpace(zone)
+	if zone == "" {
+		return nil // Regional disk
+	}
+	return []*string{to.Ptr(zone)}
 }
 
 // VolumeDiskList lists Azure Managed Disks for a logical volume (internal helper).
@@ -129,7 +140,11 @@ func (d *driver) azureVolumeDiskList(ctx context.Context, resourceGroupName, vol
 			if disk.Properties.TimeCreated != nil {
 				created = *disk.Properties.TimeCreated
 			}
-			out = append(out, volumeDiskMeta{Name: name, DiskID: diskID, SizeGiB: size, Assigned: assigned, TimeCreated: created})
+			zone := ""
+			if disk.Zones != nil && len(disk.Zones) > 0 && disk.Zones[0] != nil {
+				zone = *disk.Zones[0]
+			}
+			out = append(out, volumeDiskMeta{Name: name, DiskID: diskID, SizeGiB: size, Assigned: assigned, Zone: zone, TimeCreated: created})
 		}
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].TimeCreated.After(out[j].TimeCreated) })
@@ -188,7 +203,7 @@ func (d *driver) ensureResourceGroup(ctx context.Context, resourceGroupName stri
 }
 
 // VolumeDiskCreate creates an Azure Disk for logical volume (internal helper).
-func (d *driver) azureVolumeDiskCreate(ctx context.Context, resourceGroupName, volName, idHASH string, sizeGiB int32, principalID string) (*volumeDiskMeta, error) {
+func (d *driver) azureVolumeDiskCreate(ctx context.Context, resourceGroupName, volName, idHASH string, sizeGiB int32, principalID string, zone string) (*volumeDiskMeta, error) {
 	if resourceGroupName == "" {
 		return nil, errors.New("AZURE_RESOURCE_GROUP_NAME required")
 	}
@@ -230,6 +245,7 @@ func (d *driver) azureVolumeDiskCreate(ctx context.Context, resourceGroupName, v
 
 	disk := armcompute.Disk{
 		Location: to.Ptr(d.AzureLocation),
+		Zones:    buildZones(zone),
 		Tags: map[string]*string{
 			tagVolumeKey:    to.Ptr(lvKey),
 			tagDiskName:     to.Ptr(ulidStr),
@@ -521,7 +537,7 @@ func (d *driver) azureVolumeSnapshotDelete(ctx context.Context, resourceGroupNam
 }
 
 // azureVolumeDiskCreateFromSnapshot creates a new disk from an existing snapshot.
-func (d *driver) azureVolumeDiskCreateFromSnapshot(ctx context.Context, resourceGroupName, volName, idHASH, snapID string, principalID string) (*volumeDiskMeta, error) {
+func (d *driver) azureVolumeDiskCreateFromSnapshot(ctx context.Context, resourceGroupName, volName, idHASH, snapID string, principalID string, zone string) (*volumeDiskMeta, error) {
 	if resourceGroupName == "" {
 		return nil, errors.New("AZURE_RESOURCE_GROUP_NAME required")
 	}
@@ -564,6 +580,7 @@ func (d *driver) azureVolumeDiskCreateFromSnapshot(ctx context.Context, resource
 
 	disk := armcompute.Disk{
 		Location: to.Ptr(d.AzureLocation),
+		Zones:    buildZones(zone),
 		Tags: map[string]*string{
 			tagVolumeKey:    to.Ptr(lvKey),
 			tagDiskName:     to.Ptr(ulidStr),
@@ -633,6 +650,7 @@ func (d *driver) VolumeDiskList(ctx context.Context, cluster *model.Cluster, app
 			VolumeName: volName,
 			Assigned:   it.Assigned,
 			Size:       int64(it.SizeGiB) << 30,
+			Zone:       it.Zone,
 			Handle:     fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/disks/%s", d.AzureSubscriptionId, rg, it.Name),
 			CreatedAt:  it.TimeCreated,
 			UpdatedAt:  it.TimeCreated,
@@ -666,7 +684,7 @@ func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, a
 	sizeGiB := int32((sizeBytes + (1 << 30) - 1) >> 30)
 	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
 	idHASH := hashes.AppID
-	meta, err := d.azureVolumeDiskCreate(ctx, rg, volName, idHASH, sizeGiB, principalID)
+	meta, err := d.azureVolumeDiskCreate(ctx, rg, volName, idHASH, sizeGiB, principalID, app.Deployment.Zone)
 	if err != nil {
 		return nil, err
 	}
@@ -675,6 +693,7 @@ func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, a
 		VolumeName: volName,
 		Assigned:   meta.Assigned,
 		Size:       int64(meta.SizeGiB) << 30,
+		Zone:       app.Deployment.Zone,
 		Handle:     fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/disks/%s", d.AzureSubscriptionId, rg, meta.Name),
 		CreatedAt:  meta.TimeCreated,
 		UpdatedAt:  meta.TimeCreated,
@@ -792,7 +811,7 @@ func (d *driver) VolumeSnapshotRestore(ctx context.Context, cluster *model.Clust
 	}
 	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
 	idHASH := hashes.AppID
-	meta, err := d.azureVolumeDiskCreateFromSnapshot(ctx, rg, volName, idHASH, snapName, principalID)
+	meta, err := d.azureVolumeDiskCreateFromSnapshot(ctx, rg, volName, idHASH, snapName, principalID, app.Deployment.Zone)
 	if err != nil {
 		return nil, err
 	}
@@ -804,6 +823,7 @@ func (d *driver) VolumeSnapshotRestore(ctx context.Context, cluster *model.Clust
 		Handle:     fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/disks/%s", d.AzureSubscriptionId, rg, meta.Name),
 		CreatedAt:  meta.TimeCreated,
 		UpdatedAt:  meta.TimeCreated,
+		Zone:       meta.Zone,
 	}, nil
 }
 
