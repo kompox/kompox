@@ -203,7 +203,7 @@ func (d *driver) ensureResourceGroup(ctx context.Context, resourceGroupName stri
 }
 
 // VolumeDiskCreate creates an Azure Disk for logical volume (internal helper).
-func (d *driver) azureVolumeDiskCreate(ctx context.Context, resourceGroupName, volName, idHASH string, sizeGiB int32, principalID string, zone string) (*volumeDiskMeta, error) {
+func (d *driver) azureVolumeDiskCreate(ctx context.Context, resourceGroupName, volName, idHASH string, sizeGiB int32, principalID string, zone string, options map[string]any) (*volumeDiskMeta, error) {
 	if resourceGroupName == "" {
 		return nil, errors.New("AZURE_RESOURCE_GROUP_NAME required")
 	}
@@ -256,8 +256,10 @@ func (d *driver) azureVolumeDiskCreate(ctx context.Context, resourceGroupName, v
 			CreationData: &armcompute.CreationData{CreateOption: to.Ptr(armcompute.DiskCreateOptionEmpty)},
 			DiskSizeGB:   to.Ptr(sizeGiB),
 		},
-		SKU: &armcompute.DiskSKU{Name: to.Ptr(armcompute.DiskStorageAccountTypesPremiumLRS)},
 	}
+
+	// Apply SKU and performance options from volume configuration
+	applyDiskOptions(&disk, options)
 
 	poller, err := disksClient.BeginCreateOrUpdate(ctx, resourceGroupName, diskName, disk, nil)
 	if err != nil {
@@ -537,7 +539,7 @@ func (d *driver) azureVolumeSnapshotDelete(ctx context.Context, resourceGroupNam
 }
 
 // azureVolumeDiskCreateFromSnapshot creates a new disk from an existing snapshot.
-func (d *driver) azureVolumeDiskCreateFromSnapshot(ctx context.Context, resourceGroupName, volName, idHASH, snapID string, principalID string, zone string) (*volumeDiskMeta, error) {
+func (d *driver) azureVolumeDiskCreateFromSnapshot(ctx context.Context, resourceGroupName, volName, idHASH, snapID string, principalID string, zone string, options map[string]any) (*volumeDiskMeta, error) {
 	if resourceGroupName == "" {
 		return nil, errors.New("AZURE_RESOURCE_GROUP_NAME required")
 	}
@@ -593,8 +595,10 @@ func (d *driver) azureVolumeDiskCreateFromSnapshot(ctx context.Context, resource
 				SourceResourceID: to.Ptr(sourceResID),
 			},
 		},
-		SKU: &armcompute.DiskSKU{Name: to.Ptr(armcompute.DiskStorageAccountTypesPremiumLRS)},
 	}
+
+	// Apply SKU and performance options from volume configuration
+	applyDiskOptions(&disk, options)
 
 	poller, err := disksClient.BeginCreateOrUpdate(ctx, resourceGroupName, diskName, disk, nil)
 	if err != nil {
@@ -626,6 +630,80 @@ func volumeDefSize(app *model.App, volName string) (int64, bool) {
 		}
 	}
 	return 0, false
+}
+
+// volumeDefOptions returns options map for volume name from app.Volumes.
+func volumeDefOptions(app *model.App, volName string) (map[string]any, bool) {
+	for _, v := range app.Volumes {
+		if v.Name == volName {
+			return v.Options, true
+		}
+	}
+	return nil, false
+}
+
+// applyDiskOptions applies Azure Disk SKU and performance options from volume options.
+// Default SKU is Premium_LRS if not specified.
+func applyDiskOptions(disk *armcompute.Disk, options map[string]any) {
+	// Initialize SKU with default
+	if disk.SKU == nil {
+		disk.SKU = &armcompute.DiskSKU{}
+	}
+	disk.SKU.Name = to.Ptr(armcompute.DiskStorageAccountTypesPremiumLRS) // default
+
+	if options == nil {
+		return
+	}
+
+	// Apply SKU if specified
+	if skuValue, ok := options["sku"].(string); ok && skuValue != "" {
+		switch skuValue {
+		case "Standard_LRS":
+			disk.SKU.Name = to.Ptr(armcompute.DiskStorageAccountTypesStandardLRS)
+		case "Premium_LRS":
+			disk.SKU.Name = to.Ptr(armcompute.DiskStorageAccountTypesPremiumLRS)
+		case "StandardSSD_LRS":
+			disk.SKU.Name = to.Ptr(armcompute.DiskStorageAccountTypesStandardSSDLRS)
+		case "UltraSSD_LRS":
+			disk.SKU.Name = to.Ptr(armcompute.DiskStorageAccountTypesUltraSSDLRS)
+		case "Premium_ZRS":
+			disk.SKU.Name = to.Ptr(armcompute.DiskStorageAccountTypesPremiumZRS)
+		case "StandardSSD_ZRS":
+			disk.SKU.Name = to.Ptr(armcompute.DiskStorageAccountTypesStandardSSDZRS)
+		case "PremiumV2_LRS":
+			// Use the string value directly since the constant doesn't exist in DiskStorageAccountTypes
+			disk.SKU.Name = to.Ptr(armcompute.DiskStorageAccountTypes("PremiumV2_LRS"))
+		}
+	}
+
+	// Apply performance options if specified
+	if disk.Properties == nil {
+		return
+	}
+
+	// Set IOPS if specified
+	if iopsValue, ok := options["iops"]; ok {
+		switch v := iopsValue.(type) {
+		case int:
+			disk.Properties.DiskIOPSReadWrite = to.Ptr(int64(v))
+		case int64:
+			disk.Properties.DiskIOPSReadWrite = to.Ptr(v)
+		case float64:
+			disk.Properties.DiskIOPSReadWrite = to.Ptr(int64(v))
+		}
+	}
+
+	// Set MBps if specified
+	if mbpsValue, ok := options["mbps"]; ok {
+		switch v := mbpsValue.(type) {
+		case int:
+			disk.Properties.DiskMBpsReadWrite = to.Ptr(int64(v))
+		case int64:
+			disk.Properties.DiskMBpsReadWrite = to.Ptr(v)
+		case float64:
+			disk.Properties.DiskMBpsReadWrite = to.Ptr(int64(v))
+		}
+	}
 }
 
 // VolumeDiskList implements spec method.
@@ -682,9 +760,13 @@ func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, a
 		sizeBytes = 1 << 30
 	}
 	sizeGiB := int32((sizeBytes + (1 << 30) - 1) >> 30)
+
+	// Get volume options from app configuration
+	options, _ := volumeDefOptions(app, volName)
+
 	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
 	idHASH := hashes.AppID
-	meta, err := d.azureVolumeDiskCreate(ctx, rg, volName, idHASH, sizeGiB, principalID, app.Deployment.Zone)
+	meta, err := d.azureVolumeDiskCreate(ctx, rg, volName, idHASH, sizeGiB, principalID, app.Deployment.Zone, options)
 	if err != nil {
 		return nil, err
 	}
@@ -809,9 +891,13 @@ func (d *driver) VolumeSnapshotRestore(ctx context.Context, cluster *model.Clust
 	if err != nil {
 		return nil, err
 	}
+
+	// Get volume options from app configuration
+	options, _ := volumeDefOptions(app, volName)
+
 	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
 	idHASH := hashes.AppID
-	meta, err := d.azureVolumeDiskCreateFromSnapshot(ctx, rg, volName, idHASH, snapName, principalID, app.Deployment.Zone)
+	meta, err := d.azureVolumeDiskCreateFromSnapshot(ctx, rg, volName, idHASH, snapName, principalID, app.Deployment.Zone, options)
 	if err != nil {
 		return nil, err
 	}

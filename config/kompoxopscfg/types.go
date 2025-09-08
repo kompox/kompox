@@ -93,8 +93,9 @@ type AppIngressRule struct {
 
 // AppVolume matches docs/Kompox-Convert-Draft schema for persistent volumes.
 type AppVolume struct {
-	Name string `yaml:"name"`
-	Size string `yaml:"size"`
+	Name    string         `yaml:"name"`
+	Size    string         `yaml:"size"`
+	Options map[string]any `yaml:"options,omitempty"` // provider-specific options for volume configuration
 }
 
 // AppDeployment defines deployment configuration for the app.

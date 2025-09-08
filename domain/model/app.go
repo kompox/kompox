@@ -33,8 +33,9 @@ type AppIngressRule struct {
 
 // AppVolume defines a persistent volume requested by the app.
 type AppVolume struct {
-	Name string
-	Size int64 // in bytes (parsed from user configuration quantities like "32Gi").
+	Name    string
+	Size    int64          // in bytes (parsed from user configuration quantities like "32Gi").
+	Options map[string]any // provider-specific options for volume configuration (e.g., SKU, IOPS, throughput).
 }
 
 // AppDeployment defines deployment configuration for the app.

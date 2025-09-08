@@ -169,7 +169,11 @@ func toModelVolumes(vs []AppVolume) []model.AppVolume {
 			panic(fmt.Errorf("invalid volume size %q for volume %q: %w", v.Size, v.Name, err))
 		}
 		// Quantity.Value() returns the value in base units (bytes for memory/storage quantities)
-		out = append(out, model.AppVolume{Name: v.Name, Size: q.Value()})
+		out = append(out, model.AppVolume{
+			Name:    v.Name,
+			Size:    q.Value(),
+			Options: v.Options,
+		})
 	}
 	return out
 }
