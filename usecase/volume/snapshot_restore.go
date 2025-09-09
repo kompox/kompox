@@ -43,15 +43,9 @@ func (u *UseCase) SnapshotRestore(ctx context.Context, in *SnapshotRestoreInput)
 		return nil, fmt.Errorf("cluster not found: %s", app.ClusterID)
 	}
 	// Validate logical volume exists
-	ok := false
-	for _, v := range app.Volumes {
-		if v.Name == in.VolumeName {
-			ok = true
-			break
-		}
-	}
-	if !ok {
-		return nil, fmt.Errorf("volume not defined: %s", in.VolumeName)
+	_, err = app.FindVolume(in.VolumeName)
+	if err != nil {
+		return nil, fmt.Errorf("volume not defined: %w", err)
 	}
 
 	// Build options based on input

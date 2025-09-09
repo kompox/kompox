@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 // App represents an application deployed to a cluster.
 type App struct {
@@ -46,4 +49,15 @@ type AppDeployment struct {
 	// Zone specifies the availability zone for deployment.
 	// Only sets nodeSelector when specified.
 	Zone string
+}
+
+// FindVolume returns the AppVolume for the given volume name.
+// Returns an error if the volume is not found.
+func (app *App) FindVolume(volName string) (*AppVolume, error) {
+	for i, v := range app.Volumes {
+		if v.Name == volName {
+			return &app.Volumes[i], nil
+		}
+	}
+	return nil, fmt.Errorf("volume not found: %s", volName)
 }

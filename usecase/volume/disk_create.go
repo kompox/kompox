@@ -45,15 +45,9 @@ func (u *UseCase) DiskCreate(ctx context.Context, in *DiskCreateInput) (*DiskCre
 		return nil, fmt.Errorf("cluster not found: %s", app.ClusterID)
 	}
 	// Validate logical volume exists
-	exists := false
-	for _, v := range app.Volumes {
-		if v.Name == in.VolumeName {
-			exists = true
-			break
-		}
-	}
-	if !exists {
-		return nil, fmt.Errorf("volume not defined: %s", in.VolumeName)
+	_, err = app.FindVolume(in.VolumeName)
+	if err != nil {
+		return nil, fmt.Errorf("volume not defined: %w", err)
 	}
 
 	// Build options based on input

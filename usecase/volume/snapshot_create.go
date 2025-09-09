@@ -39,15 +39,9 @@ func (u *UseCase) SnapshotCreate(ctx context.Context, in *SnapshotCreateInput) (
 		return nil, fmt.Errorf("cluster not found: %s", app.ClusterID)
 	}
 	// Validate logical volume exists
-	ok := false
-	for _, v := range app.Volumes {
-		if v.Name == in.VolumeName {
-			ok = true
-			break
-		}
-	}
-	if !ok {
-		return nil, fmt.Errorf("volume not defined: %s", in.VolumeName)
+	_, err = app.FindVolume(in.VolumeName)
+	if err != nil {
+		return nil, fmt.Errorf("volume not defined: %w", err)
 	}
 	snap, err := u.VolumePort.SnapshotCreate(ctx, cluster, app, in.VolumeName, in.DiskName)
 	if err != nil {
