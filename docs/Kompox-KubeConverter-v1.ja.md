@@ -17,11 +17,11 @@
 - PV 複数個 (Provider のライフサイクルで管理される静的なクラウドディスクリソースを参照する RWO ボリューム)
 - PVC 複数個 (PVを参照する)
 - コンポーネント (`app` `box` など) ごとに以下を生成
-  - Deployment 1個 (シングルレプリカ、strategy.type:Recreate)
+  - Deployment 1個 (シングルレプリカ、strategy.type=Recreate)
   - Service 1個 (compose の host ポートを列挙)
   - Ingress 0〜2個 (DNSホスト名から Service へのルーティング)
-    - デフォルトドメイン用 Ingress: `<appName>-default`
-    - カスタムドメイン用 Ingress: `<appName>-custom`
+    - デフォルトドメイン用 Ingress
+    - カスタムドメイン用 Ingress
     - 生成条件は後述
 
 ### 名前・ラベル・アノテーション
@@ -33,10 +33,20 @@
 
 リソース命名規則
 
-- Namespace: `kompox-<appName>-<idHASH>`
-- PV/PVC: `kompox-<volName>-<idHASH>-<volHASH>`
+- Namespace: `kx<spHASH>-<appName>-<idHASH>`
+  - バックエンドのクラウドリソースの名前としても使用する (Azureリソースグループ名など)
+  - `kx<spHASH>`は名前順ソート時に関連リソースを一箇所に集めることで誤操作を防止するために配置する
+  - `kx`はKompoxの略
+- PV/PVC: `kx<spHASH>-<volName>-<idHASH>-<volHASH>`
+  - バックエンドのクラウドリソースの名前としても使用する (ディスク・スナップショットリソース名など)
+  - Namespaceと同じ理由で`kx<spHASH>`を含む
+  - PVCはPVと同名とする
 - Service/Deployment: `<appName>-<componentName>`
-- Ingress: デフォルトドメイン用は `<appName>-<componentName>-default`、カスタムドメイン用は `<appName>-<componentName>-custom`
+  - Namespace内のリソースで一意性が担保されているためハッシュを含まない
+- Ingress:
+  - デフォルトドメイン用: `<appName>-<componentName>-default`
+  - カスタムドメイン用: `<appName>-<componentName>-custom`
+  - Namespace内のリソースで一意性が担保されているためハッシュを含まない
 
 各リソースには次のラベルを設定する。
 
@@ -91,25 +101,32 @@ metadata:
 
 ### ハッシュの種類と生成規則
 
-`<inHASH>` (クラスタ依存ハッシュ) 生成方法
+`<spHASH>` (サービス・プロバイダハッシュ) 生成方法
+
+```
+BASE = service.name + ":" + provider.name
+HASH = BASEのSHA256バイト列を256bitのLSB first bigintとして扱い36進数表記した冒頭6文字
+```
+
+`<inHASH>` (クラスタ依存アプリハッシュ) 生成方法
 
 ```
 BASE = service.name + ":" + provider.name + ":" + cluster.name + ":" + app.name
-HASH = sha1(BASE) の先頭6文字 (16進)
+HASH = BASEのSHA256バイト列を256bitのLSB first bigintとして扱い36進数表記した冒頭6文字
 ```
 
-`<idHASH>` (クラスタ非依存ハッシュ) 生成方法
+`<idHASH>` (クラスタ非依存アプリハッシュ) 生成方法
 
 ```
 BASE = service.name + ":" + provider.name + ":" + app.name
-HASH = sha1(BASE) の先頭6文字 (16進)
+HASH = BASEのSHA256バイト列を256bitのLSB first bigintとして扱い36進数表記した冒頭6文字
 ```
 
 `<volHASH>` (クラウドディスクリソースハッシュ) 生成方法
 
 ```
 BASE = クラウドディスクリソースのID (/subscriptions/.... など)
-HASH = sha1(BASE) の先頭6文字 (16進)
+HASH = BASEのSHA256バイト列を256bitのLSB first bigintとして扱い36進数表記した冒頭6文字
 ```
 
 各ハッシュの衝突が理論上発生した場合は実装側でハッシュ長 (6→8→10 文字…) を自動延長する。
@@ -175,9 +192,9 @@ app:
         - data:/mnt/root         # mount data:/ on /mnt/root
         - data/sub/path:/mnt/sub # mount data:/sub/path on /mnt/sub
   volumes:
-  - name: default  # PV/PVC kompox-default-<idHASH>-<volHASH>
+  - name: default  # PV/PVC kx<spHASH>-default-<idHASH>-<volHASH>
     size: 32Gi
-  - name: data     # PV/PVC kompox-data-<idHASH>-<volHASH>
+  - name: data     # PV/PVC kx<spHASH>-data-<idHASH>-<volHASH>
     size: 32Gi
 ```
 
@@ -394,11 +411,12 @@ app:
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: kompox-app1-idHASH
+  name: kxspHASH-app1-idHASH
   labels:
     app: app1-app
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/component: app
     app.kubernetes.io/managed-by: kompox
     kompox.dev/app-instance-hash: inHASH
     kompox.dev/app-id-hash: idHASH
@@ -409,11 +427,12 @@ metadata:
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: kompox-default-idHASH-volHASH
+  name: kxspHASH-default-idHASH-volHASH
   labels:
     app: app1-app
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/component: app
     app.kubernetes.io/managed-by: kompox
     kompox.dev/app-instance-hash: inHASH
     kompox.dev/app-id-hash: idHASH
@@ -435,11 +454,12 @@ spec:
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: kompox-db-idHASH-volHASH
+  name: kxspHASH-db-idHASH-volHASH
   labels:
     app: app1-app
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/component: app
     app.kubernetes.io/managed-by: kompox
     kompox.dev/app-instance-hash: inHASH
     kompox.dev/app-id-hash: idHASH
@@ -461,12 +481,13 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: kompox-default-idHASH-volHASH
-  namespace: kompox-app1-idHASH
+  name: kxspHASH-default-idHASH-volHASH
+  namespace: kxspHASH-app1-idHASH
   labels:
     app: app1-app
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/component: app
     app.kubernetes.io/managed-by: kompox
     kompox.dev/app-instance-hash: inHASH
     kompox.dev/app-id-hash: idHASH
@@ -477,17 +498,18 @@ spec:
     requests:
       storage: 32Gi
   storageClassName: managed-csi
-  volumeName: kompox-default-idHASH-volHASH
+  volumeName: kxspHASH-default-idHASH-volHASH
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: kompox-db-idHASH-volHASH
-  namespace: kompox-app1-idHASH
+  name: kxspHASH-db-idHASH-volHASH
+  namespace: kxspHASH-app1-idHASH
   labels:
     app: app1-app
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/component: app
     app.kubernetes.io/managed-by: kompox
     kompox.dev/app-instance-hash: inHASH
     kompox.dev/app-id-hash: idHASH
@@ -498,17 +520,18 @@ spec:
     requests:
       storage: 64Gi
   storageClassName: managed-csi
-  volumeName: kompox-db-idHASH-volHASH
+  volumeName: kxspHASH-db-idHASH-volHASH
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: app1-app
-  namespace: kompox-app1-idHASH
+  namespace: kxspHASH-app1-idHASH
   labels:
     app: app1-app
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/component: app
     app.kubernetes.io/managed-by: kompox
     kompox.dev/app-instance-hash: inHASH
     kompox.dev/app-id-hash: idHASH
@@ -519,19 +542,20 @@ spec:
   selector:
     matchLabels:
       app: app1-app
-  nodeSelector:
-    kompox.dev/node-pool: user
-    kompox.dev/node-zone: "1"
   template:
     metadata:
       labels:
         app: app1-app
         app.kubernetes.io/name: app1
         app.kubernetes.io/instance: app1-inHASH
+        app.kubernetes.io/component: app
         app.kubernetes.io/managed-by: kompox
         kompox.dev/app-instance-hash: inHASH
         kompox.dev/app-id-hash: idHASH
     spec:
+      nodeSelector:
+        kompox.dev/node-pool: user
+        kompox.dev/node-zone: "1"
       containers:
       - name: app
         image: ghcr.io/kompox/app
@@ -585,20 +609,21 @@ spec:
       volumes:
         - name: default
           persistentVolumeClaim:
-            claimName: kompox-default-idHASH-volHASH
+            claimName: kxspHASH-default-idHASH-volHASH
         - name: db
           persistentVolumeClaim:
-            claimName: kompox-db-idHASH-volHASH
+            claimName: kxspHASH-db-idHASH-volHASH
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: app1-app
-  namespace: kompox-app1-idHASH
+  namespace: kxspHASH-app1-idHASH
   labels:
     app: app1-app
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/component: app
     app.kubernetes.io/managed-by: kompox
     kompox.dev/app-instance-hash: inHASH
     kompox.dev/app-id-hash: idHASH
@@ -617,11 +642,12 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: app1-app-default
-  namespace: kompox-app1-idHASH
+  namespace: kxspHASH-app1-idHASH
   labels:
     app: app1-app
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/component: app
     app.kubernetes.io/managed-by: kompox
     kompox.dev/app-instance-hash: inHASH
     kompox.dev/app-id-hash: idHASH
@@ -656,11 +682,12 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: app1-app-custom
-  namespace: kompox-app1-idHASH
+  namespace: kxspHASH-app1-idHASH
   labels:
     app: app1-app
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/component: app
     app.kubernetes.io/managed-by: kompox
     kompox.dev/app-instance-hash: inHASH
     kompox.dev/app-id-hash: idHASH

@@ -39,6 +39,7 @@ type Converter struct {
 	Project *types.Project
 
 	// Stable identifiers
+	HashSP string // service/provider
 	HashID string // service/provider/app (cluster independent)
 	HashIN string // service/provider/cluster/app (cluster dependent)
 
@@ -95,6 +96,7 @@ func NewConverter(svc *model.Service, prv *model.Provider, cls *model.Cluster, a
 	c := &Converter{Svc: svc, Prv: prv, Cls: cls, App: a}
 	if svc != nil && prv != nil && cls != nil && a != nil {
 		hashes := naming.NewHashes(svc.Name, prv.Name, cls.Name, a.Name)
+		c.HashSP = hashes.Provider
 		c.HashID = hashes.AppID
 		c.HashIN = hashes.AppInstance
 		c.Namespace = hashes.Namespace

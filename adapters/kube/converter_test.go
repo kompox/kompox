@@ -2,6 +2,7 @@ package kube
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -25,19 +26,25 @@ func TestNewConverter(t *testing.T) {
 		t.Error("domain references not properly stored")
 	}
 
-	if c.HashID == "" || c.HashIN == "" {
+	if c.HashSP == "" || c.HashID == "" || c.HashIN == "" {
 		t.Error("hash identifiers not computed")
 	}
 
-	expectedNS := "kompox-testapp-" + c.HashID
+	expectedNS := fmt.Sprintf("kx%s-testapp-%s", c.HashSP, c.HashID)
 	if c.Namespace != expectedNS {
 		t.Errorf("expected namespace %q, got %q", expectedNS, c.Namespace)
+	}
+
+	expectedResourceName := "testapp-app"
+	if c.ResourceName != expectedResourceName {
+		t.Errorf("expected resource name %q, got %q", expectedResourceName, c.ResourceName)
 	}
 
 	expectedLabels := map[string]string{
 		"app":                          "testapp-app",
 		"app.kubernetes.io/name":       "testapp",
 		"app.kubernetes.io/instance":   "testapp-" + c.HashIN,
+		"app.kubernetes.io/component":  "app",
 		"app.kubernetes.io/managed-by": "kompox",
 		"kompox.dev/app-instance-hash": c.HashIN,
 		"kompox.dev/app-id-hash":       c.HashID,

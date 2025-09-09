@@ -6,8 +6,9 @@ package naming
 // changes (length/algorithm) without touching call sites.
 
 import (
-	"crypto/sha1"
+	"crypto/sha256"
 	"fmt"
+	"math/big"
 )
 
 // Hashes groups hierarchical short hashes derived from service, provider,
@@ -29,17 +30,21 @@ type Hashes struct {
 	Namespace   string
 }
 
-// defaultLength defines the hex length of hashes (bits ~ length * 4).
+// defaultLength defines the base36 length of hashes.
 const defaultLength = 6
 
-// ShortHash returns the hex SHA1 prefix of length n (clamped to digest size).
+// ShortHash returns the base36 SHA256 prefix of length n.
 func ShortHash(s string, n int) string {
-	sum := sha1.Sum([]byte(s))
-	h := fmt.Sprintf("%x", sum)
-	if n > len(h) {
-		n = len(h)
+	sum := sha256.Sum256([]byte(s))
+	bigInt := new(big.Int).SetBytes(sum[:])
+	h := bigInt.Text(36)
+	for len(h) < n {
+		h = "0" + h
 	}
-	return h[:n]
+	if len(h) > n {
+		h = h[:n]
+	}
+	return h
 }
 
 // VolumeHash returns a short hash for a volume handle or identifier.
@@ -56,7 +61,7 @@ func NewHashes(service, provider, cluster, app string) Hashes {
 		AppID:       ShortHash(fmt.Sprintf("%s:%s:%s", service, provider, app), defaultLength),
 		AppInstance: ShortHash(fmt.Sprintf("%s:%s:%s:%s", service, provider, cluster, app), defaultLength),
 	}
-	h.Namespace = fmt.Sprintf("kompox-%s-%s", app, h.AppID)
+	h.Namespace = fmt.Sprintf("kx%s-%s-%s", h.Provider, app, h.AppID)
 	return h
 }
 
@@ -64,10 +69,10 @@ func NewHashes(service, provider, cluster, app string) Hashes {
 // generated from a logical volume and its provider-specific handle.
 // The format is:
 //
-//	kompox-<volumeName>-<AppID>-<volHASH>
+//	kx<spHASH>-<volumeName>-<AppID>-<volHASH>
 //
 // where volHASH is derived from the handle.
 func (h Hashes) VolumeResourceName(volumeName, handle string) string {
 	volHASH := VolumeHash(handle)
-	return fmt.Sprintf("kompox-%s-%s-%s", volumeName, h.AppID, volHASH)
+	return fmt.Sprintf("kx%s-%s-%s-%s", h.Provider, volumeName, h.AppID, volHASH)
 }
