@@ -1,8 +1,8 @@
 ---
 description: Suggest commit messages for staged changes
 mode: agent
-tools: ['changes', 'codebase', 'runCommands', 'search', 'think']
-model: GPT-5 mini (Preview)
+tools: ['codebase', 'changes', 'runCommands', 'search']
+model: GPT-5 mini
 ---
 ## Your Task
 
@@ -10,6 +10,15 @@ model: GPT-5 mini (Preview)
 - If nothing is staged yet, ask the user whether you should stage all files in behalf of them (run `git add -A && make diff-staged-changes`)
 - Put each suggestion in a code block labeled A/B/C so that the user can easily select and copy
 - Do commit with the message selected by the user when they ask you to
+- Use the command with heredoc to commit:
+```bash
+git commit -F - <<'MSG'
+feat(deps): bump Go module dependencies
+
+- Update multiple modules
+- Rationale: keep deps current
+MSG
+```
 
 ## Commit Message Guideline
 
