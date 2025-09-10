@@ -2,8 +2,6 @@ package aks
 
 import (
 	"context"
-	"crypto/rand"
-	"errors"
 	"fmt"
 	"maps"
 	"sort"
@@ -12,21 +10,20 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/google/uuid"
 	"github.com/kompox/kompox/domain/model"
 	"github.com/kompox/kompox/internal/logging"
 	"github.com/kompox/kompox/internal/naming"
-	"github.com/oklog/ulid/v2"
 )
 
 // Disk tag keys
 const (
-	tagVolumeKey    = "kompox-volume"        // logical volume key value: kompox-volName-idHASH
-	tagDiskName     = "kompox-disk-name"     // ulid
+	tagVolumeName   = "kompox-volume"        // volume name
+	tagDiskName     = "kompox-disk-name"     // disk name (CompactID)
 	tagDiskAssigned = "kompox-disk-assigned" // true/false
-	tagSnapshotName = "kompox-snapshot-name" // ulid
+	tagSnapshotName = "kompox-snapshot-name" // snapshot name (CompactID)
 )
 
 // Built-in role definition IDs used by this driver
@@ -35,51 +32,106 @@ const (
 	contributorRoleDefinitionID = "b24988ac-6180-42a0-ab88-20f7382dd24c"
 )
 
-// volumeDiskMeta represents returned metadata for a volume disk.
-// Internal structure; adapted to domain model when wiring into usecases.
-type volumeDiskMeta struct {
-	Name        string // Azure Disk name
-	DiskID      string // ULID
-	SizeGiB     int32
-	Assigned    bool
-	Zone        string // Availability Zone (empty for regional)
-	TimeCreated time.Time
-}
-
-// snapshotMeta represents returned metadata for a snapshot.
-// Internal structure; adapted to domain model when wiring into usecases.
-type snapshotMeta struct {
-	Name        string // Azure Snapshot name
-	SnapID      string // ULID
-	SourceDisk  string // ULID (kompox disk id)
-	SizeGiB     int32
-	TimeCreated time.Time
-}
-
-// generateULID returns a monotonic ULID (time based) for disk naming.
-func generateULID() (string, error) {
-	entropy := ulid.Monotonic(rand.Reader, 0)
-	id, err := ulid.New(ulid.Timestamp(time.Now().UTC()), entropy)
-	if err != nil {
-		return "", err
+// newVolumeDisk creates a model.VolumeDisk from an Azure Disk resource.
+// Returns an error if the disk lacks required tags or metadata.
+func newVolumeDisk(disk *armcompute.Disk, volName string) (*model.VolumeDisk, error) {
+	if disk == nil || disk.Name == nil || disk.Properties == nil {
+		return nil, fmt.Errorf("disk is nil or missing required fields")
 	}
-	return id.String(), nil
+
+	tags := disk.Tags
+	if tags == nil {
+		return nil, fmt.Errorf("disk missing tags")
+	}
+
+	// Extract disk name from tags
+	diskName := ""
+	if v, ok := tags[tagDiskName]; !ok || v == nil || *v == "" {
+		return nil, fmt.Errorf("disk missing required tag: %s", tagDiskName)
+	} else {
+		diskName = *v
+	}
+
+	// Extract size
+	var size int32
+	if disk.Properties.DiskSizeGB != nil {
+		size = *disk.Properties.DiskSizeGB
+	}
+
+	// Extract assigned status
+	assigned := false
+	if v, ok := tags[tagDiskAssigned]; ok && v != nil && strings.EqualFold(*v, "true") {
+		assigned = true
+	}
+
+	// Extract creation time
+	var created time.Time
+	if disk.Properties.TimeCreated != nil {
+		created = *disk.Properties.TimeCreated
+	}
+
+	// Extract zone
+	zone := ""
+	if len(disk.Zones) > 0 && disk.Zones[0] != nil {
+		zone = *disk.Zones[0]
+	}
+
+	return &model.VolumeDisk{
+		Name:       diskName,
+		VolumeName: volName,
+		Assigned:   assigned,
+		Size:       int64(size) << 30,
+		Zone:       zone,
+		Options:    azureDiskOptions(disk),
+		Handle:     *disk.ID,
+		CreatedAt:  created,
+		UpdatedAt:  created,
+	}, nil
 }
 
-// helper to build disk name: kompox-volName-idHASH-volInstName
-func buildDiskName(lvKey, ulid string) string { return fmt.Sprintf("%s-%s", lvKey, ulid) }
+// newVolumeSnapshot creates a model.VolumeSnapshot from an Azure Snapshot resource.
+// Returns an error if the snapshot lacks required tags or metadata.
+func newVolumeSnapshot(snap *armcompute.Snapshot, volName string) (*model.VolumeSnapshot, error) {
+	if snap == nil || snap.Name == nil || snap.Properties == nil {
+		return nil, fmt.Errorf("snapshot is nil or missing required fields")
+	}
 
-// helper to build snapshot name: kompox-volName-idHASH-ULID
-func buildSnapshotName(lvKey, ulid string) string { return fmt.Sprintf("%s-%s", lvKey, ulid) }
+	tags := snap.Tags
+	if tags == nil {
+		return nil, fmt.Errorf("snapshot missing tags")
+	}
 
-// logicalVolumeKey returns kompox-volName-idHASH
-func logicalVolumeKey(volName, idHASH string) string {
-	return fmt.Sprintf("kompox-%s-%s", volName, idHASH)
+	// Extract snapshot name from tags
+	snapName := ""
+	if v, ok := tags[tagSnapshotName]; !ok || v == nil || *v == "" {
+		return nil, fmt.Errorf("snapshot missing required tag: %s", tagSnapshotName)
+	} else {
+		snapName = *v
+	}
+
+	// Extract size and creation time
+	var size int32
+	var created time.Time
+	if snap.Properties.DiskSizeGB != nil {
+		size = *snap.Properties.DiskSizeGB
+	}
+	if snap.Properties.TimeCreated != nil {
+		created = *snap.Properties.TimeCreated
+	}
+
+	return &model.VolumeSnapshot{
+		Name:       snapName,
+		VolumeName: volName,
+		Size:       int64(size) << 30,
+		Handle:     *snap.ID,
+		CreatedAt:  created,
+		UpdatedAt:  created,
+	}, nil
 }
 
-// buildZones creates zones array from app deployment zone setting.
+// azureZones creates zones array from app deployment zone setting.
 // Returns nil if zone is empty (regional disk), or []*string with zone value if zone is specified.
-func buildZones(zone string) []*string {
+func azureZones(zone string) []*string {
 	zone = strings.TrimSpace(zone)
 	if zone == "" {
 		return nil // Regional disk
@@ -87,583 +139,9 @@ func buildZones(zone string) []*string {
 	return []*string{to.Ptr(zone)}
 }
 
-// VolumeDiskList lists Azure Managed Disks for a logical volume (internal helper).
-func (d *driver) azureVolumeDiskList(ctx context.Context, resourceGroupName, volName, idHASH string) ([]volumeDiskMeta, error) {
-	if resourceGroupName == "" {
-		return nil, errors.New("AZURE_RESOURCE_GROUP_NAME required")
-	}
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
-	defer cancel()
-
-	disksClient, err := armcompute.NewDisksClient(d.AzureSubscriptionId, d.TokenCredential, nil)
-	if err != nil {
-		return nil, fmt.Errorf("new disks client: %w", err)
-	}
-
-	lvKey := logicalVolumeKey(volName, idHASH)
-	prefix := lvKey + "-"
-	pager := disksClient.NewListByResourceGroupPager(resourceGroupName, nil)
-	out := []volumeDiskMeta{}
-	for pager.More() {
-		page, err := pager.NextPage(ctx)
-		if err != nil {
-			if strings.Contains(strings.ToLower(err.Error()), "could not be found") { // RG not found
-				return []volumeDiskMeta{}, nil
-			}
-			return nil, fmt.Errorf("list disks page: %w", err)
-		}
-		for _, disk := range page.Value {
-			if disk == nil || disk.Name == nil || disk.Properties == nil {
-				continue
-			}
-			name := *disk.Name
-			if !strings.HasPrefix(name, prefix) {
-				continue
-			}
-			// filter tag
-			tags := disk.Tags
-			if tags == nil {
-				continue
-			}
-			if v, ok := tags[tagVolumeKey]; !ok || v == nil || *v != lvKey {
-				continue
-			}
-			diskID := strings.TrimPrefix(name, prefix)
-			size := int32(0)
-			if disk.Properties.DiskSizeGB != nil {
-				size = *disk.Properties.DiskSizeGB
-			}
-			assigned := false
-			if v, ok := tags[tagDiskAssigned]; ok && v != nil && strings.EqualFold(*v, "true") {
-				assigned = true
-			}
-			created := time.Time{}
-			if disk.Properties.TimeCreated != nil {
-				created = *disk.Properties.TimeCreated
-			}
-			zone := ""
-			if disk.Zones != nil && len(disk.Zones) > 0 && disk.Zones[0] != nil {
-				zone = *disk.Zones[0]
-			}
-			out = append(out, volumeDiskMeta{Name: name, DiskID: diskID, SizeGiB: size, Assigned: assigned, Zone: zone, TimeCreated: created})
-		}
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].TimeCreated.After(out[j].TimeCreated) })
-	return out, nil
-}
-
-// ensureResourceGroup ensures RG exists for Create path only.
-func (d *driver) ensureResourceGroup(ctx context.Context, resourceGroupName string, principalID string) error {
-	log := logging.FromContext(ctx)
-
-	// Ensure RG exists
-	groupsClient, err := armresources.NewResourceGroupsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
-	if err != nil {
-		return err
-	}
-
-	log.Info(ctx, "ensuring resource group", "resource_group", resourceGroupName, "subscription", d.AzureSubscriptionId, "location", d.AzureLocation)
-	if _, err = groupsClient.CreateOrUpdate(ctx, resourceGroupName, armresources.ResourceGroup{Location: to.Ptr(d.AzureLocation)}, nil); err != nil {
-		return err
-	}
-
-	// Ensure AKS principal has Contributor on this RG (idempotent)
-	principalID = strings.TrimSpace(principalID)
-	if principalID == "" {
-		// Unknown principal; skip assignment silently (caller should have provided from deployment outputs).
-		return nil
-	}
-
-	assignmentsClient, err := armauthorization.NewRoleAssignmentsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
-	if err != nil {
-		return err
-	}
-
-	// Create assignment with deterministic GUID name derived from (scope, principalID, roleDefinitionID)
-	scope := fmt.Sprintf("/subscriptions/%s/resourceGroups/%s", d.AzureSubscriptionId, resourceGroupName)
-	roleDefinitionID := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s", d.AzureSubscriptionId, contributorRoleDefinitionID)
-	hashInput := scope + "|" + principalID + "|" + roleDefinitionID
-	name := uuid.NewSHA1(uuid.NameSpaceURL, []byte(hashInput)).String()
-	params := armauthorization.RoleAssignmentCreateParameters{
-		Properties: &armauthorization.RoleAssignmentProperties{
-			PrincipalID:      to.Ptr(principalID),
-			RoleDefinitionID: to.Ptr(roleDefinitionID),
-		},
-	}
-
-	log.Info(ctx, "ensuring role assignment", "scope", scope, "principal_id", principalID, "role_definition_id", contributorRoleDefinitionID, "assignment_name", name)
-	if _, err := assignmentsClient.Create(ctx, scope, name, params, nil); err != nil {
-		// If conflict due to existing assignment (race), treat as success
-		if strings.Contains(strings.ToLower(err.Error()), "existing assignment") || strings.Contains(strings.ToLower(err.Error()), "conflict") {
-			return nil
-		}
-		return err
-	}
-
-	return nil
-}
-
-// VolumeDiskCreate creates an Azure Disk for logical volume (internal helper).
-func (d *driver) azureVolumeDiskCreate(ctx context.Context, resourceGroupName, volName, idHASH string, sizeGiB int32, principalID string, zone string, options map[string]any) (*volumeDiskMeta, error) {
-	if resourceGroupName == "" {
-		return nil, errors.New("AZURE_RESOURCE_GROUP_NAME required")
-	}
-	if sizeGiB < 1 {
-		return nil, fmt.Errorf("sizeGiB must be >=1")
-	}
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-	defer cancel()
-
-	if err := d.ensureResourceGroup(ctx, resourceGroupName, principalID); err != nil {
-		return nil, fmt.Errorf("ensure RG: %w", err)
-	}
-
-	disksClient, err := armcompute.NewDisksClient(d.AzureSubscriptionId, d.TokenCredential, nil)
-	if err != nil {
-		return nil, fmt.Errorf("new disks client: %w", err)
-	}
-	ulidStr, err := generateULID()
-	if err != nil {
-		return nil, fmt.Errorf("ulid: %w", err)
-	}
-	lvKey := logicalVolumeKey(volName, idHASH)
-	diskName := buildDiskName(lvKey, ulidStr)
-
-	// If this is the first volume disk for the logical volume, mark it assigned=true.
-	initialAssigned := false
-	if list, err := d.azureVolumeDiskList(ctx, resourceGroupName, volName, idHASH); err == nil {
-		if len(list) == 0 {
-			initialAssigned = true
-		}
-	} else {
-		// If list fails, continue with default (not assigned) but log via error wrapping when creation fails later.
-	}
-
-	assignedVal := "false"
-	if initialAssigned {
-		assignedVal = "true"
-	}
-
-	disk := armcompute.Disk{
-		Location: to.Ptr(d.AzureLocation),
-		Zones:    buildZones(zone),
-		Tags: map[string]*string{
-			tagVolumeKey:    to.Ptr(lvKey),
-			tagDiskName:     to.Ptr(ulidStr),
-			tagDiskAssigned: to.Ptr(assignedVal),
-			"managed-by":    to.Ptr("kompox"),
-		},
-		Properties: &armcompute.DiskProperties{
-			CreationData: &armcompute.CreationData{CreateOption: to.Ptr(armcompute.DiskCreateOptionEmpty)},
-			DiskSizeGB:   to.Ptr(sizeGiB),
-		},
-	}
-
-	// Apply SKU and performance options from volume configuration
-	setDiskOptions(&disk, options)
-
-	poller, err := disksClient.BeginCreateOrUpdate(ctx, resourceGroupName, diskName, disk, nil)
-	if err != nil {
-		return nil, fmt.Errorf("begin create disk: %w", err)
-	}
-	res, err := poller.PollUntilDone(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("create disk: %w", err)
-	}
-	meta := &volumeDiskMeta{Name: diskName, DiskID: ulidStr, SizeGiB: sizeGiB, Assigned: assignedVal == "true", TimeCreated: time.Now().UTC()}
-	if res.Properties != nil && res.Properties.TimeCreated != nil {
-		meta.TimeCreated = *res.Properties.TimeCreated
-	}
-	return meta, nil
-}
-
-// VolumeDiskAssign marks one disk assigned=true and others false using tag update with concurrency control.
-func (d *driver) azureVolumeDiskAssign(ctx context.Context, resourceGroupName, volName, idHASH, diskName string) error {
-	if resourceGroupName == "" {
-		return errors.New("AZURE_RESOURCE_GROUP_NAME required")
-	}
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
-	defer cancel()
-	disksClient, err := armcompute.NewDisksClient(d.AzureSubscriptionId, d.TokenCredential, nil)
-	if err != nil {
-		return fmt.Errorf("new disks client: %w", err)
-	}
-	lvKey := logicalVolumeKey(volName, idHASH)
-	list, err := d.azureVolumeDiskList(ctx, resourceGroupName, volName, idHASH)
-	if err != nil {
-		return err
-	}
-	var target *volumeDiskMeta
-	for i := range list {
-		if list[i].DiskID == diskName {
-			target = &list[i]
-			break
-		}
-	}
-	if target == nil {
-		return fmt.Errorf("volume disk not found: %s", diskName)
-	}
-
-	for _, item := range list {
-		getRes, err := disksClient.Get(ctx, resourceGroupName, item.Name, nil)
-		if err != nil {
-			return fmt.Errorf("get disk %s: %w", item.Name, err)
-		}
-		tags := map[string]*string{}
-		for k, v := range getRes.Tags {
-			tags[k] = v
-		}
-		tags[tagVolumeKey] = to.Ptr(lvKey)
-		tags[tagDiskName] = to.Ptr(item.DiskID)
-		assigned := strings.EqualFold(item.DiskID, diskName)
-		// Idempotency check
-		prevAssigned := false
-		if v, ok := getRes.Tags[tagDiskAssigned]; ok && v != nil && strings.EqualFold(*v, "true") {
-			prevAssigned = true
-		}
-		if assigned && prevAssigned {
-			continue
-		}
-		val := "false"
-		if assigned {
-			val = "true"
-		}
-		tags[tagDiskAssigned] = to.Ptr(val)
-		update := armcompute.DiskUpdate{Tags: tags}
-		poller, err := disksClient.BeginUpdate(ctx, resourceGroupName, item.Name, update, nil)
-		if err != nil {
-			return fmt.Errorf("update disk %s: %w", item.Name, err)
-		}
-		if _, err = poller.PollUntilDone(ctx, nil); err != nil {
-			return fmt.Errorf("poll update disk %s: %w", item.Name, err)
-		}
-	}
-	return nil
-}
-
-// VolumeDiskDelete deletes a disk (idempotent).
-func (d *driver) azureVolumeDiskDelete(ctx context.Context, resourceGroupName, volName, idHASH, diskID string) error {
-	if resourceGroupName == "" {
-		return errors.New("AZURE_RESOURCE_GROUP_NAME required")
-	}
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-	defer cancel()
-	disksClient, err := armcompute.NewDisksClient(d.AzureSubscriptionId, d.TokenCredential, nil)
-	if err != nil {
-		return fmt.Errorf("new disks client: %w", err)
-	}
-	lvKey := logicalVolumeKey(volName, idHASH)
-	fullDiskName := buildDiskName(lvKey, diskID)
-	poller, err := disksClient.BeginDelete(ctx, resourceGroupName, fullDiskName, nil)
-	if err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "notfound") || strings.Contains(strings.ToLower(err.Error()), "could not be found") {
-			return nil
-		}
-		return fmt.Errorf("begin delete disk: %w", err)
-	}
-	if _, err = poller.PollUntilDone(ctx, nil); err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "notfound") {
-			return nil
-		}
-		return fmt.Errorf("delete disk: %w", err)
-	}
-	return nil
-}
-
-// azureVolumeSnapshotList lists snapshots belonging to a logical volume (by tag and name prefix).
-func (d *driver) azureVolumeSnapshotList(ctx context.Context, resourceGroupName, volName, idHASH string) ([]snapshotMeta, error) {
-	if resourceGroupName == "" {
-		return nil, errors.New("AZURE_RESOURCE_GROUP_NAME required")
-	}
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
-	defer cancel()
-
-	snapsClient, err := armcompute.NewSnapshotsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
-	if err != nil {
-		return nil, fmt.Errorf("new snapshots client: %w", err)
-	}
-	lvKey := logicalVolumeKey(volName, idHASH)
-	prefix := lvKey + "-"
-	pager := snapsClient.NewListByResourceGroupPager(resourceGroupName, nil)
-	out := []snapshotMeta{}
-	for pager.More() {
-		page, err := pager.NextPage(ctx)
-		if err != nil {
-			if strings.Contains(strings.ToLower(err.Error()), "could not be found") { // RG not found
-				return []snapshotMeta{}, nil
-			}
-			return nil, fmt.Errorf("list snapshots page: %w", err)
-		}
-		for _, snap := range page.Value {
-			if snap == nil || snap.Name == nil || snap.Properties == nil {
-				continue
-			}
-			name := *snap.Name
-			if !strings.HasPrefix(name, prefix) {
-				continue
-			}
-			tags := snap.Tags
-			if tags == nil {
-				continue
-			}
-			if v, ok := tags[tagVolumeKey]; !ok || v == nil || *v != lvKey {
-				continue
-			}
-			snapID := strings.TrimPrefix(name, prefix)
-			size := int32(0)
-			if snap.Properties.DiskSizeGB != nil {
-				size = *snap.Properties.DiskSizeGB
-			}
-			created := time.Time{}
-			if snap.Properties.TimeCreated != nil {
-				created = *snap.Properties.TimeCreated
-			}
-			// Source disk ULID is recorded in tagDiskName on the snapshot
-			src := ""
-			if v, ok := tags[tagDiskName]; ok && v != nil && *v != "" {
-				src = *v
-			}
-			out = append(out, snapshotMeta{Name: name, SnapID: snapID, SourceDisk: src, SizeGiB: size, TimeCreated: created})
-		}
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i].TimeCreated.After(out[j].TimeCreated) })
-	return out, nil
-}
-
-// azureVolumeSnapshotCreate creates an Azure Managed Snapshot from a given disk in the same RG.
-func (d *driver) azureVolumeSnapshotCreate(ctx context.Context, resourceGroupName, volName, idHASH, diskID string) (*snapshotMeta, error) {
-	if resourceGroupName == "" {
-		return nil, errors.New("AZURE_RESOURCE_GROUP_NAME required")
-	}
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
-	defer cancel()
-
-	snapsClient, err := armcompute.NewSnapshotsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
-	if err != nil {
-		return nil, fmt.Errorf("new snapshots client: %w", err)
-	}
-	lvKey := logicalVolumeKey(volName, idHASH)
-	// Build disk and snapshot names
-	fullDiskName := buildDiskName(lvKey, diskID)
-
-	// Resolve source disk resource ID
-	disksClient, err := armcompute.NewDisksClient(d.AzureSubscriptionId, d.TokenCredential, nil)
-	if err != nil {
-		return nil, fmt.Errorf("new disks client: %w", err)
-	}
-	diskRes, err := disksClient.Get(ctx, resourceGroupName, fullDiskName, nil)
-	if err != nil {
-		return nil, fmt.Errorf("get disk: %w", err)
-	}
-	sourceResID := ""
-	if diskRes.ID != nil {
-		sourceResID = *diskRes.ID
-	} else {
-		// Construct fallback ID
-		sourceResID = fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/disks/%s", d.AzureSubscriptionId, resourceGroupName, fullDiskName)
-	}
-
-	ulidStr, err := generateULID()
-	if err != nil {
-		return nil, fmt.Errorf("ulid: %w", err)
-	}
-	snapName := buildSnapshotName(lvKey, ulidStr)
-
-	snap := armcompute.Snapshot{
-		Location: to.Ptr(d.AzureLocation),
-		Tags: map[string]*string{
-			tagVolumeKey:    to.Ptr(lvKey),
-			tagSnapshotName: to.Ptr(ulidStr),
-			// Use disk name tag to record the source disk ID (ULID)
-			tagDiskName:  to.Ptr(diskID),
-			"managed-by": to.Ptr("kompox"),
-		},
-		Properties: &armcompute.SnapshotProperties{
-			CreationData: &armcompute.CreationData{
-				CreateOption:     to.Ptr(armcompute.DiskCreateOptionCopy),
-				SourceResourceID: to.Ptr(sourceResID),
-			},
-			Incremental: to.Ptr(true),
-		},
-		SKU: &armcompute.SnapshotSKU{Name: to.Ptr(armcompute.SnapshotStorageAccountTypesStandardLRS)},
-	}
-
-	poller, err := snapsClient.BeginCreateOrUpdate(ctx, resourceGroupName, snapName, snap, nil)
-	if err != nil {
-		return nil, fmt.Errorf("begin create snapshot: %w", err)
-	}
-	res, err := poller.PollUntilDone(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("create snapshot: %w", err)
-	}
-	// derive size/time
-	sizeGiB := int32(0)
-	created := time.Now().UTC()
-	if res.Properties != nil {
-		if res.Properties.DiskSizeGB != nil {
-			sizeGiB = *res.Properties.DiskSizeGB
-		}
-		if res.Properties.TimeCreated != nil {
-			created = *res.Properties.TimeCreated
-		}
-	}
-	return &snapshotMeta{Name: snapName, SnapID: ulidStr, SourceDisk: diskID, SizeGiB: sizeGiB, TimeCreated: created}, nil
-}
-
-// azureVolumeSnapshotDelete deletes a snapshot (idempotent).
-func (d *driver) azureVolumeSnapshotDelete(ctx context.Context, resourceGroupName, volName, idHASH, snapID string) error {
-	if resourceGroupName == "" {
-		return errors.New("AZURE_RESOURCE_GROUP_NAME required")
-	}
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-	defer cancel()
-	snapsClient, err := armcompute.NewSnapshotsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
-	if err != nil {
-		return fmt.Errorf("new snapshots client: %w", err)
-	}
-	lvKey := logicalVolumeKey(volName, idHASH)
-	fullSnapName := buildSnapshotName(lvKey, snapID)
-	poller, err := snapsClient.BeginDelete(ctx, resourceGroupName, fullSnapName, nil)
-	if err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "notfound") || strings.Contains(strings.ToLower(err.Error()), "could not be found") {
-			return nil
-		}
-		return fmt.Errorf("begin delete snapshot: %w", err)
-	}
-	if _, err = poller.PollUntilDone(ctx, nil); err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "notfound") {
-			return nil
-		}
-		return fmt.Errorf("delete snapshot: %w", err)
-	}
-	return nil
-}
-
-// azureVolumeDiskCreateFromSnapshot creates a new disk from an existing snapshot.
-func (d *driver) azureVolumeDiskCreateFromSnapshot(ctx context.Context, resourceGroupName, volName, idHASH, snapID string, principalID string, zone string, options map[string]any) (*volumeDiskMeta, error) {
-	if resourceGroupName == "" {
-		return nil, errors.New("AZURE_RESOURCE_GROUP_NAME required")
-	}
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
-	defer cancel()
-
-	if err := d.ensureResourceGroup(ctx, resourceGroupName, principalID); err != nil {
-		return nil, fmt.Errorf("ensure RG: %w", err)
-	}
-
-	snapsClient, err := armcompute.NewSnapshotsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
-	if err != nil {
-		return nil, fmt.Errorf("new snapshots client: %w", err)
-	}
-	lvKey := logicalVolumeKey(volName, idHASH)
-	fullSnapName := buildSnapshotName(lvKey, snapID)
-	snapRes, err := snapsClient.Get(ctx, resourceGroupName, fullSnapName, nil)
-	if err != nil {
-		return nil, fmt.Errorf("get snapshot: %w", err)
-	}
-	sourceResID := ""
-	if snapRes.ID != nil {
-		sourceResID = *snapRes.ID
-	} else {
-		sourceResID = fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/snapshots/%s", d.AzureSubscriptionId, resourceGroupName, fullSnapName)
-	}
-
-	disksClient, err := armcompute.NewDisksClient(d.AzureSubscriptionId, d.TokenCredential, nil)
-	if err != nil {
-		return nil, fmt.Errorf("new disks client: %w", err)
-	}
-	// Per contract, restored disks should always start as Assigned=false.
-	assignedVal := "false"
-
-	ulidStr, err := generateULID()
-	if err != nil {
-		return nil, fmt.Errorf("ulid: %w", err)
-	}
-	diskName := buildDiskName(lvKey, ulidStr)
-
-	disk := armcompute.Disk{
-		Location: to.Ptr(d.AzureLocation),
-		Zones:    buildZones(zone),
-		Tags: map[string]*string{
-			tagVolumeKey:    to.Ptr(lvKey),
-			tagDiskName:     to.Ptr(ulidStr),
-			tagDiskAssigned: to.Ptr(assignedVal),
-			"managed-by":    to.Ptr("kompox"),
-		},
-		Properties: &armcompute.DiskProperties{
-			CreationData: &armcompute.CreationData{
-				CreateOption:     to.Ptr(armcompute.DiskCreateOptionCopy),
-				SourceResourceID: to.Ptr(sourceResID),
-			},
-		},
-	}
-
-	// Apply SKU and performance options from volume configuration
-	setDiskOptions(&disk, options)
-
-	poller, err := disksClient.BeginCreateOrUpdate(ctx, resourceGroupName, diskName, disk, nil)
-	if err != nil {
-		return nil, fmt.Errorf("begin create disk from snapshot: %w", err)
-	}
-	res, err := poller.PollUntilDone(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("create disk from snapshot: %w", err)
-	}
-	sizeGiB := int32(0)
-	created := time.Now().UTC()
-	if res.Properties != nil {
-		if res.Properties.DiskSizeGB != nil {
-			sizeGiB = *res.Properties.DiskSizeGB
-		}
-		if res.Properties.TimeCreated != nil {
-			created = *res.Properties.TimeCreated
-		}
-	}
-	meta := &volumeDiskMeta{Name: diskName, DiskID: ulidStr, SizeGiB: sizeGiB, Assigned: false, TimeCreated: created}
-	return meta, nil
-}
-
-// volumeDefSize returns defined size for volume name from app.Volumes.
-func volumeDefSize(app *model.App, volName string) (int64, bool) {
-	for _, v := range app.Volumes {
-		if v.Name == volName {
-			return v.Size, true
-		}
-	}
-	return 0, false
-}
-
-// volumeDefOptions returns options map for volume name from app.Volumes.
-func volumeDefOptions(app *model.App, volName string) (map[string]any, bool) {
-	for _, v := range app.Volumes {
-		if v.Name == volName {
-			return v.Options, true
-		}
-	}
-	return nil, false
-}
-
-// mergeOptions merges base options with override options.
-// Override options take precedence over base options.
-func mergeOptions(base, override map[string]any) map[string]any {
-	if base == nil && override == nil {
-		return nil
-	}
-
-	result := make(map[string]any)
-
-	// Copy base options
-	maps.Copy(result, base)
-
-	// Override with new options
-	maps.Copy(result, override)
-
-	return result
-}
-
-// setDiskOptions applies Azure Disk SKU and performance options from volume options.
+// setAzureDiskOptions applies Azure Disk SKU and performance options from volume options.
 // Default SKU is Premium_LRS if not specified.
-func setDiskOptions(disk *armcompute.Disk, options map[string]any) {
+func setAzureDiskOptions(disk *armcompute.Disk, options map[string]any) {
 	// Initialize SKU with default
 	if disk.SKU == nil {
 		disk.SKU = &armcompute.DiskSKU{}
@@ -690,8 +168,7 @@ func setDiskOptions(disk *armcompute.Disk, options map[string]any) {
 		case "StandardSSD_ZRS":
 			disk.SKU.Name = to.Ptr(armcompute.DiskStorageAccountTypesStandardSSDZRS)
 		case "PremiumV2_LRS":
-			// Use the string value directly since the constant doesn't exist in DiskStorageAccountTypes
-			disk.SKU.Name = to.Ptr(armcompute.DiskStorageAccountTypes("PremiumV2_LRS"))
+			disk.SKU.Name = to.Ptr(armcompute.DiskStorageAccountTypesPremiumV2LRS)
 		}
 	}
 
@@ -725,16 +202,14 @@ func setDiskOptions(disk *armcompute.Disk, options map[string]any) {
 	}
 }
 
-// getDiskOptions extracts Azure Disk SKU and performance options into an options map.
-func getDiskOptions(disk *armcompute.Disk) map[string]any {
+// azureDiskOptions extracts Azure Disk SKU and performance options into an options map.
+func azureDiskOptions(disk *armcompute.Disk) map[string]any {
 	options := make(map[string]any)
-
 	// Extract SKU
 	if disk.SKU != nil && disk.SKU.Name != nil {
 		skuName := string(*disk.SKU.Name)
 		options["sku"] = skuName
 	}
-
 	// Extract performance options
 	if disk.Properties != nil {
 		if disk.Properties.DiskIOPSReadWrite != nil {
@@ -744,8 +219,52 @@ func getDiskOptions(disk *armcompute.Disk) map[string]any {
 			options["mbps"] = *disk.Properties.DiskMBpsReadWrite
 		}
 	}
-
 	return options
+}
+
+// azureResourceGroupEnsure ensures RG exists for Create path only.
+func (d *driver) azureResourceGroupEnsure(ctx context.Context, rg string, principalID string) error {
+	log := logging.FromContext(ctx)
+	// Ensure RG exists
+	groupsClient, err := armresources.NewResourceGroupsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+	if err != nil {
+		return err
+	}
+	log.Info(ctx, "ensuring resource group", "resource_group", rg, "subscription", d.AzureSubscriptionId, "location", d.AzureLocation)
+	groupRes, err := groupsClient.CreateOrUpdate(ctx, rg, armresources.ResourceGroup{Location: to.Ptr(d.AzureLocation)}, nil)
+	if err != nil {
+		return err
+	}
+	// Ensure AKS principal has Contributor on this RG (idempotent)
+	principalID = strings.TrimSpace(principalID)
+	if principalID == "" {
+		// Unknown principal; skip assignment silently (caller should have provided from deployment outputs).
+		return nil
+	}
+	assignmentsClient, err := armauthorization.NewRoleAssignmentsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+	if err != nil {
+		return err
+	}
+	// Create assignment with deterministic GUID name derived from (scope, principalID, roleDefinitionID)
+	scope := *groupRes.ID
+	roleDefinitionID := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s", d.AzureSubscriptionId, contributorRoleDefinitionID)
+	hashInput := scope + "|" + principalID + "|" + roleDefinitionID
+	name := uuid.NewSHA1(uuid.NameSpaceURL, []byte(hashInput)).String()
+	params := armauthorization.RoleAssignmentCreateParameters{
+		Properties: &armauthorization.RoleAssignmentProperties{
+			PrincipalID:      to.Ptr(principalID),
+			RoleDefinitionID: to.Ptr(roleDefinitionID),
+		},
+	}
+	log.Info(ctx, "ensuring role assignment", "scope", scope, "principal_id", principalID, "role_definition_id", contributorRoleDefinitionID, "assignment_name", name)
+	if _, err := assignmentsClient.Create(ctx, scope, name, params, nil); err != nil {
+		// If conflict due to existing assignment (race), treat as success
+		if strings.Contains(strings.ToLower(err.Error()), "existing assignment") || strings.Contains(strings.ToLower(err.Error()), "conflict") {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 // VolumeDiskList implements spec method.
@@ -753,45 +272,47 @@ func (d *driver) VolumeDiskList(ctx context.Context, cluster *model.Cluster, app
 	if cluster == nil || app == nil {
 		return nil, fmt.Errorf("cluster/app nil")
 	}
-	rg, err := d.volumeResourceGroupName(app)
+	rg, err := d.appResourceGroupName(app)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("app RG: %w", err)
 	}
-	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
-	idHASH := hashes.AppID
-	items, err := d.azureVolumeDiskList(ctx, rg, volName, idHASH)
-	if err != nil {
-		return nil, err
-	}
-
-	// Create disks client to get detailed information for each disk
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+	defer cancel()
 	disksClient, err := armcompute.NewDisksClient(d.AzureSubscriptionId, d.TokenCredential, nil)
 	if err != nil {
 		return nil, fmt.Errorf("new disks client: %w", err)
 	}
-
-	out := make([]*model.VolumeDisk, 0, len(items))
-	for _, it := range items {
-		// Get detailed disk information to extract options
-		diskRes, err := disksClient.Get(ctx, rg, it.Name, nil)
-		options := make(map[string]any)
-		if err == nil {
-			// Extract options from the disk resource
-			options = getDiskOptions(&diskRes.Disk)
+	pager := disksClient.NewListByResourceGroupPager(rg, nil)
+	out := []*model.VolumeDisk{}
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			if strings.Contains(strings.ToLower(err.Error()), "could not be found") { // RG not found
+				return []*model.VolumeDisk{}, nil
+			}
+			return nil, fmt.Errorf("list disks page: %w", err)
 		}
+		for _, disk := range page.Value {
+			if disk == nil || disk.Name == nil || disk.Properties == nil {
+				continue
+			}
+			tags := disk.Tags
+			if tags == nil {
+				continue
+			}
+			if v, ok := tags[tagVolumeName]; !ok || v == nil || *v != volName {
+				continue
+			}
 
-		out = append(out, &model.VolumeDisk{
-			Name:       it.DiskID,
-			VolumeName: volName,
-			Assigned:   it.Assigned,
-			Size:       int64(it.SizeGiB) << 30,
-			Zone:       it.Zone,
-			Handle:     fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/disks/%s", d.AzureSubscriptionId, rg, it.Name),
-			Options:    options,
-			CreatedAt:  it.TimeCreated,
-			UpdatedAt:  it.TimeCreated,
-		})
+			volumeDisk, err := newVolumeDisk(disk, volName)
+			if err != nil {
+				continue
+			}
+
+			out = append(out, volumeDisk)
+		}
 	}
+	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 
@@ -800,59 +321,98 @@ func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, a
 	if cluster == nil || app == nil {
 		return nil, fmt.Errorf("cluster/app nil")
 	}
-
 	// Process options
 	options := &model.VolumeDiskCreateOptions{}
 	for _, opt := range opts {
 		opt(options)
 	}
-
+	// Find volume in app configuration
+	vol, err := app.FindVolume(volName)
+	if err != nil {
+		return nil, fmt.Errorf("find volume: %w", err)
+	}
+	// Validate size and round up to GB
+	if vol.Size < 1 {
+		return nil, fmt.Errorf("volume size must be >0")
+	}
+	sizeGB := int32((vol.Size + (1 << 30) - 1) >> 30)
+	// Get volume options from app configuration and merge with passed options
+	volOptions := maps.Clone(vol.Options)
+	maps.Copy(volOptions, options.Options)
+	// Determine zone (options override app config)
+	zone := app.Deployment.Zone
+	if options.Zone != "" {
+		zone = options.Zone
+	}
 	// Retrieve AKS principal ID from deployment outputs (per-cluster)
 	outputs, err := d.getDeploymentOutputs(ctx, cluster)
 	if err != nil {
 		return nil, fmt.Errorf("get deployment outputs: %w", err)
 	}
 	principalID, _ := outputs[OutputAksPrincipalID].(string)
-	rg, err := d.volumeResourceGroupName(app)
+
+	// Inline azureVolumeDiskCreate logic
+	rg, err := d.appResourceGroupName(app)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("app RG: %w", err)
 	}
-	sizeBytes, ok := volumeDefSize(app, volName)
-	if !ok {
-		return nil, fmt.Errorf("volume definition not found: %s", volName)
+	if sizeGB < 1 {
+		return nil, fmt.Errorf("sizeGB must be >=1")
 	}
-	if sizeBytes < 1 {
-		sizeBytes = 1 << 30
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	if err := d.azureResourceGroupEnsure(ctx, rg, principalID); err != nil {
+		return nil, fmt.Errorf("ensure RG: %w", err)
 	}
-	sizeGiB := int32((sizeBytes + (1 << 30) - 1) >> 30)
-
-	// Get volume options from app configuration and merge with passed options
-	volumeOptions, _ := volumeDefOptions(app, volName)
-	finalOptions := mergeOptions(volumeOptions, options.Options)
-
-	// Determine zone (options override app config)
-	zone := app.Deployment.Zone
-	if options.Zone != "" {
-		zone = options.Zone
-	}
-
-	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
-	idHASH := hashes.AppID
-	meta, err := d.azureVolumeDiskCreate(ctx, rg, volName, idHASH, sizeGiB, principalID, zone, finalOptions)
+	disksClient, err := armcompute.NewDisksClient(d.AzureSubscriptionId, d.TokenCredential, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("new disks client: %w", err)
 	}
-	return &model.VolumeDisk{
-		Name:       meta.DiskID,
-		VolumeName: volName,
-		Assigned:   meta.Assigned,
-		Size:       int64(meta.SizeGiB) << 30,
-		Zone:       zone,
-		Handle:     fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/disks/%s", d.AzureSubscriptionId, rg, meta.Name),
-		Options:    finalOptions,
-		CreatedAt:  meta.TimeCreated,
-		UpdatedAt:  meta.TimeCreated,
-	}, nil
+	diskName, err := naming.NewCompactID()
+	if err != nil {
+		return nil, fmt.Errorf("compact id: %w", err)
+	}
+	diskResourceName, err := d.appDiskName(app, volName, diskName)
+	if err != nil {
+		return nil, fmt.Errorf("generate disk resource name: %w", err)
+	}
+	// If this is the first volume disk for the logical volume, mark it assignedValue=true.
+	assignedValue := "false"
+	if items, err := d.VolumeDiskList(ctx, cluster, app, volName); err == nil {
+		if len(items) == 0 {
+			assignedValue = "true"
+		}
+	}
+	disk := armcompute.Disk{
+		Location: to.Ptr(d.AzureLocation),
+		Zones:    azureZones(zone),
+		Tags: map[string]*string{
+			tagVolumeName:   to.Ptr(volName),
+			tagDiskName:     to.Ptr(diskName),
+			tagDiskAssigned: to.Ptr(assignedValue),
+			"managed-by":    to.Ptr("kompox"),
+		},
+		Properties: &armcompute.DiskProperties{
+			CreationData: &armcompute.CreationData{CreateOption: to.Ptr(armcompute.DiskCreateOptionEmpty)},
+			DiskSizeGB:   to.Ptr(sizeGB),
+		},
+	}
+	setAzureDiskOptions(&disk, volOptions)
+	poller, err := disksClient.BeginCreateOrUpdate(ctx, rg, diskResourceName, disk, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin create disk: %w", err)
+	}
+	res, err := poller.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create disk: %w", err)
+	}
+
+	volumeDisk, err := newVolumeDisk(&res.Disk, volName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create VolumeDisk from created disk: %w", err)
+	}
+
+	return volumeDisk, nil
 }
 
 // VolumeDiskAssign implements spec method.
@@ -860,13 +420,70 @@ func (d *driver) VolumeDiskAssign(ctx context.Context, cluster *model.Cluster, a
 	if cluster == nil || app == nil {
 		return fmt.Errorf("cluster/app nil")
 	}
-	rg, err := d.volumeResourceGroupName(app)
+	rg, err := d.appResourceGroupName(app)
 	if err != nil {
-		return err
+		return fmt.Errorf("app RG: %w", err)
 	}
-	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
-	idHASH := hashes.AppID
-	return d.azureVolumeDiskAssign(ctx, rg, volName, idHASH, diskName)
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+	defer cancel()
+	disksClient, err := armcompute.NewDisksClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+	if err != nil {
+		return fmt.Errorf("new disks client: %w", err)
+	}
+	disks, err := d.VolumeDiskList(ctx, cluster, app, volName)
+	if err != nil {
+		return fmt.Errorf("list disks: %w", err)
+	}
+	var found bool
+	for _, item := range disks {
+		if item.Name == diskName {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("volume disk not found: %s", diskName)
+	}
+	for _, disk := range disks {
+		assigned := false
+		if disk.Name == diskName {
+			assigned = true
+		}
+		if assigned == disk.Assigned {
+			continue
+		}
+
+		// Get Azure disk resource name from the disk name
+		diskResourceName, err := d.appDiskName(app, volName, disk.Name)
+		if err != nil {
+			return fmt.Errorf("generate disk resource name: %w", err)
+		}
+
+		// Get current disk tags
+		diskRes, err := disksClient.Get(ctx, rg, diskResourceName, nil)
+		if err != nil {
+			return fmt.Errorf("get disk %s: %w", diskResourceName, err)
+		}
+
+		tags := diskRes.Disk.Tags
+		if tags == nil {
+			tags = map[string]*string{}
+		}
+		if assigned {
+			tags[tagDiskAssigned] = to.Ptr("true")
+		} else {
+			tags[tagDiskAssigned] = to.Ptr("false")
+		}
+		update := armcompute.DiskUpdate{Tags: tags}
+		poller, err := disksClient.BeginUpdate(ctx, rg, diskResourceName, update, nil)
+		if err != nil {
+			return fmt.Errorf("update disk %s: %w", diskResourceName, err)
+		}
+		if _, err = poller.PollUntilDone(ctx, nil); err != nil {
+			return fmt.Errorf("poll update disk %s: %w", diskResourceName, err)
+		}
+	}
+	return nil
 }
 
 // VolumeDiskDelete implements spec method.
@@ -874,41 +491,82 @@ func (d *driver) VolumeDiskDelete(ctx context.Context, cluster *model.Cluster, a
 	if cluster == nil || app == nil {
 		return fmt.Errorf("cluster/app nil")
 	}
-	rg, err := d.volumeResourceGroupName(app)
+	rg, err := d.appResourceGroupName(app)
 	if err != nil {
-		return err
+		return fmt.Errorf("app RG: %w", err)
 	}
-	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
-	idHASH := hashes.AppID
-	return d.azureVolumeDiskDelete(ctx, rg, volName, idHASH, diskName)
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	disksClient, err := armcompute.NewDisksClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+	if err != nil {
+		return fmt.Errorf("new disks client: %w", err)
+	}
+	diskResourceName, err := d.appDiskName(app, volName, diskName)
+	if err != nil {
+		return fmt.Errorf("generate disk resource name: %w", err)
+	}
+	poller, err := disksClient.BeginDelete(ctx, rg, diskResourceName, nil)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "notfound") || strings.Contains(strings.ToLower(err.Error()), "could not be found") {
+			return nil
+		}
+		return fmt.Errorf("begin delete disk: %w", err)
+	}
+	if _, err = poller.PollUntilDone(ctx, nil); err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "notfound") {
+			return nil
+		}
+		return fmt.Errorf("delete disk: %w", err)
+	}
+	return nil
 }
 
-// Snapshot operations for AKS
 func (d *driver) VolumeSnapshotList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, _ ...model.VolumeSnapshotListOption) ([]*model.VolumeSnapshot, error) {
 	if cluster == nil || app == nil {
 		return nil, fmt.Errorf("cluster/app nil")
 	}
-	rg, err := d.volumeResourceGroupName(app)
+	rg, err := d.appResourceGroupName(app)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("app RG: %w", err)
 	}
-	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
-	idHASH := hashes.AppID
-	items, err := d.azureVolumeSnapshotList(ctx, rg, volName, idHASH)
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+	defer cancel()
+
+	snapsClient, err := armcompute.NewSnapshotsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("new snapshots client: %w", err)
 	}
-	out := make([]*model.VolumeSnapshot, 0, len(items))
-	for _, it := range items {
-		out = append(out, &model.VolumeSnapshot{
-			Name:       it.SnapID,
-			VolumeName: volName,
-			Size:       int64(it.SizeGiB) << 30,
-			Handle:     fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/snapshots/%s", d.AzureSubscriptionId, rg, it.Name),
-			CreatedAt:  it.TimeCreated,
-			UpdatedAt:  it.TimeCreated,
-		})
+	pager := snapsClient.NewListByResourceGroupPager(rg, nil)
+	out := []*model.VolumeSnapshot{}
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			if strings.Contains(strings.ToLower(err.Error()), "could not be found") { // RG not found
+				return []*model.VolumeSnapshot{}, nil
+			}
+			return nil, fmt.Errorf("list snapshots page: %w", err)
+		}
+		for _, snap := range page.Value {
+			if snap == nil || snap.Name == nil || snap.Properties == nil {
+				continue
+			}
+			tags := snap.Tags
+			if tags == nil {
+				continue
+			}
+			if v, ok := tags[tagVolumeName]; !ok || v == nil || *v != volName {
+				continue
+			}
+
+			volumeSnapshot, err := newVolumeSnapshot(snap, volName)
+			if err != nil {
+				continue
+			}
+
+			out = append(out, volumeSnapshot)
+		}
 	}
+	sort.Slice(out, func(i, j int) bool { return out[i].CreatedAt.After(out[j].CreatedAt) })
 	return out, nil
 }
 
@@ -916,50 +574,128 @@ func (d *driver) VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluste
 	if cluster == nil || app == nil {
 		return nil, fmt.Errorf("cluster/app nil")
 	}
-	rg, err := d.volumeResourceGroupName(app)
+	rg, err := d.appResourceGroupName(app)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("app RG: %w", err)
 	}
-	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
-	idHASH := hashes.AppID
-	meta, err := d.azureVolumeSnapshotCreate(ctx, rg, volName, idHASH, diskName)
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+	defer cancel()
+	snapsClient, err := armcompute.NewSnapshotsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("new snapshots client: %w", err)
 	}
-	return &model.VolumeSnapshot{
-		Name:       meta.SnapID,
-		VolumeName: volName,
-		Size:       int64(meta.SizeGiB) << 30,
-		Handle:     fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/snapshots/%s", d.AzureSubscriptionId, rg, meta.Name),
-		CreatedAt:  meta.TimeCreated,
-		UpdatedAt:  meta.TimeCreated,
-	}, nil
+	diskResourceName, err := d.appDiskName(app, volName, diskName)
+	if err != nil {
+		return nil, fmt.Errorf("generate disk resource name: %w", err)
+	}
+	// Resolve source disk resource ID
+	disksClient, err := armcompute.NewDisksClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+	if err != nil {
+		return nil, fmt.Errorf("new disks client: %w", err)
+	}
+	diskRes, err := disksClient.Get(ctx, rg, diskResourceName, nil)
+	if err != nil {
+		return nil, fmt.Errorf("get disk: %w", err)
+	}
+	snapName, err := naming.NewCompactID()
+	if err != nil {
+		return nil, fmt.Errorf("compact id: %w", err)
+	}
+	snapResourceName, err := d.appSnapshotName(app, volName, snapName)
+	if err != nil {
+		return nil, fmt.Errorf("generate snapshot resource name: %w", err)
+	}
+	snap := armcompute.Snapshot{
+		Location: to.Ptr(d.AzureLocation),
+		Tags: map[string]*string{
+			tagVolumeName:   to.Ptr(volName),
+			tagDiskName:     to.Ptr(diskName),
+			tagSnapshotName: to.Ptr(snapName),
+			"managed-by":    to.Ptr("kompox"),
+		},
+		Properties: &armcompute.SnapshotProperties{
+			CreationData: &armcompute.CreationData{
+				CreateOption:     to.Ptr(armcompute.DiskCreateOptionCopy),
+				SourceResourceID: diskRes.ID,
+			},
+			Incremental: to.Ptr(true),
+		},
+		SKU: &armcompute.SnapshotSKU{Name: to.Ptr(armcompute.SnapshotStorageAccountTypesStandardZRS)},
+	}
+
+	poller, err := snapsClient.BeginCreateOrUpdate(ctx, rg, snapResourceName, snap, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin create snapshot: %w", err)
+	}
+	res, err := poller.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create snapshot: %w", err)
+	}
+
+	volumeSnapshot, err := newVolumeSnapshot(&res.Snapshot, volName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create VolumeSnapshot from created snapshot: %w", err)
+	}
+
+	return volumeSnapshot, nil
 }
 
 func (d *driver) VolumeSnapshotDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, _ ...model.VolumeSnapshotDeleteOption) error {
 	if cluster == nil || app == nil {
 		return fmt.Errorf("cluster/app nil")
 	}
-	rg, err := d.volumeResourceGroupName(app)
+	rg, err := d.appResourceGroupName(app)
 	if err != nil {
-		return err
+		return fmt.Errorf("app RG: %w", err)
 	}
-	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
-	idHASH := hashes.AppID
-	return d.azureVolumeSnapshotDelete(ctx, rg, volName, idHASH, snapName)
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
+	snapsClient, err := armcompute.NewSnapshotsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+	if err != nil {
+		return fmt.Errorf("new snapshots client: %w", err)
+	}
+	snapResourceName, err := d.appSnapshotName(app, volName, snapName)
+	if err != nil {
+		return fmt.Errorf("generate snapshot resource name: %w", err)
+	}
+	poller, err := snapsClient.BeginDelete(ctx, rg, snapResourceName, nil)
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "notfound") || strings.Contains(strings.ToLower(err.Error()), "could not be found") {
+			return nil
+		}
+		return fmt.Errorf("begin delete snapshot: %w", err)
+	}
+	if _, err = poller.PollUntilDone(ctx, nil); err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "notfound") {
+			return nil
+		}
+		return fmt.Errorf("delete snapshot: %w", err)
+	}
+	return nil
 }
 
 func (d *driver) VolumeSnapshotRestore(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, opts ...model.VolumeSnapshotRestoreOption) (*model.VolumeDisk, error) {
 	if cluster == nil || app == nil {
 		return nil, fmt.Errorf("cluster/app nil")
 	}
-
 	// Process options
 	options := &model.VolumeSnapshotRestoreOptions{}
 	for _, opt := range opts {
 		opt(options)
 	}
-
+	// Find volume in app configuration
+	vol, err := app.FindVolume(volName)
+	if err != nil {
+		return nil, fmt.Errorf("find volume: %w", err)
+	}
+	// Get volume options from app configuration and merge with passed options
+	volOptions := maps.Clone(vol.Options)
+	maps.Copy(volOptions, options.Options)
+	// Determine zone (options override app config)
+	zone := app.Deployment.Zone
+	if options.Zone != "" {
+		zone = options.Zone
+	}
 	// Retrieve AKS principal ID from deployment outputs (per-cluster)
 	outputs, err := d.getDeploymentOutputs(ctx, cluster)
 	if err != nil {
@@ -967,38 +703,72 @@ func (d *driver) VolumeSnapshotRestore(ctx context.Context, cluster *model.Clust
 	}
 	principalID, _ := outputs[OutputAksPrincipalID].(string)
 
-	rg, err := d.volumeResourceGroupName(app)
+	// Inline azureVolumeSnapshotRestore logic
+	rg, err := d.appResourceGroupName(app)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("app RG: %w", err)
 	}
-
-	// Get volume options from app configuration and merge with passed options
-	volumeOptions, _ := volumeDefOptions(app, volName)
-	finalOptions := mergeOptions(volumeOptions, options.Options)
-
-	// Determine zone (options override app config)
-	zone := app.Deployment.Zone
-	if options.Zone != "" {
-		zone = options.Zone
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+	defer cancel()
+	if err := d.azureResourceGroupEnsure(ctx, rg, principalID); err != nil {
+		return nil, fmt.Errorf("ensure RG: %w", err)
 	}
-
-	hashes := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, app.Name)
-	idHASH := hashes.AppID
-	meta, err := d.azureVolumeDiskCreateFromSnapshot(ctx, rg, volName, idHASH, snapName, principalID, zone, finalOptions)
+	snapsClient, err := armcompute.NewSnapshotsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("new snapshots client: %w", err)
 	}
-	return &model.VolumeDisk{
-		Name:       meta.DiskID,
-		VolumeName: volName,
-		Assigned:   meta.Assigned,
-		Size:       int64(meta.SizeGiB) << 30,
-		Handle:     fmt.Sprintf("/subscriptions/%s/resourceGroups/%s/providers/Microsoft.Compute/disks/%s", d.AzureSubscriptionId, rg, meta.Name),
-		CreatedAt:  meta.TimeCreated,
-		UpdatedAt:  meta.TimeCreated,
-		Zone:       zone,
-		Options:    finalOptions,
-	}, nil
+	snapResourceName, err := d.appSnapshotName(app, volName, snapName)
+	if err != nil {
+		return nil, fmt.Errorf("generate snapshot resource name: %w", err)
+	}
+	snapRes, err := snapsClient.Get(ctx, rg, snapResourceName, nil)
+	if err != nil {
+		return nil, fmt.Errorf("get snapshot: %w", err)
+	}
+	disksClient, err := armcompute.NewDisksClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+	if err != nil {
+		return nil, fmt.Errorf("new disks client: %w", err)
+	}
+	diskName, err := naming.NewCompactID()
+	if err != nil {
+		return nil, fmt.Errorf("compact id: %w", err)
+	}
+	diskResourceName, err := d.appDiskName(app, volName, diskName)
+	if err != nil {
+		return nil, fmt.Errorf("generate disk resource name: %w", err)
+	}
+	disk := armcompute.Disk{
+		Location: to.Ptr(d.AzureLocation),
+		Zones:    azureZones(zone),
+		Tags: map[string]*string{
+			tagVolumeName:   to.Ptr(volName),
+			tagDiskName:     to.Ptr(diskName),
+			tagDiskAssigned: to.Ptr("false"),
+			"managed-by":    to.Ptr("kompox"),
+		},
+		Properties: &armcompute.DiskProperties{
+			CreationData: &armcompute.CreationData{
+				CreateOption:     to.Ptr(armcompute.DiskCreateOptionCopy),
+				SourceResourceID: snapRes.ID,
+			},
+		},
+	}
+	setAzureDiskOptions(&disk, volOptions)
+	poller, err := disksClient.BeginCreateOrUpdate(ctx, rg, diskResourceName, disk, nil)
+	if err != nil {
+		return nil, fmt.Errorf("begin create disk from snapshot: %w", err)
+	}
+	res, err := poller.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create disk from snapshot: %w", err)
+	}
+
+	volumeDisk, err := newVolumeDisk(&res.Disk, volName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create VolumeDisk from restored disk: %w", err)
+	}
+
+	return volumeDisk, nil
 }
 
 // VolumeClass implements providerdrv.Driver VolumeClass method for AKS.

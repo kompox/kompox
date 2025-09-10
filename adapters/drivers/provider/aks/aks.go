@@ -8,16 +8,17 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 	providerdrv "github.com/kompox/kompox/adapters/drivers/provider"
 	"github.com/kompox/kompox/domain/model"
+	"github.com/kompox/kompox/internal/naming"
 )
 
 // driver implements the AKS provider driver.
 type driver struct {
-	serviceName           string
-	providerName          string
-	resourceGroupBaseName string
-	TokenCredential       azcore.TokenCredential
-	AzureSubscriptionId   string
-	AzureLocation         string
+	serviceName         string
+	providerName        string
+	resourcePrefix      string
+	TokenCredential     azcore.TokenCredential
+	AzureSubscriptionId string
+	AzureLocation       string
 }
 
 // ID returns the provider identifier.
@@ -30,7 +31,7 @@ func (d *driver) ServiceName() string { return d.serviceName }
 func (d *driver) ProviderName() string { return d.providerName }
 
 // ResourceGroupBaseName returns provider-level base resource group name.
-func (d *driver) ResourceGroupBaseName() string { return d.resourceGroupBaseName }
+func (d *driver) ResourceGroupBaseName() string { return d.resourcePrefix }
 
 // init registers the AKS driver.
 func init() {
@@ -49,8 +50,8 @@ func init() {
 			return strings.TrimSpace(settings[k])
 		}
 
-		subscriptionID := get("AZURE_SUBSCRIPTION_ID")
-		location := get("AZURE_LOCATION")
+		subscriptionID := strings.ToLower(get("AZURE_SUBSCRIPTION_ID"))
+		location := strings.ToLower(get("AZURE_LOCATION"))
 		missing := make([]string, 0, 2)
 		if subscriptionID == "" {
 			missing = append(missing, "AZURE_SUBSCRIPTION_ID")
@@ -110,21 +111,22 @@ func init() {
 			return nil, fmt.Errorf("create Azure credential: %w", err)
 		}
 
-		base := get(keyResourceGroupBaseName)
-		if base == "" {
-			base = fmt.Sprintf("kompox_%s", provider.Name)
+		prefix := get(keyResourcePrefix)
+		if prefix == "" {
+			h := naming.NewHashes(serviceName, provider.Name, "", "")
+			prefix = fmt.Sprintf("kx%s", h.Provider)
 		}
-		if len(base) > maxResourceGroupBaseName {
-			base = base[:maxResourceGroupBaseName]
+		if len(prefix) > maxResourcePrefix {
+			prefix = prefix[:maxResourcePrefix]
 		}
 
 		return &driver{
-			serviceName:           serviceName,
-			providerName:          provider.Name,
-			resourceGroupBaseName: base,
-			TokenCredential:       cred,
-			AzureSubscriptionId:   subscriptionID,
-			AzureLocation:         location,
+			serviceName:         serviceName,
+			providerName:        provider.Name,
+			resourcePrefix:      prefix,
+			TokenCredential:     cred,
+			AzureSubscriptionId: subscriptionID,
+			AzureLocation:       location,
 		}, nil
 	})
 }
