@@ -19,13 +19,14 @@ import (
 
 // Constants for template output keys
 const (
-	OutputTenantID                       = "AZURE_TENANT_ID"
-	OutputResourceGroupName              = "AZURE_RESOURCE_GROUP_NAME"
-	OutputAksClusterName                 = "AZURE_AKS_CLUSTER_NAME"
-	OutputAksPrincipalID                 = "AZURE_AKS_PRINCIPAL_ID"
-	OutputIngressServiceAccountNamespace = "AZURE_INGRESS_SERVICE_ACCOUNT_NAMESPACE"
-	OutputIngressServiceAccountName      = "AZURE_INGRESS_SERVICE_ACCOUNT_NAME"
-	OutputIngressServiceAccountClientID  = "AZURE_INGRESS_SERVICE_ACCOUNT_CLIENT_ID"
+	OutputTenantID                         = "AZURE_TENANT_ID"
+	OutputResourceGroupName                = "AZURE_RESOURCE_GROUP_NAME"
+	OutputAksClusterName                   = "AZURE_AKS_CLUSTER_NAME"
+	OutputAksPrincipalID                   = "AZURE_AKS_PRINCIPAL_ID"
+	OutputIngressServiceAccountNamespace   = "AZURE_INGRESS_SERVICE_ACCOUNT_NAMESPACE"
+	OutputIngressServiceAccountName        = "AZURE_INGRESS_SERVICE_ACCOUNT_NAME"
+	OutputIngressServiceAccountClientID    = "AZURE_INGRESS_SERVICE_ACCOUNT_CLIENT_ID"
+	OutputIngressServiceAccountPrincipalID = "AZURE_INGRESS_SERVICE_ACCOUNT_PRINCIPAL_ID"
 )
 
 // deploymentName generates the deployment name for the subscription-scoped deployment.

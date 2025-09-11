@@ -11,6 +11,7 @@ import (
 
 	"github.com/kompox/kompox/adapters/kube"
 	"github.com/kompox/kompox/domain/model"
+	"github.com/kompox/kompox/internal/logging"
 	"sigs.k8s.io/yaml"
 )
 
@@ -60,6 +61,17 @@ func (d *driver) ensureSecretProviderClassFromKeyVault(ctx context.Context, kc *
 	}
 	if cluster == nil || cluster.Ingress == nil || len(cluster.Ingress.Certificates) == 0 {
 		return nil, nil, nil
+	}
+
+	// Assign Key Vault Secrets User role to the managed identity for all referenced Key Vaults
+	// This needs to be done before creating SecretProviderClass resources
+	if outputs, err := d.getDeploymentOutputs(ctx, cluster); err == nil {
+		if principalID, ok := outputs[OutputIngressServiceAccountPrincipalID].(string); ok && principalID != "" {
+			if err := d.assignRolesKeyVaultSecrets(ctx, cluster, principalID); err != nil {
+				// Log warning but continue with SPC creation
+				logging.FromContext(ctx).Warn(ctx, "failed to assign Key Vault roles", "error", err)
+			}
+		}
 	}
 
 	ns := kube.IngressNamespace(cluster)
