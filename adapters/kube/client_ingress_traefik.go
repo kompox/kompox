@@ -48,13 +48,6 @@ func (c *Client) InstallIngressTraefik(ctx context.Context, cluster *model.Clust
 		return fmt.Errorf("init helm configuration: %w", err)
 	}
 
-	// Try upgrade first; if the release doesn't exist, fallback to install
-	up := action.NewUpgrade(cfg)
-	up.Namespace = ns
-	up.Atomic = true
-	up.Wait = true
-	up.Timeout = 5 * time.Minute
-
 	// Locate and load the Traefik chart from official repo
 	cpo := action.ChartPathOptions{RepoURL: "https://helm.traefik.io/traefik"}
 	chartPath, err := cpo.LocateChart(TraefikReleaseName, settings)
@@ -111,7 +104,7 @@ func (c *Client) InstallIngressTraefik(ctx context.Context, cluster *model.Clust
 			"kompox.dev/node-pool": "system",
 		},
 		// Will populate below
-		"additionalArguments": []string{},
+		"additionalArguments": []any{},
 	}
 
 	// Configure Let's Encrypt (ACME) resolvers for staging and production
@@ -123,7 +116,7 @@ func (c *Client) InstallIngressTraefik(ctx context.Context, cluster *model.Clust
 		// Fallback placeholder; users should configure a real email in cluster config
 		certEmail = "noreply@example.com"
 	}
-	addArgs := []string{
+	addArgs := []any{
 		"--certificatesresolvers.production.acme.tlschallenge=true",
 		"--certificatesresolvers.production.acme.caserver=https://acme-v02.api.letsencrypt.org/directory",
 		fmt.Sprintf("--certificatesresolvers.production.acme.email=%s", certEmail),
@@ -213,23 +206,32 @@ func (c *Client) InstallIngressTraefik(ctx context.Context, cluster *model.Clust
 		return fmt.Errorf("apply traefik file provider configmap: %w", err)
 	}
 
-	// Upgrade or install Traefik release
-	if _, err := up.Run(TraefikReleaseName, ch, values); err != nil {
-		// If release doesn't exist, perform install instead
-		if stdErrors.Is(err, helmdriver.ErrNoDeployedReleases) {
-			in := action.NewInstall(cfg)
-			in.Namespace = ns
-			in.ReleaseName = TraefikReleaseName
-			in.Atomic = true
-			in.Wait = true
-			in.Timeout = 5 * time.Minute
-			if _, ierr := in.Run(ch, values); ierr != nil {
-				return fmt.Errorf("helm install traefik: %w", ierr)
-			}
-			return nil
-		}
+	// Try upgrade first; if the release doesn't exist, fallback to install
+	up := action.NewUpgrade(cfg)
+	up.Namespace = ns
+	up.Atomic = true
+	up.Wait = true
+	up.Timeout = 5 * time.Minute
+	_, err = up.Run(TraefikReleaseName, ch, values)
+	if err == nil {
+		return nil
+	}
+	if !stdErrors.Is(err, helmdriver.ErrNoDeployedReleases) {
 		return fmt.Errorf("helm upgrade traefik: %w", err)
 	}
+
+	// If release doesn't exist, perform install instead
+	in := action.NewInstall(cfg)
+	in.Namespace = ns
+	in.ReleaseName = TraefikReleaseName
+	in.Atomic = true
+	in.Wait = true
+	in.Timeout = 5 * time.Minute
+	_, err = in.Run(ch, values)
+	if err != nil {
+		return fmt.Errorf("helm install traefik: %w", err)
+	}
+
 	return nil
 }
 
