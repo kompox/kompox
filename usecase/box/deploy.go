@@ -12,6 +12,8 @@ import (
 	"github.com/kompox/kompox/internal/logging"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
+	netv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -134,12 +136,9 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 		})
 	}
 
-	var pvObjs, pvcObjs []runtime.Object
 	if len(bindings) > 0 {
-		var err error
-		pvObjs, pvcObjs, err = c.BuildVolumeObjects(ctx, bindings)
-		if err != nil {
-			return nil, fmt.Errorf("build PV/PVC objects failed: %w", err)
+		if err := c.BindVolumes(ctx, bindings); err != nil {
+			return nil, fmt.Errorf("bind volumes failed: %w", err)
 		}
 	}
 
@@ -242,30 +241,28 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 	sch := runtime.NewScheme()
 	utilruntime.Must(appsv1.AddToScheme(sch))
 	utilruntime.Must(corev1.AddToScheme(sch))
-	if gvk, _, err := sch.ObjectKinds(c.K8sNamespace); err == nil && len(gvk) > 0 {
-		c.K8sNamespace.GetObjectKind().SetGroupVersionKind(gvk[0])
-	}
-	if err := kcli.ApplyObjects(ctx, []runtime.Object{c.K8sNamespace}, &kube.ApplyOptions{FieldManager: "kompoxops"}); err != nil {
-		return nil, fmt.Errorf("apply Namespace failed: %w", err)
-	}
-	if len(pvObjs) > 0 {
-		for i := range pvObjs {
-			if gvk, _, err := sch.ObjectKinds(pvObjs[i]); err == nil && len(gvk) > 0 {
-				pvObjs[i].GetObjectKind().SetGroupVersionKind(gvk[0])
+	utilruntime.Must(netv1.AddToScheme(sch))
+	utilruntime.Must(rbacv1.AddToScheme(sch))
+	// Apply Namespace-scoped base objects (Namespace, SA, Role, RoleBinding, NetworkPolicy)
+	if nsObjs := c.NamespaceObjects(); len(nsObjs) > 0 {
+		for i := range nsObjs {
+			if gvk, _, err := sch.ObjectKinds(nsObjs[i]); err == nil && len(gvk) > 0 {
+				nsObjs[i].GetObjectKind().SetGroupVersionKind(gvk[0])
 			}
 		}
-		if err := kcli.ApplyObjects(ctx, pvObjs, &kube.ApplyOptions{FieldManager: "kompoxops"}); err != nil {
-			return nil, fmt.Errorf("apply PVs failed: %w", err)
+		if err := kcli.ApplyObjects(ctx, nsObjs, &kube.ApplyOptions{FieldManager: "kompoxops"}); err != nil {
+			return nil, fmt.Errorf("apply Namespace objects failed: %w", err)
 		}
 	}
-	if len(pvcObjs) > 0 {
-		for i := range pvcObjs {
-			if gvk, _, err := sch.ObjectKinds(pvcObjs[i]); err == nil && len(gvk) > 0 {
-				pvcObjs[i].GetObjectKind().SetGroupVersionKind(gvk[0])
+	// Apply volume objects (PVs then PVCs) as provided by converter
+	if volObjs := c.VolumeObjects(); len(volObjs) > 0 {
+		for i := range volObjs {
+			if gvk, _, err := sch.ObjectKinds(volObjs[i]); err == nil && len(gvk) > 0 {
+				volObjs[i].GetObjectKind().SetGroupVersionKind(gvk[0])
 			}
 		}
-		if err := kcli.ApplyObjects(ctx, pvcObjs, &kube.ApplyOptions{FieldManager: "kompoxops"}); err != nil {
-			return nil, fmt.Errorf("apply PVCs failed: %w", err)
+		if err := kcli.ApplyObjects(ctx, volObjs, &kube.ApplyOptions{FieldManager: "kompoxops"}); err != nil {
+			return nil, fmt.Errorf("apply volumes failed: %w", err)
 		}
 	}
 	if secretObj != nil {

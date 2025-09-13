@@ -4,19 +4,30 @@ import (
 	"github.com/kompox/kompox/domain/model"
 )
 
-// TraefikReleaseName is the Helm release name for Traefik and also used as the default Service/Deployment name.
-const TraefikReleaseName = "traefik"
+// Default values for ingress-related resources.
+const (
+	// DefaultIngressNamespace is the default namespace where the ingress controller is installed
+	// when not explicitly specified by the cluster spec.
+	DefaultIngressNamespace = "traefik"
+
+	// TraefikReleaseName is the default Helm release name for Traefik and is also used as
+	// the default Service/Deployment name created by the chart.
+	TraefikReleaseName = "traefik"
+
+	// DefaultIngressServiceAccount is the default ServiceAccount name used by ingress workloads
+	// when the cluster spec does not specify a ServiceAccount.
+	DefaultIngressServiceAccount = "ingress-service-account"
+)
 
 // IngressNamespace resolves the namespace to use for ingress from the cluster spec.
-// Falls back to "default" when not specified.
+// Falls back to IngressDefaultNamespace when not specified.
 func IngressNamespace(cluster *model.Cluster) string {
-	ns := "default"
 	if cluster != nil && cluster.Ingress != nil {
 		if v := cluster.Ingress.Namespace; v != "" {
-			ns = v
+			return v
 		}
 	}
-	return ns
+	return DefaultIngressNamespace
 }
 
 // IngressServiceName returns the Service name used by the ingress controller.
@@ -27,14 +38,12 @@ func IngressServiceName(cluster *model.Cluster) string {
 
 // IngressServiceAccountName returns the canonical ServiceAccount name used by ingress workloads.
 func IngressServiceAccountName(cluster *model.Cluster) string {
-	// Default name when not specified
-	const def = "ingress-service-account"
 	if cluster != nil && cluster.Ingress != nil {
 		if sa := cluster.Ingress.ServiceAccount; sa != "" {
 			return sa
 		}
 	}
-	return def
+	return DefaultIngressServiceAccount
 }
 
 // IngressTLSSecretName returns the Kubernetes TLS Secret name for a static certificate entry.

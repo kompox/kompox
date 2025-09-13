@@ -157,12 +157,12 @@ func (u *UseCase) Validate(ctx context.Context, in *ValidateInput) (*ValidateOut
 		out.Warnings = append(out.Warnings, fmt.Sprintf("compose conversion failed: %v", bindErr))
 		return out, nil
 	}
-	objs, warns2, buildErr := conv.Build()
+	warns2, buildErr := conv.Build()
 	if buildErr != nil {
 		out.Warnings = append(out.Warnings, fmt.Sprintf("compose conversion failed: %v", buildErr))
 		return out, nil
 	}
-	out.K8sObjects = objs
+	out.K8sObjects = conv.AllObjects()
 	out.Warnings = append(out.Warnings, warns1...)
 	out.Warnings = append(out.Warnings, warns2...)
 	return out, nil

@@ -15,6 +15,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -58,6 +59,13 @@ type Converter struct {
 	K8sService        *corev1.Service
 	K8sIngressDefault *netv1.Ingress
 	K8sIngressCustom  *netv1.Ingress
+	// Deployment built at Build() time
+	K8sDeployment *appsv1.Deployment
+	// Optional security and access resources
+	K8sNetworkPolicy  *netv1.NetworkPolicy
+	K8sServiceAccount *corev1.ServiceAccount
+	K8sRole           *rbacv1.Role
+	K8sRoleBinding    *rbacv1.RoleBinding
 
 	// Bound storage state
 	VolumeBindings []*ConverterVolumeBinding // input bindings (app.Volumes order), updated in-place with chosen resource names
@@ -304,6 +312,79 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		},
 	}}
 
+	// Security and access resources per spec
+	// - NetworkPolicy: Allow ingress from same-namespace pods, kube-system, and ingress controller namespace; egress unrestricted
+	// - ServiceAccount/Role/RoleBinding: Human user access for diagnostics and operations
+	// Determine ingress controller namespace via helper
+	ingressNs := strings.TrimSpace(IngressNamespace(c.Cls))
+
+	// Build NetworkPolicy peers
+	var fromPeers []netv1.NetworkPolicyPeer
+	// Same-namespace communication
+	fromPeers = append(fromPeers, netv1.NetworkPolicyPeer{PodSelector: &metav1.LabelSelector{}})
+	// Namespace selectors for kube-system and optional ingress namespace
+	var nsValues []string
+	seenNs := map[string]struct{}{}
+	for _, n := range []string{"kube-system", ingressNs} {
+		if n == "" {
+			continue
+		}
+		if _, ok := seenNs[n]; ok {
+			continue
+		}
+		seenNs[n] = struct{}{}
+		nsValues = append(nsValues, n)
+	}
+	if len(nsValues) > 0 {
+		fromPeers = append(fromPeers, netv1.NetworkPolicyPeer{
+			NamespaceSelector: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{Key: "kubernetes.io/metadata.name", Operator: metav1.LabelSelectorOpIn, Values: nsValues},
+				},
+			},
+		})
+	}
+	var npObj *netv1.NetworkPolicy
+	{
+		npObj = &netv1.NetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{Name: c.App.Name, Namespace: nsName, Labels: commonLabels},
+			Spec: netv1.NetworkPolicySpec{
+				PodSelector: metav1.LabelSelector{},
+				PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeIngress},
+				Ingress:     []netv1.NetworkPolicyIngressRule{{From: fromPeers}},
+			},
+		}
+	}
+
+	// Build ServiceAccount/Role/RoleBinding for human users (diagnostics)
+	saName := c.App.Name
+	roleName := fmt.Sprintf("%s-access", c.App.Name)
+	var saObj *corev1.ServiceAccount
+	var roleObj *rbacv1.Role
+	var rbObj *rbacv1.RoleBinding
+
+	saObj = &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: saName, Namespace: nsName, Labels: commonLabels}}
+	roleRules := []rbacv1.PolicyRule{
+		// pods view
+		{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get", "list", "watch"}},
+		// pods/log get, watch
+		{APIGroups: []string{""}, Resources: []string{"pods/log"}, Verbs: []string{"get", "watch"}},
+		// exec/portforward/attach create
+		{APIGroups: []string{""}, Resources: []string{"pods/exec", "pods/portforward", "pods/attach"}, Verbs: []string{"create"}},
+		// events/services/endpoints view
+		{APIGroups: []string{""}, Resources: []string{"events", "services", "endpoints"}, Verbs: []string{"get", "list", "watch"}},
+		// deployments/replicasets view
+		{APIGroups: []string{"apps"}, Resources: []string{"deployments", "replicasets"}, Verbs: []string{"get", "list", "watch"}},
+		// ephemeralcontainers update (kubectl debug)
+		{APIGroups: []string{""}, Resources: []string{"pods/ephemeralcontainers"}, Verbs: []string{"update"}},
+	}
+	roleObj = &rbacv1.Role{ObjectMeta: metav1.ObjectMeta{Name: roleName, Namespace: nsName, Labels: commonLabels}, Rules: roleRules}
+	rbObj = &rbacv1.RoleBinding{
+		ObjectMeta: metav1.ObjectMeta{Name: roleName, Namespace: nsName, Labels: commonLabels},
+		Subjects:   []rbacv1.Subject{{Kind: "ServiceAccount", Name: saName, Namespace: nsName}},
+		RoleRef:    rbacv1.RoleRef{APIGroup: "rbac.authorization.k8s.io", Kind: "Role", Name: roleName},
+	}
+
 	// Service from ingress rules or ports
 	var warnings []string
 	var svcObj *corev1.Service
@@ -431,6 +512,11 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 	c.K8sService = svcObj
 	c.K8sIngressDefault = ingDefault
 	c.K8sIngressCustom = ingCustom
+	// Assign security resources
+	c.K8sNetworkPolicy = npObj
+	c.K8sServiceAccount = saObj
+	c.K8sRole = roleObj
+	c.K8sRoleBinding = rbObj
 	c.warnings = warnings
 
 	return c.warnings, nil
@@ -462,24 +548,7 @@ func (c *Converter) BindVolumes(ctx context.Context, vols []*ConverterVolumeBind
 		}
 	}
 
-	pvObjs, pvcObjs, err := c.BuildVolumeObjects(ctx, vols)
-	if err != nil {
-		return err
-	}
-	// Set as-is per contract (the slice elements are already updated in-place)
-	c.VolumeBindings = vols
-	c.K8sPVs = pvObjs
-	c.K8sPVCs = pvcObjs
-	return nil
-}
-
-// BuildVolumeObjects builds PV/PVC objects for the provided bindings without mutating Converter state.
-// The input can be any subset and in any order. The provided bindings are updated in-place with ResourceName populated.
-func (c *Converter) BuildVolumeObjects(ctx context.Context, vols []*ConverterVolumeBinding) ([]runtime.Object, []runtime.Object, error) {
-	if c.Project == nil || c.Namespace == "" {
-		return nil, nil, fmt.Errorf("convert must be called before building volume objects")
-	}
-
+	// Build PV/PVC objects for the provided bindings and update in-place ResourceName
 	var pvObjs []runtime.Object
 	var pvcObjs []runtime.Object
 
@@ -493,19 +562,19 @@ func (c *Converter) BuildVolumeObjects(ctx context.Context, vols []*ConverterVol
 
 	for i, in := range vols {
 		if in == nil {
-			return nil, nil, fmt.Errorf("nil binding at index %d", i)
+			return fmt.Errorf("nil binding at index %d", i)
 		}
 		av, ok := volDefs[in.Name]
 		if !ok {
-			return nil, nil, fmt.Errorf("volume %s is not defined in app", in.Name)
+			return fmt.Errorf("volume %s is not defined in app", in.Name)
 		}
 
 		if in.VolumeDisk == nil {
-			return nil, nil, fmt.Errorf("volume %s has no disk in binding input", av.Name)
+			return fmt.Errorf("volume %s has no disk in binding input", av.Name)
 		}
 		handle := strings.TrimSpace(in.VolumeDisk.Handle)
 		if handle == "" {
-			return nil, nil, fmt.Errorf("volume %s has no handle in binding input", av.Name)
+			return fmt.Errorf("volume %s has no handle in binding input", av.Name)
 		}
 		sizeBytes := in.VolumeDisk.Size
 		if sizeBytes <= 0 {
@@ -518,7 +587,7 @@ func (c *Converter) BuildVolumeObjects(ctx context.Context, vols []*ConverterVol
 		sizeQty := bytesToQuantity(sizeBytes)
 
 		if in.VolumeClass == nil {
-			return nil, nil, fmt.Errorf("no VolumeClass for volume %s", av.Name)
+			return fmt.Errorf("no VolumeClass for volume %s", av.Name)
 		}
 		vc := in.VolumeClass
 		// AccessModes with defaults.
@@ -551,7 +620,7 @@ func (c *Converter) BuildVolumeObjects(ctx context.Context, vols []*ConverterVol
 		}
 		csiDriver := strings.TrimSpace(vc.CSIDriver)
 		if csiDriver == "" {
-			return nil, nil, fmt.Errorf("no CSIDriver for volume %s", av.Name)
+			return fmt.Errorf("no CSIDriver for volume %s", av.Name)
 		}
 
 		// CSI attributes (fsType fallback to ext4).
@@ -616,28 +685,32 @@ func (c *Converter) BuildVolumeObjects(ctx context.Context, vols []*ConverterVol
 		in.ResourceName = resourceName
 	}
 
-	return pvObjs, pvcObjs, nil
+	// Set as-is per contract (the slice elements are already updated in-place)
+	c.VolumeBindings = vols
+	c.K8sPVs = pvObjs
+	c.K8sPVCs = pvcObjs
+	return nil
 }
 
-// Build composes the final list of Kubernetes objects using this plan and a given VolumeBinding.
-// Output order: Namespace, PV/PVC (if any), Deployment, Service (optional), Ingress (optional).
-func (c *Converter) Build() ([]runtime.Object, []string, error) {
+// Build composes the final Deployment using this plan and current bindings, stores it, and returns warnings.
+// To retrieve full object lists, use NamespaceObjects/VolumeObjects/DeploymentObjects/AllObjects.
+func (c *Converter) Build() ([]string, error) {
 	if c.Project == nil || c.Namespace == "" {
-		return nil, nil, fmt.Errorf("convert must be called before build")
+		return nil, fmt.Errorf("convert must be called before build")
 	}
 	if len(c.VolumeBindings) != len(c.App.Volumes) {
-		return nil, nil, fmt.Errorf("bind must be called before build")
+		return nil, fmt.Errorf("bind must be called before build")
 	}
 
 	// Pod volumes using binding claim names
 	var podVolumes []corev1.Volume
 	for i, av := range c.App.Volumes {
 		if c.VolumeBindings[i] == nil {
-			return nil, nil, fmt.Errorf("no binding at index %d for volume %s", i, av.Name)
+			return nil, fmt.Errorf("no binding at index %d for volume %s", i, av.Name)
 		}
 		claimName := strings.TrimSpace(c.VolumeBindings[i].ResourceName)
 		if claimName == "" {
-			return nil, nil, fmt.Errorf("no claim name bound for volume %s", av.Name)
+			return nil, fmt.Errorf("no claim name bound for volume %s", av.Name)
 		}
 		podVolumes = append(podVolumes, corev1.Volume{
 			Name: av.Name,
@@ -664,11 +737,47 @@ func (c *Converter) Build() ([]runtime.Object, []string, error) {
 		},
 	}
 
+	// Store deployment
+	c.K8sDeployment = dep
+	return c.warnings, nil
+}
+
+// NamespaceObjects returns namespace-scoped foundational objects:
+// Namespace, ServiceAccount, Role, RoleBinding, NetworkPolicy (in this order)
+func (c *Converter) NamespaceObjects() []runtime.Object {
 	var objs []runtime.Object
-	objs = append(objs, c.K8sNamespace)
+	if c.K8sNamespace != nil {
+		objs = append(objs, c.K8sNamespace)
+	}
+	if c.K8sServiceAccount != nil {
+		objs = append(objs, c.K8sServiceAccount)
+	}
+	if c.K8sRole != nil {
+		objs = append(objs, c.K8sRole)
+	}
+	if c.K8sRoleBinding != nil {
+		objs = append(objs, c.K8sRoleBinding)
+	}
+	if c.K8sNetworkPolicy != nil {
+		objs = append(objs, c.K8sNetworkPolicy)
+	}
+	return objs
+}
+
+// VolumeObjects returns statically-provisioned PVs and PVCs.
+func (c *Converter) VolumeObjects() []runtime.Object {
+	var objs []runtime.Object
 	objs = append(objs, c.K8sPVs...)
 	objs = append(objs, c.K8sPVCs...)
-	objs = append(objs, dep)
+	return objs
+}
+
+// DeploymentObjects returns the Deployment, Service, and Ingress resources.
+func (c *Converter) DeploymentObjects() []runtime.Object {
+	var objs []runtime.Object
+	if c.K8sDeployment != nil {
+		objs = append(objs, c.K8sDeployment)
+	}
 	if c.K8sService != nil {
 		objs = append(objs, c.K8sService)
 	}
@@ -678,5 +787,14 @@ func (c *Converter) Build() ([]runtime.Object, []string, error) {
 	if c.K8sIngressCustom != nil {
 		objs = append(objs, c.K8sIngressCustom)
 	}
-	return objs, c.warnings, nil
+	return objs
+}
+
+// AllObjects returns all objects in the recommended apply order.
+func (c *Converter) AllObjects() []runtime.Object {
+	var objs []runtime.Object
+	objs = append(objs, c.NamespaceObjects()...)
+	objs = append(objs, c.VolumeObjects()...)
+	objs = append(objs, c.DeploymentObjects()...)
+	return objs
 }

@@ -13,9 +13,14 @@
 
 次のリソースを含む Kubernetes マニフェストが作られる。
 
-- Namespace 1個 (アプリごとに作成)
-- PV 複数個 (Provider のライフサイクルで管理される静的なクラウドディスクリソースを参照する RWO ボリューム)
-- PVC 複数個 (PVを参照する)
+- アプリごとに以下を作成
+  - Namespace 1個
+  - NetworkPolicy
+  - ServiceAccount
+  - Role
+  - RoleBinding
+  - PV 複数個 (Provider のライフサイクルで管理される静的なクラウドディスクリソースを参照する RWO ボリューム)
+  - PVC 複数個 (PVを参照する)
 - コンポーネント (`app` `box` など) ごとに以下を生成
   - Deployment 1個 (シングルレプリカ、strategy.type=Recreate)
   - Service 1個 (compose の host ポートを列挙)
@@ -41,6 +46,8 @@
   - バックエンドのクラウドリソースの名前としても使用する (ディスク・スナップショットリソース名など)
   - Namespaceと同じ理由で`kx<spHASH>`を含む
   - PVCはPVと同名とする
+- NetworkPolicy/ServiceAccount/Role/RoleBinding: `<appName>`
+  - Namespace内のリソースで一意性が担保されているためハッシュを含まない
 - Service/Deployment: `<appName>-<componentName>`
   - Namespace内のリソースで一意性が担保されているためハッシュを含まない
 - Ingress:
@@ -50,31 +57,20 @@
 
 各リソースには次のラベルを設定する。
 
-```yaml
-metadata:
-  labels:
-    app: <appName>-<componentName>
-    app.kubernetes.io/name: <appName>
-    app.kubernetes.io/instance: <appName>-<inHASH>
-    app.kubernetes.io/component: <componentName>
-    app.kubernetes.io/managed-by: kompox
-    kompox.dev/app-instance-hash: <inHASH>
-    kompox.dev/app-id-hash: <idHASH>
-```
+|ラベル `NAME: VALUE`|対象 Kind|説明|
+|-|-|-|
+|`app: <appName>-<componentName>`|Deployment/Service/Ingress/Pod|セレクタラベル|
+|`app.kubernetes.io/name: <appName>`|ALL|表示名|
+|`app.kubernetes.io/instance: <appName>-<inHASH>`|ALL|インスタンス名|
+|`app.kubernetes.io/component: <componentName>`|Deployment/Service/Ingress/Pod|コンポーネント名|
+|`app.kubernetes.io/managed-by: kompox`|ALL||
+|`kompox.dev/app-instance-hash: <inHASH>`|ALL|クラスタ依存インスタンスハッシュ|
+|`kompox.dev/app-id-hash: <idHASH>`|ALL|クラスタ非依存アプリ識別ハッシュ|
 
-ラベルの意味
-
-- `app`: セレクタラベル (Deployment/Service などで使用)
-- `app.kubernetes.io/name`: 表示名
-- `app.kubernetes.io/instance`: インスタンス名
-- `app.kubernetes.io/component`: コンポーネント名
-- `kompox.dev/app-instance-hash`: クラスタ依存インスタンスハッシュ
-- `kompox.dev/app-id-hash`: クラスタ非依存アプリ識別ハッシュ
-
-Pod (Deployment の template) にも同一のラベルを付与する。 Deployment や Service の Pod セレクタでは次のラベルを照合する。
+Deployment や Service の Pod セレクタでは次のラベルを照合する。
 
 ```yaml
-app: <appName>-app
+app: <appName>-<componentName>
 ```
 
 Namespace には次のアノテーションを設定する。
@@ -245,7 +241,7 @@ Service 生成の仕様
 
 デフォルトドメイン Ingress 生成の仕様
 - `app.ingress.rules` が空配列ではなく、かつ `cluster.ingress.domain` が空文字列でないときのみ生成
-- 名前は `<appName>-default`
+- 名前は `<appName>-<componentName>-default`
 - ingressClassName は `traefik`
 - `rules`
   - `app.ingress.rules` の各エントリに対して1つを出力
@@ -261,7 +257,7 @@ traefik.ingress.kubernetes.io/router.tls: "true"
 
 カスタムドメイン Ingress 生成の仕様
 - `app.ingress.rules` が空配列でないときのみ生成
-- 名前は `<appName>-custom`
+- 名前は `<appName>-<componentName>-custom`
 - ingressClassName は `traefik`
 - `rules`
   - `app.ingress.rules` の `hosts` 配列の各要素ごとに1つを出力
@@ -327,8 +323,40 @@ app:
 
 - pool: ノードプールの種類。未指定の場合は `user`。
 Deployment.spec.template.spec.nodeSelector に `kompox.dev/node-pool: <pool>` を設定する。
-- zone: プロバイダドライバがサポートするゾーン名 (例: `"1"')。
+- zone: プロバイダドライバがサポートするゾーン名 (例: `"1"`)。
 指定があった場合のみ Deployment.spec.template.spec.nodeSelector に `kompox.dev/node-zone: <zone>` を設定する。
+
+### Network Policy
+
+各アプリの Namespace に対して、ネットワークアクセスをコントロールするための NetworkPolicy リソースをひとつ作成する。
+
+アクセスの制御は Namespace ベースで行う。
+
+- Ingress
+  - クラスタのシステム Namespace (kube-system) や Ingress Controller (traefik) Namespace からの接続は受け付ける
+  - その他のアプリ Namespace からの接続はブロックする。
+- Egress
+  - 設定なし。基本的にそのまま送信する。
+
+### Service Account
+
+各アプリの Namespace 内 Pod に対して、次の操作が可能な権限を持つ ServiceAccount/Role/RoleBinding リソースを作成する。
+
+|api|resource|verb|
+|-|-|-|
+||pods|get list watch|
+||pods/log|get, watch|
+||pods/exec|create|
+||pods/portforward|create|
+||pods/attach|create|
+||pods/ephemeralcontainers|update|
+||events|get, list, watch|
+||services|get, list, watch|
+||endpoints|get, list, watch|
+|apps|deployments|get list watch|
+|apps|replicasets|get list watch|
+
+この Service Account は Kompox ユーザー（人間）用であり、ワークロードの Pod へは自動で割り当てない。
 
 ## 例1
 
@@ -406,6 +434,8 @@ app:
 
 ### Kubernetes Manifest
 
+#### Namespace/NetworkPolicy/ServiceAccount/Role/RoleBinding
+
 ```yaml
 ---
 apiVersion: v1
@@ -413,10 +443,8 @@ kind: Namespace
 metadata:
   name: kxspHASH-app1-idHASH
   labels:
-    app: app1-app
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
-    app.kubernetes.io/component: app
     app.kubernetes.io/managed-by: kompox
     kompox.dev/app-instance-hash: inHASH
     kompox.dev/app-id-hash: idHASH
@@ -424,15 +452,110 @@ metadata:
     kompox.dev/app: ops/aks1/cluster1/app1
     kompox.dev/provider-driver: aks
 ---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: app1
+  namespace: kxspHASH-app1-idHASH
+  labels:
+    app.kubernetes.io/name: app1
+    app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/managed-by: kompox
+    kompox.dev/app-instance-hash: inHASH
+    kompox.dev/app-id-hash: idHASH
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}
+        - namespaceSelector:
+            matchExpressions:
+              - key: kubernetes.io/metadata.name
+                operator: In
+                values: ["kube-system"]
+        - namespaceSelector:
+            matchExpressions:
+              - key: kubernetes.io/metadata.name
+                operator: In
+                values: ["traefik"]
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app1
+  namespace: kxspHASH-app1-idHASH
+  labels:
+    app.kubernetes.io/name: app1
+    app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/managed-by: kompox
+    kompox.dev/app-instance-hash: inHASH
+    kompox.dev/app-id-hash: idHASH
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: app1
+  namespace: kxspHASH-app1-idHASH
+  labels:
+    app.kubernetes.io/name: app1
+    app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/managed-by: kompox
+    kompox.dev/app-instance-hash: inHASH
+    kompox.dev/app-id-hash: idHASH
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/exec", "pods/portforward", "pods/attach"]
+    verbs: ["create"]
+  - apiGroups: [""]
+    resources: ["events", "services", "endpoints"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "replicasets"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/ephemeralcontainers"]
+    verbs: ["update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: app1
+  namespace: kxspHASH-app1-idHASH
+  labels:
+    app.kubernetes.io/name: app1
+    app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/managed-by: kompox
+    kompox.dev/app-instance-hash: inHASH
+    kompox.dev/app-id-hash: idHASH
+subjects:
+  - kind: ServiceAccount
+    name: app1
+    namespace: kxspHASH-app1-idHASH
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: app1
+```
+
+#### PersistentVolume/PersistentVolumeClaim
+
+```yaml
+---
 apiVersion: v1
 kind: PersistentVolume
 metadata:
   name: kxspHASH-default-idHASH-volHASH
   labels:
-    app: app1-app
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
-    app.kubernetes.io/component: app
     app.kubernetes.io/managed-by: kompox
     kompox.dev/app-instance-hash: inHASH
     kompox.dev/app-id-hash: idHASH
@@ -456,10 +579,8 @@ kind: PersistentVolume
 metadata:
   name: kxspHASH-db-idHASH-volHASH
   labels:
-    app: app1-app
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
-    app.kubernetes.io/component: app
     app.kubernetes.io/managed-by: kompox
     kompox.dev/app-instance-hash: inHASH
     kompox.dev/app-id-hash: idHASH
@@ -484,10 +605,8 @@ metadata:
   name: kxspHASH-default-idHASH-volHASH
   namespace: kxspHASH-app1-idHASH
   labels:
-    app: app1-app
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
-    app.kubernetes.io/component: app
     app.kubernetes.io/managed-by: kompox
     kompox.dev/app-instance-hash: inHASH
     kompox.dev/app-id-hash: idHASH
@@ -506,10 +625,8 @@ metadata:
   name: kxspHASH-db-idHASH-volHASH
   namespace: kxspHASH-app1-idHASH
   labels:
-    app: app1-app
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
-    app.kubernetes.io/component: app
     app.kubernetes.io/managed-by: kompox
     kompox.dev/app-instance-hash: inHASH
     kompox.dev/app-id-hash: idHASH
@@ -521,6 +638,11 @@ spec:
       storage: 64Gi
   storageClassName: managed-csi
   volumeName: kxspHASH-db-idHASH-volHASH
+```
+
+#### Deployment/Service/Ingress
+
+```yaml
 ---
 apiVersion: apps/v1
 kind: Deployment

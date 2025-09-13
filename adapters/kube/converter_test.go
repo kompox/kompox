@@ -10,6 +10,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -519,36 +520,51 @@ services:
 			name:  "successful_build",
 			setup: func(c *Converter) {}, // no modification needed
 			validate: func(t *testing.T, objects []runtime.Object, warnings []string) {
-				if len(objects) != 6 { // Namespace + PV + PVC + Deployment + Service + Ingress
-					t.Errorf("expected 6 objects, got %d", len(objects))
+				if len(objects) != 10 { // Namespace + SA + Role + RoleBinding + NP + PV + PVC + Deployment + Service + Ingress
+					t.Errorf("expected 10 objects, got %d", len(objects))
 				}
 
 				// Check object types in expected order
 				for i, obj := range objects {
-					if i < 6 { // we expect 6 specific objects
-						// Check basic structure rather than exact type string
+					if i < 10 { // we expect 10 specific objects
 						switch i {
 						case 0:
 							if _, ok := obj.(*corev1.Namespace); !ok {
 								t.Errorf("object %d should be Namespace, got %T", i, obj)
 							}
 						case 1:
+							if _, ok := obj.(*corev1.ServiceAccount); !ok {
+								t.Errorf("object %d should be ServiceAccount, got %T", i, obj)
+							}
+						case 2:
+							if _, ok := obj.(*rbacv1.Role); !ok {
+								t.Errorf("object %d should be Role, got %T", i, obj)
+							}
+						case 3:
+							if _, ok := obj.(*rbacv1.RoleBinding); !ok {
+								t.Errorf("object %d should be RoleBinding, got %T", i, obj)
+							}
+						case 4:
+							if _, ok := obj.(*netv1.NetworkPolicy); !ok {
+								t.Errorf("object %d should be NetworkPolicy, got %T", i, obj)
+							}
+						case 5:
 							if _, ok := obj.(*corev1.PersistentVolume); !ok {
 								t.Errorf("object %d should be PersistentVolume, got %T", i, obj)
 							}
-						case 2:
+						case 6:
 							if _, ok := obj.(*corev1.PersistentVolumeClaim); !ok {
 								t.Errorf("object %d should be PersistentVolumeClaim, got %T", i, obj)
 							}
-						case 3:
+						case 7:
 							if _, ok := obj.(*appsv1.Deployment); !ok {
 								t.Errorf("object %d should be Deployment, got %T", i, obj)
 							}
-						case 4:
+						case 8:
 							if _, ok := obj.(*corev1.Service); !ok {
 								t.Errorf("object %d should be Service, got %T", i, obj)
 							}
-						case 5:
+						case 9:
 							if _, ok := obj.(*netv1.Ingress); !ok {
 								t.Errorf("object %d should be Ingress, got %T", i, obj)
 							}
@@ -623,7 +639,7 @@ services:
 				tt.setup(testC)
 			}
 
-			objects, warnings, err := testC.Build()
+			warnings, err := testC.Build()
 
 			if tt.wantErr != "" {
 				if err == nil {
@@ -639,6 +655,7 @@ services:
 				t.Fatalf("unexpected error: %v", err)
 			}
 
+			objects := testC.AllObjects()
 			if tt.validate != nil {
 				tt.validate(t, objects, warnings)
 			}
@@ -739,15 +756,15 @@ services:
 	}
 
 	// Step 4: Build final objects
-	objects, buildWarnings, err := c.Build()
+	buildWarnings, err := c.Build()
 	if err != nil {
 		t.Fatalf("build failed: %v", err)
 	}
 	t.Logf("Build warnings: %v", buildWarnings)
-
+	objects := c.AllObjects()
 	// Validate the final result
-	if len(objects) != 9 { // Namespace + 2PV + 2PVC + Deployment + Service + 2x Ingress
-		t.Errorf("expected 9 objects, got %d", len(objects))
+	if len(objects) != 13 { // Namespace + SA + Role + RoleBinding + NP + 2PV + 2PVC + Deployment + Service + 2x Ingress
+		t.Errorf("expected 13 objects, got %d", len(objects))
 	}
 
 	// Count object types
@@ -756,6 +773,14 @@ services:
 		switch obj.(type) {
 		case *corev1.Namespace:
 			counts["Namespace"]++
+		case *corev1.ServiceAccount:
+			counts["ServiceAccount"]++
+		case *rbacv1.Role:
+			counts["Role"]++
+		case *rbacv1.RoleBinding:
+			counts["RoleBinding"]++
+		case *netv1.NetworkPolicy:
+			counts["NetworkPolicy"]++
 		case *corev1.PersistentVolume:
 			counts["PersistentVolume"]++
 		case *corev1.PersistentVolumeClaim:
@@ -773,6 +798,10 @@ services:
 
 	expected := map[string]int{
 		"Namespace":             1,
+		"ServiceAccount":        1,
+		"Role":                  1,
+		"RoleBinding":           1,
+		"NetworkPolicy":         1,
 		"PersistentVolume":      2,
 		"PersistentVolumeClaim": 2,
 		"Deployment":            1,
@@ -876,10 +905,11 @@ func TestDeploymentNodeSelector(t *testing.T) {
 		t.Logf("warnings: %v", warnings)
 	}
 
-	objects, warnings, err := c1.Build()
+	_, err = c1.Build()
 	if err != nil {
 		t.Fatalf("build failed: %v", err)
 	}
+	objects := c1.AllObjects()
 
 	// Find deployment
 	var deployment *appsv1.Deployment
@@ -912,15 +942,16 @@ func TestDeploymentNodeSelector(t *testing.T) {
 		},
 	}
 	c2 := NewConverter(svc, prv, cls, app2, "app")
-	warnings, err = c2.Convert(context.Background())
+	_, err = c2.Convert(context.Background())
 	if err != nil {
 		t.Fatalf("convert failed: %v", err)
 	}
 
-	objects, warnings, err = c2.Build()
+	_, err = c2.Build()
 	if err != nil {
 		t.Fatalf("build failed: %v", err)
 	}
+	objects = c2.AllObjects()
 
 	// Find deployment
 	deployment = nil
@@ -952,15 +983,16 @@ func TestDeploymentNodeSelector(t *testing.T) {
 		},
 	}
 	c3 := NewConverter(svc, prv, cls, app3, "app")
-	warnings, err = c3.Convert(context.Background())
+	_, err = c3.Convert(context.Background())
 	if err != nil {
 		t.Fatalf("convert failed: %v", err)
 	}
 
-	objects, warnings, err = c3.Build()
+	_, err = c3.Build()
 	if err != nil {
 		t.Fatalf("build failed: %v", err)
 	}
+	objects = c3.AllObjects()
 
 	// Find deployment
 	deployment = nil
