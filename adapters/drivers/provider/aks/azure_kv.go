@@ -2,13 +2,13 @@ package aks
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
 	"strings"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/keyvault/armkeyvault"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resourcegraph/armresourcegraph"
+	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/kompox/kompox/domain/model"
 	"github.com/kompox/kompox/internal/logging"
 )
@@ -18,7 +18,7 @@ const keyVaultSecretsUserRoleID = "4633458b-17de-408a-b874-0445c86b69e6"
 
 // assignRolesKeyVaultSecrets assigns Key Vault Secrets User role to the User Assigned Managed Identity
 // for all Key Vault secrets referenced in cluster.Ingress.Certificates.
-func (d *driver) assignRolesKeyVaultSecrets(ctx context.Context, cluster *model.Cluster, principalID string) error {
+func (d *driver) ensureAzureRoleKeyVaultSecret(ctx context.Context, cluster *model.Cluster, principalID string) error {
 	if cluster == nil || cluster.Ingress == nil || len(cluster.Ingress.Certificates) == 0 {
 		return nil
 	}
@@ -65,16 +65,14 @@ func (d *driver) assignRolesKeyVaultSecrets(ctx context.Context, cluster *model.
 	}
 
 	// Get all accessible Key Vault resources to find resource IDs
-	keyVaultResourceIDs, err := d.getKeyVaultResourceIDs(ctx, keyVaultNames)
+	keyVaultResourceIDs, err := d.azureKeyVaultResourceIDs(ctx, keyVaultNames)
 	if err != nil {
 		return fmt.Errorf("failed to get Key Vault resource IDs: %w", err)
 	}
 
-	// Create role assignments client
-	roleAssignmentsClient, err := armauthorization.NewRoleAssignmentsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
-	if err != nil {
-		return fmt.Errorf("failed to create role assignments client: %w", err)
-	}
+	// Build the role definition ID (subscription scoped) for Key Vault Secrets User
+	roleDefinitionID := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s",
+		d.AzureSubscriptionId, keyVaultSecretsUserRoleID)
 
 	// Assign roles for each secret individually
 	successCount := 0
@@ -93,7 +91,7 @@ func (d *driver) assignRolesKeyVaultSecrets(ctx context.Context, cluster *model.
 		// Create scope for the specific secret: <key_vault_resource_id>/secrets/<secret_name>
 		secretScope := fmt.Sprintf("%s/secrets/%s", keyVaultResourceID, secret.objectName)
 
-		if err := d.assignKeyVaultRole(ctx, roleAssignmentsClient, secretScope, principalID, secret.kvName, secret.objectName); err != nil {
+		if err := d.ensureAzureRole(ctx, secretScope, principalID, roleDefinitionID); err != nil {
 			errorCount++
 			log.Warn(ctx, "failed to assign Key Vault Secrets User role",
 				"key_vault", secret.kvName,
@@ -127,9 +125,9 @@ func (d *driver) assignRolesKeyVaultSecrets(ctx context.Context, cluster *model.
 	return nil
 }
 
-// getKeyVaultResourceIDs retrieves resource IDs for the specified Key Vault names
+// azureKeyVaultResourceIDs retrieves resource IDs for the specified Key Vault names
 // using Azure Resource Graph to search across all accessible subscriptions
-func (d *driver) getKeyVaultResourceIDs(ctx context.Context, keyVaultNames map[string]bool) (map[string]string, error) {
+func (d *driver) azureKeyVaultResourceIDs(ctx context.Context, keyVaultNames map[string]bool) (map[string]string, error) {
 	if len(keyVaultNames) == 0 {
 		return nil, nil
 	}
@@ -202,54 +200,56 @@ func (d *driver) getKeyVaultResourceIDs(ctx context.Context, keyVaultNames map[s
 	return keyVaultResourceIDs, nil
 }
 
-// assignKeyVaultRole assigns the Key Vault Secrets User role to the specified principal for a specific secret
-func (d *driver) assignKeyVaultRole(ctx context.Context, client *armauthorization.RoleAssignmentsClient, scope, principalID, kvName, secretName string) error {
-	// Create role definition ID (subscription scoped)
-	roleDefinitionID := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s",
-		d.AzureSubscriptionId, keyVaultSecretsUserRoleID)
-
-	// Generate a deterministic role assignment name to ensure idempotency
-	// Include secret name in the role assignment name for uniqueness
-	roleAssignmentName := d.generateRoleAssignmentName(principalID, fmt.Sprintf("%s-%s", keyVaultSecretsUserRoleID, secretName))
-
-	roleAssignment := armauthorization.RoleAssignmentCreateParameters{
-		Properties: &armauthorization.RoleAssignmentProperties{
-			RoleDefinitionID: to.Ptr(roleDefinitionID),
-			PrincipalID:      to.Ptr(principalID),
-			PrincipalType:    to.Ptr(armauthorization.PrincipalTypeServicePrincipal),
-		},
+// listAzureKeyVaultsInResourceGroup retrieves the names of Key Vaults in the specified resource group.
+func (d *driver) listAzureKeyVaultsInResourceGroup(ctx context.Context, resourceGroupName string) ([]string, error) {
+	resourcesClient, err := armresources.NewClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create resources client: %w", err)
 	}
 
-	// Try to create the role assignment (idempotent - will succeed if already exists)
-	_, err := client.Create(ctx, scope, roleAssignmentName, roleAssignment, nil)
-	if err != nil {
-		// Check if the error is because the role assignment already exists
-		if strings.Contains(strings.ToLower(err.Error()), "already exists") ||
-			strings.Contains(strings.ToLower(err.Error()), "conflict") {
-			// Role assignment already exists, which is fine
-			return nil
+	// Filter for Key Vault resources
+	filter := "resourceType eq 'Microsoft.KeyVault/vaults'"
+	pager := resourcesClient.NewListByResourceGroupPager(resourceGroupName, &armresources.ClientListByResourceGroupOptions{
+		Filter: &filter,
+	})
+
+	var keyVaultNames []string
+	for pager.More() {
+		page, err := pager.NextPage(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list resources: %w", err)
 		}
-		return fmt.Errorf("failed to create role assignment: %w", err)
+
+		for _, resource := range page.Value {
+			if resource.Name != nil {
+				keyVaultNames = append(keyVaultNames, *resource.Name)
+			}
+		}
+	}
+
+	return keyVaultNames, nil
+}
+
+// purgeAzureKeyVaults purges the specified Key Vaults to allow immediate recreation.
+func (d *driver) purgeAzureKeyVaults(ctx context.Context, keyVaultNames []string) error {
+	if len(keyVaultNames) == 0 {
+		return nil
+	}
+
+	log := logging.FromContext(ctx)
+
+	vaultsClient, err := armkeyvault.NewVaultsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create key vault client: %w", err)
+	}
+
+	for _, vaultName := range keyVaultNames {
+		// Fire-and-forget: initiate purge without waiting for completion
+		log.Info(ctx, "initiating key vault purge (async)", "vault_name", vaultName, "location", d.AzureLocation)
+		if _, err := vaultsClient.BeginPurgeDeleted(ctx, vaultName, d.AzureLocation, nil); err != nil {
+			log.Warn(ctx, "failed to start key vault purge", "error", err, "vault_name", vaultName)
+		}
 	}
 
 	return nil
-}
-
-// generateRoleAssignmentName generates a deterministic GUID for role assignment
-func (d *driver) generateRoleAssignmentName(principalID, roleID string) string {
-	// Generate a deterministic UUID v5-like identifier
-	// Combine principal ID, role ID to create a unique hash
-	hasher := sha256.New()
-	hasher.Write([]byte(principalID))
-	hasher.Write([]byte(roleID))
-	hash := hasher.Sum(nil)
-
-	// Format as UUID v4 format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
-	// Take first 16 bytes of the hash and format as UUID
-	return fmt.Sprintf("%08x-%04x-4%03x-%04x-%012x",
-		hash[0:4],
-		hash[4:6],
-		(uint32(hash[6])<<8|uint32(hash[7]))&0x0fff,
-		(uint32(hash[8])<<8|uint32(hash[9])&0x3fff)|0x8000,
-		hash[10:16])
 }

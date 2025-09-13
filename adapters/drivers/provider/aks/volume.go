@@ -9,12 +9,8 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/authorization/armauthorization/v2"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
-	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
-	"github.com/google/uuid"
 	"github.com/kompox/kompox/domain/model"
-	"github.com/kompox/kompox/internal/logging"
 	"github.com/kompox/kompox/internal/naming"
 )
 
@@ -222,51 +218,6 @@ func azureDiskOptions(disk *armcompute.Disk) map[string]any {
 	return options
 }
 
-// azureResourceGroupEnsure ensures RG exists for Create path only.
-func (d *driver) azureResourceGroupEnsure(ctx context.Context, rg string, principalID string) error {
-	log := logging.FromContext(ctx)
-	// Ensure RG exists
-	groupsClient, err := armresources.NewResourceGroupsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
-	if err != nil {
-		return err
-	}
-	log.Info(ctx, "ensuring resource group", "resource_group", rg, "subscription", d.AzureSubscriptionId, "location", d.AzureLocation)
-	groupRes, err := groupsClient.CreateOrUpdate(ctx, rg, armresources.ResourceGroup{Location: to.Ptr(d.AzureLocation)}, nil)
-	if err != nil {
-		return err
-	}
-	// Ensure AKS principal has Contributor on this RG (idempotent)
-	principalID = strings.TrimSpace(principalID)
-	if principalID == "" {
-		// Unknown principal; skip assignment silently (caller should have provided from deployment outputs).
-		return nil
-	}
-	assignmentsClient, err := armauthorization.NewRoleAssignmentsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
-	if err != nil {
-		return err
-	}
-	// Create assignment with deterministic GUID name derived from (scope, principalID, roleDefinitionID)
-	scope := *groupRes.ID
-	roleDefinitionID := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s", d.AzureSubscriptionId, contributorRoleDefinitionID)
-	hashInput := scope + "|" + principalID + "|" + roleDefinitionID
-	name := uuid.NewSHA1(uuid.NameSpaceURL, []byte(hashInput)).String()
-	params := armauthorization.RoleAssignmentCreateParameters{
-		Properties: &armauthorization.RoleAssignmentProperties{
-			PrincipalID:      to.Ptr(principalID),
-			RoleDefinitionID: to.Ptr(roleDefinitionID),
-		},
-	}
-	log.Info(ctx, "ensuring role assignment", "scope", scope, "principal_id", principalID, "role_definition_id", contributorRoleDefinitionID, "assignment_name", name)
-	if _, err := assignmentsClient.Create(ctx, scope, name, params, nil); err != nil {
-		// If conflict due to existing assignment (race), treat as success
-		if strings.Contains(strings.ToLower(err.Error()), "existing assignment") || strings.Contains(strings.ToLower(err.Error()), "conflict") {
-			return nil
-		}
-		return err
-	}
-	return nil
-}
-
 // VolumeDiskList implements spec method.
 func (d *driver) VolumeDiskList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, _ ...model.VolumeDiskListOption) ([]*model.VolumeDisk, error) {
 	if cluster == nil || app == nil {
@@ -345,11 +296,11 @@ func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, a
 		zone = options.Zone
 	}
 	// Retrieve AKS principal ID from deployment outputs (per-cluster)
-	outputs, err := d.getDeploymentOutputs(ctx, cluster)
+	outputs, err := d.azureDeploymentOutputs(ctx, cluster)
 	if err != nil {
 		return nil, fmt.Errorf("get deployment outputs: %w", err)
 	}
-	principalID, _ := outputs[OutputAksPrincipalID].(string)
+	principalID, _ := outputs[outputAksPrincipalID].(string)
 
 	// Inline azureVolumeDiskCreate logic
 	rg, err := d.appResourceGroupName(app)
@@ -361,7 +312,7 @@ func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, a
 	}
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
-	if err := d.azureResourceGroupEnsure(ctx, rg, principalID); err != nil {
+	if err := d.ensureAzureResourceGroupCreated(ctx, rg, principalID); err != nil {
 		return nil, fmt.Errorf("ensure RG: %w", err)
 	}
 	disksClient, err := armcompute.NewDisksClient(d.AzureSubscriptionId, d.TokenCredential, nil)
@@ -697,11 +648,11 @@ func (d *driver) VolumeSnapshotRestore(ctx context.Context, cluster *model.Clust
 		zone = options.Zone
 	}
 	// Retrieve AKS principal ID from deployment outputs (per-cluster)
-	outputs, err := d.getDeploymentOutputs(ctx, cluster)
+	outputs, err := d.azureDeploymentOutputs(ctx, cluster)
 	if err != nil {
 		return nil, fmt.Errorf("get deployment outputs: %w", err)
 	}
-	principalID, _ := outputs[OutputAksPrincipalID].(string)
+	principalID, _ := outputs[outputAksPrincipalID].(string)
 
 	// Inline azureVolumeSnapshotRestore logic
 	rg, err := d.appResourceGroupName(app)
@@ -710,7 +661,7 @@ func (d *driver) VolumeSnapshotRestore(ctx context.Context, cluster *model.Clust
 	}
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	defer cancel()
-	if err := d.azureResourceGroupEnsure(ctx, rg, principalID); err != nil {
+	if err := d.ensureAzureResourceGroupCreated(ctx, rg, principalID); err != nil {
 		return nil, fmt.Errorf("ensure RG: %w", err)
 	}
 	snapsClient, err := armcompute.NewSnapshotsClient(d.AzureSubscriptionId, d.TokenCredential, nil)

@@ -40,6 +40,12 @@ func safeTruncate(base, hash string) (string, error) {
 	return fmt.Sprintf("%s_%s", base, hash), nil
 }
 
+// clusterTagValue generates the cluster tag value for resource tagging.
+// Kept within the aks package as a driver method per provider driver conventions.
+func (d *driver) clusterTagValue(clusterName string) string {
+	return fmt.Sprintf("%s/%s/%s", d.ServiceName(), d.ProviderName(), clusterName)
+}
+
 func (d *driver) clusterResourceGroupName(cluster *model.Cluster) (string, error) {
 	if cluster == nil {
 		return "", fmt.Errorf("cluster nil")
