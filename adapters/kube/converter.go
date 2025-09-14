@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"sort"
 	"strconv"
 	"strings"
@@ -45,12 +46,13 @@ type Converter struct {
 	HashIN string // service/provider/cluster/app (cluster dependent)
 
 	// Stable namespace/label/selector namings
-	Namespace      string
-	ResourceName   string // <appName>-<componentName> for Deployment/Service/Ingress
-	Labels         map[string]string
-	Selector       map[string]string
-	SelectorString string
-	NodeSelector   map[string]string
+	Namespace       string
+	ResourceName    string            // <appName>-<componentName> for Deployment/Service/Ingress
+	BaseLabels      map[string]string // labels applied to ALL kinds (Namespace/NP/SA/Role/RB/PV/PVC/...)
+	ComponentLabels map[string]string // BaseLabels + component labels (Deployment/Service/Ingress/Pod only)
+	Selector        map[string]string
+	SelectorString  string
+	NodeSelector    map[string]string
 
 	// Provider-agnostic K8s pieces
 	K8sNamespace      *corev1.Namespace
@@ -109,17 +111,20 @@ func NewConverter(svc *model.Service, prv *model.Provider, cls *model.Cluster, a
 		c.HashIN = hashes.AppInstance
 		c.Namespace = hashes.Namespace
 		c.ResourceName = fmt.Sprintf("%s-%s", a.Name, component)
-		c.Labels = map[string]string{
-			"app":                          fmt.Sprintf("%s-%s", a.Name, component),
+		// BaseLabels are applied to all resources (including Namespace/PV/PVC etc.)
+		c.BaseLabels = map[string]string{
 			"app.kubernetes.io/name":       a.Name,
 			"app.kubernetes.io/instance":   fmt.Sprintf("%s-%s", a.Name, c.HashIN),
-			"app.kubernetes.io/component":  component,
 			"app.kubernetes.io/managed-by": "kompox",
 			"kompox.dev/app-instance-hash": c.HashIN,
 			"kompox.dev/app-id-hash":       c.HashID,
 		}
+		// ComponentLabels are applied only to Deployment/Service/Ingress/Pod (component-scoped)
+		c.ComponentLabels = maps.Clone(c.BaseLabels)
+		c.ComponentLabels["app"] = fmt.Sprintf("%s-%s", a.Name, component)
+		c.ComponentLabels["app.kubernetes.io/component"] = component
 		c.Selector = map[string]string{
-			"app": c.Labels["app"],
+			"app": c.ComponentLabels["app"],
 		}
 		c.SelectorString = labels.Set(c.Selector).String()
 
@@ -154,7 +159,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 	// Hashes, namespace name and labels are precomputed by NewConverter.
 	// Keep local aliases for readability.
 	nsName := c.Namespace
-	commonLabels := c.Labels
+	baseLabels := c.BaseLabels
 
 	// Build volume definition index
 	volDefs := map[string]model.AppVolume{}
@@ -305,7 +310,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 	// Namespace with annotations
 	ns := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
 		Name:   nsName,
-		Labels: commonLabels,
+		Labels: baseLabels,
 		Annotations: map[string]string{
 			"kompox.dev/app":             fmt.Sprintf("%s/%s/%s/%s", c.Svc.Name, c.Prv.Name, c.Cls.Name, c.App.Name),
 			"kompox.dev/provider-driver": c.Prv.Driver,
@@ -347,7 +352,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 	var npObj *netv1.NetworkPolicy
 	{
 		npObj = &netv1.NetworkPolicy{
-			ObjectMeta: metav1.ObjectMeta{Name: c.App.Name, Namespace: nsName, Labels: commonLabels},
+			ObjectMeta: metav1.ObjectMeta{Name: c.App.Name, Namespace: nsName, Labels: baseLabels},
 			Spec: netv1.NetworkPolicySpec{
 				PodSelector: metav1.LabelSelector{},
 				PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeIngress},
@@ -363,7 +368,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 	var roleObj *rbacv1.Role
 	var rbObj *rbacv1.RoleBinding
 
-	saObj = &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: saName, Namespace: nsName, Labels: commonLabels}}
+	saObj = &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: saName, Namespace: nsName, Labels: baseLabels}}
 	roleRules := []rbacv1.PolicyRule{
 		// pods view
 		{APIGroups: []string{""}, Resources: []string{"pods"}, Verbs: []string{"get", "list", "watch"}},
@@ -378,9 +383,9 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		// ephemeralcontainers update (kubectl debug)
 		{APIGroups: []string{""}, Resources: []string{"pods/ephemeralcontainers"}, Verbs: []string{"update"}},
 	}
-	roleObj = &rbacv1.Role{ObjectMeta: metav1.ObjectMeta{Name: roleName, Namespace: nsName, Labels: commonLabels}, Rules: roleRules}
+	roleObj = &rbacv1.Role{ObjectMeta: metav1.ObjectMeta{Name: roleName, Namespace: nsName, Labels: baseLabels}, Rules: roleRules}
 	rbObj = &rbacv1.RoleBinding{
-		ObjectMeta: metav1.ObjectMeta{Name: roleName, Namespace: nsName, Labels: commonLabels},
+		ObjectMeta: metav1.ObjectMeta{Name: roleName, Namespace: nsName, Labels: baseLabels},
 		Subjects:   []rbacv1.Subject{{Kind: "ServiceAccount", Name: saName, Namespace: nsName}},
 		RoleRef:    rbacv1.RoleRef{APIGroup: "rbac.authorization.k8s.io", Kind: "Role", Name: roleName},
 	}
@@ -421,7 +426,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 				hostSeen[host] = r.Name
 			}
 		}
-		svcObj = &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: c.ResourceName, Namespace: nsName, Labels: commonLabels}, Spec: corev1.ServiceSpec{Selector: c.Selector, Ports: servicePorts}}
+		svcObj = &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: c.ResourceName, Namespace: nsName, Labels: c.ComponentLabels}, Spec: corev1.ServiceSpec{Selector: c.Selector, Ports: servicePorts}}
 	} else if len(hostPortToContainer) > 0 {
 		var ports []corev1.ServicePort
 		var hps []int
@@ -432,7 +437,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		for _, hp := range hps {
 			ports = append(ports, corev1.ServicePort{Name: fmt.Sprintf("p%d", hp), Port: int32(hp), TargetPort: intstr.FromInt(hostPortToContainer[hp])})
 		}
-		svcObj = &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: c.ResourceName, Namespace: nsName, Labels: commonLabels}, Spec: corev1.ServiceSpec{Selector: c.Selector, Ports: ports}}
+		svcObj = &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: c.ResourceName, Namespace: nsName, Labels: c.ComponentLabels}, Spec: corev1.ServiceSpec{Selector: c.Selector, Ports: ports}}
 	}
 
 	// Ingress generation (Traefik)
@@ -467,7 +472,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 			if certResolver != "" {
 				ann["traefik.ingress.kubernetes.io/router.tls.certresolver"] = certResolver
 			}
-			ingCustom = &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("%s-custom", c.ResourceName), Namespace: nsName, Labels: commonLabels, Annotations: ann}, Spec: netv1.IngressSpec{IngressClassName: ptr.To("traefik"), Rules: customRules}}
+			ingCustom = &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("%s-custom", c.ResourceName), Namespace: nsName, Labels: c.ComponentLabels, Annotations: ann}, Spec: netv1.IngressSpec{IngressClassName: ptr.To("traefik"), Rules: customRules}}
 		}
 
 		// Build Default-domain Ingress (one host per rule based on hostPort)
@@ -499,7 +504,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 					"traefik.ingress.kubernetes.io/router.entrypoints": "websecure",
 					"traefik.ingress.kubernetes.io/router.tls":         "true",
 				}
-				ingDefault = &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("%s-default", c.ResourceName), Namespace: nsName, Labels: commonLabels, Annotations: ann}, Spec: netv1.IngressSpec{IngressClassName: ptr.To("traefik"), Rules: defaultRules}}
+				ingDefault = &netv1.Ingress{ObjectMeta: metav1.ObjectMeta{Name: fmt.Sprintf("%s-default", c.ResourceName), Namespace: nsName, Labels: c.ComponentLabels, Annotations: ann}, Spec: netv1.IngressSpec{IngressClassName: ptr.To("traefik"), Rules: defaultRules}}
 			}
 		}
 	}
@@ -656,7 +661,7 @@ func (c *Converter) BindVolumes(ctx context.Context, vols []*ConverterVolumeBind
 		pv := &corev1.PersistentVolume{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:   resourceName,
-				Labels: c.Labels,
+				Labels: c.BaseLabels,
 			},
 			Spec: pvSpec,
 		}
@@ -674,7 +679,7 @@ func (c *Converter) BindVolumes(ctx context.Context, vols []*ConverterVolumeBind
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      resourceName,
 				Namespace: c.Namespace,
-				Labels:    c.Labels,
+				Labels:    c.BaseLabels,
 			},
 			Spec: pvcSpec,
 		}
@@ -725,13 +730,13 @@ func (c *Converter) Build() ([]string, error) {
 
 	// Deployment (single replica, Recreate)
 	dep := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: c.ResourceName, Namespace: c.Namespace, Labels: c.Labels},
+		ObjectMeta: metav1.ObjectMeta{Name: c.ResourceName, Namespace: c.Namespace, Labels: c.ComponentLabels},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: ptr.To[int32](1),
 			Strategy: appsv1.DeploymentStrategy{Type: appsv1.RecreateDeploymentStrategyType},
 			Selector: &metav1.LabelSelector{MatchLabels: c.Selector},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: c.Labels},
+				ObjectMeta: metav1.ObjectMeta{Labels: c.ComponentLabels},
 				Spec:       corev1.PodSpec{Containers: c.K8sContainers, InitContainers: c.K8sInitContainers, Volumes: podVolumes, NodeSelector: nodeSelector},
 			},
 		},

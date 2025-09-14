@@ -104,8 +104,8 @@ func (u *UseCase) Status(ctx context.Context, in *StatusInput) (*StatusOutput, e
 			return nil, fmt.Errorf("failed to get namespace %s: %w", expectedNS, err)
 		}
 	} else {
-		// Verify required labels are present and match the expected values.
-		want := labels.Set(c.Labels)
+		// Verify required labels (ALL scope) are present and match the expected values.
+		want := labels.Set(c.BaseLabels)
 		has := labels.Set(ns.Labels)
 		ok := true
 		for k, v := range want {

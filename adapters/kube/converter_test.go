@@ -52,8 +52,8 @@ func TestNewConverter(t *testing.T) {
 	}
 
 	for k, v := range expectedLabels {
-		if c.Labels[k] != v {
-			t.Errorf("expected label %q=%q, got %q", k, v, c.Labels[k])
+		if c.ComponentLabels[k] != v {
+			t.Errorf("expected label %q=%q, got %q", k, v, c.ComponentLabels[k])
 		}
 	}
 }
@@ -66,7 +66,7 @@ func TestNewConverterNilInputs(t *testing.T) {
 		t.Error("expected empty identifiers with nil inputs")
 	}
 
-	if len(c.Labels) != 0 {
+	if len(c.ComponentLabels) != 0 {
 		t.Error("expected empty labels with nil inputs")
 	}
 }
@@ -574,15 +574,54 @@ services:
 
 				// Find and validate Deployment
 				var deployment *appsv1.Deployment
+				var namespace *corev1.Namespace
+				var pv *corev1.PersistentVolume
+				var pvc *corev1.PersistentVolumeClaim
 				for _, obj := range objects {
-					if dep, ok := obj.(*appsv1.Deployment); ok {
-						deployment = dep
-						break
+					switch o := obj.(type) {
+					case *appsv1.Deployment:
+						deployment = o
+					case *corev1.Namespace:
+						namespace = o
+					case *corev1.PersistentVolume:
+						pv = o
+					case *corev1.PersistentVolumeClaim:
+						pvc = o
 					}
 				}
 				if deployment == nil {
 					t.Error("deployment not found")
 					return
+				}
+
+				// Ensure Namespace does NOT have component-specific labels
+				if namespace == nil {
+					t.Error("namespace not found")
+				} else {
+					if _, ok := namespace.Labels["app"]; ok {
+						t.Error("namespace must not have 'app' label")
+					}
+					if _, ok := namespace.Labels["app.kubernetes.io/component"]; ok {
+						t.Error("namespace must not have 'app.kubernetes.io/component' label")
+					}
+				}
+
+				// Ensure PV/PVC do NOT have component-specific labels
+				if pv != nil {
+					if _, ok := pv.Labels["app"]; ok {
+						t.Error("persistentVolume must not have 'app' label")
+					}
+					if _, ok := pv.Labels["app.kubernetes.io/component"]; ok {
+						t.Error("persistentVolume must not have 'app.kubernetes.io/component' label")
+					}
+				}
+				if pvc != nil {
+					if _, ok := pvc.Labels["app"]; ok {
+						t.Error("persistentVolumeClaim must not have 'app' label")
+					}
+					if _, ok := pvc.Labels["app.kubernetes.io/component"]; ok {
+						t.Error("persistentVolumeClaim must not have 'app.kubernetes.io/component' label")
+					}
 				}
 
 				if len(deployment.Spec.Template.Spec.Containers) != 1 {
@@ -820,6 +859,9 @@ services:
 	var service *corev1.Service
 	var ingDefault *netv1.Ingress
 	var ingCustom *netv1.Ingress
+	var namespace *corev1.Namespace
+	var pv1 *corev1.PersistentVolume
+	var pvc1 *corev1.PersistentVolumeClaim
 
 	for _, obj := range objects {
 		switch v := obj.(type) {
@@ -833,6 +875,16 @@ services:
 				ingDefault = v
 			case "fullapp-app-custom":
 				ingCustom = v
+			}
+		case *corev1.Namespace:
+			namespace = v
+		case *corev1.PersistentVolume:
+			if pv1 == nil {
+				pv1 = v
+			}
+		case *corev1.PersistentVolumeClaim:
+			if pvc1 == nil {
+				pvc1 = v
 			}
 		}
 	}
@@ -880,6 +932,33 @@ services:
 	certResolver, ok := ingCustom.Annotations["traefik.ingress.kubernetes.io/router.tls.certresolver"]
 	if !ok || certResolver != "letsencrypt" {
 		t.Errorf("expected cert resolver 'letsencrypt' on custom ingress, got %q", certResolver)
+	}
+
+	// Namespace/PV/PVC must not have component-specific labels
+	if namespace == nil {
+		t.Fatal("namespace not found")
+	}
+	if _, ok := namespace.Labels["app"]; ok {
+		t.Error("namespace must not have 'app' label")
+	}
+	if _, ok := namespace.Labels["app.kubernetes.io/component"]; ok {
+		t.Error("namespace must not have 'app.kubernetes.io/component' label")
+	}
+	if pv1 != nil {
+		if _, ok := pv1.Labels["app"]; ok {
+			t.Error("persistentVolume must not have 'app' label")
+		}
+		if _, ok := pv1.Labels["app.kubernetes.io/component"]; ok {
+			t.Error("persistentVolume must not have 'app.kubernetes.io/component' label")
+		}
+	}
+	if pvc1 != nil {
+		if _, ok := pvc1.Labels["app"]; ok {
+			t.Error("persistentVolumeClaim must not have 'app' label")
+		}
+		if _, ok := pvc1.Labels["app.kubernetes.io/component"]; ok {
+			t.Error("persistentVolumeClaim must not have 'app.kubernetes.io/component' label")
+		}
 	}
 
 	t.Logf("Full workflow test completed successfully with %d objects", len(objects))

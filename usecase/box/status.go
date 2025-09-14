@@ -7,7 +7,9 @@ import (
 	providerdrv "github.com/kompox/kompox/adapters/drivers/provider"
 	"github.com/kompox/kompox/adapters/kube"
 	"github.com/kompox/kompox/domain/model"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 )
 
 type StatusInput struct {
@@ -71,7 +73,44 @@ func (u *UseCase) Status(ctx context.Context, in *StatusInput) (*StatusOutput, e
 		return nil, fmt.Errorf("convert failed: %w", err)
 	}
 
-	dep, err := kcli.Clientset.AppsV1().Deployments(c.Namespace).Get(ctx, c.ResourceName, metav1.GetOptions{})
+	// Ensure namespace exists and has expected BaseLabels
+	nsName := c.Namespace
+	if ns, err := kcli.Clientset.CoreV1().Namespaces().Get(ctx, nsName, metav1.GetOptions{}); err != nil {
+		if !apierrors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get namespace %s: %w", nsName, err)
+		}
+		// proceed with empty info but keep nsName
+	} else {
+		want := labels.Set(c.BaseLabels)
+		has := labels.Set(ns.Labels)
+		ok := true
+		for k, v := range want {
+			if has.Get(k) != v {
+				ok = false
+				break
+			}
+		}
+		if !ok {
+			// Namespace exists but labels mismatch; return not ready
+			return &StatusOutput{
+				AppID:       appObj.ID,
+				AppName:     appObj.Name,
+				ClusterID:   clusterObj.ID,
+				ClusterName: clusterObj.Name,
+				Ready:       false,
+				Image:       "",
+				Namespace:   nsName,
+				Node:        "",
+				Deployment:  c.ResourceName,
+				Pod:         "",
+				Container:   BoxContainerName,
+				Command:     nil,
+				Args:        nil,
+			}, nil
+		}
+	}
+
+	dep, err := kcli.Clientset.AppsV1().Deployments(nsName).Get(ctx, c.ResourceName, metav1.GetOptions{})
 	if err != nil {
 		return &StatusOutput{
 			AppID:       appObj.ID,

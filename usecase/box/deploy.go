@@ -173,7 +173,7 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      c.ResourceName,
 				Namespace: c.Namespace,
-				Labels:    c.Labels,
+				Labels:    c.BaseLabels,
 			},
 			Type: corev1.SecretTypeOpaque,
 			Data: map[string][]byte{
@@ -205,12 +205,12 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 	}
 
 	dep := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{Name: c.ResourceName, Namespace: c.Namespace, Labels: c.Labels},
+		ObjectMeta: metav1.ObjectMeta{Name: c.ResourceName, Namespace: c.Namespace, Labels: c.ComponentLabels},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: ptr.To[int32](1),
-			Selector: &metav1.LabelSelector{MatchLabels: c.Labels},
+			Selector: &metav1.LabelSelector{MatchLabels: c.ComponentLabels},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: c.Labels},
+				ObjectMeta: metav1.ObjectMeta{Labels: c.ComponentLabels},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{{
 						Name:            BoxContainerName,
