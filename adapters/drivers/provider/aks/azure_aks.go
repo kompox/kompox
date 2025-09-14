@@ -26,6 +26,20 @@ const (
 	outputIngressServiceAccountPrincipalID = "AZURE_INGRESS_SERVICE_ACCOUNT_PRINCIPAL_ID"
 )
 
+// paramSettingMap maps cluster setting keys to ARM template parameter names.
+var paramSettingMap = []struct{ param, setting string }{
+	{"aksSystemVmSize", "AZURE_AKS_SYSTEM_VM_SIZE"},
+	{"aksSystemVmDiskType", "AZURE_AKS_SYSTEM_VM_DISK_TYPE"},
+	{"aksSystemVmDiskSizeGB", "AZURE_AKS_SYSTEM_VM_DISK_SIZE_GB"},
+	{"aksSystemVmPriority", "AZURE_AKS_SYSTEM_VM_PRIORITY"},
+	{"aksSystemVmZones", "AZURE_AKS_SYSTEM_VM_ZONES"},
+	{"aksUserVmSize", "AZURE_AKS_USER_VM_SIZE"},
+	{"aksUserVmDiskType", "AZURE_AKS_USER_VM_DISK_TYPE"},
+	{"aksUserVmDiskSizeGB", "AZURE_AKS_USER_VM_DISK_SIZE_GB"},
+	{"aksUserVmPriority", "AZURE_AKS_USER_VM_PRIORITY"},
+	{"aksUserVmZones", "AZURE_AKS_USER_VM_ZONES"},
+}
+
 // azureDeploymentName generates the deployment name for the subscription-scoped deployment.
 // It returns the same name as the resource group name for consistency.
 func (d *driver) azureDeploymentName(cluster *model.Cluster) (string, error) {
@@ -50,6 +64,13 @@ func (d *driver) ensureAzureDeploymentCreated(ctx context.Context, cluster *mode
 		"resourceGroupName":              map[string]any{"value": resourceGroupName},
 		"ingressServiceAccountName":      map[string]any{"value": kube.IngressServiceAccountName(cluster)},
 		"ingressServiceAccountNamespace": map[string]any{"value": kube.IngressNamespace(cluster)},
+	}
+
+	// Load parameters from cluster settings if present
+	for _, mapping := range paramSettingMap {
+		if val, exists := cluster.Settings[mapping.setting]; exists {
+			parameters[mapping.param] = map[string]any{"value": val}
+		}
 	}
 
 	// Create deployments client for subscription-scoped deployment

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "11681695173008329328"
+      "templateHash": "9754339029865897384"
     }
   },
   "parameters": {
@@ -69,6 +69,26 @@
       "type": "string",
       "defaultValue": "Standard_B4ms"
     },
+    "aksSystemVmDiskType": {
+      "type": "string",
+      "defaultValue": "Ephemeral",
+      "allowedValues": [
+        "Ephemeral",
+        "Managed"
+      ]
+    },
+    "aksSystemVmDiskSizeGB": {
+      "type": "string",
+      "defaultValue": "30"
+    },
+    "aksSystemVmPriority": {
+      "type": "string",
+      "defaultValue": "Regular",
+      "allowedValues": [
+        "Regular",
+        "Spot"
+      ]
+    },
     "aksSystemVmZones": {
       "type": "string",
       "defaultValue": "1,2,3"
@@ -76,6 +96,26 @@
     "aksUserVmSize": {
       "type": "string",
       "defaultValue": "Standard_B4ms"
+    },
+    "aksUserVmDiskType": {
+      "type": "string",
+      "defaultValue": "Ephemeral",
+      "allowedValues": [
+        "Ephemeral",
+        "Managed"
+      ]
+    },
+    "aksUserVmDiskSizeGB": {
+      "type": "string",
+      "defaultValue": "30"
+    },
+    "aksUserVmPriority": {
+      "type": "string",
+      "defaultValue": "Regular",
+      "allowedValues": [
+        "Regular",
+        "Spot"
+      ]
     },
     "aksUserVmZones": {
       "type": "string",
@@ -2206,11 +2246,29 @@
           "systemPoolVmSize": {
             "value": "[parameters('aksSystemVmSize')]"
           },
+          "systemPoolVmDiskType": {
+            "value": "[parameters('aksSystemVmDiskType')]"
+          },
+          "systemPoolVmDiskSizeGB": {
+            "value": "[parameters('aksSystemVmDiskSizeGB')]"
+          },
+          "systemPoolVmPriority": {
+            "value": "[parameters('aksSystemVmPriority')]"
+          },
           "systemPoolVmZones": {
             "value": "[split(parameters('aksSystemVmZones'), ',')]"
           },
           "userPoolVmSize": {
             "value": "[parameters('aksUserVmSize')]"
+          },
+          "userPoolVmDiskType": {
+            "value": "[parameters('aksUserVmDiskType')]"
+          },
+          "userPoolVmDiskSizeGB": {
+            "value": "[parameters('aksUserVmDiskSizeGB')]"
+          },
+          "userPoolVmPriority": {
+            "value": "[parameters('aksUserVmPriority')]"
           },
           "userPoolVmZones": {
             "value": "[split(parameters('aksUserVmZones'), ',')]"
@@ -2223,7 +2281,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "11904600792499713497"
+              "templateHash": "16852145793742919327"
             }
           },
           "parameters": {
@@ -2319,6 +2377,18 @@
               "type": "string",
               "defaultValue": "Standard_D2as_v5"
             },
+            "systemPoolVmDiskType": {
+              "type": "string",
+              "defaultValue": "Ephemeral"
+            },
+            "systemPoolVmDiskSizeGB": {
+              "type": "string",
+              "defaultValue": "30"
+            },
+            "systemPoolVmPriority": {
+              "type": "string",
+              "defaultValue": "Regular"
+            },
             "systemPoolVmZones": {
               "type": "array",
               "defaultValue": [
@@ -2335,6 +2405,18 @@
               "type": "string",
               "defaultValue": "Standard_D2as_v5"
             },
+            "userPoolVmDiskType": {
+              "type": "string",
+              "defaultValue": "Ephemeral"
+            },
+            "userPoolVmDiskSizeGB": {
+              "type": "string",
+              "defaultValue": "30"
+            },
+            "userPoolVmPriority": {
+              "type": "string",
+              "defaultValue": "Regular"
+            },
             "userPoolVmZones": {
               "type": "array",
               "defaultValue": [
@@ -2345,8 +2427,8 @@
             }
           },
           "variables": {
-            "systemPoolBase": "[if(not(empty(parameters('systemPoolConfig'))), parameters('systemPoolConfig'), createObject('vmSize', parameters('systemPoolVmSize'), 'availabilityZones', parameters('systemPoolVmZones'), 'osType', 'Linux', 'maxPods', parameters('nodePoolMaxPods'), 'type', 'VirtualMachineScaleSets', 'enableAutoScaling', true(), 'count', 1, 'minCount', 1, 'maxCount', 3, 'upgradeSettings', createObject('maxSurge', '33%')))]",
-            "userPoolBase": "[if(not(empty(parameters('userPoolConfig'))), parameters('userPoolConfig'), createObject('vmSize', parameters('userPoolVmSize'), 'osType', 'Linux', 'maxPods', parameters('nodePoolMaxPods'), 'type', 'VirtualMachineScaleSets', 'enableAutoScaling', true(), 'count', 1, 'minCount', 0, 'maxCount', 10))]",
+            "systemPoolBase": "[if(not(empty(parameters('systemPoolConfig'))), parameters('systemPoolConfig'), createObject('vmSize', parameters('systemPoolVmSize'), 'availabilityZones', parameters('systemPoolVmZones'), 'osType', 'Linux', 'osDiskType', parameters('systemPoolVmDiskType'), 'osDiskSizeGB', int(parameters('systemPoolVmDiskSizeGB')), 'maxPods', parameters('nodePoolMaxPods'), 'type', 'VirtualMachineScaleSets', 'enableAutoScaling', true(), 'scaleSetPriority', parameters('systemPoolVmPriority'), 'count', 1, 'minCount', 1, 'maxCount', 3, 'upgradeSettings', createObject('maxSurge', '33%')))]",
+            "userPoolBase": "[if(not(empty(parameters('userPoolConfig'))), parameters('userPoolConfig'), createObject('vmSize', parameters('userPoolVmSize'), 'osType', 'Linux', 'osDiskType', parameters('userPoolVmDiskType'), 'osDiskSizeGB', int(parameters('userPoolVmDiskSizeGB')), 'maxPods', parameters('nodePoolMaxPods'), 'type', 'VirtualMachineScaleSets', 'enableAutoScaling', true(), 'scaleSetPriority', parameters('userPoolVmPriority'), 'count', 1, 'minCount', 0, 'maxCount', 10))]",
             "agentPoolProfiles": "[concat(createArray(union(createObject('name', 'npsystem', 'mode', 'System', 'nodeLabels', createObject('kompox.dev/node-pool', 'system')), variables('systemPoolBase'))), if(contains(parameters('userPoolVmZones'), '1'), createArray(union(createObject('name', 'npuser1', 'mode', 'User', 'availabilityZones', createArray('1'), 'nodeLabels', createObject('kompox.dev/node-pool', 'user', 'kompox.dev/node-zone', '1')), variables('userPoolBase'))), createArray()), if(contains(parameters('userPoolVmZones'), '2'), createArray(union(createObject('name', 'npuser2', 'mode', 'User', 'availabilityZones', createArray('2'), 'nodeLabels', createObject('kompox.dev/node-pool', 'user', 'kompox.dev/node-zone', '2')), variables('userPoolBase'))), createArray()), if(contains(parameters('userPoolVmZones'), '3'), createArray(union(createObject('name', 'npuser3', 'mode', 'User', 'availabilityZones', createArray('3'), 'nodeLabels', createObject('kompox.dev/node-pool', 'user', 'kompox.dev/node-zone', '3')), variables('userPoolBase'))), createArray()))]",
             "aksClusterAdminRole": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b1ff04bb-8a4e-4dc4-8eb5-8693973ce19b')]",
             "keyVaultSecretsUserRole": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '4633458b-17de-408a-b874-0445c86b69e6')]",

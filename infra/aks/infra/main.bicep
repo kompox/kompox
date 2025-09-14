@@ -22,8 +22,18 @@ param principalId string = deployer().objectId
 param ingressServiceAccountNamespace string = 'traefik'
 param ingressServiceAccountName string = 'traefik'
 param aksSystemVmSize string = 'Standard_B4ms'
+@allowed(['Ephemeral', 'Managed'])
+param aksSystemVmDiskType string = 'Ephemeral'
+param aksSystemVmDiskSizeGB string = '30'
+@allowed(['Regular'])
+param aksSystemVmPriority string = 'Regular'
 param aksSystemVmZones string = '1,2,3'
 param aksUserVmSize string = 'Standard_B4ms'
+@allowed(['Ephemeral', 'Managed'])
+param aksUserVmDiskType string = 'Ephemeral'
+param aksUserVmDiskSizeGB string = '30'
+@allowed(['Regular', 'Spot'])
+param aksUserVmPriority string = 'Regular'
 param aksUserVmZones string = '1,2,3'
 
 var abbrs = loadJsonContent('./abbreviations.json')
@@ -136,8 +146,14 @@ module aks './app/aks.bicep' = {
     storageAccountName: storageAccount.outputs.name
     kubernetesVersion: '1.33'
     systemPoolVmSize: aksSystemVmSize
+    systemPoolVmDiskType: aksSystemVmDiskType
+    systemPoolVmDiskSizeGB: aksSystemVmDiskSizeGB
+    systemPoolVmPriority: aksSystemVmPriority
     systemPoolVmZones: split(aksSystemVmZones, ',')
     userPoolVmSize: aksUserVmSize
+    userPoolVmDiskType: aksUserVmDiskType
+    userPoolVmDiskSizeGB: aksUserVmDiskSizeGB
+    userPoolVmPriority: aksUserVmPriority
     userPoolVmZones: split(aksUserVmZones, ',')
   }
 }

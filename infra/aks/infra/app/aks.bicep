@@ -38,9 +38,15 @@ param nodePoolMaxPods int = 250
 
 param systemPoolConfig object = {}
 param systemPoolVmSize string = 'Standard_D2as_v5'
+param systemPoolVmDiskType string = 'Ephemeral'
+param systemPoolVmDiskSizeGB string = '30'
+param systemPoolVmPriority string = 'Regular'
 param systemPoolVmZones array = ['1', '2', '3']
 param userPoolConfig object = {}
 param userPoolVmSize string = 'Standard_D2as_v5'
+param userPoolVmDiskType string = 'Ephemeral'
+param userPoolVmDiskSizeGB string = '30'
+param userPoolVmPriority string = 'Regular'
 param userPoolVmZones array = ['1', '2', '3']
 
 var systemPoolBase = !empty(systemPoolConfig)
@@ -49,9 +55,12 @@ var systemPoolBase = !empty(systemPoolConfig)
       vmSize: systemPoolVmSize
       availabilityZones: systemPoolVmZones
       osType: 'Linux'
+      osDiskType: systemPoolVmDiskType
+      osDiskSizeGB: int(systemPoolVmDiskSizeGB)
       maxPods: nodePoolMaxPods
       type: 'VirtualMachineScaleSets'
       enableAutoScaling: true
+      scaleSetPriority: systemPoolVmPriority
       count: 1
       minCount: 1
       maxCount: 3
@@ -65,9 +74,12 @@ var userPoolBase = !empty(userPoolConfig)
   : {
       vmSize: userPoolVmSize
       osType: 'Linux'
+      osDiskType: userPoolVmDiskType
+      osDiskSizeGB: int(userPoolVmDiskSizeGB)
       maxPods: nodePoolMaxPods
       type: 'VirtualMachineScaleSets'
       enableAutoScaling: true
+      scaleSetPriority: userPoolVmPriority
       count: 1
       minCount: 0
       maxCount: 10
