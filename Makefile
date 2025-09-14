@@ -1,4 +1,4 @@
-.PHONY: build test cmd bicep docker release release-snapshot release-check tidy diff-staged-changes
+.PHONY: build test cmd bicep docker release release-snapshot release-check tidy diff-staged-changes test-integration-1
 
 # Run full tests
 test:
@@ -42,3 +42,8 @@ bicep:
 # Build Docker image
 docker:
 	docker build -f docker/Dockerfile -t kompoxops .
+
+# Run tests in tests/aks-1
+test-aks-1:
+	$(MAKE) cmd
+	RUN_SH=$$($(CURDIR)/tests/aks-1/setup.sh) && echo "$$RUN_SH" && eval "$$RUN_SH"
