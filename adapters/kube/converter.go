@@ -81,8 +81,9 @@ type Converter struct {
 // ConverterVolumeBinding represents a static binding for one logical volume.
 //
 // Usage contract:
-//   - With BindVolumes: provide a slice whose length and order match App.Volumes.
-//     Name may be empty and will be inferred from App.Volumes[i].Name.
+//   - With BindVolumes: accepts any number of bindings. Name MUST be set and
+//     must reference a defined App volume. Completeness (all App.Volumes bound)
+//     is enforced at Build time.
 //   - With BuildVolumeObjects: provide any subset in any order; Name must be set.
 type ConverterVolumeBinding struct {
 	// Logical volume name defined in App.Volumes.
@@ -537,19 +538,27 @@ func (c *Converter) BindVolumes(ctx context.Context, vols []*ConverterVolumeBind
 	if c.Project == nil || c.Namespace == "" {
 		return fmt.Errorf("convert must be called before binding")
 	}
-	if len(vols) != len(c.App.Volumes) {
-		return fmt.Errorf("vols length %d does not match app volumes %d", len(vols), len(c.App.Volumes))
-	}
-	// Align order and infer names when empty, in-place on provided slice
-	for i, av := range c.App.Volumes {
-		vb := vols[i]
+	// Accept any number of bindings. For each provided binding, require Name
+	// to be set and validate that the referenced volume exists in the app
+	// definition. The completeness check (all app volumes are bound) is
+	// deferred to Build().
+	for i, vb := range vols {
 		if vb == nil {
-			return fmt.Errorf("binding at index %d is nil; expected volume %s", i, av.Name)
+			return fmt.Errorf("binding at index %d is nil", i)
 		}
 		if strings.TrimSpace(vb.Name) == "" {
-			vb.Name = av.Name
-		} else if vb.Name != av.Name {
-			return fmt.Errorf("binding at index %d is for volume %s; expected %s", i, vb.Name, av.Name)
+			return fmt.Errorf("binding at index %d has empty name", i)
+		}
+		// Ensure this name is a defined app volume
+		found := false
+		for _, av := range c.App.Volumes {
+			if av.Name == vb.Name {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return fmt.Errorf("volume %s is not defined in app", vb.Name)
 		}
 	}
 
@@ -704,15 +713,22 @@ func (c *Converter) Build() ([]string, error) {
 		return nil, fmt.Errorf("convert must be called before build")
 	}
 	if len(c.VolumeBindings) != len(c.App.Volumes) {
-		return nil, fmt.Errorf("bind must be called before build")
+		return nil, fmt.Errorf("volume bindings count %d does not match app volumes %d", len(c.VolumeBindings), len(c.App.Volumes))
+	}
+	// Ensure order and names align strictly with App.Volumes
+	for i, av := range c.App.Volumes {
+		vb := c.VolumeBindings[i]
+		if vb == nil {
+			return nil, fmt.Errorf("no binding at index %d for volume %s", i, av.Name)
+		}
+		if strings.TrimSpace(vb.Name) != av.Name {
+			return nil, fmt.Errorf("volume binding at index %d is for %s; expected %s", i, vb.Name, av.Name)
+		}
 	}
 
 	// Pod volumes using binding claim names
 	var podVolumes []corev1.Volume
 	for i, av := range c.App.Volumes {
-		if c.VolumeBindings[i] == nil {
-			return nil, fmt.Errorf("no binding at index %d for volume %s", i, av.Name)
-		}
 		claimName := strings.TrimSpace(c.VolumeBindings[i].ResourceName)
 		if claimName == "" {
 			return nil, fmt.Errorf("no claim name bound for volume %s", av.Name)

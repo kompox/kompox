@@ -378,13 +378,7 @@ services:
 			},
 			wantPVCount: 4, // 2 PVs + 2 PVCs
 		},
-		{
-			name: "wrong_binding_count",
-			bindings: []*ConverterVolumeBinding{
-				{Name: "data", VolumeDisk: &model.VolumeDisk{Handle: "test-handle-data"}},
-			},
-			wantErr: "vols length 1 does not match app volumes 2",
-		},
+		// wrong_binding_count no longer errors in BindVolumes; it will be validated in Build
 		{
 			name: "empty_handle_error",
 			bindings: []*ConverterVolumeBinding{
@@ -449,6 +443,45 @@ services:
 			}
 		})
 	}
+
+	// Additional: Bind fewer than app volumes should succeed here and fail at Build
+	{ // scope for variables
+		testC := NewConverter(svc, prv, cls, app, "app")
+		_, err := testC.Convert(ctx)
+		if err != nil {
+			t.Fatalf("convert failed: %v", err)
+		}
+		few := []*ConverterVolumeBinding{
+			{
+				Name:        "data",
+				VolumeDisk:  &model.VolumeDisk{Handle: "only-data"},
+				VolumeClass: &model.VolumeClass{CSIDriver: "test.csi"},
+			},
+		}
+		if err := testC.BindVolumes(ctx, few); err != nil {
+			t.Fatalf("BindVolumes should accept fewer bindings, got error: %v", err)
+		}
+		if _, err := testC.Build(); err == nil || !strings.Contains(err.Error(), "volume bindings count") {
+			t.Fatalf("Build should fail due to insufficient bindings, got: %v", err)
+		}
+	}
+
+	// Additional: Bind more than app volumes is allowed if names are valid; here last has empty name so it should error
+	{ // scope
+		testC := NewConverter(svc, prv, cls, app, "app")
+		_, err := testC.Convert(ctx)
+		if err != nil {
+			t.Fatalf("convert failed: %v", err)
+		}
+		more := []*ConverterVolumeBinding{
+			{Name: "data", VolumeDisk: &model.VolumeDisk{Handle: "h1"}, VolumeClass: &model.VolumeClass{CSIDriver: "test.csi"}},
+			{Name: "cache", VolumeDisk: &model.VolumeDisk{Handle: "h2"}, VolumeClass: &model.VolumeClass{CSIDriver: "test.csi"}},
+			{ /* empty name not allowed */ VolumeDisk: &model.VolumeDisk{Handle: "h3"}, VolumeClass: &model.VolumeClass{CSIDriver: "test.csi"}},
+		}
+		if err := testC.BindVolumes(ctx, more); err == nil || !strings.Contains(err.Error(), "empty name") {
+			t.Fatalf("expected empty name error for extra binding, got: %v", err)
+		}
+	}
 }
 
 // TestConverterBuild tests the final Build phase
@@ -489,25 +522,22 @@ services:
 		t.Fatalf("convert failed: %v", err)
 	}
 
-	// Bind volumes phase
-	bindings := []*ConverterVolumeBinding{
-		{
-			Name:       "data",
-			VolumeDisk: &model.VolumeDisk{Handle: "test-handle-data"},
-			VolumeClass: &model.VolumeClass{
-				CSIDriver:        "test.csi.driver",
-				StorageClassName: "test-storage",
-				AccessModes:      []string{"ReadWriteOnce"},
-				ReclaimPolicy:    "Retain",
-				VolumeMode:       "Filesystem",
-				FSType:           "ext4",
+	// Template bindings used per test (fresh copy each time)
+	mkBindings := func() []*ConverterVolumeBinding {
+		return []*ConverterVolumeBinding{
+			{
+				Name:       "data",
+				VolumeDisk: &model.VolumeDisk{Handle: "test-handle-data"},
+				VolumeClass: &model.VolumeClass{
+					CSIDriver:        "test.csi.driver",
+					StorageClassName: "test-storage",
+					AccessModes:      []string{"ReadWriteOnce"},
+					ReclaimPolicy:    "Retain",
+					VolumeMode:       "Filesystem",
+					FSType:           "ext4",
+				},
 			},
-		},
-	}
-
-	err = c.BindVolumes(ctx, bindings)
-	if err != nil {
-		t.Fatalf("bind volumes failed: %v", err)
+		}
 	}
 
 	tests := []struct {
@@ -657,7 +687,25 @@ services:
 			setup: func(c *Converter) {
 				c.VolumeBindings = nil // simulate not bound
 			},
-			wantErr: "bind must be called before build",
+			wantErr: "volume bindings count",
+		},
+		{
+			name: "build_name_mismatch_error",
+			setup: func(c *Converter) {
+				// Corrupt the binding name to not match the app volume order/name
+				if len(c.VolumeBindings) == 1 {
+					c.VolumeBindings[0].Name = "wrong-name"
+				}
+			},
+			wantErr: "volume binding at index 0 is for wrong-name; expected data",
+		},
+		{
+			name: "build_with_insufficient_bindings_errors",
+			setup: func(c *Converter) {
+				// Provide only 0 bindings while app defines 1 volume
+				c.VolumeBindings = []*ConverterVolumeBinding{}
+			},
+			wantErr: "volume bindings count 0 does not match app volumes 1",
 		},
 	}
 
@@ -669,6 +717,7 @@ services:
 			if err != nil {
 				t.Fatalf("convert failed: %v", err)
 			}
+			bindings := mkBindings()
 			err = testC.BindVolumes(ctx, bindings)
 			if err != nil {
 				t.Fatalf("bind volumes failed: %v", err)
