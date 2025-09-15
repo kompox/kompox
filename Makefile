@@ -43,7 +43,14 @@ bicep:
 docker:
 	docker build -f docker/Dockerfile -t kompoxops .
 
-# Run tests in tests/aks-1
-test-aks-1:
-	$(MAKE) cmd
-	RUN_SH=$$($(CURDIR)/tests/aks-1/setup.sh) && echo "$$RUN_SH" && eval "$$RUN_SH"
+# Run integration/e2e tests in tmp/tests/<test-name> directory
+TEST_DIR := tests/aks-e2e-basic
+TEST_NAME := $(notdir $(patsubst %/,%,$(TEST_DIR)))
+TEST_RUN_DIR := $(shell d=tmp/tests/$(TEST_NAME); i=''; while test -d $$d$$i; do i=$$(($$i-1)); done; echo $$d$$i)
+.PHONY: test-integration test-e2e e2e
+test-integration test-e2e e2e:
+	@echo "Testing $(TEST_DIR) in directory: $(TEST_RUN_DIR)" >&2
+	mkdir -p tmp/tests
+	cp -r $(TEST_DIR) $(TEST_RUN_DIR)
+test-integration-run test-e2e-run e2e-run: test-integration
+	$(MAKE) -C $(TEST_RUN_DIR) all | tee -a $(TEST_RUN_DIR)/test.log

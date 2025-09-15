@@ -1,28 +1,6 @@
 #!/bin/bash
 
-set -e
-
-RUN_DIR=$(cd $(dirname $0); pwd)
-
-cd $RUN_DIR
-
-echo "Running in $RUN_DIR"
-
-export KUBECONFIG="$RUN_DIR/kubeconfig"
-touch "$KUBECONFIG"
-chmod 600 "$KUBECONFIG"
-
-export SSH_DIR="$RUN_DIR/ssh"
-export SSH_PRIVATE_KEY="$SSH_DIR/id_rsa"
-export SSH_PUBLIC_KEY="$SSH_DIR/id_rsa.pub"
-mkdir -m 700 -p "$SSH_DIR"
-if ! test -r "$SSH_PRIVATE_KEY"; then
-    ssh-keygen -N '' -t rsa -f "$SSH_PRIVATE_KEY"
-fi
-
-export KOMPOXOPS_DB_URL="file:$RUN_DIR/kompoxops.yml"
-
-set -x
+set -xeuo pipefail
 
 cat kompoxops.yml
 
