@@ -12,6 +12,8 @@ param location string
 @maxLength(80) // RG name max len is 90. Ensure buffer for suffixes.
 param resourceGroupName string = ''
 
+param tags object = {}
+
 param keyVaultName string = ''
 param logAnalyticsName string = ''
 param applicationInsightsName string = ''
@@ -38,11 +40,9 @@ param aksUserVmZones string = '1,2,3'
 
 var abbrs = loadJsonContent('./abbreviations.json')
 
-// tags that should be applied to all resources.
-var tags = {
-  // Tag all resources with the environment name.
+var resourceTags = union(tags, {
   'azd-env-name': environmentName
-}
+})
 
 // Generate a unique token to be used in naming resources.
 // Remove linter suppression after using.
@@ -64,7 +64,7 @@ var apiServiceName = 'python-api'
 resource rg 'Microsoft.Resources/resourceGroups@2021-04-01' = {
   name: !empty(resourceGroupName) ? resourceGroupName : '${abbrs.resourcesResourceGroups}${environmentName}'
   location: location
-  tags: tags
+  tags: resourceTags
 }
 
 // Add resources to be provisioned below.
@@ -76,7 +76,7 @@ module keyVault './core/security/keyvault.bicep' = {
   scope: rg
   params: {
     location: location
-    tags: tags
+    tags: resourceTags
     name: !empty(keyVaultName) ? keyVaultName : '${abbrs.keyVaultVaults}${resourceToken}'
     principalId: principalId
   }
@@ -87,7 +87,7 @@ module monitoring './core/monitor/monitoring.bicep' = {
   scope: rg
   params: {
     location: location
-    tags: tags
+    tags: resourceTags
     logAnalyticsName: !empty(logAnalyticsName)
       ? logAnalyticsName
       : '${abbrs.operationalInsightsWorkspaces}${resourceToken}'
@@ -105,7 +105,7 @@ module userIdentity './app/user-identity.bicep' = {
   scope: rg
   params: {
     location: location
-    tags: tags
+    tags: resourceTags
     name: '${abbrs.managedIdentityUserAssignedIdentities}${resourceToken}'
   }
 }
@@ -128,7 +128,7 @@ module storageAccount './app/storage-account.bicep' = {
   params: {
     name: !empty(storageAccountName) ? storageAccountName : '${abbrs.storageStorageAccounts}${resourceToken}'
     location: location
-    tags: tags
+    tags: resourceTags
   }
 }
 
@@ -138,7 +138,7 @@ module aks './app/aks.bicep' = {
   params: {
     name: !empty(aksName) ? aksName : '${abbrs.containerServiceManagedClusters}${resourceToken}'
     location: location
-    tags: tags
+    tags: resourceTags
     principalId: principalId
     nodeResourceGroupName: '${rg.name}_mc'
     logAnalyticsName: monitoring.outputs.logAnalyticsWorkspaceName

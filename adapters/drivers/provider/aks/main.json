@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "9754339029865897384"
+      "templateHash": "15160679255322761658"
     }
   },
   "parameters": {
@@ -28,6 +28,10 @@
       "type": "string",
       "defaultValue": "",
       "maxLength": 80
+    },
+    "tags": {
+      "type": "object",
+      "defaultValue": {}
     },
     "keyVaultName": {
       "type": "string",
@@ -85,8 +89,7 @@
       "type": "string",
       "defaultValue": "Regular",
       "allowedValues": [
-        "Regular",
-        "Spot"
+        "Regular"
       ]
     },
     "aksSystemVmZones": {
@@ -261,9 +264,7 @@
       "webStaticSites": "stapp-"
     },
     "abbrs": "[variables('$fxv#0')]",
-    "tags": {
-      "azd-env-name": "[parameters('environmentName')]"
-    },
+    "resourceTags": "[union(parameters('tags'), createObject('azd-env-name', parameters('environmentName')))]",
     "resourceToken": "[toLower(uniqueString(subscription().id, parameters('environmentName'), parameters('location'), if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))))]",
     "ingressServiceAccountSubject": "[format('system:serviceaccount:{0}:{1}', parameters('ingressServiceAccountNamespace'), parameters('ingressServiceAccountName'))]",
     "apiServiceName": "python-api"
@@ -274,7 +275,7 @@
       "apiVersion": "2021-04-01",
       "name": "[if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))]",
       "location": "[parameters('location')]",
-      "tags": "[variables('tags')]"
+      "tags": "[variables('resourceTags')]"
     },
     {
       "type": "Microsoft.Resources/deployments",
@@ -291,7 +292,7 @@
             "value": "[parameters('location')]"
           },
           "tags": {
-            "value": "[variables('tags')]"
+            "value": "[variables('resourceTags')]"
           },
           "name": "[if(not(empty(parameters('keyVaultName'))), createObject('value', parameters('keyVaultName')), createObject('value', format('{0}{1}', variables('abbrs').keyVaultVaults, variables('resourceToken'))))]",
           "principalId": {
@@ -394,7 +395,7 @@
             "value": "[parameters('location')]"
           },
           "tags": {
-            "value": "[variables('tags')]"
+            "value": "[variables('resourceTags')]"
           },
           "logAnalyticsName": "[if(not(empty(parameters('logAnalyticsName'))), createObject('value', parameters('logAnalyticsName')), createObject('value', format('{0}{1}', variables('abbrs').operationalInsightsWorkspaces, variables('resourceToken'))))]",
           "applicationInsightsName": "[if(not(empty(parameters('applicationInsightsName'))), createObject('value', parameters('applicationInsightsName')), createObject('value', format('{0}{1}', variables('abbrs').insightsComponents, variables('resourceToken'))))]",
@@ -1913,7 +1914,7 @@
             "value": "[parameters('location')]"
           },
           "tags": {
-            "value": "[variables('tags')]"
+            "value": "[variables('resourceTags')]"
           },
           "name": {
             "value": "[format('{0}{1}', variables('abbrs').managedIdentityUserAssignedIdentities, variables('resourceToken'))]"
@@ -2067,7 +2068,7 @@
             "value": "[parameters('location')]"
           },
           "tags": {
-            "value": "[variables('tags')]"
+            "value": "[variables('resourceTags')]"
           }
         },
         "template": {
@@ -2223,7 +2224,7 @@
             "value": "[parameters('location')]"
           },
           "tags": {
-            "value": "[variables('tags')]"
+            "value": "[variables('resourceTags')]"
           },
           "principalId": {
             "value": "[parameters('principalId')]"
