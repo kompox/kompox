@@ -11,15 +11,15 @@ import (
 )
 
 // ensureAzureResourceGroupCreated ensures RG exists for Create path only.
-func (d *driver) ensureAzureResourceGroupCreated(ctx context.Context, rg string, principalID string) error {
+func (d *driver) ensureAzureResourceGroupCreated(ctx context.Context, rg string, tags map[string]*string, principalID string) error {
 	log := logging.FromContext(ctx)
 	// Ensure RG exists
 	groupsClient, err := armresources.NewResourceGroupsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
 	if err != nil {
 		return err
 	}
-	log.Info(ctx, "ensuring resource group", "resource_group", rg, "subscription", d.AzureSubscriptionId, "location", d.AzureLocation)
-	groupRes, err := groupsClient.CreateOrUpdate(ctx, rg, armresources.ResourceGroup{Location: to.Ptr(d.AzureLocation)}, nil)
+	log.Info(ctx, "ensuring resource group", "subscription", d.AzureSubscriptionId, "location", d.AzureLocation, "resource_group", rg, "tags", tagsForLog(tags))
+	groupRes, err := groupsClient.CreateOrUpdate(ctx, rg, armresources.ResourceGroup{Location: to.Ptr(d.AzureLocation), Tags: tags}, nil)
 	if err != nil {
 		return err
 	}

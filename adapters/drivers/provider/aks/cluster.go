@@ -32,16 +32,17 @@ func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster, o
 	log := logging.FromContext(ctx)
 
 	// Derive resource group name
-	resourceGroupName, err := d.clusterResourceGroupName(cluster)
-	if err != nil || resourceGroupName == "" {
+	rgName, err := d.clusterResourceGroupName(cluster)
+	if err != nil || rgName == "" {
 		return fmt.Errorf("derive cluster resource group: %w", err)
 	}
 
+	tags := d.clusterResourceTags(cluster.Name)
+
 	log.Info(ctx, "aks cluster provision begin",
-		"resource_group", resourceGroupName,
-		"cluster", cluster.Name,
-		"provider", d.ProviderName(),
 		"subscription", d.AzureSubscriptionId,
+		"resource_group", rgName,
+		"tags", tagsForLog(tags),
 	)
 
 	// Resolve options
@@ -52,14 +53,13 @@ func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster, o
 		}
 	}
 	// Ensure subscription-scoped deployment (idempotent; respects force)
-	if err := d.ensureAzureDeploymentCreated(ctx, cluster, resourceGroupName, o.Force); err != nil {
+	if err := d.ensureAzureDeploymentCreated(ctx, cluster, rgName, tags, o.Force); err != nil {
 		return err
 	}
 
 	log.Info(ctx, "aks cluster provision succeeded",
-		"resource_group", resourceGroupName,
-		"cluster", cluster.Name,
-		"provider", d.ProviderName(),
+		"subscription", d.AzureSubscriptionId,
+		"resource_group", rgName,
 	)
 	return nil
 }

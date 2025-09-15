@@ -15,8 +15,23 @@ package aks
 import (
 	"fmt"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/kompox/kompox/domain/model"
 	"github.com/kompox/kompox/internal/naming"
+)
+
+// Resource tag names
+const (
+	tagServiceName  = "kompox-service-name"
+	tagProviderName = "kompox-provider-name"
+	tagClusterName  = "kompox-cluster-name"
+	tagClusterHash  = "kompox-cluster-hash"
+	tagAppName      = "kompox-app-name"
+	tagAppIDHash    = "kompox-app-id-hash"
+	tagVolumeName   = "kompox-volume"        // volume name
+	tagDiskName     = "kompox-disk-name"     // disk name (CompactID)
+	tagDiskAssigned = "kompox-disk-assigned" // true/false
+	tagSnapshotName = "kompox-snapshot-name" // snapshot name (CompactID)
 )
 
 // Resource group related limits and setting keys.
@@ -40,10 +55,28 @@ func safeTruncate(base, hash string) (string, error) {
 	return fmt.Sprintf("%s_%s", base, hash), nil
 }
 
-// clusterTagValue generates the cluster tag value for resource tagging.
-// Kept within the aks package as a driver method per provider driver conventions.
-func (d *driver) clusterTagValue(clusterName string) string {
-	return fmt.Sprintf("%s/%s/%s", d.ServiceName(), d.ProviderName(), clusterName)
+// tagsForLog converts map[string]*string tags into map[string]string for logging.
+// Nil values are skipped.
+func tagsForLog(tags map[string]*string) map[string]string {
+	out := make(map[string]string, len(tags))
+	for k, v := range tags {
+		if v != nil {
+			out[k] = *v
+		}
+	}
+	return out
+}
+
+// clusterResourceTags generates key-values for tagging cluster-scoped Azure resources.
+func (d *driver) clusterResourceTags(clusterName string) map[string]*string {
+	h := naming.NewHashes(d.ServiceName(), d.ProviderName(), clusterName, "")
+	return map[string]*string{
+		tagServiceName:  to.Ptr(d.ServiceName()),
+		tagProviderName: to.Ptr(d.ProviderName()),
+		tagClusterName:  to.Ptr(clusterName),
+		tagClusterHash:  to.Ptr(h.Cluster),
+		"managed-by":    to.Ptr("kompox"),
+	}
 }
 
 func (d *driver) clusterResourceGroupName(cluster *model.Cluster) (string, error) {
@@ -62,6 +95,18 @@ func (d *driver) clusterResourceGroupName(cluster *model.Cluster) (string, error
 		return "", fmt.Errorf("cluster resource group name: %w", err)
 	}
 	return result, nil
+}
+
+// appResourceTags generates key-values for tagging app-scoped Azure resources.
+func (d *driver) appResourceTags(appName string) map[string]*string {
+	h := naming.NewHashes(d.ServiceName(), d.ProviderName(), "", appName)
+	return map[string]*string{
+		tagServiceName:  to.Ptr(d.ServiceName()),
+		tagProviderName: to.Ptr(d.ProviderName()),
+		tagAppName:      to.Ptr(appName),
+		tagAppIDHash:    to.Ptr(h.AppID),
+		"managed-by":    to.Ptr("kompox"),
+	}
 }
 
 func (d *driver) appResourceGroupName(app *model.App) (string, error) {

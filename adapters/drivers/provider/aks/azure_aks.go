@@ -48,7 +48,7 @@ func (d *driver) azureDeploymentName(cluster *model.Cluster) (string, error) {
 
 // ensureAzureDeploymentCreated creates or updates the subscription-scoped deployment for the cluster.
 // If an existing deployment succeeded and force is false, it returns without changes (idempotent).
-func (d *driver) ensureAzureDeploymentCreated(ctx context.Context, cluster *model.Cluster, resourceGroupName string, force bool) error {
+func (d *driver) ensureAzureDeploymentCreated(ctx context.Context, cluster *model.Cluster, resourceGroupName string, tags map[string]*string, force bool) error {
 	log := logging.FromContext(ctx)
 
 	// Unmarshal embedded ARM template (subscription scope)
@@ -64,6 +64,7 @@ func (d *driver) ensureAzureDeploymentCreated(ctx context.Context, cluster *mode
 		"resourceGroupName":              map[string]any{"value": resourceGroupName},
 		"ingressServiceAccountName":      map[string]any{"value": kube.IngressServiceAccountName(cluster)},
 		"ingressServiceAccountNamespace": map[string]any{"value": kube.IngressNamespace(cluster)},
+		"tags":                           map[string]any{"value": tags},
 	}
 
 	// Load parameters from cluster settings if present
@@ -113,10 +114,7 @@ func (d *driver) ensureAzureDeploymentCreated(ctx context.Context, cluster *mode
 			Parameters: parameters,
 			Mode:       to.Ptr(armresources.DeploymentModeIncremental),
 		},
-		Tags: map[string]*string{
-			"kompox-cluster": to.Ptr(d.clusterTagValue(cluster.Name)),
-			"managed-by":     to.Ptr("kompox"),
-		},
+		Tags: tags,
 	}
 
 	poller, err := deploymentsClient.BeginCreateOrUpdateAtSubscriptionScope(ctx, depName, deployment, nil)

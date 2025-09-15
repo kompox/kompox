@@ -14,14 +14,6 @@ import (
 	"github.com/kompox/kompox/internal/naming"
 )
 
-// Disk tag keys
-const (
-	tagVolumeName   = "kompox-volume"        // volume name
-	tagDiskName     = "kompox-disk-name"     // disk name (CompactID)
-	tagDiskAssigned = "kompox-disk-assigned" // true/false
-	tagSnapshotName = "kompox-snapshot-name" // snapshot name (CompactID)
-)
-
 // Built-in role definition IDs used by this driver
 const (
 	// Contributor role definition GUID (tenant-agnostic)
@@ -312,7 +304,7 @@ func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, a
 	}
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
-	if err := d.ensureAzureResourceGroupCreated(ctx, rg, principalID); err != nil {
+	if err := d.ensureAzureResourceGroupCreated(ctx, rg, d.appResourceTags(app.Name), principalID); err != nil {
 		return nil, fmt.Errorf("ensure RG: %w", err)
 	}
 	disksClient, err := armcompute.NewDisksClient(d.AzureSubscriptionId, d.TokenCredential, nil)
@@ -334,15 +326,17 @@ func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, a
 			assignedValue = "true"
 		}
 	}
+	// Base tags from app identity
+	tags := d.appResourceTags(app.Name)
+	// Add volume/disk specific tags
+	tags[tagVolumeName] = to.Ptr(volName)
+	tags[tagDiskName] = to.Ptr(diskName)
+	tags[tagDiskAssigned] = to.Ptr(assignedValue)
+
 	disk := armcompute.Disk{
 		Location: to.Ptr(d.AzureLocation),
 		Zones:    azureZones(zone),
-		Tags: map[string]*string{
-			tagVolumeName:   to.Ptr(volName),
-			tagDiskName:     to.Ptr(diskName),
-			tagDiskAssigned: to.Ptr(assignedValue),
-			"managed-by":    to.Ptr("kompox"),
-		},
+		Tags:     tags,
 		Properties: &armcompute.DiskProperties{
 			CreationData: &armcompute.CreationData{CreateOption: to.Ptr(armcompute.DiskCreateOptionEmpty)},
 			DiskSizeGB:   to.Ptr(sizeGB),
@@ -556,14 +550,16 @@ func (d *driver) VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluste
 	if err != nil {
 		return nil, fmt.Errorf("generate snapshot resource name: %w", err)
 	}
+	// Base tags from app identity
+	tags := d.appResourceTags(app.Name)
+	// Add volume/snapshot specific tags
+	tags[tagVolumeName] = to.Ptr(volName)
+	tags[tagDiskName] = to.Ptr(diskName)
+	tags[tagSnapshotName] = to.Ptr(snapName)
+
 	snap := armcompute.Snapshot{
 		Location: to.Ptr(d.AzureLocation),
-		Tags: map[string]*string{
-			tagVolumeName:   to.Ptr(volName),
-			tagDiskName:     to.Ptr(diskName),
-			tagSnapshotName: to.Ptr(snapName),
-			"managed-by":    to.Ptr("kompox"),
-		},
+		Tags:     tags,
 		Properties: &armcompute.SnapshotProperties{
 			CreationData: &armcompute.CreationData{
 				CreateOption:     to.Ptr(armcompute.DiskCreateOptionCopy),
@@ -661,7 +657,7 @@ func (d *driver) VolumeSnapshotRestore(ctx context.Context, cluster *model.Clust
 	}
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	defer cancel()
-	if err := d.ensureAzureResourceGroupCreated(ctx, rg, principalID); err != nil {
+	if err := d.ensureAzureResourceGroupCreated(ctx, rg, d.appResourceTags(app.Name), principalID); err != nil {
 		return nil, fmt.Errorf("ensure RG: %w", err)
 	}
 	snapsClient, err := armcompute.NewSnapshotsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
@@ -688,15 +684,17 @@ func (d *driver) VolumeSnapshotRestore(ctx context.Context, cluster *model.Clust
 	if err != nil {
 		return nil, fmt.Errorf("generate disk resource name: %w", err)
 	}
+	// Base tags from app identity
+	tags := d.appResourceTags(app.Name)
+	// Add volume/disk specific tags
+	tags[tagVolumeName] = to.Ptr(volName)
+	tags[tagDiskName] = to.Ptr(diskName)
+	tags[tagDiskAssigned] = to.Ptr("false")
+
 	disk := armcompute.Disk{
 		Location: to.Ptr(d.AzureLocation),
 		Zones:    azureZones(zone),
-		Tags: map[string]*string{
-			tagVolumeName:   to.Ptr(volName),
-			tagDiskName:     to.Ptr(diskName),
-			tagDiskAssigned: to.Ptr("false"),
-			"managed-by":    to.Ptr("kompox"),
-		},
+		Tags:     tags,
 		Properties: &armcompute.DiskProperties{
 			CreationData: &armcompute.CreationData{
 				CreateOption:     to.Ptr(armcompute.DiskCreateOptionCopy),
