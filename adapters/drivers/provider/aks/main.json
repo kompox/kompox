@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "15160679255322761658"
+      "templateHash": "7637533697737951982"
     }
   },
   "parameters": {
@@ -71,7 +71,7 @@
     },
     "aksSystemVmSize": {
       "type": "string",
-      "defaultValue": "Standard_B4ms"
+      "defaultValue": "Standard_D2lds_v6"
     },
     "aksSystemVmDiskType": {
       "type": "string",
@@ -83,7 +83,7 @@
     },
     "aksSystemVmDiskSizeGB": {
       "type": "string",
-      "defaultValue": "30"
+      "defaultValue": "110"
     },
     "aksSystemVmPriority": {
       "type": "string",
@@ -94,11 +94,11 @@
     },
     "aksSystemVmZones": {
       "type": "string",
-      "defaultValue": "1,2,3"
+      "defaultValue": ""
     },
     "aksUserVmSize": {
       "type": "string",
-      "defaultValue": "Standard_B4ms"
+      "defaultValue": "Standard_D2lds_v6"
     },
     "aksUserVmDiskType": {
       "type": "string",
@@ -110,11 +110,11 @@
     },
     "aksUserVmDiskSizeGB": {
       "type": "string",
-      "defaultValue": "30"
+      "defaultValue": "110"
     },
     "aksUserVmPriority": {
       "type": "string",
-      "defaultValue": "Regular",
+      "defaultValue": "Spot",
       "allowedValues": [
         "Regular",
         "Spot"
@@ -2256,9 +2256,7 @@
           "systemPoolVmPriority": {
             "value": "[parameters('aksSystemVmPriority')]"
           },
-          "systemPoolVmZones": {
-            "value": "[split(parameters('aksSystemVmZones'), ',')]"
-          },
+          "systemPoolVmZones": "[if(empty(parameters('aksSystemVmZones')), createObject('value', createArray()), createObject('value', split(parameters('aksSystemVmZones'), ',')))]",
           "userPoolVmSize": {
             "value": "[parameters('aksUserVmSize')]"
           },
@@ -2271,9 +2269,7 @@
           "userPoolVmPriority": {
             "value": "[parameters('aksUserVmPriority')]"
           },
-          "userPoolVmZones": {
-            "value": "[split(parameters('aksUserVmZones'), ',')]"
-          }
+          "userPoolVmZones": "[if(empty(parameters('aksUserVmZones')), createObject('value', createArray()), createObject('value', split(parameters('aksUserVmZones'), ',')))]"
         },
         "template": {
           "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
@@ -2282,7 +2278,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "16852145793742919327"
+              "templateHash": "3276566855331665572"
             }
           },
           "parameters": {
@@ -2376,7 +2372,7 @@
             },
             "systemPoolVmSize": {
               "type": "string",
-              "defaultValue": "Standard_D2as_v5"
+              "defaultValue": "Standard_D2lds_v6"
             },
             "systemPoolVmDiskType": {
               "type": "string",
@@ -2384,7 +2380,7 @@
             },
             "systemPoolVmDiskSizeGB": {
               "type": "string",
-              "defaultValue": "30"
+              "defaultValue": "110"
             },
             "systemPoolVmPriority": {
               "type": "string",
@@ -2392,11 +2388,7 @@
             },
             "systemPoolVmZones": {
               "type": "array",
-              "defaultValue": [
-                "1",
-                "2",
-                "3"
-              ]
+              "defaultValue": []
             },
             "userPoolConfig": {
               "type": "object",
@@ -2404,7 +2396,7 @@
             },
             "userPoolVmSize": {
               "type": "string",
-              "defaultValue": "Standard_D2as_v5"
+              "defaultValue": "Standard_D2lds_v6"
             },
             "userPoolVmDiskType": {
               "type": "string",
@@ -2412,7 +2404,7 @@
             },
             "userPoolVmDiskSizeGB": {
               "type": "string",
-              "defaultValue": "30"
+              "defaultValue": "110"
             },
             "userPoolVmPriority": {
               "type": "string",
@@ -2439,7 +2431,7 @@
           "resources": [
             {
               "type": "Microsoft.ContainerService/managedClusters",
-              "apiVersion": "2025-05-02-preview",
+              "apiVersion": "2025-05-01",
               "name": "[parameters('name')]",
               "location": "[parameters('location')]",
               "tags": "[parameters('tags')]",
@@ -2551,7 +2543,7 @@
               "name": "[guid(resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName')), resourceId('Microsoft.ContainerService/managedClusters', parameters('name')), variables('keyVaultSecretsUserRole'))]",
               "properties": {
                 "roleDefinitionId": "[variables('keyVaultSecretsUserRole')]",
-                "principalId": "[reference(resourceId('Microsoft.ContainerService/managedClusters', parameters('name')), '2025-05-02-preview', 'full').identity.principalId]"
+                "principalId": "[reference(resourceId('Microsoft.ContainerService/managedClusters', parameters('name')), '2025-05-01', 'full').identity.principalId]"
               },
               "dependsOn": [
                 "[resourceId('Microsoft.ContainerService/managedClusters', parameters('name'))]"
@@ -2565,7 +2557,7 @@
               "name": "[guid(resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName')), resourceId('Microsoft.ContainerService/managedClusters', parameters('name')), variables('keyVaultCertificateUserRole'))]",
               "properties": {
                 "roleDefinitionId": "[variables('keyVaultCertificateUserRole')]",
-                "principalId": "[reference(resourceId('Microsoft.ContainerService/managedClusters', parameters('name')), '2025-05-02-preview', 'full').identity.principalId]"
+                "principalId": "[reference(resourceId('Microsoft.ContainerService/managedClusters', parameters('name')), '2025-05-01', 'full').identity.principalId]"
               },
               "dependsOn": [
                 "[resourceId('Microsoft.ContainerService/managedClusters', parameters('name'))]"
@@ -2579,7 +2571,7 @@
               "name": "[guid(resourceId('Microsoft.ContainerRegistry/registries', parameters('containerRegistryName')), resourceId('Microsoft.ContainerService/managedClusters', parameters('name')), variables('acrPullRole'))]",
               "properties": {
                 "roleDefinitionId": "[variables('acrPullRole')]",
-                "principalId": "[reference(resourceId('Microsoft.ContainerService/managedClusters', parameters('name')), '2025-05-02-preview', 'full').identity.principalId]"
+                "principalId": "[reference(resourceId('Microsoft.ContainerService/managedClusters', parameters('name')), '2025-05-01', 'full').identity.principalId]"
               },
               "dependsOn": [
                 "[resourceId('Microsoft.ContainerService/managedClusters', parameters('name'))]"
@@ -2593,11 +2585,11 @@
             },
             "principalId": {
               "type": "string",
-              "value": "[reference(resourceId('Microsoft.ContainerService/managedClusters', parameters('name')), '2025-05-02-preview', 'full').identity.principalId]"
+              "value": "[reference(resourceId('Microsoft.ContainerService/managedClusters', parameters('name')), '2025-05-01', 'full').identity.principalId]"
             },
             "oidcIssuerUrl": {
               "type": "string",
-              "value": "[reference(resourceId('Microsoft.ContainerService/managedClusters', parameters('name')), '2025-05-02-preview').oidcIssuerProfile.issuerURL]"
+              "value": "[reference(resourceId('Microsoft.ContainerService/managedClusters', parameters('name')), '2025-05-01').oidcIssuerProfile.issuerURL]"
             }
           }
         }

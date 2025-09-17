@@ -37,15 +37,15 @@ param aadTenantId string = tenant().tenantId
 param nodePoolMaxPods int = 250
 
 param systemPoolConfig object = {}
-param systemPoolVmSize string = 'Standard_D2as_v5'
+param systemPoolVmSize string = 'Standard_D2lds_v6'
 param systemPoolVmDiskType string = 'Ephemeral'
-param systemPoolVmDiskSizeGB string = '30'
+param systemPoolVmDiskSizeGB string = '110'
 param systemPoolVmPriority string = 'Regular'
-param systemPoolVmZones array = ['1', '2', '3']
+param systemPoolVmZones array = []
 param userPoolConfig object = {}
-param userPoolVmSize string = 'Standard_D2as_v5'
+param userPoolVmSize string = 'Standard_D2lds_v6'
 param userPoolVmDiskType string = 'Ephemeral'
-param userPoolVmDiskSizeGB string = '30'
+param userPoolVmDiskSizeGB string = '110'
 param userPoolVmPriority string = 'Regular'
 param userPoolVmZones array = ['1', '2', '3']
 
@@ -152,7 +152,7 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2021-12-01-previ
   name: logAnalyticsName
 }
 
-resource aks 'Microsoft.ContainerService/managedClusters@2025-05-02-preview' = {
+resource aks 'Microsoft.ContainerService/managedClusters@2025-05-01' = {
   name: name
   location: location
   tags: tags
