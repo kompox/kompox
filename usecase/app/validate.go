@@ -26,6 +26,8 @@ type ValidateOutput struct {
 	Warnings []string
 	// Compose is the normalized compose YAML when validation succeeds.
 	Compose string
+	// Converter is the populated kube.Converter when conversion succeeds (nil otherwise).
+	Converter *kube.Converter
 	// K8sObjects are generated Kubernetes manifests if conversion succeeds.
 	K8sObjects []runtime.Object
 }
@@ -162,6 +164,7 @@ func (u *UseCase) Validate(ctx context.Context, in *ValidateInput) (*ValidateOut
 		out.Warnings = append(out.Warnings, fmt.Sprintf("compose conversion failed: %v", buildErr))
 		return out, nil
 	}
+	out.Converter = conv
 	out.K8sObjects = conv.AllObjects()
 	out.Warnings = append(out.Warnings, warns1...)
 	out.Warnings = append(out.Warnings, warns2...)

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	providerdrv "github.com/kompox/kompox/adapters/drivers/provider"
 	"github.com/kompox/kompox/adapters/kube"
@@ -11,6 +12,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 )
@@ -110,6 +112,42 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 	// Apply via server-side apply.
 	if err := kcli.ApplyObjects(ctx, vout.K8sObjects, &kube.ApplyOptions{FieldManager: "kompoxops", ForceConflicts: true}); err != nil {
 		return nil, fmt.Errorf("apply objects failed: %w", err)
+	}
+
+	// Inline prune of stale headless Services using converter metadata.
+	if vout.Converter != nil {
+		// Desired names from converter (authoritative)
+		desired := map[string]struct{}{}
+		for _, hs := range vout.Converter.K8sHeadlessServices {
+			if hs != nil {
+				desired[hs.Name] = struct{}{}
+			}
+		}
+		// List current headless services via selector (app + marker)
+		selector := vout.Converter.HeadlessServiceSelectorString
+		// Namespace: derive from converter namespace (avoid assuming K8sObjects[0])
+		ns := vout.Converter.Namespace
+		list, lerr := kcli.Clientset.CoreV1().Services(ns).List(ctx, metav1.ListOptions{LabelSelector: selector})
+		if lerr != nil {
+			logger.Warn(ctx, "list headless services for prune failed", "err", lerr, "namespace", ns)
+		} else {
+			var toDelete []string
+			for _, svc := range list.Items {
+				if _, ok := desired[svc.Name]; ok {
+					continue
+				}
+				toDelete = append(toDelete, svc.Name)
+			}
+			sort.Strings(toDelete)
+			for _, name := range toDelete {
+				if derr := kcli.Clientset.CoreV1().Services(ns).Delete(ctx, name, metav1.DeleteOptions{}); derr != nil {
+					logger.Warn(ctx, "delete stale headless service failed", "name", name, "err", derr)
+				}
+			}
+			if len(toDelete) > 0 {
+				logger.Info(ctx, "pruned stale headless services", "count", len(toDelete), "names", toDelete)
+			}
+		}
 	}
 
 	logger.Info(ctx, "deploy success", "app", appObj.Name)

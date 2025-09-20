@@ -3,6 +3,7 @@ package kube
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"testing"
 
@@ -42,13 +43,13 @@ func TestNewConverter(t *testing.T) {
 	}
 
 	expectedLabels := map[string]string{
-		"app":                          "testapp-app",
-		"app.kubernetes.io/name":       "testapp",
-		"app.kubernetes.io/instance":   "testapp-" + c.HashIN,
-		"app.kubernetes.io/component":  "app",
-		"app.kubernetes.io/managed-by": "kompox",
-		"kompox.dev/app-instance-hash": c.HashIN,
-		"kompox.dev/app-id-hash":       c.HashID,
+		LabelAppSelector:        "testapp-app",
+		LabelAppK8sName:         "testapp",
+		LabelAppK8sInstance:     "testapp-" + c.HashIN,
+		LabelAppK8sComponent:    "app",
+		LabelAppK8sManagedBy:    "kompox",
+		LabelK4xAppInstanceHash: c.HashIN,
+		LabelK4xAppIDHash:       c.HashID,
 	}
 
 	for k, v := range expectedLabels {
@@ -550,56 +551,9 @@ services:
 			name:  "successful_build",
 			setup: func(c *Converter) {}, // no modification needed
 			validate: func(t *testing.T, objects []runtime.Object, warnings []string) {
-				if len(objects) != 10 { // Namespace + SA + Role + RoleBinding + NP + PV + PVC + Deployment + Service + Ingress
-					t.Errorf("expected 10 objects, got %d", len(objects))
-				}
-
-				// Check object types in expected order
-				for i, obj := range objects {
-					if i < 10 { // we expect 10 specific objects
-						switch i {
-						case 0:
-							if _, ok := obj.(*corev1.Namespace); !ok {
-								t.Errorf("object %d should be Namespace, got %T", i, obj)
-							}
-						case 1:
-							if _, ok := obj.(*corev1.ServiceAccount); !ok {
-								t.Errorf("object %d should be ServiceAccount, got %T", i, obj)
-							}
-						case 2:
-							if _, ok := obj.(*rbacv1.Role); !ok {
-								t.Errorf("object %d should be Role, got %T", i, obj)
-							}
-						case 3:
-							if _, ok := obj.(*rbacv1.RoleBinding); !ok {
-								t.Errorf("object %d should be RoleBinding, got %T", i, obj)
-							}
-						case 4:
-							if _, ok := obj.(*netv1.NetworkPolicy); !ok {
-								t.Errorf("object %d should be NetworkPolicy, got %T", i, obj)
-							}
-						case 5:
-							if _, ok := obj.(*corev1.PersistentVolume); !ok {
-								t.Errorf("object %d should be PersistentVolume, got %T", i, obj)
-							}
-						case 6:
-							if _, ok := obj.(*corev1.PersistentVolumeClaim); !ok {
-								t.Errorf("object %d should be PersistentVolumeClaim, got %T", i, obj)
-							}
-						case 7:
-							if _, ok := obj.(*appsv1.Deployment); !ok {
-								t.Errorf("object %d should be Deployment, got %T", i, obj)
-							}
-						case 8:
-							if _, ok := obj.(*corev1.Service); !ok {
-								t.Errorf("object %d should be Service, got %T", i, obj)
-							}
-						case 9:
-							if _, ok := obj.(*netv1.Ingress); !ok {
-								t.Errorf("object %d should be Ingress, got %T", i, obj)
-							}
-						}
-					}
+				// Now includes 1 headless service in addition to prior objects => 11
+				if len(objects) != 11 { // Namespace + SA + Role + RoleBinding + NP + PV + PVC + Deployment + Service + Headless + Ingress
+					t.Errorf("expected 11 objects, got %d", len(objects))
 				}
 
 				// Find and validate Deployment
@@ -607,6 +561,7 @@ services:
 				var namespace *corev1.Namespace
 				var pv *corev1.PersistentVolume
 				var pvc *corev1.PersistentVolumeClaim
+				var services []*corev1.Service
 				for _, obj := range objects {
 					switch o := obj.(type) {
 					case *appsv1.Deployment:
@@ -617,40 +572,68 @@ services:
 						pv = o
 					case *corev1.PersistentVolumeClaim:
 						pvc = o
+					case *corev1.Service:
+						services = append(services, o)
 					}
 				}
 				if deployment == nil {
 					t.Error("deployment not found")
 					return
 				}
+				if len(services) != 2 { // main + headless
+					t.Fatalf("expected 2 services (main + headless), got %d", len(services))
+				}
+				// Identify headless vs main
+				var headlessFound int
+				var mainFound int
+				for _, s := range services {
+					if s.Labels[LabelK4xComposeServiceHeadless] == "true" {
+						headlessFound++
+						if s.Spec.ClusterIP != corev1.ClusterIPNone {
+							t.Errorf("headless service %s should have ClusterIP None", s.Name)
+						}
+						if len(s.Spec.Ports) != 0 {
+							t.Errorf("headless service %s should have 0 ports", s.Name)
+						}
+						// selector must NOT include marker label
+						if _, ok := s.Spec.Selector[LabelK4xComposeServiceHeadless]; ok {
+							t.Errorf("headless service %s selector must not contain marker label", s.Name)
+						}
+					} else {
+						mainFound++
+					}
+				}
+				if headlessFound != 1 || mainFound != 1 {
+					t.Errorf("expected 1 headless and 1 main service, got headless=%d main=%d", headlessFound, mainFound)
+				}
 
 				// Ensure Namespace does NOT have component-specific labels
 				if namespace == nil {
 					t.Error("namespace not found")
 				} else {
-					if _, ok := namespace.Labels["app"]; ok {
-						t.Error("namespace must not have 'app' label")
+					if _, ok := namespace.Labels[LabelAppSelector]; ok {
+						t.Error("namespace must not have component 'app' selector label")
 					}
-					if _, ok := namespace.Labels["app.kubernetes.io/component"]; ok {
-						t.Error("namespace must not have 'app.kubernetes.io/component' label")
+					if _, ok := namespace.Labels[LabelAppK8sComponent]; ok {
+						t.Error("namespace must not have component label")
 					}
 				}
 
 				// Ensure PV/PVC do NOT have component-specific labels
 				if pv != nil {
-					if _, ok := pv.Labels["app"]; ok {
-						t.Error("persistentVolume must not have 'app' label")
+					if _, ok := pv.Labels[LabelAppSelector]; ok {
+						t.Error("persistentVolume must not have component selector label")
 					}
-					if _, ok := pv.Labels["app.kubernetes.io/component"]; ok {
-						t.Error("persistentVolume must not have 'app.kubernetes.io/component' label")
+					if _, ok := pv.Labels[LabelAppK8sComponent]; ok {
+						t.Error("persistentVolume must not have component label")
 					}
 				}
 				if pvc != nil {
-					if _, ok := pvc.Labels["app"]; ok {
-						t.Error("persistentVolumeClaim must not have 'app' label")
+					if _, ok := pvc.Labels[LabelAppSelector]; ok {
+						t.Error("persistentVolumeClaim must not have component selector label")
 					}
-					if _, ok := pvc.Labels["app.kubernetes.io/component"]; ok {
-						t.Error("persistentVolumeClaim must not have 'app.kubernetes.io/component' label")
+					if _, ok := pvc.Labels[LabelAppK8sComponent]; ok {
+						t.Error("persistentVolumeClaim must not have component label")
 					}
 				}
 
@@ -851,8 +834,8 @@ services:
 	t.Logf("Build warnings: %v", buildWarnings)
 	objects := c.AllObjects()
 	// Validate the final result
-	if len(objects) != 13 { // Namespace + SA + Role + RoleBinding + NP + 2PV + 2PVC + Deployment + Service + 2x Ingress
-		t.Errorf("expected 13 objects, got %d", len(objects))
+	if len(objects) != 15 { // +2 headless services (frontend, backend)
+		t.Errorf("expected 15 objects, got %d", len(objects))
 	}
 
 	// Count object types
@@ -893,7 +876,7 @@ services:
 		"PersistentVolume":      2,
 		"PersistentVolumeClaim": 2,
 		"Deployment":            1,
-		"Service":               1,
+		"Service":               3, // main + 2 headless
 		"Ingress":               2,
 	}
 
@@ -905,7 +888,7 @@ services:
 
 	// Find and validate key objects
 	var deployment *appsv1.Deployment
-	var service *corev1.Service
+	var services []*corev1.Service
 	var ingDefault *netv1.Ingress
 	var ingCustom *netv1.Ingress
 	var namespace *corev1.Namespace
@@ -917,7 +900,7 @@ services:
 		case *appsv1.Deployment:
 			deployment = v
 		case *corev1.Service:
-			service = v
+			services = append(services, v)
 		case *netv1.Ingress:
 			switch v.Name {
 			case "fullapp-app-default":
@@ -953,14 +936,39 @@ services:
 	}
 
 	// Validate service
-	if service == nil {
-		t.Fatal("service not found")
+	if len(services) != 3 {
+		t.Fatalf("expected 3 services (1 main + 2 headless), got %d", len(services))
 	}
-	if service.Name != "fullapp-app" {
-		t.Errorf("expected service name 'fullapp-app', got %q", service.Name)
+	// identify main service
+	var main *corev1.Service
+	var headlessCount int
+	for _, s := range services {
+		if s.Labels[LabelK4xComposeServiceHeadless] == "true" {
+			headlessCount++
+			if s.Spec.ClusterIP != corev1.ClusterIPNone {
+				t.Errorf("headless service %s should have ClusterIP None", s.Name)
+			}
+			if len(s.Spec.Ports) != 0 {
+				t.Errorf("headless service %s should have 0 ports", s.Name)
+			}
+			if _, ok := s.Spec.Selector[LabelK4xComposeServiceHeadless]; ok {
+				t.Errorf("headless service %s selector must not contain marker label", s.Name)
+			}
+		} else {
+			main = s
+		}
 	}
-	if len(service.Spec.Ports) != 2 {
-		t.Errorf("expected 2 service ports, got %d", len(service.Spec.Ports))
+	if headlessCount != 2 {
+		t.Errorf("expected 2 headless services, got %d", headlessCount)
+	}
+	if main == nil {
+		t.Fatalf("main service not found")
+	}
+	if main.Name != "fullapp-app" {
+		t.Errorf("expected main service name 'fullapp-app', got %q", main.Name)
+	}
+	if len(main.Spec.Ports) != 2 {
+		t.Errorf("expected 2 service ports, got %d", len(main.Spec.Ports))
 	}
 
 	// Validate ingress
@@ -987,26 +995,26 @@ services:
 	if namespace == nil {
 		t.Fatal("namespace not found")
 	}
-	if _, ok := namespace.Labels["app"]; ok {
-		t.Error("namespace must not have 'app' label")
+	if _, ok := namespace.Labels[LabelAppSelector]; ok {
+		t.Error("namespace must not have component selector label")
 	}
-	if _, ok := namespace.Labels["app.kubernetes.io/component"]; ok {
-		t.Error("namespace must not have 'app.kubernetes.io/component' label")
+	if _, ok := namespace.Labels[LabelAppK8sComponent]; ok {
+		t.Error("namespace must not have component label")
 	}
 	if pv1 != nil {
-		if _, ok := pv1.Labels["app"]; ok {
-			t.Error("persistentVolume must not have 'app' label")
+		if _, ok := pv1.Labels[LabelAppSelector]; ok {
+			t.Error("persistentVolume must not have component selector label")
 		}
-		if _, ok := pv1.Labels["app.kubernetes.io/component"]; ok {
-			t.Error("persistentVolume must not have 'app.kubernetes.io/component' label")
+		if _, ok := pv1.Labels[LabelAppK8sComponent]; ok {
+			t.Error("persistentVolume must not have component label")
 		}
 	}
 	if pvc1 != nil {
-		if _, ok := pvc1.Labels["app"]; ok {
-			t.Error("persistentVolumeClaim must not have 'app' label")
+		if _, ok := pvc1.Labels[LabelAppSelector]; ok {
+			t.Error("persistentVolumeClaim must not have component selector label")
 		}
-		if _, ok := pvc1.Labels["app.kubernetes.io/component"]; ok {
-			t.Error("persistentVolumeClaim must not have 'app.kubernetes.io/component' label")
+		if _, ok := pvc1.Labels[LabelAppK8sComponent]; ok {
+			t.Error("persistentVolumeClaim must not have component label")
 		}
 	}
 
@@ -1053,11 +1061,11 @@ func TestDeploymentNodeSelector(t *testing.T) {
 
 	// Check default pool
 	nodeSelector := deployment.Spec.Template.Spec.NodeSelector
-	if nodeSelector["kompox.dev/node-pool"] != "user" {
-		t.Errorf("expected default node pool 'user', got %q", nodeSelector["kompox.dev/node-pool"])
+	if nodeSelector[LabelK4xNodePool] != "user" {
+		t.Errorf("expected default node pool 'user', got %q", nodeSelector[LabelK4xNodePool])
 	}
-	if _, hasZone := nodeSelector["kompox.dev/node-zone"]; hasZone {
-		t.Errorf("expected no zone selector by default, but found: %q", nodeSelector["kompox.dev/node-zone"])
+	if _, hasZone := nodeSelector[LabelK4xNodeZone]; hasZone {
+		t.Errorf("expected no zone selector by default, but found: %q", nodeSelector[LabelK4xNodeZone])
 	}
 
 	// Test case 2: Custom pool and zone
@@ -1095,11 +1103,11 @@ func TestDeploymentNodeSelector(t *testing.T) {
 
 	// Check custom pool and zone
 	nodeSelector = deployment.Spec.Template.Spec.NodeSelector
-	if nodeSelector["kompox.dev/node-pool"] != "system" {
-		t.Errorf("expected node pool 'system', got %q", nodeSelector["kompox.dev/node-pool"])
+	if nodeSelector[LabelK4xNodePool] != "system" {
+		t.Errorf("expected node pool 'system', got %q", nodeSelector[LabelK4xNodePool])
 	}
-	if nodeSelector["kompox.dev/node-zone"] != "japaneast-1" {
-		t.Errorf("expected node zone 'japaneast-1', got %q", nodeSelector["kompox.dev/node-zone"])
+	if nodeSelector[LabelK4xNodeZone] != "japaneast-1" {
+		t.Errorf("expected node zone 'japaneast-1', got %q", nodeSelector[LabelK4xNodeZone])
 	}
 
 	// Test case 3: Only zone specified (pool should default to "user")
@@ -1136,12 +1144,87 @@ func TestDeploymentNodeSelector(t *testing.T) {
 
 	// Check default pool with custom zone
 	nodeSelector = deployment.Spec.Template.Spec.NodeSelector
-	if nodeSelector["kompox.dev/node-pool"] != "user" {
-		t.Errorf("expected default node pool 'user', got %q", nodeSelector["kompox.dev/node-pool"])
+	if nodeSelector[LabelK4xNodePool] != "user" {
+		t.Errorf("expected default node pool 'user', got %q", nodeSelector[LabelK4xNodePool])
 	}
-	if nodeSelector["kompox.dev/node-zone"] != "westus2-2" {
-		t.Errorf("expected node zone 'westus2-2', got %q", nodeSelector["kompox.dev/node-zone"])
+	if nodeSelector[LabelK4xNodeZone] != "westus2-2" {
+		t.Errorf("expected node zone 'westus2-2', got %q", nodeSelector[LabelK4xNodeZone])
 	}
 
 	t.Logf("All deployment nodeSelector tests completed successfully")
+}
+
+// TestHeadlessServicesGeneration validates generation details and pruning metadata.
+func TestHeadlessServicesGeneration(t *testing.T) {
+	ctx := context.Background()
+	compose := `
+services:
+  api:
+    image: nginx:1.20
+  worker:
+    image: busybox:1.36
+`
+	svc := &model.Service{Name: "svc"}
+	prv := &model.Provider{Name: "prv", Driver: "test"}
+	cls := &model.Cluster{Name: "cls"}
+	app := &model.App{Name: "demo", Compose: compose}
+	c := NewConverter(svc, prv, cls, app, "app")
+	if _, err := c.Convert(ctx); err != nil {
+		t.Fatalf("convert failed: %v", err)
+	}
+	if len(c.K8sHeadlessServices) != 2 {
+		t.Fatalf("expected 2 headless services, got %d", len(c.K8sHeadlessServices))
+	}
+	names := []string{c.K8sHeadlessServices[0].Name, c.K8sHeadlessServices[1].Name}
+	sort.Strings(names)
+	if names[0] != "api" || names[1] != "worker" {
+		t.Errorf("unexpected headless service names %v", names)
+	}
+	for _, hs := range c.K8sHeadlessServices {
+		if hs.Spec.ClusterIP != corev1.ClusterIPNone {
+			t.Errorf("headless %s missing ClusterIP None", hs.Name)
+		}
+		if len(hs.Spec.Ports) != 0 {
+			t.Errorf("headless %s should have 0 ports", hs.Name)
+		}
+		if hs.Labels[LabelK4xComposeServiceHeadless] != "true" {
+			t.Errorf("headless %s missing marker label", hs.Name)
+		}
+		if _, ok := hs.Spec.Selector[LabelK4xComposeServiceHeadless]; ok {
+			t.Errorf("headless %s selector must not have marker", hs.Name)
+		}
+		if hs.Spec.Selector[LabelAppSelector] == "" {
+			t.Errorf("headless %s selector missing component app label", hs.Name)
+		}
+	}
+	// Pruning selector metadata
+	if c.HeadlessServiceSelector[LabelAppSelector] == "" {
+		t.Error("selector missing app label")
+	}
+	if c.HeadlessServiceSelector[LabelK4xComposeServiceHeadless] != "true" {
+		t.Error("selector missing marker label")
+	}
+	if !strings.Contains(c.HeadlessServiceSelectorString, LabelK4xComposeServiceHeadless+"=true") {
+		t.Errorf("selector string missing marker: %s", c.HeadlessServiceSelectorString)
+	}
+}
+
+// TestZeroHeadlessServices ensures metadata still present when no compose services defined.
+func TestZeroHeadlessServices(t *testing.T) {
+	ctx := context.Background()
+	compose := `services: {}`
+	svc := &model.Service{Name: "svc"}
+	prv := &model.Provider{Name: "prv", Driver: "test"}
+	cls := &model.Cluster{Name: "cls"}
+	app := &model.App{Name: "empty", Compose: compose}
+	c := NewConverter(svc, prv, cls, app, "app")
+	if _, err := c.Convert(ctx); err != nil {
+		t.Fatalf("convert failed: %v", err)
+	}
+	if len(c.K8sHeadlessServices) != 0 {
+		t.Fatalf("expected 0 headless services, got %d", len(c.K8sHeadlessServices))
+	}
+	if c.HeadlessServiceSelector[LabelAppSelector] == "" || c.HeadlessServiceSelector[LabelK4xComposeServiceHeadless] != "true" {
+		t.Fatalf("headless selector metadata incomplete: %#v", c.HeadlessServiceSelector)
+	}
 }

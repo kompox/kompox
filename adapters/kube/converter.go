@@ -50,19 +50,28 @@ type Converter struct {
 	ResourceName    string            // <appName>-<componentName> for Deployment/Service/Ingress
 	BaseLabels      map[string]string // labels applied to ALL kinds (Namespace/NP/SA/Role/RB/PV/PVC/...)
 	ComponentLabels map[string]string // BaseLabels + component labels (Deployment/Service/Ingress/Pod only)
-	Selector        map[string]string
-	SelectorString  string
-	NodeSelector    map[string]string
+	// HeadlessServiceLabels are ComponentLabels plus the headless marker label.
+	HeadlessServiceLabels map[string]string
+	// HeadlessServiceSelector is the label selector map used to identify headless services (for pruning etc.).
+	// It contains the component app label and the headless marker label. NOTE: This is NOT currently used as the
+	// Service spec.selector (pods do not carry the headless marker) – it is for list/delete operations only.
+	HeadlessServiceSelector map[string]string
+	// HeadlessServiceSelectorString is the string form of HeadlessServiceSelector for convenience (k8s ListOptions).
+	HeadlessServiceSelectorString string
+	Selector                      map[string]string
+	SelectorString                string
+	NodeSelector                  map[string]string
 
 	// Provider-agnostic K8s pieces
-	K8sNamespace      *corev1.Namespace
-	K8sContainers     []corev1.Container
-	K8sInitContainers []corev1.Container
-	K8sService        *corev1.Service
-	K8sIngressDefault *netv1.Ingress
-	K8sIngressCustom  *netv1.Ingress
-	// Deployment built at Build() time
-	K8sDeployment *appsv1.Deployment
+	K8sNamespace        *corev1.Namespace
+	K8sContainers       []corev1.Container
+	K8sInitContainers   []corev1.Container
+	K8sService          *corev1.Service   // for ingress
+	K8sHeadlessServices []*corev1.Service // for intra-pod DNS aliasing
+	K8sIngressDefault   *netv1.Ingress
+	K8sIngressCustom    *netv1.Ingress
+	K8sDeployment       *appsv1.Deployment // built at Build() time
+
 	// Optional security and access resources
 	K8sNetworkPolicy  *netv1.NetworkPolicy
 	K8sServiceAccount *corev1.ServiceAccount
@@ -114,20 +123,24 @@ func NewConverter(svc *model.Service, prv *model.Provider, cls *model.Cluster, a
 		c.ResourceName = fmt.Sprintf("%s-%s", a.Name, component)
 		// BaseLabels are applied to all resources (including Namespace/PV/PVC etc.)
 		c.BaseLabels = map[string]string{
-			"app.kubernetes.io/name":       a.Name,
-			"app.kubernetes.io/instance":   fmt.Sprintf("%s-%s", a.Name, c.HashIN),
-			"app.kubernetes.io/managed-by": "kompox",
-			"kompox.dev/app-instance-hash": c.HashIN,
-			"kompox.dev/app-id-hash":       c.HashID,
+			LabelAppK8sName:         a.Name,
+			LabelAppK8sInstance:     fmt.Sprintf("%s-%s", a.Name, c.HashIN),
+			LabelAppK8sManagedBy:    "kompox",
+			LabelK4xAppInstanceHash: c.HashIN,
+			LabelK4xAppIDHash:       c.HashID,
 		}
 		// ComponentLabels are applied only to Deployment/Service/Ingress/Pod (component-scoped)
 		c.ComponentLabels = maps.Clone(c.BaseLabels)
-		c.ComponentLabels["app"] = fmt.Sprintf("%s-%s", a.Name, component)
-		c.ComponentLabels["app.kubernetes.io/component"] = component
-		c.Selector = map[string]string{
-			"app": c.ComponentLabels["app"],
-		}
+		c.ComponentLabels[LabelAppSelector] = fmt.Sprintf("%s-%s", a.Name, component)
+		c.ComponentLabels[LabelAppK8sComponent] = component
+		c.Selector = map[string]string{LabelAppSelector: c.ComponentLabels[LabelAppSelector]}
 		c.SelectorString = labels.Set(c.Selector).String()
+		// Precompute headless Service labels (ComponentLabels + marker) and selector used for pruning
+		c.HeadlessServiceLabels = maps.Clone(c.ComponentLabels)
+		c.HeadlessServiceLabels[LabelK4xComposeServiceHeadless] = "true"
+		c.HeadlessServiceSelector = maps.Clone(c.Selector)
+		c.HeadlessServiceSelector[LabelK4xComposeServiceHeadless] = "true"
+		c.HeadlessServiceSelectorString = labels.Set(c.HeadlessServiceSelector).String()
 
 		// Precompute NodeSelector from app deployment settings
 		c.NodeSelector = map[string]string{}
@@ -136,10 +149,10 @@ func NewConverter(svc *model.Service, prv *model.Provider, cls *model.Cluster, a
 		if a.Deployment.Pool != "" {
 			pool = a.Deployment.Pool
 		}
-		c.NodeSelector["kompox.dev/node-pool"] = pool
+		c.NodeSelector[LabelK4xNodePool] = pool
 		// Zone is optional and only set if specified
 		if a.Deployment.Zone != "" {
-			c.NodeSelector["kompox.dev/node-zone"] = a.Deployment.Zone
+			c.NodeSelector[LabelK4xNodeZone] = a.Deployment.Zone
 		}
 	}
 	return c
@@ -313,8 +326,8 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		Name:   nsName,
 		Labels: baseLabels,
 		Annotations: map[string]string{
-			"kompox.dev/app":             fmt.Sprintf("%s/%s/%s/%s", c.Svc.Name, c.Prv.Name, c.Cls.Name, c.App.Name),
-			"kompox.dev/provider-driver": c.Prv.Driver,
+			AnnotationK4xApp:            fmt.Sprintf("%s/%s/%s/%s", c.Svc.Name, c.Prv.Name, c.Cls.Name, c.App.Name),
+			AnnotationK4xProviderDriver: c.Prv.Driver,
 		},
 	}}
 
@@ -393,7 +406,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 
 	// Service from ingress rules or ports
 	var warnings []string
-	var svcObj *corev1.Service
+	var service *corev1.Service
 	if len(c.App.Ingress.Rules) > 0 { // need service if ingress defined
 		portSeen := map[int]struct{}{}
 		hostSeen := map[string]string{}
@@ -427,7 +440,10 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 				hostSeen[host] = r.Name
 			}
 		}
-		svcObj = &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: c.ResourceName, Namespace: nsName, Labels: c.ComponentLabels}, Spec: corev1.ServiceSpec{Selector: c.Selector, Ports: servicePorts}}
+		service = &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{Name: c.ResourceName, Namespace: nsName, Labels: c.ComponentLabels},
+			Spec:       corev1.ServiceSpec{Selector: c.Selector, Ports: servicePorts},
+		}
 	} else if len(hostPortToContainer) > 0 {
 		var ports []corev1.ServicePort
 		var hps []int
@@ -436,21 +452,43 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		}
 		sort.Ints(hps)
 		for _, hp := range hps {
-			ports = append(ports, corev1.ServicePort{Name: fmt.Sprintf("p%d", hp), Port: int32(hp), TargetPort: intstr.FromInt(hostPortToContainer[hp])})
+			port := corev1.ServicePort{
+				Name: fmt.Sprintf("p%d", hp),
+				Port: int32(hp), TargetPort: intstr.FromInt(hostPortToContainer[hp]),
+			}
+			ports = append(ports, port)
 		}
-		svcObj = &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: c.ResourceName, Namespace: nsName, Labels: c.ComponentLabels}, Spec: corev1.ServiceSpec{Selector: c.Selector, Ports: ports}}
+		service = &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{Name: c.ResourceName, Namespace: nsName, Labels: c.ComponentLabels},
+			Spec:       corev1.ServiceSpec{Selector: c.Selector, Ports: ports},
+		}
+	}
+
+	// Build headless Services for each compose service (DNS A record only, no ports) per spec.
+	var headlessServices []*corev1.Service
+	for _, s := range proj.Services { // deterministic order
+		name := s.Name
+		// Validate naming collision with ingress service reserved prefixes
+		if strings.HasPrefix(name, fmt.Sprintf("%s-app", c.App.Name)) || strings.HasPrefix(name, fmt.Sprintf("%s-box", c.App.Name)) {
+			return nil, fmt.Errorf("compose service name '%s' conflicts with reserved ingress service name prefixes", name)
+		}
+		hs := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: nsName, Labels: c.HeadlessServiceLabels},
+			Spec:       corev1.ServiceSpec{ClusterIP: corev1.ClusterIPNone, Selector: c.Selector},
+		}
+		headlessServices = append(headlessServices, hs)
 	}
 
 	// Ingress generation (Traefik)
 	var ingDefault, ingCustom *netv1.Ingress
-	if len(c.App.Ingress.Rules) > 0 && svcObj != nil {
+	if len(c.App.Ingress.Rules) > 0 && service != nil {
 		// Build Custom-domain Ingress (hosts explicitly provided)
 		var customRules []netv1.IngressRule
 		customHostSeen := map[string]struct{}{}
 		for _, r := range c.App.Ingress.Rules {
 			cp := hostPortToContainer[r.Port]
 			portName := containerPortName[cp]
-			path := netv1.HTTPIngressPath{Path: "/", PathType: ptr.To(netv1.PathTypePrefix), Backend: netv1.IngressBackend{Service: &netv1.IngressServiceBackend{Name: svcObj.Name, Port: netv1.ServiceBackendPort{Name: portName}}}}
+			path := netv1.HTTPIngressPath{Path: "/", PathType: ptr.To(netv1.PathTypePrefix), Backend: netv1.IngressBackend{Service: &netv1.IngressServiceBackend{Name: service.Name, Port: netv1.ServiceBackendPort{Name: portName}}}}
 			for _, host := range r.Hosts {
 				if _, dup := customHostSeen[host]; dup {
 					return nil, fmt.Errorf("host %s duplicated across ingress entries", host)
@@ -487,7 +525,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 			for _, r := range c.App.Ingress.Rules {
 				cp := hostPortToContainer[r.Port]
 				portName := containerPortName[cp]
-				path := netv1.HTTPIngressPath{Path: "/", PathType: ptr.To(netv1.PathTypePrefix), Backend: netv1.IngressBackend{Service: &netv1.IngressServiceBackend{Name: svcObj.Name, Port: netv1.ServiceBackendPort{Name: portName}}}}
+				path := netv1.HTTPIngressPath{Path: "/", PathType: ptr.To(netv1.PathTypePrefix), Backend: netv1.IngressBackend{Service: &netv1.IngressServiceBackend{Name: service.Name, Port: netv1.ServiceBackendPort{Name: portName}}}}
 				host := fmt.Sprintf("%s-%s-%d.%s", c.App.Name, c.HashID, r.Port, defaultDomain)
 				if _, dup := defaultHostSeen[host]; dup {
 					return nil, fmt.Errorf("generated default host %s duplicated", host)
@@ -515,7 +553,8 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 	c.K8sNamespace = ns
 	c.K8sContainers = containers
 	c.K8sInitContainers = initContainers
-	c.K8sService = svcObj
+	c.K8sService = service
+	c.K8sHeadlessServices = headlessServices
 	c.K8sIngressDefault = ingDefault
 	c.K8sIngressCustom = ingCustom
 	// Assign security resources
@@ -801,6 +840,9 @@ func (c *Converter) DeploymentObjects() []runtime.Object {
 	}
 	if c.K8sService != nil {
 		objs = append(objs, c.K8sService)
+	}
+	for _, hs := range c.K8sHeadlessServices {
+		objs = append(objs, hs)
 	}
 	if c.K8sIngressDefault != nil {
 		objs = append(objs, c.K8sIngressDefault)

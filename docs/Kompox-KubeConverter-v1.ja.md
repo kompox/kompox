@@ -23,8 +23,10 @@
   - PVC 複数個 (PVを参照する)
 - コンポーネント (`app` `box` など) ごとに以下を生成
   - Deployment 1個 (シングルレプリカ、strategy.type=Recreate)
-  - Service 1個 (compose の host ポートを列挙)
-  - Ingress 0〜2個 (DNSホスト名から Service へのルーティング)
+  - Service 複数個
+    - ingress: 1個だけ生成。compose の host ポートを列挙して Ingress より参照される
+    - headless: compose の service の数だけ作成、ローカル DNS 解決用
+  - Ingress 0〜2個 (DNSホスト名から Service(ingress) へのルーティング)
     - デフォルトドメイン用 Ingress
     - カスタムドメイン用 Ingress
     - 生成条件は後述
@@ -33,8 +35,8 @@
 
 変換時に次のようなコンポーネント名 `<componentName>` を指定する。
 
-- `app` (アプリ)
-- `box` (Kompox Box)
+- `app` (アプリ: app.compose により記述される)
+- `box` (Kompox Box: kompoxops box deploy でデプロイする)
 
 リソース命名規則
 
@@ -48,8 +50,12 @@
   - PVCはPVと同名とする
 - NetworkPolicy/ServiceAccount/Role/RoleBinding: `<appName>`
   - Namespace内のリソースで一意性が担保されているためハッシュを含まない
-- Service/Deployment: `<appName>-<componentName>`
+- Deployment/Service(ingress): `<appName>-<componentName>`
   - Namespace内のリソースで一意性が担保されているためハッシュを含まない
+- Service(headless): `<serviceName>`
+  - app.compose.servicesに記述された名前をそのまま使用する
+  - Service(ingress) 名前衝突回避: `<appName>-app` または `<appName>-box` で始まる名前はエラーとする
+  - Namespacen内では単一のappしかデプロイできないのでapp.compose.servicesによる名前衝突はない
 - Ingress:
   - デフォルトドメイン用: `<appName>-<componentName>-default`
   - カスタムドメイン用: `<appName>-<componentName>-custom`
@@ -66,8 +72,9 @@
 |`app.kubernetes.io/managed-by: kompox`|ALL||
 |`kompox.dev/app-instance-hash: <inHASH>`|ALL|クラスタ依存インスタンスハッシュ|
 |`kompox.dev/app-id-hash: <idHASH>`|ALL|クラスタ非依存アプリ識別ハッシュ|
+|`kompox.dev/compose-service-headless: true`|Service(headless)||
 
-Deployment や Service の Pod セレクタでは次のラベルを照合する。
+Deployment および Service の Pod セレクタでは次のラベルを照合する。
 
 ```yaml
 app: <appName>-<componentName>
@@ -757,6 +764,44 @@ spec:
   - name: admin
     port: 8081
     targetPort: 8080
+  selector:
+    app: app1-app
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app
+  namespace: kxspHASH-app1-idHASH
+  labels:
+    app: app1-app
+    app.kubernetes.io/name: app1
+    app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/component: app
+    app.kubernetes.io/managed-by: kompox
+    kompox.dev/app-instance-hash: inHASH
+    kompox.dev/app-id-hash: idHASH
+    kompox.dev/compose-service-headless: true
+spec:
+  clusterIP: None
+  selector:
+    app: app1-app
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: kxspHASH-app1-idHASH
+  labels:
+    app: app1-app
+    app.kubernetes.io/name: app1
+    app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/component: app
+    app.kubernetes.io/managed-by: kompox
+    kompox.dev/app-instance-hash: inHASH
+    kompox.dev/app-id-hash: idHASH
+    kompox.dev/compose-service-headless: true
+spec:
+  clusterIP: None
   selector:
     app: app1-app
 ---
