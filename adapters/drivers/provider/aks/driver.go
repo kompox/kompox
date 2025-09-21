@@ -114,7 +114,8 @@ func init() {
 		prefix := get(keyResourcePrefix)
 		if prefix == "" {
 			h := naming.NewHashes(serviceName, provider.Name, "", "")
-			prefix = fmt.Sprintf("kx%s", h.Provider)
+			// Default Azure resource prefix aligns with namespace/pv naming spec: k4x-<spHASH>
+			prefix = fmt.Sprintf("k4x-%s", h.Provider)
 		}
 		if len(prefix) > maxResourcePrefix {
 			prefix = prefix[:maxResourcePrefix]

@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/kompox/kompox/domain/model"
+	"github.com/kompox/kompox/internal/naming"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
@@ -33,7 +34,7 @@ func TestNewConverter(t *testing.T) {
 		t.Error("hash identifiers not computed")
 	}
 
-	expectedNS := fmt.Sprintf("kx%s-testapp-%s", c.HashSP, c.HashID)
+	expectedNS := fmt.Sprintf("k4x-%s-testapp-%s", c.HashSP, c.HashID)
 	if c.Namespace != expectedNS {
 		t.Errorf("expected namespace %q, got %q", expectedNS, c.Namespace)
 	}
@@ -57,6 +58,25 @@ func TestNewConverter(t *testing.T) {
 		if c.ComponentLabels[k] != v {
 			t.Errorf("expected label %q=%q, got %q", k, v, c.ComponentLabels[k])
 		}
+	}
+}
+
+// TestNamingK4xPrefix ensures namespace and volume resource names adopt the new k4x- prefix.
+func TestNamingK4xPrefix(t *testing.T) {
+	svc := &model.Service{Name: "svc"}
+	prv := &model.Provider{Name: "prv", Driver: "test"}
+	cls := &model.Cluster{Name: "cls"}
+	app := &model.App{Name: "app", Compose: "services:\n  c:\n    image: busybox\n"}
+
+	c := NewConverter(svc, prv, cls, app, "app")
+	if !strings.HasPrefix(c.Namespace, "k4x-") {
+		t.Fatalf("namespace %s does not have k4x- prefix", c.Namespace)
+	}
+	// Simulate volume name generation via naming.NewHashes used in converter volume path.
+	hashes := naming.NewHashes(svc.Name, prv.Name, cls.Name, app.Name)
+	volName := hashes.VolumeResourceName("data", "handle-123")
+	if !strings.HasPrefix(volName, "k4x-") {
+		t.Fatalf("volume resource name %s does not have k4x- prefix", volName)
 	}
 }
 

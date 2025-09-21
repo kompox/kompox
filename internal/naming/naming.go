@@ -61,7 +61,10 @@ func NewHashes(service, provider, cluster, app string) Hashes {
 		AppID:       ShortHash(fmt.Sprintf("%s:%s:%s", service, provider, app), defaultLength),
 		AppInstance: ShortHash(fmt.Sprintf("%s:%s:%s:%s", service, provider, cluster, app), defaultLength),
 	}
-	h.Namespace = fmt.Sprintf("kx%s-%s-%s", h.Provider, app, h.AppID)
+	// Namespace naming format:
+	//   k4x-<spHASH>-<appName>-<idHASH>
+	// This is used also as a cloud resource group base name in some providers.
+	h.Namespace = fmt.Sprintf("k4x-%s-%s-%s", h.Provider, app, h.AppID)
 	return h
 }
 
@@ -69,10 +72,10 @@ func NewHashes(service, provider, cluster, app string) Hashes {
 // generated from a logical volume and its provider-specific handle.
 // The format is:
 //
-//	kx<spHASH>-<volumeName>-<AppID>-<volHASH>
+//	k4x-<spHASH>-<volumeName>-<AppID>-<volHASH>
 //
 // where volHASH is derived from the handle.
 func (h Hashes) VolumeResourceName(volumeName, handle string) string {
 	volHASH := VolumeHash(handle)
-	return fmt.Sprintf("kx%s-%s-%s-%s", h.Provider, volumeName, h.AppID, volHASH)
+	return fmt.Sprintf("k4x-%s-%s-%s-%s", h.Provider, volumeName, h.AppID, volHASH)
 }

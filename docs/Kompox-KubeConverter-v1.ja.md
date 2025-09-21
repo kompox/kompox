@@ -42,13 +42,13 @@
 
 リソース命名規則
 
-- Namespace: `kx<spHASH>-<appName>-<idHASH>`
+- Namespace: `k4x-<spHASH>-<appName>-<idHASH>`
   - バックエンドのクラウドリソースの名前としても使用する (Azureリソースグループ名など)
-  - `kx<spHASH>`は名前順ソート時に関連リソースを一箇所に集めることで誤操作を防止するために配置する
-  - `kx`はKompoxの略
-- PV/PVC: `kx<spHASH>-<volName>-<idHASH>-<volHASH>`
+  - `k4x-<spHASH>`は名前順ソート時に関連リソースを一箇所に集めることで誤操作を防止するために配置する
+  - `k4x`はKompoxの略
+- PV/PVC: `k4x-<spHASH>-<volName>-<idHASH>-<volHASH>`
   - バックエンドのクラウドリソースの名前としても使用する (ディスク・スナップショットリソース名など)
-  - Namespaceと同じ理由で`kx<spHASH>`を含む
+  - Namespaceと同じ理由で`k4x-<spHASH>`を含む
   - PVCはPVと同名とする
 - NetworkPolicy/ServiceAccount/Role/RoleBinding: `<appName>`
   - Namespace内のリソースで一意性が担保されているためハッシュを含まない
@@ -229,9 +229,9 @@ app:
         - data:/mnt/root         # mount data:/ on /mnt/root
         - data/sub/path:/mnt/sub # mount data:/sub/path on /mnt/sub
   volumes:
-  - name: default  # PV/PVC kx<spHASH>-default-<idHASH>-<volHASH>
+  - name: default  # PV/PVC k4x-<spHASH>-default-<idHASH>-<volHASH>
     size: 32Gi
-  - name: data     # PV/PVC kx<spHASH>-data-<idHASH>-<volHASH>
+  - name: data     # PV/PVC k4x-<spHASH>-data-<idHASH>-<volHASH>
     size: 32Gi
 ```
 
@@ -534,7 +534,7 @@ app:
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: kxspHASH-app1-idHASH
+  name: k4x-spHASH-app1-idHASH
   labels:
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
@@ -549,7 +549,7 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: app1
-  namespace: kxspHASH-app1-idHASH
+  namespace: k4x-spHASH-app1-idHASH
   labels:
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
@@ -578,7 +578,7 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: app1
-  namespace: kxspHASH-app1-idHASH
+  namespace: k4x-spHASH-app1-idHASH
   labels:
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
@@ -590,7 +590,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: app1
-  namespace: kxspHASH-app1-idHASH
+  namespace: k4x-spHASH-app1-idHASH
   labels:
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
@@ -621,7 +621,7 @@ apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
   name: app1
-  namespace: kxspHASH-app1-idHASH
+  namespace: k4x-spHASH-app1-idHASH
   labels:
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
@@ -631,7 +631,7 @@ metadata:
 subjects:
   - kind: ServiceAccount
     name: app1
-    namespace: kxspHASH-app1-idHASH
+    namespace: k4x-spHASH-app1-idHASH
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
@@ -645,7 +645,7 @@ roleRef:
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: kxspHASH-default-idHASH-volHASH
+  name: k4x-spHASH-default-idHASH-volHASH
   labels:
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
@@ -670,7 +670,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: kxspHASH-db-idHASH-volHASH
+  name: k4x-spHASH-db-idHASH-volHASH
   labels:
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
@@ -695,8 +695,8 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: kxspHASH-default-idHASH-volHASH
-  namespace: kxspHASH-app1-idHASH
+  name: k4x-spHASH-default-idHASH-volHASH
+  namespace: k4x-spHASH-app1-idHASH
   labels:
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
@@ -710,13 +710,13 @@ spec:
     requests:
       storage: 32Gi
   storageClassName: managed-csi
-  volumeName: kxspHASH-default-idHASH-volHASH
+  volumeName: k4x-spHASH-default-idHASH-volHASH
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: kxspHASH-db-idHASH-volHASH
-  namespace: kxspHASH-app1-idHASH
+  name: k4x-spHASH-db-idHASH-volHASH
+  namespace: k4x-spHASH-app1-idHASH
   labels:
     app.kubernetes.io/name: app1
     app.kubernetes.io/instance: app1-inHASH
@@ -730,7 +730,7 @@ spec:
     requests:
       storage: 64Gi
   storageClassName: managed-csi
-  volumeName: kxspHASH-db-idHASH-volHASH
+  volumeName: k4x-spHASH-db-idHASH-volHASH
 ```
 
 #### Deployment/Service/Secret/Ingress
@@ -741,7 +741,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: app1-app
-  namespace: kxspHASH-app1-idHASH
+  namespace: k4x-spHASH-app1-idHASH
   labels:
     app: app1-app
     app.kubernetes.io/name: app1
@@ -829,16 +829,16 @@ spec:
       volumes:
         - name: default
           persistentVolumeClaim:
-            claimName: kxspHASH-default-idHASH-volHASH
+            claimName: k4x-spHASH-default-idHASH-volHASH
         - name: db
           persistentVolumeClaim:
-            claimName: kxspHASH-db-idHASH-volHASH
+            claimName: k4x-spHASH-db-idHASH-volHASH
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: app1-app
-  namespace: kxspHASH-app1-idHASH
+  namespace: k4x-spHASH-app1-idHASH
   labels:
     app: app1-app
     app.kubernetes.io/name: app1
@@ -862,7 +862,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: app
-  namespace: kxspHASH-app1-idHASH
+  namespace: k4x-spHASH-app1-idHASH
   labels:
     app: app1-app
     app.kubernetes.io/name: app1
@@ -881,7 +881,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: postgres
-  namespace: kxspHASH-app1-idHASH
+  namespace: k4x-spHASH-app1-idHASH
   labels:
     app: app1-app
     app.kubernetes.io/name: app1
@@ -900,7 +900,7 @@ apiVersion: v1
 kind: Secret
 metadata:
   name: app1-app-app
-  namespace: kxspHASH-app1-idHASH
+  namespace: k4x-spHASH-app1-idHASH
   labels:
     app: app1-app
     app.kubernetes.io/name: app1
@@ -920,7 +920,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: app1-app-default
-  namespace: kxspHASH-app1-idHASH
+  namespace: k4x-spHASH-app1-idHASH
   labels:
     app: app1-app
     app.kubernetes.io/name: app1
@@ -960,7 +960,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: app1-app-custom
-  namespace: kxspHASH-app1-idHASH
+  namespace: k4x-spHASH-app1-idHASH
   labels:
     app: app1-app
     app.kubernetes.io/name: app1
