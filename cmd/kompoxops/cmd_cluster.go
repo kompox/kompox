@@ -10,6 +10,7 @@ import (
 	"github.com/kompox/kompox/domain/model"
 	kcfg "github.com/kompox/kompox/internal/kubeconfig"
 	"github.com/kompox/kompox/internal/logging"
+	"github.com/kompox/kompox/internal/naming"
 	uc "github.com/kompox/kompox/usecase/cluster"
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/tools/clientcmd"
@@ -488,6 +489,28 @@ func newCmdClusterKubeconfig() *cobra.Command {
 			if contextName == "" {
 				contextName = fmt.Sprintf("kompoxops-%s", clusterName)
 			}
+			// Derive default namespace if not explicitly provided via --namespace.
+			// We use naming.NewHashes(service, provider, cluster, app).Namespace when
+			// configRoot is available and app name configured; otherwise keep empty to
+			// preserve upstream kubeconfig default namespace behavior.
+			if namespaceName == "" && configRoot != nil {
+				serviceName := ""
+				providerName := ""
+				appName := ""
+				if configRoot.Service.Name != "" {
+					serviceName = configRoot.Service.Name
+				}
+				if providerObj != nil {
+					providerName = providerObj.Name
+				}
+				if configRoot.App.Name != "" {
+					appName = configRoot.App.Name
+				}
+				if serviceName != "" && providerName != "" && appName != "" { // require all to avoid accidental collision
+					hashes := naming.NewHashes(serviceName, providerName, clusterName, appName)
+					namespaceName = hashes.Namespace
+				}
+			}
 			newCfg, err := kcfg.LoadAndNormalize(kubeBytes, contextName, namespaceName)
 			if err != nil {
 				return err
@@ -543,7 +566,7 @@ func newCmdClusterKubeconfig() *cobra.Command {
 	cmd.Flags().BoolVar(&merge, "merge", false, "Merge into existing kubeconfig")
 	cmd.Flags().StringVar(&kubeconfigPath, "kubeconfig", "", fmt.Sprintf("Existing kubeconfig path for --merge (default: $%s or %s)", clientcmd.RecommendedConfigPathEnvVar, clientcmd.RecommendedHomeFile))
 	cmd.Flags().StringVar(&contextName, "context", "", "Context name to set (default: kompoxops-<cluster>)")
-	cmd.Flags().StringVar(&namespaceName, "namespace", "", "Default namespace for the context")
+	cmd.Flags().StringVar(&namespaceName, "namespace", "", "Default namespace for the context (auto-derived when omitted)")
 	cmd.Flags().BoolVar(&setCurrent, "set-current", false, "Set current-context to the new context after merge")
 	cmd.Flags().BoolVar(&force, "force", false, "Overwrite same-named entries when merging")
 	cmd.Flags().StringVar(&format, "format", "yaml", "Output format for stdout (yaml|json)")

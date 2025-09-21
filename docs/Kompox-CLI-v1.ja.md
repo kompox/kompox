@@ -188,7 +188,7 @@ Provider Driver からクラスタの kubeconfig(管理者資格)を取得し、
 - `--merge` 既存 kubeconfig に統合(既定: `~/.kube/config`)
 - `--kubeconfig PATH` 統合先ファイル(既定: `~/.kube/config`)
 - `--context NAME` 生成する context 名(既定: `kompoxops-<clusterName>`)
-- `--namespace NS` context のデフォルト namespace
+- `--namespace NS` context のデフォルト namespace。未指定で設定ファイルが読み込まれている場合は Service/Provider/Cluster/App 名から導出された内部既定値が自動で入る。
 - `--set-current` 統合後に current-context を新しい context に設定
 - `--force` 同名エントリがある場合に上書き(未指定時は `-1`, `-2` のように自動ユニーク化)
 - `--temp` セキュアな一時ファイルに保存してパスを出力
@@ -217,6 +217,9 @@ kompoxops cluster kubeconfig -C mycluster --merge --set-current
 
 # context と namespace を指定して保存
 kompoxops cluster kubeconfig -C mycluster --merge --context kompox/prod --namespace staging
+
+# namespace 自動設定の例 (config から導出される既定 namespace を利用)
+kompoxops cluster kubeconfig -C cluster1 --merge --set-current
 ```
 
 ### kompoxops app
