@@ -52,7 +52,9 @@ Thumbs.db
 .env.*.local
 
 # Kompoxops specific
+/_tmp
 /kompoxops
 /kompoxops.exe
 /kompoxops.yml
+/kompoxops.env
 .azure
