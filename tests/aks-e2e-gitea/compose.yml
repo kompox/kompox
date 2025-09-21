@@ -1,26 +1,18 @@
 services:
-  server:
+  gitea:
     image: docker.gitea.com/gitea:1.24.6
-    container_name: gitea
     environment:
       - USER_UID=1000
       - USER_GID=1000
-      - GITEA__database__DB_TYPE=postgres
-      - GITEA__database__HOST=localhost:5432
-      - GITEA__database__NAME=gitea
-      - GITEA__database__USER=gitea
-      - GITEA__database__PASSWD=gitea
-    restart: always
+    env_file:
+      - compose-gitea.env
     volumes:
       - ./data/gitea:/data
     ports:
       - "3000:3000"
-  db:
+  postgres:
     image: postgres:17
-    network_mode: service:server
-    environment:
-      - POSTGRES_USER=gitea
-      - POSTGRES_PASSWORD=gitea
-      - POSTGRES_DB=gitea
+    env_file:
+      - compose-postgres.env
     volumes:
       - ./data/postgres:/var/lib/postgresql/data

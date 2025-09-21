@@ -1,21 +1,16 @@
 services:
   redmine:
     image: ghcr.io/yaegashi/azdops-rm-docker/redmica
-    container_name: redmine
-    environment:
-      - RAILS_ENV=production
-      - RAILS_RELATIVE_URL_ROOT=/
-      - SECRET_KEY_BASE=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-      - DATABASE_URL=mysql2://redmineuser:redminesecret@127.0.0.1/redminedb?encoding=utf8mb4
-      - TZ=Asia/Tokyo
+    env_file:
+      - compose-redmine.yml
     volumes:
       - ./data/wwwroot:/home/site/wwwroot
     ports:
       - "8080:8080"
-  db:
+  mysql:
     image: mysql:latest
     network_mode: service:redmine
-    environment:
-      - MYSQL_ROOT_PASSWORD=secret
+    env_file:
+      - compose-mysql.yml
     volumes:
       - ./data/mysql:/var/lib/mysql
