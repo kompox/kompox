@@ -81,3 +81,108 @@ services:
 	assertVol(6, "volume", "data", "/mnt/struct/root")
 	assertVol(7, "volume", "data/sub/path", "/mnt/struct/sub")
 }
+
+// TestNewComposeProjectEnvFilesRetention ensures compose-go keeps env_file entries unmerged so that
+// converter side can implement Kompox-specific merging/validation logic.
+func TestNewComposeProjectEnvFilesRetention(t *testing.T) {
+	ctx := context.Background()
+	compose := `
+services:
+  web:
+    image: busybox:1.36
+    env_file:
+      - a.env
+      - b.yaml
+    environment:
+      OVERRIDE: x
+  api:
+    image: busybox:1.36
+    env_file: c.json
+`
+	proj, err := NewComposeProject(ctx, compose)
+	if err != nil {
+		t.Fatalf("NewComposeProject error: %v", err)
+	}
+	if len(proj.Services) != 2 {
+		t.Fatalf("expected 2 services, got %d", len(proj.Services))
+	}
+	// Collect service names (order may not be stable across Go/map iterations in compose-go).
+	nameSet := map[string]struct{}{}
+	for _, s := range proj.Services {
+		nameSet[s.Name] = struct{}{}
+	}
+	if _, ok := nameSet["web"]; !ok {
+		t.Errorf("missing service 'web'")
+	}
+	if _, ok := nameSet["api"]; !ok {
+		t.Errorf("missing service 'api'")
+	}
+	var web, api types.ServiceConfig
+	for _, s := range proj.Services {
+		if s.Name == "web" {
+			web = s
+		}
+		if s.Name == "api" {
+			api = s
+		}
+	}
+	if len(web.EnvFiles) != 2 {
+		t.Fatalf("web env_files expected 2 got %d", len(web.EnvFiles))
+	}
+	if web.EnvFiles[0].Path != "a.env" || web.EnvFiles[1].Path != "b.yaml" {
+		t.Errorf("web env_files order mismatch: %+v", web.EnvFiles)
+	}
+	if len(api.EnvFiles) != 1 || api.EnvFiles[0].Path != "c.json" {
+		t.Errorf("api env_files mismatch: %+v", api.EnvFiles)
+	}
+	if _, ok := web.Environment["OVERRIDE"]; !ok {
+		t.Errorf("expected environment key OVERRIDE present")
+	}
+}
+
+// TestNewComposeProjectEnvFilesSingleString ensures scalar shorthand is parsed as single entry slice.
+func TestNewComposeProjectEnvFilesSingleString(t *testing.T) {
+	ctx := context.Background()
+	compose := `
+services:
+  svc:
+    image: busybox:1.36
+    env_file: only.env
+`
+	proj, err := NewComposeProject(ctx, compose)
+	if err != nil {
+		t.Fatalf("NewComposeProject error: %v", err)
+	}
+	if len(proj.Services) != 1 {
+		t.Fatalf("expected 1 service, got %d", len(proj.Services))
+	}
+	var svc types.ServiceConfig
+	for _, s := range proj.Services {
+		svc = s
+	}
+	if len(svc.EnvFiles) != 1 || svc.EnvFiles[0].Path != "only.env" {
+		t.Errorf("expected single env_file only.env, got %+v", svc.EnvFiles)
+	}
+}
+
+// TestNewComposeProjectEnvFilesEmptyAbsence ensures absence yields empty slice (not nil) behavior is acceptable.
+func TestNewComposeProjectEnvFilesEmptyAbsence(t *testing.T) {
+	ctx := context.Background()
+	compose := `
+services:
+  svc:
+    image: busybox:1.36
+`
+	proj, err := NewComposeProject(ctx, compose)
+	if err != nil {
+		t.Fatalf("NewComposeProject error: %v", err)
+	}
+	var svc types.ServiceConfig
+	for _, s := range proj.Services {
+		svc = s
+	}
+	// We accept either nil or length 0; current compose-go yields empty slice
+	if len(svc.EnvFiles) != 0 {
+		t.Errorf("expected 0 env_files got %d", len(svc.EnvFiles))
+	}
+}

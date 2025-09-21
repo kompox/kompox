@@ -26,6 +26,8 @@
   - Service 複数個
     - ingress: 1個だけ生成。compose の host ポートを列挙して Ingress より参照される
     - headless: compose の service の数だけ作成、ローカル DNS 解決用
+  - Secret 複数個
+    - env_file が存在する compose の service の数だけ作成
   - Ingress 0〜2個 (DNSホスト名から Service(ingress) へのルーティング)
     - デフォルトドメイン用 Ingress
     - カスタムドメイン用 Ingress
@@ -52,10 +54,12 @@
   - Namespace内のリソースで一意性が担保されているためハッシュを含まない
 - Deployment/Service(ingress): `<appName>-<componentName>`
   - Namespace内のリソースで一意性が担保されているためハッシュを含まない
-- Service(headless): `<serviceName>`
-  - app.compose.servicesに記述された名前をそのまま使用する
+- Service(headless): `<containerName>`
+  - app.compose.services により作られるコンテナの名前を使用する
   - Service(ingress) 名前衝突回避: `<appName>-app` または `<appName>-box` で始まる名前はエラーとする
   - Namespacen内では単一のappしかデプロイできないのでapp.compose.servicesによる名前衝突はない
+- Secret: `<appName>-<componentName>-<containerName>`
+  - env_file が存在する app.compose.services により作られるコンテナの名前を使用する
 - Ingress:
   - デフォルトドメイン用: `<appName>-<componentName>-default`
   - カスタムドメイン用: `<appName>-<componentName>-custom`
@@ -102,34 +106,64 @@ metadata:
 - `kompox.dev/volume-handle-previous` は初回のデプロイ時には設定しない。
 - `<diskResourceId>` は `aks` の場合は Azure Disk リソース ID となる (サブスクリプション GUID 露出に注意: 閲覧権限を最小化)。
 
+Secret には次のアノテーションを設定する。
+
+```yaml
+metadata
+  annotations:
+    kompox.dev/compose-secret-hash: <secretHASH>
+```
+
+Pod (Deployment の template で設定) には次のアノテーションを設定する。
+
+```yaml
+metadata
+  annotations:
+    kompox.dev/compose-secret-hash: <podSecretHASH>
+```
+
 ### ハッシュの種類と生成規則
 
-`<spHASH>` (サービス・プロバイダハッシュ) 生成方法
+それぞれの `BASE` に対して次の `HASH` を適用する。
+
+```
+HASH = BASEのSHA256バイト列を256bitのLSB first bigintとして扱い36進数表記した冒頭6文字
+```
+
+`<spHASH>` (サービス・プロバイダハッシュ)
 
 ```
 BASE = service.name + ":" + provider.name
-HASH = BASEのSHA256バイト列を256bitのLSB first bigintとして扱い36進数表記した冒頭6文字
 ```
 
-`<inHASH>` (クラスタ依存アプリハッシュ) 生成方法
+`<inHASH>` (クラスタ依存アプリハッシュ)
 
 ```
 BASE = service.name + ":" + provider.name + ":" + cluster.name + ":" + app.name
-HASH = BASEのSHA256バイト列を256bitのLSB first bigintとして扱い36進数表記した冒頭6文字
 ```
 
-`<idHASH>` (クラスタ非依存アプリハッシュ) 生成方法
+`<idHASH>` (クラスタ非依存アプリハッシュ)
 
 ```
 BASE = service.name + ":" + provider.name + ":" + app.name
-HASH = BASEのSHA256バイト列を256bitのLSB first bigintとして扱い36進数表記した冒頭6文字
 ```
 
-`<volHASH>` (クラウドディスクリソースハッシュ) 生成方法
+`<volHASH>` (クラウドディスクリソースハッシュ)
 
 ```
 BASE = クラウドディスクリソースのID (/subscriptions/.... など)
-HASH = BASEのSHA256バイト列を256bitのLSB first bigintとして扱い36進数表記した冒頭6文字
+```
+
+`<secretHASH>` (Secret に格納された環境変数の内容を示すハッシュ)
+
+```
+BASE = すべての `KEY=VALUE` について `KEY` を辞書順にソートして `KEY=VALUE<NUL>` を連結したバイト列
+```
+
+`<podSecretHash>` (Pod が参照する Secret リソースのハッシュ)
+
+```
+BASE = Pod 内のコンテナが参照するすべての Secret リソースの `kompox.dev/compose-secret-hash` アノテーションの文字列(存在しない場合は空文字列)を、コンテナの名前の辞書順・コンテナ内の定義順に連結したバイト列
 ```
 
 各ハッシュの衝突が理論上発生した場合は実装側でハッシュ長 (6→8→10 文字…) を自動延長する。
@@ -214,7 +248,57 @@ app:
 
 ### 環境変数
 
-Compose `environment` の key/value をそのままコピー。Secret 化やフィルタリングは本仕様範囲外。
+#### env_file
+
+Compose の `env_file` は次のように取り扱う。
+
+- `env_file` が存在する場合、Manifest では対応する container の `envFrom` により Secret リソースから読み込む。
+- Secret リソースの名前は `<appName>-<componentName>-<containerName>` とする。
+- 列挙順にすべてのファイルを読み込みマージし 1 つの Secret を生成する。重複キーは「後勝ち」(後から読み込んだ値で上書き)。
+- 1 行 / 1 キーの上書き発生ごとに (実装で verbose 指定時) 警告を出せる。
+- ファイルパス制約:
+  - 相対パスのみ (正規化後に `..` を含むものはエラー)
+  - symlink / ディレクトリ / デバイス / FIFO / ソケットはエラー (外部脱出や非決定性を防ぐ)
+  - UTF-8 (BOM なし) で読めない場合はエラー
+- サポート形式: `.env` / `.yml` `.yaml` / `.json`
+- `${VAR}` などの変数参照は展開しない。`"${VAR}"` を含む値はそのまま保持し、(必要に応じ) 警告可能。
+- Secret サイズ:
+  - マージ後の合計 (全キー名 + 値バイト長) > 1,000,000 bytes でエラー
+- 値に NUL バイト (0x00) や制御文字 (0x01–0x08, 0x0B, 0x0C, 0x0E–0x1F, 0x7F) が含まれる場合はエラー
+
+`.env` パーサ仕様:
+
+- 行単位読み込み。空行 / 先頭 `#` 行は無視。
+- `export ` プレフィックスは除去。
+- 行をそのまま扱い、`=` の最初の出現で左右を分割。
+  - 左辺 KEY は前後空白トリム後に検証。右辺 VALUE は「未クオートなら」先頭の 1 個分の空白のみ除去し末尾は保持 (末尾空白を意図喪失させない)。
+- KEY 正規表現: `[A-Za-z_][A-Za-z0-9_]*`
+- VALUE 形式:
+  - 未クオート: 行末までそのまま (内部 `#` はコメント扱いしない)
+  - ダブルクオート: 外側除去し以下エスケープ解釈: `\\` `\"` `\n` `\r` `\t`
+  - シングルクオート: 外側除去 (エスケープ解釈なし)
+- `=` を含まない行 / KEY 不正 / 重複するエスケープ列はエラー
+- 同一ファイル内の重複 KEY は後勝ち (他ファイルと同様)
+
+YAML / JSON パーサ仕様:
+
+- トップレベルがオブジェクトであること
+- キーは文字列
+- 値型は string / number / boolean を許容 (number, boolean は文字列へ変換)
+- null / 配列 / オブジェクト値はエラー
+
+ハッシュ:
+
+- 生成した最終キー集合に対し、キーを辞書順ソートし `KEY=VALUE<NUL>` を連結したバイト列を BASE として `<secretHASH>` を計算
+- Secret に `kompox.dev/compose-secret-hash: <secretHASH>` を付与
+- Pod テンプレートは参照 Secret 群のハッシュ連結値 `<podSecretHASH>` をアノテーションへ付与し、Secret 更新時にロールアウトを誘発
+
+#### environment
+
+Compose の `environment` は次のように取り扱う。
+
+- 個別に `env` 出力し `env_file` の値を上書きできる
+- `environment` で指定したキーは Secret へは追加しない (差分が Pod 定義の変更として残りやすい)
 
 ### Ports/Service/Ingress
 
@@ -394,6 +478,8 @@ app:
     services:
       app:
         image: ghcr.io/kompox/app
+        env_file:
+          - env.yml
         environment:
           TZ: Asia/Tokyo
         ports:
@@ -647,7 +733,7 @@ spec:
   volumeName: kxspHASH-db-idHASH-volHASH
 ```
 
-#### Deployment/Service/Ingress
+#### Deployment/Service/Secret/Ingress
 
 ```yaml
 ---
@@ -681,6 +767,8 @@ spec:
         app.kubernetes.io/managed-by: kompox
         kompox.dev/app-instance-hash: inHASH
         kompox.dev/app-id-hash: idHASH
+      annotations:
+        kompox.dev/compose-secret-hash: podSecretHASH
     spec:
       nodeSelector:
         kompox.dev/node-pool: user
@@ -688,6 +776,9 @@ spec:
       containers:
       - name: app
         image: ghcr.io/kompox/app
+        envFrom:
+        - secretRef:
+            name: app1-app-app
         env:
         - name: TZ
           value: Asia/Tokyo
@@ -804,6 +895,26 @@ spec:
   clusterIP: None
   selector:
     app: app1-app
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app1-app-app
+  namespace: kxspHASH-app1-idHASH
+  labels:
+    app: app1-app
+    app.kubernetes.io/name: app1
+    app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/component: app
+    app.kubernetes.io/managed-by: kompox
+    kompox.dev/app-instance-hash: inHASH
+    kompox.dev/app-id-hash: idHASH
+  annotations:
+    kompox.dev/compose-secret-hash: containerSecretHASH
+type: Opaque
+data:
+  USERNAME: YWRtaW4=
+  PASSWORD: MWYyZDFlMmU2N2Rm
 ---
 apiVersion: networking.k8s.io/v1
 kind: Ingress

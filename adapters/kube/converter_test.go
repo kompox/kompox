@@ -3,6 +3,7 @@ package kube
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"testing"
@@ -1226,5 +1227,222 @@ func TestZeroHeadlessServices(t *testing.T) {
 	}
 	if c.HeadlessServiceSelector[LabelAppSelector] == "" || c.HeadlessServiceSelector[LabelK4xComposeServiceHeadless] != "true" {
 		t.Fatalf("headless selector metadata incomplete: %#v", c.HeadlessServiceSelector)
+	}
+}
+
+// TestEnvFileSingleService verifies Secret generation, envFrom reference, and PodSecretHash annotation for one service.
+func TestEnvFileSingleService(t *testing.T) {
+	ctx := context.Background()
+	compose := "services:\n" +
+		"  web:\n" +
+		"    image: busybox:1.36\n" +
+		"    env_file:\n" +
+		"      - a.env\n" +
+		"      - b.json\n" +
+		"    environment:\n" +
+		"      RUNTIME: x\n"
+	svc := &model.Service{Name: "svc"}
+	prv := &model.Provider{Name: "prv", Driver: "test"}
+	cls := &model.Cluster{Name: "cls"}
+	app := &model.App{Name: "demo", Compose: compose}
+	c := NewConverter(svc, prv, cls, app, "app")
+
+	// Create temporary env files under current working dir (the converter passes baseDir '.')
+	// We write them into a temp dir and chdir temporarily.
+	tmp := t.TempDir()
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	if err := os.WriteFile("a.env", []byte("A=1\nB=2\n"), 0o644); err != nil {
+		t.Fatalf("write a.env: %v", err)
+	}
+	if err := os.WriteFile("b.json", []byte(`{"B":22,"C":true}`), 0o644); err != nil {
+		t.Fatalf("write b.json: %v", err)
+	}
+
+	if _, err := c.Convert(ctx); err != nil {
+		t.Fatalf("convert failed: %v", err)
+	}
+	if len(c.K8sSecrets) != 1 {
+		t.Fatalf("expected 1 secret, got %d", len(c.K8sSecrets))
+	}
+	sec := c.K8sSecrets[0]
+	if sec.Name != "demo-app-web" {
+		t.Errorf("unexpected secret name %s", sec.Name)
+	}
+	if sec.Data["A"] == nil || string(sec.Data["A"]) != "1" {
+		t.Errorf("missing A=1 in secret")
+	}
+	if sec.Data["B"] == nil || string(sec.Data["B"]) != "22" {
+		t.Errorf("expected B=22 override, got %q", sec.Data["B"])
+	}
+	if sec.Data["C"] == nil || string(sec.Data["C"]) != "true" {
+		t.Errorf("expected C=true, got %q", sec.Data["C"])
+	}
+	// RUNTIME must not appear (environment override removed)
+	if _, ok := sec.Data["RUNTIME"]; ok {
+		t.Errorf("RUNTIME should be excluded from secret")
+	}
+
+	// Build to inspect pod annotation & envFrom
+	// Need minimal volume binding even if no volumes (none defined so skip BindVolumes)
+	if _, err := c.Build(); err != nil {
+		t.Fatalf("build failed: %v", err)
+	}
+	if c.K8sDeployment == nil {
+		t.Fatalf("deployment missing")
+	}
+	annHash := c.K8sDeployment.Spec.Template.Annotations[AnnotationK4xComposeSecretHash]
+	if annHash == "" {
+		t.Errorf("pod template missing secret hash annotation")
+	}
+	// container envFrom referencing our secret
+	foundRef := false
+	for _, ef := range c.K8sDeployment.Spec.Template.Spec.Containers[0].EnvFrom {
+		if ef.SecretRef != nil && ef.SecretRef.Name == sec.Name {
+			foundRef = true
+			break
+		}
+	}
+	if !foundRef {
+		t.Errorf("container missing envFrom secretRef")
+	}
+}
+
+// TestEnvFileMultipleServices verifies multiple secrets order and aggregated PodSecretHash stability.
+func TestEnvFileMultipleServices(t *testing.T) {
+	ctx := context.Background()
+	compose := "services:\n" +
+		"  api:\n" +
+		"    image: busybox:1.36\n" +
+		"    env_file:\n" +
+		"      - api.env\n" +
+		"  worker:\n" +
+		"    image: busybox:1.36\n" +
+		"    env_file:\n" +
+		"      - worker.env\n"
+	svc := &model.Service{Name: "svc"}
+	prv := &model.Provider{Name: "prv", Driver: "test"}
+	cls := &model.Cluster{Name: "cls"}
+	app := &model.App{Name: "demo2", Compose: compose}
+	c := NewConverter(svc, prv, cls, app, "app")
+
+	tmp := t.TempDir()
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	if err := os.WriteFile("api.env", []byte("X=1\n"), 0o644); err != nil {
+		t.Fatalf("write api.env: %v", err)
+	}
+	if err := os.WriteFile("worker.env", []byte("Y=2\n"), 0o644); err != nil {
+		t.Fatalf("write worker.env: %v", err)
+	}
+	if _, err := c.Convert(ctx); err != nil {
+		t.Fatalf("convert failed: %v", err)
+	}
+	if len(c.K8sSecrets) != 2 {
+		t.Fatalf("expected 2 secrets, got %d", len(c.K8sSecrets))
+	}
+	// Order of services iteration from compose-go may vary (map iteration). Validate set equality.
+	seen := map[string]struct{}{}
+	for _, s := range c.K8sSecrets {
+		seen[s.Name] = struct{}{}
+	}
+	if _, ok := seen["demo2-app-api"]; !ok {
+		t.Errorf("missing secret demo2-app-api")
+	}
+	if _, ok := seen["demo2-app-worker"]; !ok {
+		t.Errorf("missing secret demo2-app-worker")
+	}
+	if c.PodSecretHash == "" {
+		t.Fatalf("expected intermediate PodSecretHash to be set before Build")
+	}
+	preHash := c.PodSecretHash
+	if _, err := c.Build(); err != nil {
+		t.Fatalf("build failed: %v", err)
+	}
+	if c.K8sDeployment.Spec.Template.Annotations[AnnotationK4xComposeSecretHash] != preHash {
+		t.Errorf("annotation hash changed after build")
+	}
+	// Ensure both containers reference their secrets
+	if len(c.K8sDeployment.Spec.Template.Spec.Containers) != 2 {
+		t.Fatalf("expected 2 containers")
+	}
+	for _, ctr := range c.K8sDeployment.Spec.Template.Spec.Containers {
+		found := false
+		for _, ef := range ctr.EnvFrom {
+			if ef.SecretRef != nil && strings.HasPrefix(ef.SecretRef.Name, "demo2-app-") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("container %s missing envFrom secretRef", ctr.Name)
+		}
+	}
+}
+
+// TestPodSecretHashDeterministicOrder ensures PodSecretHash is independent of compose service order.
+func TestPodSecretHashDeterministicOrder(t *testing.T) {
+	ctx := context.Background()
+	composeA := "services:\n" +
+		"  alpha:\n" +
+		"    image: busybox:1.36\n" +
+		"    env_file:\n" +
+		"      - a.env\n" +
+		"  beta:\n" +
+		"    image: busybox:1.36\n" +
+		"    env_file:\n" +
+		"      - b.env\n"
+	composeB := "services:\n" +
+		"  beta:\n" +
+		"    image: busybox:1.36\n" +
+		"    env_file:\n" +
+		"      - b.env\n" +
+		"  alpha:\n" +
+		"    image: busybox:1.36\n" +
+		"    env_file:\n" +
+		"      - a.env\n"
+	svc := &model.Service{Name: "svc"}
+	prv := &model.Provider{Name: "prv", Driver: "test"}
+	cls := &model.Cluster{Name: "cls"}
+	tmp := t.TempDir()
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	if err := os.Chdir(tmp); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	if err := os.WriteFile("a.env", []byte("K=1\n"), 0o644); err != nil {
+		t.Fatalf("write a.env: %v", err)
+	}
+	if err := os.WriteFile("b.env", []byte("L=2\n"), 0o644); err != nil {
+		t.Fatalf("write b.env: %v", err)
+	}
+
+	appA := &model.App{Name: "appdet", Compose: composeA}
+	cA := NewConverter(svc, prv, cls, appA, "app")
+	if _, err := cA.Convert(ctx); err != nil {
+		t.Fatalf("convert A failed: %v", err)
+	}
+	hashA := cA.PodSecretHash
+	if hashA == "" {
+		t.Fatalf("hashA empty")
+	}
+
+	appB := &model.App{Name: "appdet", Compose: composeB}
+	cB := NewConverter(svc, prv, cls, appB, "app")
+	if _, err := cB.Convert(ctx); err != nil {
+		t.Fatalf("convert B failed: %v", err)
+	}
+	hashB := cB.PodSecretHash
+	if hashB == "" {
+		t.Fatalf("hashB empty")
+	}
+	if hashA != hashB {
+		t.Fatalf("expected deterministic PodSecretHash, got %s vs %s", hashA, hashB)
 	}
 }

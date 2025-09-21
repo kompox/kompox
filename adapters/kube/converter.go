@@ -47,6 +47,7 @@ type Converter struct {
 
 	// Stable namespace/label/selector namings
 	Namespace       string
+	ComponentName   string
 	ResourceName    string            // <appName>-<componentName> for Deployment/Service/Ingress
 	BaseLabels      map[string]string // labels applied to ALL kinds (Namespace/NP/SA/Role/RB/PV/PVC/...)
 	ComponentLabels map[string]string // BaseLabels + component labels (Deployment/Service/Ingress/Pod only)
@@ -62,6 +63,9 @@ type Converter struct {
 	SelectorString                string
 	NodeSelector                  map[string]string
 
+	// aggregated hash of secrets referenced by pod
+	PodSecretHash string
+
 	// Provider-agnostic K8s pieces
 	K8sNamespace        *corev1.Namespace
 	K8sContainers       []corev1.Container
@@ -71,6 +75,7 @@ type Converter struct {
 	K8sIngressDefault   *netv1.Ingress
 	K8sIngressCustom    *netv1.Ingress
 	K8sDeployment       *appsv1.Deployment // built at Build() time
+	K8sSecrets          []*corev1.Secret   // generated from compose env_file (service order)
 
 	// Optional security and access resources
 	K8sNetworkPolicy  *netv1.NetworkPolicy
@@ -120,6 +125,7 @@ func NewConverter(svc *model.Service, prv *model.Provider, cls *model.Cluster, a
 		c.HashID = hashes.AppID
 		c.HashIN = hashes.AppInstance
 		c.Namespace = hashes.Namespace
+		c.ComponentName = component
 		c.ResourceName = fmt.Sprintf("%s-%s", a.Name, component)
 		// BaseLabels are applied to all resources (including Namespace/PV/PVC etc.)
 		c.BaseLabels = map[string]string{
@@ -181,6 +187,36 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		volDefs[v.Name] = v
 	}
 
+	// Pre-build secrets so envFrom can be added while constructing containers.
+	// PodSecretHash BASE: concatenate per-secret hashes sorted by container(service) name.
+	secrets := []*corev1.Secret{}
+	secretRefByService := map[string]string{}
+	secretHashByService := map[string]string{}
+	for _, s := range proj.Services { // iteration order may be map-undefined, so we collect then sort
+		if len(s.EnvFiles) == 0 {
+			continue
+		}
+		sec, hash, err := buildComposeSecret(".", c.App.Name, c.ComponentName, s.Name, s.EnvFiles, s.Environment, c.ComponentLabels, nsName)
+		if err != nil {
+			return nil, fmt.Errorf("env_file for service %s: %w", s.Name, err)
+		}
+		secrets = append(secrets, sec)
+		secretRefByService[s.Name] = sec.Name
+		secretHashByService[s.Name] = hash
+	}
+	if len(secretHashByService) > 0 {
+		var names []string
+		for n := range secretHashByService {
+			names = append(names, n)
+		}
+		sort.Strings(names)
+		base := ""
+		for _, n := range names {
+			base += secretHashByService[n]
+		}
+		c.PodSecretHash = naming.ShortHash(base, 6)
+	}
+
 	// Compose services parsing & validation
 	hostPortToContainer := map[int]int{}   // hostPort -> containerPort
 	containerPortOwner := map[int]string{} // containerPort -> service name
@@ -199,6 +235,11 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		}
 		sort.Slice(ctn.Env, func(i, j int) bool { return ctn.Env[i].Name < ctn.Env[j].Name })
 
+		// attach envFrom if secret exists
+		if secName, ok := secretRefByService[s.Name]; ok {
+			ctn.EnvFrom = append(ctn.EnvFrom, corev1.EnvFromSource{SecretRef: &corev1.SecretEnvSource{LocalObjectReference: corev1.LocalObjectReference{Name: secName}}})
+		}
+
 		// ports: only "host:container" numeric accepted
 		for _, p := range s.Ports {
 			if p.Published == "" || p.Target == 0 {
@@ -213,7 +254,6 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 				return nil, fmt.Errorf("containerPort %d used by multiple services (%s,%s)", cp, owner, s.Name)
 			}
 			containerPortOwner[cp] = s.Name
-			// keep unique containerPort entry order stable
 			found := false
 			for _, exist := range ctn.Ports {
 				if int(exist.ContainerPort) == cp {
@@ -230,18 +270,16 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 			hostPortToContainer[hp] = cp
 		}
 
-		// volumes: parse according to spec
+		// volumes
 		for _, v := range s.Volumes {
 			if v.Source == "" || v.Target == "" {
 				return nil, errors.New("volume with empty source/target not supported")
 			}
-			if strings.Contains(v.Source, ":") { // compose-go already split, but guard
+			if strings.Contains(v.Source, ":") {
 				return nil, fmt.Errorf("unexpected ':' in volume source: %s", v.Source)
 			}
-
 			var volName string
-			var subPath string // keep as-is; no extra normalization
-
+			var subPath string
 			switch v.Type {
 			case "bind":
 				if strings.HasPrefix(v.Source, "/") {
@@ -252,7 +290,6 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 				}
 				volName = c.App.Volumes[0].Name
 				subPath = v.Source
-
 			case "volume":
 				src := v.Source
 				name := src
@@ -261,8 +298,6 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 					name = src[:i]
 					if i+1 < len(src) {
 						rest = src[i+1:]
-					} else {
-						rest = ""
 					}
 				}
 				if _, ok := volDefs[name]; !ok {
@@ -270,11 +305,9 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 				}
 				volName = name
 				subPath = rest
-
 			default:
 				return nil, fmt.Errorf("unsupported volume type: %s (source=%s target=%s)", v.Type, v.Source, v.Target)
 			}
-
 			if subPath != "" {
 				if subPathsPerVolume[volName] == nil {
 					subPathsPerVolume[volName] = map[string]struct{}{}
@@ -285,7 +318,6 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 				ctn.VolumeMounts = append(ctn.VolumeMounts, corev1.VolumeMount{Name: volName, MountPath: v.Target})
 			}
 		}
-
 		applyXKompoxResources(&ctn, s.Extensions["x-kompox"]) // resources/limits
 		containers = append(containers, ctn)
 	}
@@ -557,6 +589,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 	c.K8sHeadlessServices = headlessServices
 	c.K8sIngressDefault = ingDefault
 	c.K8sIngressCustom = ingCustom
+	c.K8sSecrets = secrets
 	// Assign security resources
 	c.K8sNetworkPolicy = npObj
 	c.K8sServiceAccount = saObj
@@ -796,6 +829,12 @@ func (c *Converter) Build() ([]string, error) {
 			},
 		},
 	}
+	if c.PodSecretHash != "" {
+		if dep.Spec.Template.Annotations == nil {
+			dep.Spec.Template.Annotations = map[string]string{}
+		}
+		dep.Spec.Template.Annotations[AnnotationK4xComposeSecretHash] = c.PodSecretHash
+	}
 
 	// Store deployment
 	c.K8sDeployment = dep
@@ -835,6 +874,9 @@ func (c *Converter) VolumeObjects() []runtime.Object {
 // DeploymentObjects returns the Deployment, Service, and Ingress resources.
 func (c *Converter) DeploymentObjects() []runtime.Object {
 	var objs []runtime.Object
+	for _, sec := range c.K8sSecrets { // secrets first so Deployment can refer via envFrom in future
+		objs = append(objs, sec)
+	}
 	if c.K8sDeployment != nil {
 		objs = append(objs, c.K8sDeployment)
 	}
