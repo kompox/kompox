@@ -63,9 +63,6 @@ type Converter struct {
 	SelectorString                string
 	NodeSelector                  map[string]string
 
-	// aggregated hash of secrets referenced by pod
-	PodSecretHash string
-
 	// Provider-agnostic K8s pieces
 	K8sNamespace        *corev1.Namespace
 	K8sContainers       []corev1.Container
@@ -187,34 +184,35 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		volDefs[v.Name] = v
 	}
 
-	// Pre-build secrets so envFrom can be added while constructing containers.
-	// PodSecretHash BASE: concatenate per-secret hashes sorted by container(service) name.
+	// Pre-build secrets (env_file) inline so envFrom can reference them. Mirrors buildComposeSecret logic.
 	secrets := []*corev1.Secret{}
-	secretRefByService := map[string]string{}
-	secretHashByService := map[string]string{}
-	for _, s := range proj.Services { // iteration order may be map-undefined, so we collect then sort
+	for _, s := range proj.Services { // deterministic iteration from compose-go
 		if len(s.EnvFiles) == 0 {
 			continue
 		}
-		sec, hash, err := buildComposeSecret(".", c.App.Name, c.ComponentName, s.Name, s.EnvFiles, s.Environment, c.ComponentLabels, nsName)
+		var files []string
+		for _, ef := range s.EnvFiles {
+			files = append(files, ef.Path)
+		}
+		kv, _, err := mergeEnvFiles(".", files)
 		if err != nil {
 			return nil, fmt.Errorf("env_file for service %s: %w", s.Name, err)
 		}
-		secrets = append(secrets, sec)
-		secretRefByService[s.Name] = sec.Name
-		secretHashByService[s.Name] = hash
-	}
-	if len(secretHashByService) > 0 {
-		var names []string
-		for n := range secretHashByService {
-			names = append(names, n)
+		data := map[string][]byte{}
+		for k, v := range kv {
+			data[k] = []byte(v)
 		}
-		sort.Strings(names)
-		base := ""
-		for _, n := range names {
-			base += secretHashByService[n]
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        SecretEnvBaseName(c.App.Name, c.ComponentName, s.Name),
+				Namespace:   nsName,
+				Labels:      c.ComponentLabels,
+				Annotations: map[string]string{AnnotationK4xComposeSecretHash: ComputeSecretHash(kv)},
+			},
+			Type: corev1.SecretTypeOpaque,
+			Data: data,
 		}
-		c.PodSecretHash = naming.ShortHash(base, 6)
+		secrets = append(secrets, secret)
 	}
 
 	// Compose services parsing & validation
@@ -235,10 +233,13 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		}
 		sort.Slice(ctn.Env, func(i, j int) bool { return ctn.Env[i].Name < ctn.Env[j].Name })
 
-		// attach envFrom if secret exists
-		if secName, ok := secretRefByService[s.Name]; ok {
-			ctn.EnvFrom = append(ctn.EnvFrom, corev1.EnvFromSource{SecretRef: &corev1.SecretEnvSource{LocalObjectReference: corev1.LocalObjectReference{Name: secName}}})
-		}
+		// Always attach envFrom for base and override secrets (optional=true) per spec.
+		baseSecretName := fmt.Sprintf("%s-%s-%s-base", c.App.Name, c.ComponentName, s.Name)
+		overrideSecretName := fmt.Sprintf("%s-%s-%s-override", c.App.Name, c.ComponentName, s.Name)
+		ctn.EnvFrom = append(ctn.EnvFrom,
+			corev1.EnvFromSource{SecretRef: &corev1.SecretEnvSource{LocalObjectReference: corev1.LocalObjectReference{Name: baseSecretName}, Optional: ptr.To(true)}},
+			corev1.EnvFromSource{SecretRef: &corev1.SecretEnvSource{LocalObjectReference: corev1.LocalObjectReference{Name: overrideSecretName}, Optional: ptr.To(true)}},
+		)
 
 		// ports: only "host:container" numeric accepted
 		for _, p := range s.Ports {
@@ -828,12 +829,6 @@ func (c *Converter) Build() ([]string, error) {
 				Spec:       corev1.PodSpec{Containers: c.K8sContainers, InitContainers: c.K8sInitContainers, Volumes: podVolumes, NodeSelector: nodeSelector},
 			},
 		},
-	}
-	if c.PodSecretHash != "" {
-		if dep.Spec.Template.Annotations == nil {
-			dep.Spec.Template.Annotations = map[string]string{}
-		}
-		dep.Spec.Template.Annotations[AnnotationK4xComposeSecretHash] = c.PodSecretHash
 	}
 
 	// Store deployment

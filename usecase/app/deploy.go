@@ -151,5 +151,14 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 	}
 
 	logger.Info(ctx, "deploy success", "app", appObj.Name)
+
+	// Runtime patch: recompute PodSecretHash via kube.Client method.
+	if vout.Converter != nil && vout.Converter.K8sDeployment != nil {
+		depName := vout.Converter.K8sDeployment.Name
+		depNS := vout.Converter.K8sDeployment.Namespace
+		if err := kcli.PatchDeploymentPodSecretHash(ctx, depNS, depName); err != nil {
+			logger.Warn(ctx, "patch deployment secret hash failed", "err", err)
+		}
+	}
 	return &DeployOutput{Warnings: vout.Warnings, AppliedCount: len(vout.K8sObjects)}, nil
 }

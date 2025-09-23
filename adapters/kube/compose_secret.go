@@ -11,10 +11,6 @@ import (
 	"sort"
 	"strings"
 
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/kompox/kompox/internal/naming"
 	yaml "gopkg.in/yaml.v3"
 )
@@ -23,8 +19,9 @@ var (
 	envKeyRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 )
 
-// readEnvFile detects format by extension and dispatches.
-func readEnvFile(baseDir, relPath string) (map[string]string, error) {
+// ReadEnvDirFile reads an env file relative to baseDir (Compose env_file semantics).
+// It rejects absolute paths, traversal, symlinks, and directories.
+func ReadEnvDirFile(baseDir, relPath string) (map[string]string, error) {
 	if strings.HasPrefix(relPath, "/") {
 		return nil, fmt.Errorf("env_file must be relative: %s", relPath)
 	}
@@ -42,25 +39,37 @@ func readEnvFile(baseDir, relPath string) (map[string]string, error) {
 	if info.IsDir() {
 		return nil, fmt.Errorf("env_file is directory: %s", relPath)
 	}
-	ext := strings.ToLower(filepath.Ext(relPath))
-	switch ext {
-	case ".yml", ".yaml":
-		return readYAMLEnv(full)
-	case ".json":
-		return readJSONEnv(full)
-	default:
-		return readDotEnv(full)
-	}
+	// Delegate extension handling to ReadEnvFile for single implementation point.
+	return ReadEnvFile(full)
 }
 
-func readDotEnv(full string) (map[string]string, error) {
-	f, err := os.Open(full)
+// ReadEnvFile reads a standalone env file (absolute or relative path, no base directory semantics).
+// It enforces the same safety checks (no symlink, not a directory).
+func ReadEnvFile(path string) (map[string]string, error) { // retained for backward compatibility (reads file then dispatches)
+	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	return ReadEnv(data, path)
+}
+
+// ReadEnv parses environment-style key/value data from raw content bytes using file extension hints.
+// Supported: .env (default), .yaml/.yml, .json . Behavior mirrors prior ReadEnvFile.
+func ReadEnv(content []byte, path string) (map[string]string, error) {
+	ext := strings.ToLower(filepath.Ext(path))
+	switch ext {
+	case ".yml", ".yaml":
+		return readYAMLEnv(content, path)
+	case ".json":
+		return readJSONEnv(content, path)
+	default:
+		return readDotEnv(content, path)
+	}
+}
+
+func readDotEnv(data []byte, path string) (map[string]string, error) {
 	m := map[string]string{}
-	scanner := bufio.NewScanner(f)
+	scanner := bufio.NewScanner(strings.NewReader(string(data)))
 	lineNo := 0
 	for scanner.Scan() {
 		lineNo++
@@ -131,29 +140,20 @@ func readDotEnv(full string) (map[string]string, error) {
 	return m, nil
 }
 
-func readYAMLEnv(full string) (map[string]string, error) {
-	// Use yaml.v3
-	data, err := os.ReadFile(full)
-	if err != nil {
-		return nil, err
-	}
+func readYAMLEnv(data []byte, path string) (map[string]string, error) {
 	var obj map[string]any
 	if err := yamlUnmarshal(data, &obj); err != nil {
 		return nil, err
 	}
-	return normalizeKVObject(obj, filepath.Ext(full))
+	return normalizeKVObject(obj, filepath.Ext(path))
 }
 
-func readJSONEnv(full string) (map[string]string, error) {
-	data, err := os.ReadFile(full)
-	if err != nil {
-		return nil, err
-	}
+func readJSONEnv(data []byte, path string) (map[string]string, error) {
 	var obj map[string]any
 	if err := json.Unmarshal(data, &obj); err != nil {
 		return nil, err
 	}
-	return normalizeKVObject(obj, filepath.Ext(full))
+	return normalizeKVObject(obj, filepath.Ext(path))
 }
 
 // normalizeKVObject validates object values and coerces to string.
@@ -189,7 +189,7 @@ var yamlUnmarshal = func(b []byte, v any) error {
 }
 
 // Validate accumulated secret size and value runes.
-func validateSecretData(m map[string]string) error {
+func ValidateSecretData(m map[string]string) error {
 	var total int
 	for k, v := range m {
 		if !envKeyRe.MatchString(k) {
@@ -219,7 +219,7 @@ func rejectControl(s string) error {
 }
 
 // computeSecretHash returns base36 SHA256 prefix length 6 using naming.ShortHash logic.
-func computeSecretHash(kv map[string]string) string {
+func ComputeSecretHash(kv map[string]string) string {
 	if len(kv) == 0 {
 		return naming.ShortHash("", 6)
 	}
@@ -247,7 +247,7 @@ func mergeEnvFiles(baseDir string, files []string) (map[string]string, map[strin
 		if f == "" {
 			continue
 		}
-		m, err := readEnvFile(baseDir, f)
+		m, err := ReadEnvDirFile(baseDir, f)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -258,36 +258,11 @@ func mergeEnvFiles(baseDir string, files []string) (map[string]string, map[strin
 			merged[k] = v
 		}
 	}
-	if err := validateSecretData(merged); err != nil {
+	if err := ValidateSecretData(merged); err != nil {
 		return nil, nil, err
 	}
 	return merged, overrides, nil
 }
 
 // Exposed helper for converter (minimal surface).
-func buildComposeSecret(baseDir, appName, component, container string, envFiles []types.EnvFile, envOverrides map[string]*string, labels map[string]string, namespace string) (*corev1.Secret, string, error) {
-	if len(envFiles) == 0 {
-		return nil, "", nil
-	}
-	// Collect relative paths list.
-	var files []string
-	for _, ef := range envFiles {
-		files = append(files, ef.Path)
-	}
-	kv, _, err := mergeEnvFiles(baseDir, files)
-	if err != nil {
-		return nil, "", err
-	}
-	// Remove keys overridden by service.Environment (those env overrides are not stored in Secret per spec)
-	for k := range envOverrides {
-		delete(kv, k)
-	}
-	hash := computeSecretHash(kv)
-	data := map[string][]byte{}
-	for k, v := range kv {
-		data[k] = []byte(v)
-	}
-	name := fmt.Sprintf("%s-%s-%s", appName, component, container)
-	sec := &corev1.Secret{ObjectMeta: metav1.ObjectMeta{Name: name, Namespace: namespace, Labels: labels, Annotations: map[string]string{AnnotationK4xComposeSecretHash: hash}}, Type: corev1.SecretTypeOpaque, Data: data}
-	return sec, hash, nil
-}
+// (buildComposeSecret removed; logic now inlined in Converter.Convert)

@@ -11,7 +11,7 @@
 
 ### リソース
 
-次のリソースを含む Kubernetes マニフェストが作られる。
+次の Kubernetes リソースが作られる。
 
 - アプリごとに以下を作成
   - Namespace 1個
@@ -26,12 +26,25 @@
   - Service 複数個
     - ingress: 1個だけ生成。compose の host ポートを列挙して Ingress より参照される
     - headless: compose の service の数だけ作成、ローカル DNS 解決用
-  - Secret 複数個
-    - env_file が存在する compose の service の数だけ作成
+  - Secret 複数個 (任意)
+    - Pod ごとのレジストリアクセス (pull)
+    - container(service) ごとの環境変数設定 (base, override)
   - Ingress 0〜2個 (DNSホスト名から Service(ingress) へのルーティング)
     - デフォルトドメイン用 Ingress
     - カスタムドメイン用 Ingress
     - 生成条件は後述
+
+上記リソースのすべてを Converter が出力するわけではない。一部はデプロイランタイム (CLI など) が生成・patch する。
+
+### デプロイランタイムと Field Manager
+
+Kompox では Kubernetes Server-Side Apply の Field Manager を用いてフィールド所有権を分離し、ユーザー操作との競合とドリフトを抑制する。
+
+|Field Manager|用途|
+|-|-|
+|`kompox-converter`|Converter や CLI が生成する静的なマニフェストに含まれるリソース・フィールド|
+|`kompox-runtime`|Secret 内容変化や CLI 操作結果を反映して patch されるリソース・フィールド|
+|`user`|ユーザーの限定的カスタマイズ|
 
 ### 名前・ラベル・アノテーション
 
@@ -57,9 +70,14 @@
 - Service(headless): `<containerName>`
   - app.compose.services により作られるコンテナの名前を使用する
   - Service(ingress) 名前衝突回避: `<appName>-app` または `<appName>-box` で始まる名前はエラーとする
-  - Namespacen内では単一のappしかデプロイできないのでapp.compose.servicesによる名前衝突はない
-- Secret: `<appName>-<componentName>-<containerName>`
+  - Namespace内では単一のappしかデプロイできないのでapp.compose.servicesによる名前衝突はない
+- Secret(pull): `<appName>-<componentName>--pull`
+  - kompoxops secret pull コマンドで作成するリソースの予約
+- Secret(base): `<appName>-<componentName>-<containerName>-base`
   - env_file が存在する app.compose.services により作られるコンテナの名前を使用する
+- Secret(override): `<appName>-<componentName>-<containerName>-override`
+  - env_file が存在する app.compose.services により作られるコンテナの名前を使用する
+  - kompoxops secret env コマンドで作成するリソースの予約
 - Ingress:
   - デフォルトドメイン用: `<appName>-<componentName>-default`
   - カスタムドメイン用: `<appName>-<componentName>-custom`
@@ -109,15 +127,17 @@ metadata:
 Secret には次のアノテーションを設定する。
 
 ```yaml
-metadata
+metadata:
   annotations:
     kompox.dev/compose-secret-hash: <secretHASH>
 ```
 
-Pod (Deployment の template で設定) には次のアノテーションを設定する。
+Deployment の pod template には次のアノテーションを設定するが、これは Converter では出力しない。
+デプロイランタイムがデプロイ完了後にすべての Secret リソースをスキャンして Deployment リソースに patch する。
+このときの Field Manager は `kompox-runtime` を用いる。
 
 ```yaml
-metadata
+metadata:
   annotations:
     kompox.dev/compose-secret-hash: <podSecretHASH>
 ```
@@ -160,10 +180,10 @@ BASE = クラウドディスクリソースのID (/subscriptions/.... など)
 BASE = すべての `KEY=VALUE` について `KEY` を辞書順にソートして `KEY=VALUE<NUL>` を連結したバイト列
 ```
 
-`<podSecretHash>` (Pod が参照する Secret リソースのハッシュ)
+`<podSecretHASH>` (Pod が参照する Secret リソースのハッシュ)
 
 ```
-BASE = Pod 内のコンテナが参照するすべての Secret リソースの `kompox.dev/compose-secret-hash` アノテーションの文字列(存在しない場合は空文字列)を、コンテナの名前の辞書順・コンテナ内の定義順に連結したバイト列
+BASE = Pod template が参照するすべての Secret リソースの `kompox.dev/compose-secret-hash` アノテーションの文字列(存在しない場合は空文字列)を、imagePullSecrets列挙順、コンテナの名前の辞書順・コンテナ内の列挙順に連結したバイト列
 ```
 
 各ハッシュの衝突が理論上発生した場合は実装側でハッシュ長 (6→8→10 文字…) を自動延長する。
@@ -246,25 +266,74 @@ app:
 
 未指定フィールドは出力しない。limits のみ指定時に requests を補完しない。
 
-### 環境変数
+### Secret
+
+#### Secret リソース
+
+component ごと、container ごとに次の名前の Secret リソースを予約する。これらは必要な場合だけ作られる。
+
+|名前|タイプ|生成条件|説明|
+|-|-|-|-|
+|`<appName>-<componentName>--pull`|`kubernetes.io/dockerconfigjson`|CLI: `kompoxops secret pull`|コンテナレジストリ認証|
+|`<appName>-<componentName>-<containerName>-base`|`Opaque`|Compose: `env_file`|コンテナ環境変数|
+|`<appName>-<componentName>-<containerName>-override`|`Opaque`|CLI: `kompoxops secret env`|コンテナ環境変数|
+
+各 Secret リソースに対して Converter はアノテーション `kompox.dev/compose-secret-hash: <secretHASH>` を出力する。
+
+Converter は pod template においてコンテナレジストリ認証 Secret を参照する imagePullSecrets を出力しない。
+CLI による設定時に imagePullSecrets を patch する。
+
+Converter は pod template の全コンテナにおいてコンテナ環境変数 Secret `-base` `-override` を参照する envFrom を常に出力する。
+その際に optional: true として Secret リソースが存在しない場合でもエラーにならないようにする。
+
+```yaml
+envFrom:
+- secretRef:
+    name: <appName>-<componentName>-<containerName>-base
+    optional: true
+- secretRef:
+    name: <appName>-<componentName>-<containerName>-override
+    optional: true
+```
+
+Converter は pod template においてアノテーション `kompox.dev/compose-secret-hash: <podSecretHASH>` を出力しない。
+デプロイランタイムがデプロイ完了後にすべての Secret リソースをスキャンして Deployment リソースに patch する。
+このときの Field Manager は `kompox-runtime` を用いる。
+
+`<podSecretHASH>` は次のように計算する。
+- Pod が参照する Secret を次の順で列挙
+  - imagePullSecrets: 列挙順
+  - envFrom: コンテナ名の辞書順 → コンテナ内の列挙順
+- 存在する Secret の `kompox.dev/compose-secret-hash` ハッシュ文字列を取得 (存在しなければ空文字列)
+- Secret の列挙順にハッシュ文字列を連結した文字列を BASE として HASH を適用する
+
+CLI による Secret リソース設定方法
+
+```
+# <appName>-<componentName>-<containerName>-override を設定・削除 (containerName=serviceName)
+kompoxops secret env set -S service -f override.env
+kompoxops secret env delete -S service
+# <appName>-<componentName>--pull を設定・削除
+kompoxops secret pull set -f ~/.docker/config.json
+kompoxops secret pull delete
+```
 
 #### env_file
 
 Compose の `env_file` は次のように取り扱う。
 
-- `env_file` が存在する場合、Manifest では対応する container の `envFrom` により Secret リソースから読み込む。
-- Secret リソースの名前は `<appName>-<componentName>-<containerName>` とする。
-- 列挙順にすべてのファイルを読み込みマージし 1 つの Secret を生成する。重複キーは「後勝ち」(後から読み込んだ値で上書き)。
-- 1 行 / 1 キーの上書き発生ごとに (実装で verbose 指定時) 警告を出せる。
+- 列挙順にすべてのファイルを読み込みマージし 1 つの Secret リソースを生成する。
+- Secret リソースの名前は `<appName>-<componentName>-<containerName>-base` とする。
 - ファイルパス制約:
   - 相対パスのみ (正規化後に `..` を含むものはエラー)
   - symlink / ディレクトリ / デバイス / FIFO / ソケットはエラー (外部脱出や非決定性を防ぐ)
   - UTF-8 (BOM なし) で読めない場合はエラー
 - サポート形式: `.env` / `.yml` `.yaml` / `.json`
+- 重複キーは「後勝ち」(後から読み込んだ値で上書き)。
+- 1 行 / 1 キーの上書き発生ごとに (実装で verbose 指定時) 警告を出せる。
 - `${VAR}` などの変数参照は展開しない。`"${VAR}"` を含む値はそのまま保持し、(必要に応じ) 警告可能。
-- Secret サイズ:
-  - マージ後の合計 (全キー名 + 値バイト長) > 1,000,000 bytes でエラー
 - 値に NUL バイト (0x00) や制御文字 (0x01–0x08, 0x0B, 0x0C, 0x0E–0x1F, 0x7F) が含まれる場合はエラー
+- マージ後の Secret リソースサイズの合計 (全キー名 + 値バイト長) > 1,000,000 bytes でエラー
 
 `.env` パーサ仕様:
 
@@ -286,12 +355,6 @@ YAML / JSON パーサ仕様:
 - キーは文字列
 - 値型は string / number / boolean を許容 (number, boolean は文字列へ変換)
 - null / 配列 / オブジェクト値はエラー
-
-ハッシュ:
-
-- 生成した最終キー集合に対し、キーを辞書順ソートし `KEY=VALUE<NUL>` を連結したバイト列を BASE として `<secretHASH>` を計算
-- Secret に `kompox.dev/compose-secret-hash: <secretHASH>` を付与
-- Pod テンプレートは参照 Secret 群のハッシュ連結値 `<podSecretHASH>` をアノテーションへ付与し、Secret 更新時にロールアウトを誘発
 
 #### environment
 
@@ -767,8 +830,6 @@ spec:
         app.kubernetes.io/managed-by: kompox
         kompox.dev/app-instance-hash: inHASH
         kompox.dev/app-id-hash: idHASH
-      annotations:
-        kompox.dev/compose-secret-hash: podSecretHASH
     spec:
       nodeSelector:
         kompox.dev/node-pool: user
@@ -778,7 +839,11 @@ spec:
         image: ghcr.io/kompox/app
         envFrom:
         - secretRef:
-            name: app1-app-app
+            name: app1-app-app-base
+            optional: true
+        - secretRef:
+            name: app1-app-app-override
+            optional: true
         env:
         - name: TZ
           value: Asia/Tokyo
@@ -798,6 +863,13 @@ spec:
             memory: 512Mi
       - name: postgres
         image: postgres
+        envFrom:
+        - secretRef:
+            name: app1-app-postgres-base
+            optional: true
+        - secretRef:
+            name: app1-app-postgres-override
+            optional: true
         env:
         - name: POSTGRES_PASSWORD
           value: secret        
@@ -899,7 +971,7 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: app1-app-app
+  name: app1-app-app-base
   namespace: k4x-spHASH-app1-idHASH
   labels:
     app: app1-app
