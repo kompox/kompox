@@ -20,9 +20,9 @@ kompoxops は Kompox PaaS 準拠のデプロイツールである。
 kompoxops init              設定ファイルの雛形作成
 kompoxops cluster           クラスタ操作
 kompoxops app               アプリ操作
+kompoxops secret            シークレット操作
 kompoxops disk              ディスク操作
 kompoxops snapshot          スナップショット操作
-kompoxops tool             メンテナンス用ランナー操作(アプリNS内)
 kompoxops admin             管理ツール
 ```
 
@@ -323,6 +323,110 @@ kompoxops app exec -it -- bash
 
 # コンテナ名を指定してログを確認
 kompoxops app exec -t -c app -- sh -c 'tail -n 100 /var/log/app.log'
+```
+
+### kompoxops secret
+
+アプリのシークレットの操作を行う。
+
+```
+kompoxops secret env set     --app-name <appName> -S <service> -f <file>
+kompoxops secret env delete  --app-name <appName> -S <service>
+kompoxops secret pull set    --app-name <appName> -f <file>
+kompoxops secret pull delete --app-name <appName>
+```
+
+共通オプション
+
+- `--app-name | -A` アプリ名を指定 (デフォルト: kompoxops.yml の app.name)
+
+#### kompoxops secret env
+
+アプリの特定コンテナ (Compose service) に対する環境変数を管理します。
+
+Compose の `env_file` で定義された環境変数を上書きする追加の環境変数を設定できます。
+
+##### kompoxops secret env set
+
+環境変数設定を作成または更新します。
+
+使用法:
+
+```
+kompoxops secret env set -A <appName> -S <serviceName> -f override.env
+```
+
+主なオプション:
+- `-S, --service <serviceName>` 対象コンテナ (Compose service 名) を指定 (必須)
+- `-f, --file <path>`          読み込むファイル (必須)
+
+サポートファイル形式: `.env` / `.yml` / `.yaml` / `.json`
+
+使用例:
+
+```
+# 環境変数設定を作成
+kompoxops secret env set -A app1 -S app -f staging.env
+```
+
+##### kompoxops secret env delete
+
+環境変数設定を削除します。
+
+使用法:
+
+```
+kompoxops secret env delete -A <appName> -S <serviceName>
+```
+
+主なオプション:
+- `-S, --service <serviceName>` 対象コンテナ (Compose service 名) を指定 (必須)
+
+使用例:
+
+```
+# 環境変数設定を削除
+kompoxops secret env delete -A app1 -S app
+```
+
+#### kompoxops secret pull
+
+プライベートレジストリからイメージを取得するための認証情報を管理します。
+
+##### kompoxops secret pull set
+
+レジストリ認証情報を設定します。
+
+使用法:
+
+```
+kompoxops secret pull set -A <appName> -f ~/.docker/config.json
+```
+
+主なオプション:
+- `-f, --file <path>`  Docker 認証ファイル (`config.json`) を指定 (必須)
+
+使用例:
+
+```
+# 認証情報を設定
+kompoxops secret pull set -A app1 -f ~/.docker/config.json
+```
+
+##### kompoxops secret pull delete
+
+レジストリ認証情報を削除します。
+
+使用法:
+
+```
+kompoxops secret pull delete -A <appName>
+```
+使用例:
+
+```
+# 認証情報を削除
+kompoxops secret pull delete -A app1
 ```
 
 ### kompoxops disk

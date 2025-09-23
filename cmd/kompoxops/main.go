@@ -66,6 +66,7 @@ func newRootCmd() *cobra.Command {
 	cmd.AddCommand(newCmdConfig())
 	cmd.AddCommand(newCmdCluster())
 	cmd.AddCommand(newCmdApp())
+	cmd.AddCommand(newCmdSecret())
 	cmd.AddCommand(newCmdBox())
 	cmd.AddCommand(newCmdDisk())
 	cmd.AddCommand(newCmdSnapshot())

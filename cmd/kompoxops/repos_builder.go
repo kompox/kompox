@@ -14,6 +14,7 @@ import (
 	"github.com/kompox/kompox/usecase/box"
 	"github.com/kompox/kompox/usecase/cluster"
 	"github.com/kompox/kompox/usecase/provider"
+	"github.com/kompox/kompox/usecase/secret"
 	"github.com/kompox/kompox/usecase/service"
 	"github.com/kompox/kompox/usecase/volume"
 	"github.com/spf13/cobra"
@@ -158,6 +159,20 @@ func buildBoxRepos(cmd *cobra.Command) (*box.Repos, error) {
 		return nil, err
 	}
 	return &box.Repos{
+		Service:  repos.Service,
+		Provider: repos.Provider,
+		Cluster:  repos.Cluster,
+		App:      repos.App,
+	}, nil
+}
+
+// buildSecretRepos creates repositories needed for secret use cases.
+func buildSecretRepos(cmd *cobra.Command) (*secret.Repos, error) {
+	repos, err := buildRepos(cmd)
+	if err != nil {
+		return nil, err
+	}
+	return &secret.Repos{
 		Service:  repos.Service,
 		Provider: repos.Provider,
 		Cluster:  repos.Cluster,

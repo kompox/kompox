@@ -6,6 +6,7 @@ import (
 	"github.com/kompox/kompox/usecase/box"
 	"github.com/kompox/kompox/usecase/cluster"
 	"github.com/kompox/kompox/usecase/provider"
+	"github.com/kompox/kompox/usecase/secret"
 	"github.com/kompox/kompox/usecase/service"
 	"github.com/kompox/kompox/usecase/volume"
 	"github.com/spf13/cobra"
@@ -75,4 +76,13 @@ func buildBoxUseCase(cmd *cobra.Command) (*box.UseCase, error) {
 		Repos:      repos,
 		VolumePort: providerdrv.GetVolumePort(repos.Service, repos.Provider, repos.Cluster, repos.App),
 	}, nil
+}
+
+// buildSecretUseCase creates secret use case with required repositories.
+func buildSecretUseCase(cmd *cobra.Command) (*secret.UseCase, error) {
+	repos, err := buildSecretRepos(cmd)
+	if err != nil {
+		return nil, err
+	}
+	return &secret.UseCase{Repos: repos}, nil
 }
