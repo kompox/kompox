@@ -13,6 +13,7 @@ import (
 	"github.com/kompox/kompox/internal/logging"
 	"github.com/kompox/kompox/internal/terminal"
 	"github.com/kompox/kompox/usecase/app"
+	vuc "github.com/kompox/kompox/usecase/volume"
 	"github.com/spf13/cobra"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -167,6 +168,7 @@ func newCmdAppValidate() *cobra.Command {
 //   - Namespace labels/annotations are merged
 //   - Deployment/Service/Ingress perform create or update (simple Update with existing resourceVersion)
 func newCmdAppDeploy() *cobra.Command {
+	var bootstrapDisks bool
 	cmd := &cobra.Command{
 		Use:                "deploy",
 		Short:              "Deploy app to cluster (apply generated Kubernetes objects)",
@@ -181,6 +183,7 @@ func newCmdAppDeploy() *cobra.Command {
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
 			defer cancel()
+			logger := logging.FromContext(ctx)
 
 			appName, err := getAppName(cmd, args)
 			if err != nil {
@@ -202,12 +205,24 @@ func newCmdAppDeploy() *cobra.Command {
 				return fmt.Errorf("app %s not found", appName)
 			}
 
+			if bootstrapDisks {
+				volUC, verr := buildVolumeUseCase(cmd)
+				if verr != nil {
+					return verr
+				}
+				logger.Info(ctx, "bootstrap disks before deploy", "app", appName)
+				if _, berr := volUC.DiskCreateBootstrap(ctx, &vuc.DiskCreateBootstrapInput{AppID: target.ID}); berr != nil {
+					return berr
+				}
+			}
+
 			if _, err := appUC.Deploy(ctx, &app.DeployInput{AppID: target.ID}); err != nil {
 				return err
 			}
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&bootstrapDisks, "bootstrap-disks", false, "Create one assigned disk per volume if none exist (fails on partial state)")
 	return cmd
 }
 

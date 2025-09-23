@@ -90,7 +90,11 @@ func newCmdDiskCreate() *cobra.Command {
 			return err
 		}
 		volName, _ := cmd.Flags().GetString("vol-name")
-		if volName == "" {
+		bootstrap, _ := cmd.Flags().GetBool("bootstrap")
+		if bootstrap && volName != "" {
+			return fmt.Errorf("--vol-name must not be specified with --bootstrap")
+		}
+		if !bootstrap && volName == "" {
 			return fmt.Errorf("--vol-name required")
 		}
 		appID, err := resolveAppIDByName(ctx, u, appName)
@@ -101,22 +105,32 @@ func newCmdDiskCreate() *cobra.Command {
 		// Parse zone and options flags
 		zone, _ := cmd.Flags().GetString("zone")
 		optionsStr, _ := cmd.Flags().GetString("options")
-
-		input := &vuc.DiskCreateInput{
-			AppID:      appID,
-			VolumeName: volName,
-			Zone:       zone,
-		}
-
-		// Parse JSON options if provided
+		var options map[string]any
 		if optionsStr != "" {
-			var options map[string]any
 			if err := json.Unmarshal([]byte(optionsStr), &options); err != nil {
 				return fmt.Errorf("invalid JSON in --options: %w", err)
 			}
-			input.Options = options
 		}
 
+		if bootstrap {
+			logger.Info(ctx, "bootstrap volume disks start", "app", appName)
+			bout, err := u.DiskCreateBootstrap(ctx, &vuc.DiskCreateBootstrapInput{AppID: appID, Zone: zone, Options: options})
+			if err != nil {
+				return err
+			}
+			enc := json.NewEncoder(cmd.OutOrStdout())
+			enc.SetIndent("", "  ")
+			// Flatten created disks to a simple array; if skipped return empty array.
+			disks := make([]any, 0, len(bout.Created))
+			for _, c := range bout.Created {
+				if c != nil && c.Disk != nil {
+					disks = append(disks, c.Disk)
+				}
+			}
+			return enc.Encode(disks)
+		}
+
+		input := &vuc.DiskCreateInput{AppID: appID, VolumeName: volName, Zone: zone, Options: options}
 		logger.Info(ctx, "create volume instance start", "app", appName, "volume", volName)
 		out, err := u.DiskCreate(ctx, input)
 		if err != nil {
@@ -128,6 +142,7 @@ func newCmdDiskCreate() *cobra.Command {
 	}}
 	cmd.Flags().StringP("zone", "Z", "", "Override deployment zone")
 	cmd.Flags().StringP("options", "O", "", "Override volume options (JSON)")
+	cmd.Flags().Bool("bootstrap", false, "Create one assigned disk per app volume if none are assigned (ignore when already initialized)")
 	return cmd
 }
 

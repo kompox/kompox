@@ -228,7 +228,7 @@ kompoxops cluster kubeconfig -C cluster1 --merge --set-current
 
 ```
 kompoxops app validate --app-name <appName>
-kompoxops app deploy   --app-name <appName>
+kompoxops app deploy   --app-name <appName> [--bootstrap-disks]
 kompoxops app destroy  --app-name <appName>
 kompoxops app status   --app-name <appName>
 kompoxops app exec     --app-name <appName> -- <command> [args...]
@@ -251,6 +251,26 @@ Compose の検証と K8s マニフェスト生成を行います。`--out-compos
 #### kompoxops app deploy
 
 検証・変換済みのリソースを対象クラスタに適用します(冪等)。
+
+オプション:
+
+- `--bootstrap-disks` 全 app.volumes で Assigned ディスクが 0 件の場合に限り、各ボリューム 1 件ずつ新規ディスクを自動作成してからデプロイを続行する。部分的に一部ボリュームのみ未初期化 (Assigned=0) / 他は 1 件以上 Assigned の混在状態や、未割当ディスクのみが残っている不整合状態はエラー。
+
+ディスク初期化挙動 (概要):
+1. 判定: 全ボリュームで Assigned=0 ?
+2. YES -> `disk create --bootstrap` 相当の一括作成を実行 (各ボリューム 1 件)。
+3. NO かつ 全ボリュームで Assigned=1 -> そのまま続行 (no-op)。
+4. それ以外 -> エラー終了 (ユーザーが手動で assign/delete を整理して再実行)。
+5. 以後、通常の manifest 生成・適用フェーズで "各ボリューム Assigned=1" を前提とする。
+
+使用例:
+```bash
+# 初回: まだどのボリュームにもディスクが無い -> 自動生成してデプロイ
+kompoxops app deploy --bootstrap-disks
+
+# 2 回目以降: 既に 1 件ずつあるので作成せず適用のみ
+kompoxops app deploy --bootstrap-disks
+```
 
 #### kompoxops app destroy
 
@@ -435,7 +455,7 @@ app.volumes で定義された論理ボリュームに属するディスク (ボ
 
 ```
 kompoxops disk list   --app-name <appName> --vol-name <volName>                     ディスク一覧表示
-kompoxops disk create --app-name <appName> --vol-name <volName> [--zone <zone>] [--options <json>] 新しいディスク作成 (サイズは app.volumes 定義を使用)
+kompoxops disk create --app-name <appName> --vol-name <volName> [--zone <zone>] [--options <json>] [--bootstrap] 新しいディスク作成 (サイズは app.volumes 定義を使用)
 kompoxops disk assign --app-name <appName> --vol-name <volName> --disk-name <name>  指定ディスクを <volName> の Assigned に設定 (他は自動的に Unassign)
 kompoxops disk delete --app-name <appName> --vol-name <volName> --disk-name <name>  指定ディスク削除 (Assigned 中はエラー)
 ```
@@ -450,16 +470,24 @@ create 専用オプション
 
 - `--zone | -Z` アベイラビリティゾーンを指定 (app.deployment.zone をオーバーライド)
 - `--options | -O` ボリュームオプションをJSON形式で指定 (app.volumes.options をオーバーライド/マージ)
+- `--bootstrap` 全ボリュームについて Assigned ディスクが 1 件も存在しない場合に限り、各ボリューム 1 件ずつ新規作成する一括初期化モード。`--vol-name` と同時指定不可。
 
 仕様
 
 - `<volName>` は app.volumes に存在しない場合エラー。
-- create: ディスク名は自動生成 (例: 時刻ベース) または `--name` 指定 (存在重複はエラー)。
+- create: ディスク名は自動生成 (例: ULID 等) または `--name` 指定 (存在重複はエラー)。
 - assign: 1 論理ボリュームにつき同時に Assigned=true は 0 または 1。既に同一ディスクが Assigned なら成功 (冪等)。別ディスクが Assigned の場合は自動でそのディスクを Unassign 後に指定を Assign。
 - delete: 対象が存在しなければ成功 (冪等)。Assigned=true のディスクは `--force` 無しで拒否。
 - list 出力列例: NAME  ASSIGNED  SIZE  HANDLE(SHORT)  CREATED              UPDATED
 - SIZE 表示は Gi 単位 (内部は bytes)。
-- manifest 生成 (app deploy) 時: 各 volName で Assigned インスタンスがちょうど 1 件でない場合エラー。
+- manifest 生成 (app deploy) 時: 各 volName で Assigned ディスクがちょうど 1 件でない場合エラー (ただし `app deploy --bootstrap-disks` 指定時は事前に一括初期化を試みる)。
+
+ブートストラップ挙動 (`--bootstrap` / `--bootstrap-disks` 共通):
+- 目的: 初期状態 (どのボリュームにも Assigned ディスクが無い) で手動操作無しで 1:1 対応の基盤を用意する。
+- 成功条件: 全ボリューム Assigned=0。
+- スキップ条件: 全ボリューム Assigned=1 (何も作らず成功)。
+- エラー条件: 上記以外 (一部のみ Assigned>0 / Unassigned 残骸が混在)。
+- 作成結果: 各ボリュームに 1 つずつ新規ディスク (Assigned=true) を生成し JSON (配列) で返す (disk create の場合)。
 
 例
 
@@ -481,6 +509,7 @@ vol-202312  false     32Gi   9ab1c02 (az)  2023-12-31T09:00Z    2024-01-10T12:05
 オプション：
 - `--zone | -Z`: デプロイメントゾーンを指定。app.deployment.zone の設定をオーバーライドします。
 - `--options | -O`: ボリュームオプションをJSON形式で指定。app.volumes.options の設定をオーバーライド/マージします。
+- `--bootstrap`: 全ボリューム未初期化時に 1 件ずつ一括作成。`--vol-name` と同時指定不可。
 
 使用例：
 ```bash
