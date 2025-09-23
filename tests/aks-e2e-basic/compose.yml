@@ -1,0 +1,9 @@
+services:
+  app:
+    image: traefik/whoami
+    env_file:
+      - app-env-base.env
+    environment:
+      TZ: Asia/Tokyo
+    ports:
+      - "8080:80"

@@ -28,14 +28,7 @@ cluster:
     AZURE_AKS_USER_VM_ZONES: ${AZURE_AKS_USER_VM_ZONES}
 app:
   name: app1
-  compose:
-    services:
-      app:
-        image: traefik/whoami
-        environment:
-          TZ: Asia/Tokyo
-        ports:
-          - "8080:80"
+  compose: file:compose.yml
   ingress:
     certResolver: staging
     rules:
