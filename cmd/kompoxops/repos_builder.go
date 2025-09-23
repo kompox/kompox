@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/kompox/kompox/adapters/store/inmem"
@@ -23,6 +24,19 @@ import (
 // configRoot holds the loaded configuration.
 var configRoot *kompoxopscfg.Root
 
+// reposCache caches repositories for a given db-url (currently only for file: scheme)
+// to ensure consistent in-memory IDs across multiple use case builders inside the
+// same process lifetime. This avoids needing composite builders in most cases.
+// NOTE: With file: scheme the underlying in-memory store is not persisted. Making
+// this a process-wide singleton subtly changes semantics: mutations (e.g. disk
+// creation) persist for subsequent commands in the same process. If isolation per
+// command execution is required in the future, introduce a reset mechanism or
+// scope cache by invocation.
+var (
+	reposCache   = map[string]*domain.Repositories{}
+	reposCacheMu sync.Mutex
+)
+
 // getDBURL extracts the db-url flag value from command hierarchy.
 func getDBURL(cmd *cobra.Command) string {
 	f := findFlag(cmd, "db-url")
@@ -39,6 +53,13 @@ func buildRepos(cmd *cobra.Command) (*domain.Repositories, error) {
 
 	switch {
 	case strings.HasPrefix(dbURL, "file:"):
+		// Fast path: return cached repositories if present.
+		reposCacheMu.Lock()
+		if cached, ok := reposCache[dbURL]; ok && cached != nil {
+			reposCacheMu.Unlock()
+			return cached, nil
+		}
+		reposCacheMu.Unlock()
 		// Extract file path from file: URL
 		filePath := strings.TrimPrefix(dbURL, "file:")
 		if filePath == "" {
@@ -62,12 +83,16 @@ func buildRepos(cmd *cobra.Command) (*domain.Repositories, error) {
 
 		configRoot = store.ConfigRoot
 
-		return &domain.Repositories{
+		repos := &domain.Repositories{
 			Service:  store.ServiceRepository,
 			Provider: store.ProviderRepository,
 			Cluster:  store.ClusterRepository,
 			App:      store.AppRepository,
-		}, nil
+		}
+		reposCacheMu.Lock()
+		reposCache[dbURL] = repos
+		reposCacheMu.Unlock()
+		return repos, nil
 
 	case strings.HasPrefix(dbURL, "sqlite:") || strings.HasPrefix(dbURL, "sqlite3:"):
 		db, err := rdb.OpenFromURL(dbURL)
