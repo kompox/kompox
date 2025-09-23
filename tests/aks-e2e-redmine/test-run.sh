@@ -14,11 +14,6 @@ cat kompoxops.yml
 
 ./kompoxops cluster status
 
-N=$(./kompoxops disk list -V default | jq length)
-if test "$N" = 0; then
-        ./kompoxops disk create -V default
-fi
-
-./kompoxops app deploy
+./kompoxops app deploy --bootstrap-disks
 
 ./kompoxops app status
