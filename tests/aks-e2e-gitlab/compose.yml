@@ -1,0 +1,16 @@
+services:
+  gitlab:
+    image: gitlab/gitlab-ce:18.4.0-ce.0
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'https://gitlab.custom.exp.kompox.dev'
+        nginx['listen_port'] = 80
+        nginx['listen_https'] = false
+        registry_nginx['listen_port'] = 80
+        registry_nginx['listen_https'] = false
+    ports:
+      - '8080:80'
+    volumes:
+      - ./data/config:/etc/gitlab
+      - ./data/logs:/var/log/gitlab
+      - ./data/data:/var/opt/gitlab
