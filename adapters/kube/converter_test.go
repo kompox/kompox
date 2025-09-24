@@ -102,6 +102,7 @@ func TestConverterConvert(t *testing.T) {
 		compose      string
 		appVolumes   []model.AppVolume
 		appIngress   model.AppIngress
+		cluster      *model.Cluster
 		wantErr      string
 		wantWarnings int
 		validate     func(t *testing.T, c *Converter)
@@ -201,6 +202,26 @@ services:
 			},
 		},
 		{
+			name: "custom_domain_host_conflicts_with_cluster_domain",
+			compose: `
+services:
+  web:
+    image: nginx:1.20
+    ports:
+      - "8080:80"
+`,
+			appIngress: model.AppIngress{
+				Rules: []model.AppIngressRule{
+					{Name: "web", Port: 8080, Hosts: []string{"foo.ops.kompox.dev"}},
+				},
+			},
+			cluster: &model.Cluster{
+				Name: "testcls",
+				Ingress: &model.ClusterIngress{Domain: "ops.kompox.dev"},
+			},
+			wantErr: "must not be under cluster ingress domain",
+		},
+		{
 			name: "app_with_volumes_creates_initcontainer",
 			compose: `
 services:
@@ -291,7 +312,10 @@ services:
 		t.Run(tt.name, func(t *testing.T) {
 			svc := &model.Service{Name: "testsvc"}
 			prv := &model.Provider{Name: "testprv", Driver: "test"}
-			cls := &model.Cluster{Name: "testcls"}
+			cls := tt.cluster
+			if cls == nil {
+				cls = &model.Cluster{Name: "testcls"}
+			}
 			app := &model.App{
 				Name:    "testapp",
 				Compose: tt.compose,

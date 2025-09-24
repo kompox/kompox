@@ -437,6 +437,16 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		RoleRef:    rbacv1.RoleRef{APIGroup: "rbac.authorization.k8s.io", Kind: "Role", Name: roleName},
 	}
 
+	// Determine cluster ingress domain for validations.
+	clusterDomain := ""
+	clusterDomainLower := ""
+	if c.Cls != nil && c.Cls.Ingress != nil {
+		clusterDomain = strings.TrimSpace(c.Cls.Ingress.Domain)
+		if clusterDomain != "" {
+			clusterDomainLower = strings.ToLower(clusterDomain)
+		}
+	}
+
 	// Service from ingress rules or ports
 	var warnings []string
 	var service *corev1.Service
@@ -466,7 +476,14 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 			}
 			containerPortName[cp] = r.Name
 			servicePorts = append(servicePorts, corev1.ServicePort{Name: r.Name, Port: int32(r.Port), TargetPort: intstr.FromInt(cp)})
-			for _, host := range r.Hosts {
+			for _, rawHost := range r.Hosts {
+				host := strings.TrimSpace(rawHost)
+				if clusterDomainLower != "" {
+					hostLower := strings.ToLower(host)
+					if hostLower == clusterDomainLower || strings.HasSuffix(hostLower, "."+clusterDomainLower) {
+						return nil, fmt.Errorf("ingress host %s must not be under cluster ingress domain %s", host, clusterDomain)
+					}
+				}
 				if prev, dup := hostSeen[host]; dup {
 					return nil, fmt.Errorf("host %s duplicated across ingress entries (%s,%s)", host, prev, r.Name)
 				}
@@ -522,7 +539,8 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 			cp := hostPortToContainer[r.Port]
 			portName := containerPortName[cp]
 			path := netv1.HTTPIngressPath{Path: "/", PathType: ptr.To(netv1.PathTypePrefix), Backend: netv1.IngressBackend{Service: &netv1.IngressServiceBackend{Name: service.Name, Port: netv1.ServiceBackendPort{Name: portName}}}}
-			for _, host := range r.Hosts {
+			for _, rawHost := range r.Hosts {
+				host := strings.TrimSpace(rawHost)
 				if _, dup := customHostSeen[host]; dup {
 					return nil, fmt.Errorf("host %s duplicated across ingress entries", host)
 				}
@@ -548,10 +566,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		}
 
 		// Build Default-domain Ingress (one host per rule based on hostPort)
-		var defaultDomain string
-		if c.Cls != nil && c.Cls.Ingress != nil {
-			defaultDomain = strings.TrimSpace(c.Cls.Ingress.Domain)
-		}
+		defaultDomain := clusterDomain
 		if defaultDomain != "" {
 			var defaultRules []netv1.IngressRule
 			defaultHostSeen := map[string]struct{}{}

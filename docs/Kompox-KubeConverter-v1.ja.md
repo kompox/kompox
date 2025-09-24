@@ -423,10 +423,9 @@ traefik.ingress.kubernetes.io/router.tls: "true"
 traefik.ingress.kubernetes.io/router.tls.certresolver: {app.ingress.certResolver}
 ```
 
-補足（ホスト名の重複）
-- `app.ingress.rules` 内で同一 FQDN が複数回現れた場合:
-  - エントリ内重複は 1 回目のみ採用し警告、異なるエントリ間の重複はエラー
-- デフォルトドメインで自動生成されるホストと `app.ingress.rules.hosts` が衝突した場合はエラーとする
+カスタムドメインホスト名の制約
+- `cluster.ingress.domain` で指定したドメイン以下のホスト名を指定するとエラー
+- `app.ingress.rules` の同一エントリ内の重複は警告、異なるエントリ間の重複はエラー
 
 参考: Traefik Helm values.yaml 設定
 ```yaml
