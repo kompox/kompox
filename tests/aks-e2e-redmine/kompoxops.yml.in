@@ -14,7 +14,10 @@ cluster:
   ingress:
     certEmail: yaegashi@live.jp
     certResolver: staging
-    domain: app-default.kompox.dev
+    domain: cluster1.aks1.exp.kompox.dev
+    certificates:
+      - name: l0wdevtls
+        source: https://l0wdevtls-jpe-prd1.vault.azure.net/secrets/cluster1-aks1-exp-kompox-dev
   settings:
     AZURE_AKS_SYSTEM_VM_SIZE: ${AZURE_AKS_SYSTEM_VM_SIZE}
     AZURE_AKS_SYSTEM_VM_DISK_TYPE: ${AZURE_AKS_SYSTEM_VM_DISK_TYPE}
@@ -34,7 +37,7 @@ app:
     rules:
       - name: main
         port: 8080
-        hosts: [redmine.yb2.banadev.org]
+        hosts: [redmine.custom.exp.kompox.dev]
   deployment:
     zone: "1"
   volumes:
