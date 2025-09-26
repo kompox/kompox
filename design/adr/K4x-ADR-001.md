@@ -106,55 +106,55 @@ We will implement a Kompox Operator that reconciles three namespaced CRDs and ke
 apiVersion: k8s.kompox.dev/v1alpha1
 kind: KompoxDisk
 metadata:
-	name: default
-	namespace: app1
+  name: default
+  namespace: app1
 spec:
-	provider:
-		type: auto
-	size: 10Gi
-	zone: "1"
-	options:
-		sku: PremiumV2_LRS
-	deletionPolicy: Orphan
+  provider:
+    type: auto
+  size: 10Gi
+  zone: "1"
+  options:
+    sku: PremiumV2_LRS
+  deletionPolicy: Orphan
 status:
-	handle: ""
-	pvName: ""
-	conditions: []
+  handle: ""
+  pvName: ""
+  conditions: []
 ---
 apiVersion: k8s.kompox.dev/v1alpha1
 kind: KompoxSnapshot
 metadata:
-	name: default-20250925
-	namespace: app1
+  name: default-20250925
+  namespace: app1
 spec:
-	diskRef:
-		name: default
+  diskRef:
+    name: default
 status:
-	snapshotHandle: ""
-	conditions: []
+  snapshotHandle: ""
+  conditions: []
 ---
 apiVersion: k8s.kompox.dev/v1alpha1
 kind: KompoxApp
 metadata:
-	name: app1
-	namespace: app1
+  name: app1
+  namespace: app1
 spec:
-	compose:
-		configMapRef:
-			name: app1-compose
-			key: compose.yml
-	ingress:
-		className: traefik
-		rules:
-			- name: main
-				port: 3000
-				hosts: ["gitea.example.com"]
-	volumes:
-		- name: default
-			diskRef:
-				name: default
+  compose:
+    configMapRef:
+      name: app1-compose
+      key: compose.yml
+  ingress:
+    className: traefik
+    rules:
+      - name: main
+        port: 3000
+        hosts: ["gitea.example.com"]
+  volumes:
+    - name: default
+      diskRef:
+        name: default
 status:
-	conditions: []
+  conditions: []
 ```
 
 ## Open Questions
