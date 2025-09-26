@@ -1,4 +1,5 @@
 ---
+id: Kompox-ProviderDriver-AKS
 title: Kompox Provider Driver AKS ガイド
 version: v1
 status: out-of-sync

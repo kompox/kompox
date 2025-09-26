@@ -1,4 +1,5 @@
 ---
+id: Kompox-KubeClient
 title: Kompox Kube Client ガイド
 version: v1
 status: out-of-sync

@@ -18,6 +18,7 @@ import (
 
 // Doc holds front matter and path info for a design document.
 type Doc struct {
+	ID       string `yaml:"id"`
 	Title    string `yaml:"title"`
 	Version  string `yaml:"version"`
 	Status   string `yaml:"status"`
@@ -27,9 +28,8 @@ type Doc struct {
 	RelPath string `yaml:"-"`
 }
 
-// Group groups docs by version bucket for rendering.
+// Group represents a set of documents bucketed by an inferred key (first directory segment).
 type Group struct {
-	Name string
 	Key  string
 	Docs []Doc
 }
@@ -40,12 +40,6 @@ type IndexData struct {
 	Language string
 	Updated  string
 	Groups   []Group
-	Labels   TemplateLabels
-}
-
-// TemplateLabels holds localized labels loaded from the template front matter.
-type TemplateLabels struct {
-	Groups map[string]string `yaml:"groups"`
 }
 
 func main() {
@@ -58,7 +52,7 @@ func main() {
 	)
 	flag.Parse()
 
-	// Normalize options for relative execution (e.g., running inside design directory).
+	// Normalize options for relative execution.
 	if strings.TrimSpace(*designDir) == "" {
 		*designDir = "."
 	}
@@ -74,7 +68,7 @@ func main() {
 			// Fallback to English template if language-specific one is absent.
 			candidate = filepath.Join(*designDir, "gen", "README.en.md")
 			if _, err := os.Stat(candidate); err != nil {
-				// As a final fallback, try the Japanese template for backward compatibility.
+				// Final fallback: Japanese template.
 				candidate = filepath.Join(*designDir, "gen", "README.ja.md")
 			}
 		}
@@ -89,14 +83,6 @@ func main() {
 	if err != nil {
 		exitErr(err)
 	}
-	// Load labels from template front matter (optional).
-	labels, err := parseTemplateLabels(*tplPath)
-	if err != nil {
-		exitErr(fmt.Errorf("parse template labels: %w", err))
-	}
-
-	groups := groupDocs(docs, labels)
-
 	tplBytes, err := os.ReadFile(*tplPath)
 	if err != nil {
 		exitErr(fmt.Errorf("read template: %w", err))
@@ -106,20 +92,22 @@ func main() {
 		exitErr(fmt.Errorf("parse template: %w", err))
 	}
 
+	// Determine group order from a named template block if present (template-defined), otherwise default.
+	order := evalGroupOrder(tpl)
+	groups := groupDocs(docs, order)
+
 	now := time.Now().Format("2006-01-02")
 	data := IndexData{
 		Title:    "Kompox Design Docs Index",
 		Language: *lang,
 		Updated:  now,
 		Groups:   groups,
-		Labels:   labels,
 	}
 
 	var buf bytes.Buffer
 	if err := tpl.Execute(&buf, data); err != nil {
 		exitErr(fmt.Errorf("execute template: %w", err))
 	}
-
 	if err := os.MkdirAll(filepath.Dir(*output), 0o755); err != nil {
 		exitErr(fmt.Errorf("ensure output dir: %w", err))
 	}
@@ -201,7 +189,7 @@ func scanDocs(root, lang, outputPath, tplPath string, filterByLang bool) ([]Doc,
 		rel = strings.ReplaceAll(rel, string(filepath.Separator), "/")
 		doc.RelPath = "./" + rel
 
-		// Fallbacks and normalization.
+		// Fill missing display fields and normalize date.
 		if strings.TrimSpace(doc.Title) == "" {
 			doc.Title = titleFromFilename(d.Name())
 		}
@@ -257,114 +245,73 @@ func parseFrontMatter(path string) (Doc, bool, error) {
 	return doc, true, nil
 }
 
-func groupDocs(docs []Doc, labels TemplateLabels) []Group {
-	orderKeys := []string{"v1", "v2", "pub", "other"}
-	buckets := map[string][]Doc{
-		"v1":    {},
-		"v2":    {},
-		"pub":   {},
-		"other": {},
-	}
+func groupDocs(docs []Doc, orderKeys []string) []Group {
+	// Bucket documents by folder-based key inferred from RelPath.
+	buckets := map[string][]Doc{}
 	for _, d := range docs {
-		key := strings.ToLower(strings.TrimSpace(d.Version))
-		switch key {
-		case "v1", "v2", "pub":
-			buckets[key] = append(buckets[key], d)
-		default:
-			buckets["other"] = append(buckets["other"], d)
-		}
+		key := inferGroupKeyFromPath(d.RelPath)
+		buckets[key] = append(buckets[key], d)
 	}
+
+	// Use order passed from template; fallback to a sensible default.
+	if len(orderKeys) == 0 {
+		orderKeys = []string{"v1", "v2", "adr", "pub", "other"}
+	}
+
+	used := map[string]bool{}
 	var groups []Group
 	for _, key := range orderKeys {
-		if len(buckets[key]) == 0 {
-			continue
+		if docs := buckets[key]; len(docs) > 0 {
+			groups = append(groups, Group{Key: key, Docs: docs})
+			used[key] = true
 		}
-		groups = append(groups, Group{
-			Key:  key,
-			Name: groupName(key, labels),
-			Docs: buckets[key],
-		})
+	}
+	// Append any remaining buckets in alphabetical order.
+	var rest []string
+	for k := range buckets {
+		if !used[k] {
+			rest = append(rest, k)
+		}
+	}
+	sort.Strings(rest)
+	for _, k := range rest {
+		groups = append(groups, Group{Key: k, Docs: buckets[k]})
 	}
 	return groups
 }
 
-// parseTemplateLabels extracts the front matter from the template markdown file
-// and returns the Labels section. It sanitizes template expressions like {{ .Var }}
-// so YAML parsing does not fail.
-func parseTemplateLabels(tplPath string) (TemplateLabels, error) {
-	b, err := os.ReadFile(tplPath)
-	if err != nil {
-		return TemplateLabels{}, err
+// inferGroupKeyFromPath returns first directory segment as a grouping key.
+func inferGroupKeyFromPath(rel string) string {
+	rp := strings.TrimPrefix(strings.ToLower(rel), "./")
+	parts := strings.SplitN(rp, "/", 2)
+	if len(parts) == 0 || strings.TrimSpace(parts[0]) == "" {
+		return "other"
 	}
-	s := string(b)
-	s = trimBOM(s)
-	lines := splitLinesLF(s)
-	if len(lines) == 0 || strings.TrimSpace(lines[0]) != "---" {
-		// No front matter, return empty labels
-		return TemplateLabels{}, nil
-	}
-	end := -1
-	for i := 1; i < len(lines); i++ {
-		if strings.TrimSpace(lines[i]) == "---" {
-			end = i
-			break
-		}
-	}
-	if end == -1 {
-		return TemplateLabels{}, errors.New("template front matter not closed with '---'")
-	}
-	// Extract only the 'labels:' subtree to avoid parsing other fields that may contain Go templates.
-	start := -1
-	for i := 1; i < end; i++ {
-		if strings.TrimSpace(lines[i]) == "labels:" {
-			start = i
-			break
-		}
-	}
-	if start == -1 {
-		return TemplateLabels{}, nil
-	}
-	indent := leadingSpaces(lines[start])
-	var subtree []string
-	subtree = append(subtree, "labels:")
-	for i := start + 1; i < end; i++ {
-		ln := lines[i]
-		if strings.TrimSpace(ln) != "" && leadingSpaces(ln) <= indent {
-			break
-		}
-		subtree = append(subtree, ln)
-	}
-	yamlText := strings.Join(subtree, "\n")
-
-	type fm struct {
-		Labels TemplateLabels `yaml:"labels"`
-	}
-	var F fm
-	if err := yaml.Unmarshal([]byte(yamlText), &F); err != nil {
-		return TemplateLabels{}, err
-	}
-	return F.Labels, nil
+	// Return the first segment as key; templates define names/order. Unknowns fall back to 'other' only if empty.
+	return parts[0]
 }
 
-func leadingSpaces(s string) int {
-	n := 0
-	for _, r := range s {
-		if r == ' ' {
-			n++
-		} else {
-			break
+// evalGroupOrder executes a named sub-template "groupOrder" if present and
+// returns its content as a comma-separated list of keys (lowercased, trimmed).
+func evalGroupOrder(t *template.Template) []string {
+	sub := t.Lookup("groupOrder")
+	if sub == nil {
+		return nil
+	}
+	var buf bytes.Buffer
+	if err := sub.Execute(&buf, nil); err != nil {
+		return nil
+	}
+	s := trimBOM(buf.String())
+	parts := strings.Split(s, ",")
+	var out []string
+	for _, p := range parts {
+		k := strings.ToLower(strings.TrimSpace(p))
+		if k != "" {
+			out = append(out, k)
 		}
 	}
-	return n
-}
-
-func groupName(key string, labels TemplateLabels) string {
-	if labels.Groups != nil {
-		if v, ok := labels.Groups[key]; ok && strings.TrimSpace(v) != "" {
-			return v
-		}
-	}
-	return key
+	return out
 }
 
 func titleFromFilename(name string) string {

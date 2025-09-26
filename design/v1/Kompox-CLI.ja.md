@@ -1,4 +1,5 @@
 ---
+id: Kompox-CLI
 title: Kompox PaaS CLI
 version: v1
 status: out-of-sync

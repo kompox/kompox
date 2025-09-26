@@ -1,4 +1,5 @@
 ---
+id: Kompox-Spec-Draft
 title: Kompox 仕様ドラフト
 version: v1
 status: archived

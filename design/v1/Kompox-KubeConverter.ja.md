@@ -1,4 +1,5 @@
 ---
+id: Kompox-KubeConverter
 title: Kompox Kube Converter ガイド
 version: v1
 status: synced

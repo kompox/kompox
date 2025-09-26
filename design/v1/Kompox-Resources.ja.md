@@ -1,4 +1,5 @@
 ---
+id: Kompox-Resources
 title: Kompox PaaS Resources
 version: v1
 status: archived

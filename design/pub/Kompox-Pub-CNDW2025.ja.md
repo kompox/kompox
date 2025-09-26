@@ -1,7 +1,7 @@
 ---
+id: Kompox-Pub-CNDW2025
 title: CloudNative Days Winter 2025
-version: pub
-status: reference
+status: draft
 updated: 2025-09-26
 language: ja
 ---

@@ -1,4 +1,5 @@
 ---
+id: Kompox-Arch
 title: Kompox PaaS Architecture
 version: v1
 status: out-of-sync

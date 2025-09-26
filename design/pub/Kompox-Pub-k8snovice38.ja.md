@@ -1,19 +1,22 @@
 ---
+id: Kompox-Pub-k8snovice38
 title: 'Kubernetes Novice Tokyo #38'
-version: pub
-status: reference
+status: delivered
 updated: 2025-09-26
 language: ja
 ---
 
 # Kubernetes Novice Tokyo #38
 
-## 概要
+## イベント概要
 
-- https://k8s-novice-jp.connpass.com/event/365526/
-- Kubernetes 初心者向けのオンライン勉強会
-- セッション枠 20 分
-- LT 枠 10 分
+- **タイトル:** Kubernetes Novice Tokyo #38
+- **日時:** 2025/09/25(木) 19:00-22:00
+- **URL:** https://k8s-novice-jp.connpass.com/event/365526/
+- **内容:**
+  - Kubernetes の初心者が登壇するオンラインの勉強会
+  - **セッション枠 20 分 × 1 (こちらで登壇)**
+  - LT 枠 10 分 × 3
 
 ## Draft 1
 
