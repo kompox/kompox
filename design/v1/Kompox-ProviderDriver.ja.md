@@ -1,3 +1,11 @@
+---
+title: Kompox Provider Driver ガイド
+version: v1
+status: out-of-sync
+updated: 2025-09-26
+language: ja
+---
+
 # Kompox Provider Driver ガイド v1
 
 ## 概要

@@ -1,3 +1,11 @@
+---
+title: Kompox Provider Driver AKS ガイド
+version: v1
+status: out-of-sync
+updated: 2025-09-26
+language: ja
+---
+
 # Kompox Provider Driver AKS ガイド v1
 
 ## 概要

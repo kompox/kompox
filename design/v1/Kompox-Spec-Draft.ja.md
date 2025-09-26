@@ -1,3 +1,11 @@
+---
+title: Kompox 仕様ドラフト
+version: v1
+status: archived
+updated: 2025-09-26
+language: ja
+---
+
 # Kompox 仕様ドラフト
 
 ## 概要

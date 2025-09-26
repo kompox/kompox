@@ -1,3 +1,11 @@
+---
+title: Kompox Kube Converter ガイド
+version: v1
+status: synced
+updated: 2025-09-26
+language: ja
+---
+
 # Kompox Kube Converter ガイド v1
 
 ## 概要

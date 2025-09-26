@@ -1,3 +1,11 @@
+---
+title: Kompox PaaS Resources
+version: v1
+status: archived
+updated: 2025-09-26
+language: ja
+---
+
 # Kompox PaaS Resources
 
 ## Overview
