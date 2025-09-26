@@ -51,9 +51,9 @@ kompoxops app deploy
 Comprehensive documentation is available in Japanese:
 
 - **[README.ja.md](README.ja.md)**: Complete project overview, roadmap, and usage examples
-- **[docs/](docs)**: Detailed specifications, architecture documents, and design documentation
+- **[design/](design/)**: Kompox Design Document Index: detailed specifications, architecture documents, etc.
 
-The Japanese documentation includes:
+The documentation includes:
 - Detailed use cases and examples
 - Complete CLI reference
 - Architecture specifications
