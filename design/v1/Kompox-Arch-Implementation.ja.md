@@ -1,77 +1,84 @@
 ---
-id: Kompox-Arch
-title: Kompox PaaS Architecture
+id: Kompox-Arch-Implementation
+title: Kompox Implementation Architecture
 version: v1
-status: out-of-sync
-updated: 2025-09-26
+status: synced
+updated: 2025-09-27
 language: ja
 ---
 
-# Kompox PaaS Architecture
+# Kompox Implementation Architecture
 
 ## Package / Directory Hierarchy
 
 ```
 cmd/
-  kompoxops/            main for CLI: wiring + DI
+  kompoxops/            package main: CLI エントリポイントとコマンド定義
+    main.go             main()
+    version.go          バージョン情報 (GoReleaser がビルド時に上書き)
+    repos_builder.go    Repos ビルダー・キャッシュ
+    usecase_builder.go  Usecase ビルダー
+    cmd_*.go            コマンド定義 (cobra)
 
-api/
-  server.go             HTTP server bootstrap
-  router.go             mux/router setup
-  handlers/
-    app_handler.go
-    cluster_handler.go
-    provider_handler.go
-    service_handler.go
+adapters/               外部アダプタ群
+  kube/                 package kube: Kubernetes クライアントとマニフェスト変換ヘルパー
+  drivers/
+    provider/           package providerdrv: プロバイダドライバ共通インターフェース
+      aks/              package aks: Azure AKS プロバイダドライバ実装
+      k3s/              package k3s: K3s プロバイダドライバ（スタブ）
+      registry.go       providerdrv.Driver インターフェースおよび登録ファクトリ
+      cluster_port.go   model.ClusterPort アダプタ
+      volume_port.go    model.VolumePort アダプタ
+  store/                ドメインリポジトリ実装
+    inmem/              package inmem: インメモリ実装
+    rdb/                package rdb: gorm ベース実装
 
-usecase/                Use case layer
-  service/              Service resource
-    list.go             List method
-    get.go              Get method
-    create.go           Create method
-    update.go           Update method
-    delete.go           Delete method
-  cluster/              Cluster resource
-  provider/             Provider resource
-  app/                  App resource
+domain/                 package domain: ドメイン層
+  model/                package model: エンティティとポート定義
+  repository.go         リポジトリインターフェース
 
-domain/                 Domain layer
-  model/                Domain models: entity definitions, port interfaces
-  repository.go         Dmain model repository interfaces
-
-adapters/
-  kube/
-    client.go           Kubernetes client
-    installer.go        Kubernetes infrastructure installer
-    compose_convert.go  Compose to Manifest converter
-  drivers/              Drivers
-    provider/           Provider drivers (providerdrv)
-      aks/
-      k3s/
-      cluster_port.go   model.ClusterPort implementation
-      registry.go       Driver interface and registration factory
-    ingress/            ingress drivers (ingressdrv)
-      traefik/
-      nginx/
-      registry.go
-  store/                Domain model repository implementations
-    inmem/              in-memory
-    rdb/                gorm
-
-internal/
-  logging/              Logging infrastructure (slog)
+usecase/                ユースケース層
+  app/                  package app: App リソースのユースケース
+  box/                  package box: Box 開発環境ユースケース
+  cluster/              package cluster: Cluster リソースのユースケース
+  provider/             package provider: Provider リソースのユースケース
+  secret/               package secret: Secret リソースのユースケース
+  service/              package service: Service リソースのユースケース
+  volume/               package volume: Volume リソースのユースケース
 
 config/
-  kompoxopscfg/         komposops.cfg loader
+  kompoxopscfg/         package kompoxopscfg: CLI 設定ローダーとコンバータ
 
 infra/
   aks/
-    infra/              Azure Bicep IaC
-      main.json         AKS ARM template output
-    azure.yaml          Azure Developer CLI config
+    infra/              AKS 向け Bicep/IaC アセット
+    scripts/            Azure CLI 等の運用スクリプト
+    azure.yaml          Azure Developer CLI 設定
 
-docs/
-  *.ja.md               日本語可
+internal/               内部ユーティリティ
+  kubeconfig/           package kubeconfig: kubeconfig の読み書きヘルパー
+  logging/              package logging: slog ベースのロギング設定
+  naming/               package naming: リソース命名規約ユーティリティ
+  terminal/             package terminal: CLI ターミナル I/O ヘルパー
+
+tests/                  E2E テストシナリオ
+  aks-e2e-basic/
+  aks-e2e-gitea/
+  aks-e2e-gitlab/
+  aks-e2e-redmine/
+
+docker/                 Docker ビルド
+
+design/                 仕様・アーキテクチャドキュメント
+  adr/                  ADR (Architecture Decision Records)
+  v1/                   v1 (Current CLI)
+  v2/                   v2 (Future PaaS/Operator)
+  pub/                  登壇など公開資料
+_dev/                   開発者向け階層
+  tasks/                タスクトラッキング
+
+.goreleaser.yml         GoReleaser 設定ファイル
+Makefile                Make タスク定義
 ```
 
 ## リソース
@@ -113,18 +120,21 @@ sqlite/postgres/mysql の実装には gorm を使用する。
 
 ```go
 // ドメインモデル構造体
+// Cluster represents a Kubernetes cluster resource.
 type Cluster struct { ... }
 
 // ドメインポートインターフェース
+// ClusterPort is an interface (domain port) for cluster operations.
 type ClusterPort interface {
 	Status(ctx context.Context, cluster *Cluster) (*ClusterStatus, error)
-	Provision(ctx context.Context, cluster *Cluster) error
-	Deprovision(ctx context.Context, cluster *Cluster) error
-	Install(ctx context.Context, cluster *Cluster) error
-	Uninstall(ctx context.Context, cluster *Cluster) error
+	Provision(ctx context.Context, cluster *Cluster, opts ...ClusterProvisionOption) error
+	Deprovision(ctx context.Context, cluster *Cluster, opts ...ClusterDeprovisionOption) error
+	Install(ctx context.Context, cluster *Cluster, opts ...ClusterInstallOption) error
+	Uninstall(ctx context.Context, cluster *Cluster, opts ...ClusterUninstallOption) error
 }
 
 // ドメインポート入出力型
+// ClusterStatus represents the status of a cluster.
 type ClusterStatus struct { ... }
 ```
 
@@ -133,12 +143,14 @@ type ClusterStatus struct { ... }
 ユースケース層はアプリケーション固有の操作（シナリオ）をまとめ、ドメインモデル・ドメインポート・外部アダプタをオーケストレーションする。I/O DTO を明示し、安定したインターフェースを提供する。
 
 ### 配置とファイル構成
+
 - ディレクトリ: `/usecase/<resource>/`
 - `types.go`: `UseCase` 構造体と共有補助型のみを定義（リポジトリ束 `Repos` やポートフィールドなど）
 - 1 ユースケースメソッド = 1 ファイル（`create.go`, `list.go`, `update.go`, ...）。肥大化/共通化が必要になった場合のみ更に分割
 - 各メソッドファイル内でそのメソッド専用の `XxxInput` / `XxxOutput` 型を定義する（他メソッドと共有しない）
 
 ### 命名・シグネチャ規約
+
 - 公開メソッドシグネチャ: `func (u *UseCase) Xxx(ctx context.Context, in *XxxInput) (*XxxOutput, error)`
   - `in` は必ず **ポインタ**。nil チェックによるバリデーション、将来のフィールド追加、構造体サイズ増大時のコピーコスト抑制を狙う
   - 戻り値は *Output と error の 2 値固定。従来 error のみだった操作でも空 `XxxOutput` を返す（インターフェース一貫性を確保）
@@ -146,6 +158,7 @@ type ClusterStatus struct { ... }
 - メソッド名は動詞（UseCase の操作）を基本とし、状態取得は `Get` / 集合取得は `List` / 状態監視は `Status` など統一
 
 ### DTO (Input/Output) 規約
+
 - フィールド名はコンテキストによる省略を禁止（例: AppID を ID としない）。`AppID`, `ProviderID`, `ClusterID` 等の完全形を維持
 - 直列化要件: すべての公開フィールドに JSON タグ（snake_case）を付与し、安定したストレージ/ログ出力互換性を確保
 - `Output` が 1 つの主要エンティティを返す場合は `Service *model.Service` のように明示。複数の場合は `Services []*model.Service` 等の複数形
@@ -153,14 +166,17 @@ type ClusterStatus struct { ... }
 - 空出力は `type DeleteOutput struct{}` のように空 struct を許可
 
 ### ドキュメントコメント
+
 - すべての公開メソッド、公開 DTO 型、および公開フィールドに GoDoc 形式のコメントを付与（why / what を簡潔に）
 - コメントは実装理由や副作用、重要なバリデーションルールを含める。プロンプトや運用手順等のメタ情報は含めない
 
 ### エラーハンドリング
+
 - `Input` が nil の場合は即座にバリデーションエラー（ドメイン定義のエラー型）を返す
 - ID / Name など必須フィールドの空文字列はバリデーションで弾き、ドメイン層へ渡さない
 
 ### 例: `types.go`
+
 ```go
 // Repos はユースケースが利用するリポジトリ依存関係の束。
 type Repos struct {
@@ -178,6 +194,7 @@ type UseCase struct {
 ```
 
 ### 例: 作成メソッド (`create.go`)
+
 ```go
 // CreateInput はリソース作成パラメータ。
 type CreateInput struct {
@@ -200,6 +217,7 @@ func (u *UseCase) Create(ctx context.Context, in *CreateInput) (*CreateOutput, e
 ```
 
 ### 例: 状態取得メソッド (`status.go`)
+
 ```go
 // StatusInput はクラスタ状態取得パラメータ。
 type StatusInput struct {
@@ -223,6 +241,7 @@ func (u *UseCase) Status(ctx context.Context, in *StatusInput) (*StatusOutput, e
 ```
 
 ### 例: 削除のみのメソッド (`delete.go`)
+
 ```go
 type DeleteInput struct { ServiceID string `json:"service_id"` }
 type DeleteOutput struct{}
@@ -235,10 +254,12 @@ func (u *UseCase) Delete(ctx context.Context, in *DeleteInput) (*DeleteOutput, e
 ```
 
 ### テスト指針
+
 - ユースケース単体テストではポート/リポジトリをモック化し、Input バリデーションと副作用（呼び出し回数・順序）を検証
 - シリアライズ互換性を壊さないため、重要 DTO の JSON スナップショットテストを追加してもよい
 
 ### 将来拡張
+
 - Input/Output へのフィールド追加は JSON タグ互換 (追加のみ) で非互換変更を避ける
 - 異なるバージョンの API を提供する場合は パッケージ分割 (`usecasev2/...`) ではなく facade 層でのアダプタを推奨
 
