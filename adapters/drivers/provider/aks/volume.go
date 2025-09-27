@@ -333,12 +333,29 @@ func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, a
 	tags[tagDiskName] = to.Ptr(diskName)
 	tags[tagDiskAssigned] = to.Ptr(assignedValue)
 
+	// Determine the creation option and source based on the Source field
+	var creationData *armcompute.CreationData
+	if options.Source == "" {
+		// Empty disk (default behavior)
+		creationData = &armcompute.CreationData{CreateOption: to.Ptr(armcompute.DiskCreateOptionEmpty)}
+	} else {
+		// Interpret the source string to determine creation method
+		sourceID, err := d.resolveSourceID(ctx, cluster, app, volName, options.Source)
+		if err != nil {
+			return nil, fmt.Errorf("resolve source %q: %w", options.Source, err)
+		}
+		creationData = &armcompute.CreationData{
+			CreateOption:     to.Ptr(armcompute.DiskCreateOptionCopy),
+			SourceResourceID: to.Ptr(sourceID),
+		}
+	}
+
 	disk := armcompute.Disk{
 		Location: to.Ptr(d.AzureLocation),
 		Zones:    azureZones(zone),
 		Tags:     tags,
 		Properties: &armcompute.DiskProperties{
-			CreationData: &armcompute.CreationData{CreateOption: to.Ptr(armcompute.DiskCreateOptionEmpty)},
+			CreationData: creationData,
 			DiskSizeGB:   to.Ptr(sizeGB),
 		},
 	}
@@ -718,6 +735,125 @@ func (d *driver) VolumeSnapshotRestore(ctx context.Context, cluster *model.Clust
 	}
 
 	return volumeDisk, nil
+}
+
+// resolveSourceID resolves a source string to an Azure resource ID.
+// Supports:
+// - Empty string -> empty disk creation (handled by caller)
+// - "snapshot:name" or "name" (without prefix) -> Kompox managed snapshot
+// - "disk:name" -> Kompox managed disk
+// - "/subscriptions/..." -> Azure resource ID (snapshot or disk)
+// - "arm:/subscriptions/..." -> Azure resource ID with arm: prefix
+// - "resourceId:/subscriptions/..." -> Azure resource ID with resourceId: prefix
+func (d *driver) resolveSourceID(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, source string) (string, error) {
+	source = strings.TrimSpace(source)
+	if source == "" {
+		return "", fmt.Errorf("source cannot be empty")
+	}
+
+	// Convert to lowercase once for case-insensitive comparisons
+	lowerSource := strings.ToLower(source)
+
+	// Handle explicit Azure resource IDs (with various prefixes)
+	if strings.HasPrefix(lowerSource, "/subscriptions/") {
+		// Direct Azure resource ID
+		return source, nil
+	}
+	if strings.HasPrefix(lowerSource, "arm:/subscriptions/") {
+		// Strip "arm:" prefix (case-insensitive)
+		return source[4:], nil
+	}
+	if strings.HasPrefix(lowerSource, "resourceid:/subscriptions/") {
+		// Strip "resourceId:" prefix (case-insensitive)
+		return source[11:], nil
+	}
+
+	// Handle Kompox managed resources
+	if strings.HasPrefix(lowerSource, "snapshot:") {
+		// Explicit snapshot reference (case-insensitive)
+		snapName := source[9:]
+		return d.resolveKompoxSnapshotID(ctx, app, volName, snapName)
+	}
+	if strings.HasPrefix(lowerSource, "disk:") {
+		// Explicit disk reference (case-insensitive)
+		diskName := source[5:]
+		return d.resolveKompoxDiskID(ctx, app, volName, diskName)
+	}
+
+	// Default: treat as snapshot name (snapshot: prefix is optional)
+	return d.resolveKompoxSnapshotID(ctx, app, volName, source)
+}
+
+// resolveKompoxSnapshotID resolves a Kompox managed snapshot name to its Azure resource ID.
+func (d *driver) resolveKompoxSnapshotID(ctx context.Context, app *model.App, volName string, snapName string) (string, error) {
+	if snapName == "" {
+		return "", fmt.Errorf("snapshot name cannot be empty")
+	}
+
+	rg, err := d.appResourceGroupName(app)
+	if err != nil {
+		return "", fmt.Errorf("app RG: %w", err)
+	}
+
+	snapResourceName, err := d.appSnapshotName(app, volName, snapName)
+	if err != nil {
+		return "", fmt.Errorf("generate snapshot resource name: %w", err)
+	}
+
+	snapsClient, err := armcompute.NewSnapshotsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+	if err != nil {
+		return "", fmt.Errorf("new snapshots client: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	snapRes, err := snapsClient.Get(ctx, rg, snapResourceName, nil)
+	if err != nil {
+		return "", fmt.Errorf("get snapshot %q: %w", snapName, err)
+	}
+
+	if snapRes.ID == nil {
+		return "", fmt.Errorf("snapshot %q has no resource ID", snapName)
+	}
+
+	return *snapRes.ID, nil
+}
+
+// resolveKompoxDiskID resolves a Kompox managed disk name to its Azure resource ID.
+func (d *driver) resolveKompoxDiskID(ctx context.Context, app *model.App, volName string, diskName string) (string, error) {
+	if diskName == "" {
+		return "", fmt.Errorf("disk name cannot be empty")
+	}
+
+	rg, err := d.appResourceGroupName(app)
+	if err != nil {
+		return "", fmt.Errorf("app RG: %w", err)
+	}
+
+	diskResourceName, err := d.appDiskName(app, volName, diskName)
+	if err != nil {
+		return "", fmt.Errorf("generate disk resource name: %w", err)
+	}
+
+	disksClient, err := armcompute.NewDisksClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+	if err != nil {
+		return "", fmt.Errorf("new disks client: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	diskRes, err := disksClient.Get(ctx, rg, diskResourceName, nil)
+	if err != nil {
+		return "", fmt.Errorf("get disk %q: %w", diskName, err)
+	}
+
+	if diskRes.ID == nil {
+		return "", fmt.Errorf("disk %q has no resource ID", diskName)
+	}
+
+	return *diskRes.ID, nil
 }
 
 // VolumeClass implements providerdrv.Driver VolumeClass method for AKS.

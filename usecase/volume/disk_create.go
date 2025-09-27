@@ -17,6 +17,9 @@ type DiskCreateInput struct {
 	Zone string `json:"zone,omitempty"`
 	// Options overrides/merges with app.volumes.options when specified.
 	Options map[string]any `json:"options,omitempty"`
+	// Source specifies the source for disk creation (snapshot name, resource ID, etc.).
+	// Empty means create an empty disk. The interpretation is delegated to the provider driver.
+	Source string `json:"source,omitempty"`
 }
 
 // DiskCreateOutput result for DiskCreate use case.
@@ -57,6 +60,9 @@ func (u *UseCase) DiskCreate(ctx context.Context, in *DiskCreateInput) (*DiskCre
 	}
 	if in.Options != nil {
 		opts = append(opts, model.WithVolumeDiskCreateOptions(in.Options))
+	}
+	if in.Source != "" {
+		opts = append(opts, model.WithVolumeDiskCreateSource(in.Source))
 	}
 
 	disk, err := u.VolumePort.DiskCreate(ctx, cluster, app, in.VolumeName, opts...)
