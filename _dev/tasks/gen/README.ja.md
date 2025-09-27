@@ -1,15 +1,16 @@
 ---
 id: README
-title: メンテナー向けタスク索引
+title: 開発者向けタスク索引
 updated: {{ .Updated }}
 language: {{ .Language }}
 ---
 
-# メンテナー向けタスク索引
+# 開発者向けタスク索引
 
-この索引は、本ディレクトリにあるメンテナー向けの短いタスク文書を一覧化したものです。`updated` 日付（なければ `id` の年）で年ごとにグルーピングしています。
+この索引は、本ディレクトリにある開発者向けの短いタスク文書を一覧化したものです。`updated` 日付（なければ `id` の年）で年ごとにグルーピングしています。
 
-作成ルールとテンプレート: [GUIDE.en.md](../GUIDE.en.md) · [GUIDE.ja.md](../GUIDE.ja.md)
+- 開発者向けガイド: [GUIDE.ja.md](./GUIDE.ja.md)
+- English version: [README.en.md](./README.en.md)
 
 {{- /* 年別セクション */}}
 {{- range .Groups }}

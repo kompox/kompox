@@ -5,9 +5,6 @@ status: active
 owner: yaegashi
 updated: 2025-09-27
 language: ja
-references:
-  - design/adr/K4x-ADR-002.md
-  - design/v1/Kompox-CLI.ja.md
 ---
 # Task: Disk/Snapshot 機能統合(`disk create -S`)
 
@@ -97,3 +94,19 @@ references:
 - プロバイダ制約(例: Azure ではリージョン一致、必要な RBAC 権限)
 - 受理フォーマットは Driver の契約であり、ドライバ間で差異があり得る。各 Driver ドキュメント/テストで明示する。
 - 将来の拡張として、曖昧性低減のため `--source-kind` を導入可能だが、解釈は依然として Driver 側の責務。
+
+## 進捗
+
+- [x] 1) モデル拡張（Source フィールドとセッタ追加）
+- [x] 2) UseCase 拡張（入力に Source を追加しオプションへ反映）
+- [x] 3) CLI 拡張（-S/--source を追加、解釈・正規化なしでパススルー）
+- [x] 4) Provider Driver (AKS) 拡張（Empty/Copy/Import の切替を実装）
+- [ ] 5) ドキュメント更新（design/v1/Kompox-CLI.ja.md に -S を追記）
+- [ ] 6) テスト整備（CLI/UseCase パススルー、Driver 分岐・バリデーション）
+- [ ] 7) 削除フェーズ（snapshot restore 経路・記述の撤去）
+
+## 参照
+
+- design/adr/K4x-ADR-002.md
+- design/v1/Kompox-CLI.ja.md
+- https://github.com/kompox/kompox/pull/2

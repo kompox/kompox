@@ -1,21 +1,22 @@
 ---
 id: README
-title: Maintainer Tasks Index
+title: Developer Tasks Index
 updated: 2025-09-27
 language: en
 ---
 
-# Maintainer Tasks Index
+# Developer Tasks Index
 
-This index lists short, action-oriented maintainer tasks found in this folder. Tasks are grouped by year (based on the `updated` date or `id` prefix).
+This index lists short, action-oriented developer tasks found in this folder. Tasks are grouped by year (based on the `updated` date or `id` prefix).
 
-See guides: [GUIDE.en.md](../GUIDE.en.md) · [GUIDE.ja.md](../GUIDE.ja.md)
+- Developer's guide: [GUIDE.en.md](./GUIDE.en.md)
+- 日本語版: [README.ja.md](./README.ja.md)
 
 ## 2025
 
 | ID | Title | Status | Category | Owner | Updated | Language |
 |---|---|---|---|---|---|---|
-| [2025-09-27-disk-snapshot-unify](./2025-09-27-disk-snapshot-unify.ja.md) | Disk/Snapshot 機能統合（disk create -S） | active |  | yaegashi | 2025-09-27 | ja |
+| [2025-09-27-disk-snapshot-unify](./2025-09-27-disk-snapshot-unify.ja.md) | Disk/Snapshot 機能統合(disk create -S) | active |  | yaegashi | 2025-09-27 | ja |
 
 ---
 

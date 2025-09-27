@@ -1,15 +1,16 @@
 ---
 id: README
-title: Maintainer Tasks Index
+title: Developer Tasks Index
 updated: {{ .Updated }}
 language: {{ .Language }}
 ---
 
-# Maintainer Tasks Index
+# Developer Tasks Index
 
-This index lists short, action-oriented maintainer tasks found in this folder. Tasks are grouped by year (based on the `updated` date or `id` prefix).
+This index lists short, action-oriented developer tasks found in this folder. Tasks are grouped by year (based on the `updated` date or `id` prefix).
 
-See guides: [GUIDE.en.md](../GUIDE.en.md) · [GUIDE.ja.md](../GUIDE.ja.md)
+- Developer's guide: [GUIDE.en.md](./GUIDE.en.md)
+- 日本語版: [README.ja.md](./README.ja.md)
 
 {{- /* Section: Year groups */}}
 {{- range .Groups }}
