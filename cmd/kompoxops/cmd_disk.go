@@ -102,9 +102,10 @@ func newCmdDiskCreate() *cobra.Command {
 			return err
 		}
 
-		// Parse zone and options flags
+		// Parse zone, options, and source flags
 		zone, _ := cmd.Flags().GetString("zone")
-		optionsStr, _ := cmd.Flags().GetString("options")
+		optionsStr, _ := cmd.Flags().GetString("options") 
+		source, _ := cmd.Flags().GetString("source")
 		var options map[string]any
 		if optionsStr != "" {
 			if err := json.Unmarshal([]byte(optionsStr), &options); err != nil {
@@ -130,7 +131,7 @@ func newCmdDiskCreate() *cobra.Command {
 			return enc.Encode(disks)
 		}
 
-		input := &vuc.DiskCreateInput{AppID: appID, VolumeName: volName, Zone: zone, Options: options}
+		input := &vuc.DiskCreateInput{AppID: appID, VolumeName: volName, Zone: zone, Options: options, Source: source}
 		logger.Info(ctx, "create volume instance start", "app", appName, "volume", volName)
 		out, err := u.DiskCreate(ctx, input)
 		if err != nil {
@@ -142,6 +143,7 @@ func newCmdDiskCreate() *cobra.Command {
 	}}
 	cmd.Flags().StringP("zone", "Z", "", "Override deployment zone")
 	cmd.Flags().StringP("options", "O", "", "Override volume options (JSON)")
+	cmd.Flags().StringP("source", "S", "", "Source for disk creation (format depends on provider driver)")
 	cmd.Flags().Bool("bootstrap", false, "Create one assigned disk per app volume if none are assigned (ignore when already initialized)")
 	return cmd
 }

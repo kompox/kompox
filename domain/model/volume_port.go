@@ -14,6 +14,7 @@ type VolumeDiskCreateOptions struct {
 	Force   bool
 	Zone    string         // Override zone from app.deployment.zone config
 	Options map[string]any // Override/merge with app.volumes.options config
+	Source  string         // Source for disk creation (snapshot name, resource ID, etc.)
 }
 type VolumeDiskDeleteOptions struct{ Force bool }
 type VolumeDiskAssignOptions struct{ Force bool }
@@ -49,6 +50,9 @@ func WithVolumeDiskCreateZone(zone string) VolumeDiskCreateOption {
 }
 func WithVolumeDiskCreateOptions(options map[string]any) VolumeDiskCreateOption {
 	return func(o *VolumeDiskCreateOptions) { o.Options = options }
+}
+func WithVolumeDiskCreateSource(source string) VolumeDiskCreateOption {
+	return func(o *VolumeDiskCreateOptions) { o.Source = source }
 }
 func WithVolumeDiskDeleteForce() VolumeDiskDeleteOption {
 	return func(o *VolumeDiskDeleteOptions) { o.Force = true }
