@@ -756,22 +756,22 @@ func (d *driver) resolveSourceID(ctx context.Context, cluster *model.Cluster, ap
 		// Direct Azure resource ID
 		return source, nil
 	}
-	if len(source) > 4 && strings.EqualFold(source[:4], "arm:") && strings.HasPrefix(strings.ToLower(source[4:]), "/subscriptions/") {
+	if strings.HasPrefix(strings.ToLower(source), "arm:/subscriptions/") {
 		// Strip "arm:" prefix (case-insensitive)
 		return source[4:], nil
 	}
-	if len(source) > 11 && strings.EqualFold(source[:11], "resourceId:") && strings.HasPrefix(strings.ToLower(source[11:]), "/subscriptions/") {
+	if strings.HasPrefix(strings.ToLower(source), "resourceid:/subscriptions/") {
 		// Strip "resourceId:" prefix (case-insensitive)
 		return source[11:], nil
 	}
 
 	// Handle Kompox managed resources
-	if len(source) > 9 && strings.EqualFold(source[:9], "snapshot:") {
+	if strings.HasPrefix(strings.ToLower(source), "snapshot:") {
 		// Explicit snapshot reference (case-insensitive)
 		snapName := source[9:]
 		return d.resolveKompoxSnapshotID(ctx, app, volName, snapName)
 	}
-	if len(source) > 5 && strings.EqualFold(source[:5], "disk:") {
+	if strings.HasPrefix(strings.ToLower(source), "disk:") {
 		// Explicit disk reference (case-insensitive)
 		diskName := source[5:]
 		return d.resolveKompoxDiskID(ctx, app, volName, diskName)
