@@ -1,4 +1,4 @@
-.PHONY: build test cmd bicep docker release release-snapshot release-check tidy diff-staged-changes test-integration-1 gen-design-index
+.PHONY: build test cmd bicep docker release release-snapshot release-check tidy diff-staged-changes test-integration-1 gen-index
 # Run full tests
 test:
 	go test ./...
@@ -54,7 +54,9 @@ test-integration test-e2e e2e:
 test-integration-run test-e2e-run e2e-run: test-integration
 	$(MAKE) -C $(TEST_RUN_DIR) all | tee -a $(TEST_RUN_DIR)/test.log
 
-# Generate design indexes (en/ja)
-gen-design-index:
+# Generate indexes for design and maintainer tasks (en/ja)
+gen-index:
 	go run ./design/gen -design-dir design -lang en
 	go run ./design/gen -design-dir design -lang ja
+	go run ./_dev/tasks/gen -tasks-dir _dev/tasks -lang en
+	go run ./_dev/tasks/gen -tasks-dir _dev/tasks -lang ja
