@@ -751,27 +751,30 @@ func (d *driver) resolveSourceID(ctx context.Context, cluster *model.Cluster, ap
 		return "", fmt.Errorf("source cannot be empty")
 	}
 
+	// Convert to lowercase once for case-insensitive comparisons
+	lowerSource := strings.ToLower(source)
+
 	// Handle explicit Azure resource IDs (with various prefixes)
-	if strings.HasPrefix(strings.ToLower(source), "/subscriptions/") {
+	if strings.HasPrefix(lowerSource, "/subscriptions/") {
 		// Direct Azure resource ID
 		return source, nil
 	}
-	if strings.HasPrefix(strings.ToLower(source), "arm:/subscriptions/") {
+	if strings.HasPrefix(lowerSource, "arm:/subscriptions/") {
 		// Strip "arm:" prefix (case-insensitive)
 		return source[4:], nil
 	}
-	if strings.HasPrefix(strings.ToLower(source), "resourceid:/subscriptions/") {
+	if strings.HasPrefix(lowerSource, "resourceid:/subscriptions/") {
 		// Strip "resourceId:" prefix (case-insensitive)
 		return source[11:], nil
 	}
 
 	// Handle Kompox managed resources
-	if strings.HasPrefix(strings.ToLower(source), "snapshot:") {
+	if strings.HasPrefix(lowerSource, "snapshot:") {
 		// Explicit snapshot reference (case-insensitive)
 		snapName := source[9:]
 		return d.resolveKompoxSnapshotID(ctx, app, volName, snapName)
 	}
-	if strings.HasPrefix(strings.ToLower(source), "disk:") {
+	if strings.HasPrefix(lowerSource, "disk:") {
 		// Explicit disk reference (case-insensitive)
 		diskName := source[5:]
 		return d.resolveKompoxDiskID(ctx, app, volName, diskName)
