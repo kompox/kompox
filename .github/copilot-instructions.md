@@ -12,19 +12,24 @@ This repository prefers English for natural-language communication, with Japanes
 
 Always refer to the following documents for guidance:
 
-- `docs/Kompox-Spec-Draft.ja.md` for the project overview and goals. That document is the canonical source for the intended behavior and high-level requirements.
-- `docs/Kompox-Arch-v1.ja.md` for the architecture guidance when proposing design changes, new packages, or infra patterns.
+- `design/v1/Kompox-Spec-Draft.ja.md` for the project overview and goals. That document is the canonical source for intended behavior and high-level requirements.
+- `design/v1/Kompox-Arch-Implementation.ja.md` for architecture guidance when proposing design changes, new packages, or infra patterns.
+- `_dev/tasks/` for developer tasks (implementation plans, acceptance criteria, progress). Treat these task files as the source of truth for short-term work and progress.
+
+When implementing or updating features:
+- Consult related task files under `_dev/tasks/` first for current status and scope.
+- Cross-check design intent under `design/v1/` and link to relevant ADRs/specs from commits/PRs.
 
 ## Go Language Programming Guidelines
 
 The following is a list of Go language idioms and best practices to follow:
 
 - Use `any` instead of `interface{}`.
-- Refer to `docs/Kompox-Arch-v1.ja.md` for architecture guidance including package structure, module boundaries, design patterns, and naming conventions.
+- Refer to `design/v1/Kompox-Arch-Implementation.ja.md` for architecture guidance including package structure, module boundaries, design patterns, and naming conventions.
 
 ## Generic Source Code Comment Guidelines
 
-Write comments that are timeless, useful, and focused on maintainers or future readers.
+Write comments that are timeless, useful, and focused on developers or future readers.
 Do not include historical, temporary, or meta information.
 
 DO NOT:
@@ -68,4 +73,12 @@ make tidy
 # Build adapters/drivers/provider/aks/main.json to embed in AKS driver
 # You need it when you make changes in infra/aks
 make bicep
+
+# Re-generate indexes of design docs and developer tasks
+make gen-index
 ```
+
+Preferred command usage policy:
+- Prefer `make` targets whenever available instead of raw commands (e.g., `go build`, `go test`, or multi-step scripts).
+- Avoid interactive prompts; choose non-interactive make targets and defaults.
+- If a needed operation has no `make` target, propose adding one in the PR or run the minimal non-interactive command.
