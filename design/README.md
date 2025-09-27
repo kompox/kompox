@@ -1,7 +1,7 @@
 ---
 id: README
 title: Kompox Design Document Index
-updated: 2025-09-26
+updated: 2025-09-27
 language: en
 ---
 
@@ -47,6 +47,7 @@ This directory holds the canonical design and planning documents for Kompox. v1 
 | ID | Title | Language | Version | Status | Last updated |
 |---|---|---|---|---|---|
 | [K4x-ADR-001](./adr/K4x-ADR-001.md) | Implement Kompox PaaS as a Kubernetes Operator | en |  | proposed | 2025-09-26 |
+| [K4x-ADR-002](./adr/K4x-ADR-002.md) | Unify snapshot restore into disk create | en |  | accepted | 2025-09-27 |
 
 **Status definitions:**
 
@@ -54,7 +55,6 @@ This directory holds the canonical design and planning documents for Kompox. v1 
 - accepted: Decided and in effect
 - rejected: Decided not to implement
 - deprecated: No longer recommended; kept for historical reference
-- superseded: Replaced by a newer ADR
 
 ## Public materials (reference)
 

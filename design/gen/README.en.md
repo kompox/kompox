@@ -29,7 +29,6 @@ This directory holds the canonical design and planning documents for Kompox. v1 
 - accepted: Decided and in effect
 - rejected: Decided not to implement
 - deprecated: No longer recommended; kept for historical reference
-- superseded: Replaced by a newer ADR
 	{{- else if eq $k "pub" -}}
 - draft: Planned or under preparation; not yet scheduled
 - scheduled: Confirmed for a future date

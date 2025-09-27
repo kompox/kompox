@@ -29,7 +29,6 @@ language: {{ .Language }}
 - accepted: 採択済みで有効
 - rejected: 採択せず不採用
 - deprecated: 推奨しない（歴史的経緯として残置）
-- superseded: 新しい ADR によって置き換え
 	{{- else if eq $k "pub" -}}
 - draft: 企画・準備段階で未確定
 - scheduled: 実施予定が確定

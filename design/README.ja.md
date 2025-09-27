@@ -1,7 +1,7 @@
 ---
 id: README
 title: Kompox 設計ドキュメント目次
-updated: 2025-09-26
+updated: 2025-09-27
 language: ja
 ---
 
@@ -47,6 +47,7 @@ language: ja
 | ID | Title | Language | Version | Status | Last updated |
 |---|---|---|---|---|---|
 | [K4x-ADR-001](./adr/K4x-ADR-001.md) | Implement Kompox PaaS as a Kubernetes Operator | en |  | proposed | 2025-09-26 |
+| [K4x-ADR-002](./adr/K4x-ADR-002.md) | Unify snapshot restore into disk create | en |  | accepted | 2025-09-27 |
 
 **ステータスの意味:**
 
@@ -54,7 +55,6 @@ language: ja
 - accepted: 採択済みで有効
 - rejected: 採択せず不採用
 - deprecated: 推奨しない（歴史的経緯として残置）
-- superseded: 新しい ADR によって置き換え
 
 ## 公開資料（参考）
 
