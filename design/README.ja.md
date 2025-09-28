@@ -47,6 +47,7 @@ language: ja
 | ID | Title | Language | Version | Status | Last updated |
 |---|---|---|---|---|---|
 | [K4x-ADR-001](./adr/K4x-ADR-001.md) | Implement Kompox PaaS as a Kubernetes Operator | en |  | proposed | 2025-09-26 |
+| [K4x-ADR-003](./adr/K4x-ADR-003.md) | Unify Disk/Snapshot CLI flags and adopt opaque Source contract | en |  | accepted | 2025-09-28 |
 | [K4x-ADR-002](./adr/K4x-ADR-002.md) | Unify snapshot restore into disk create | en |  | accepted | 2025-09-27 |
 
 **ステータスの意味:**
