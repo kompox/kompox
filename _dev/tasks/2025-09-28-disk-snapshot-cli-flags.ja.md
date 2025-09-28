@@ -2,7 +2,8 @@
 id: 2025-09-28-disk-snapshot-cli-flags
 title: Disk/Snapshot CLI フラグ統一(-N/-S)
 status: active
-updated: 2025-09-28
+owner: yaegashi
+updated: 2025-09-29
 language: ja
 supersedes: []
 ---
@@ -72,59 +73,59 @@ supersedes: []
 
 ## 計画(チェックリスト)
 
-- [ ] Domain を調整(Driver 主導のシグネチャへ移行)
-  - [ ] `domain/model/volume_port.go`
-    - [ ] `VolumeDiskCreateOptions` の `Source` メンバを削除(Source は Driver メソッドの引数に移譲)。
-    - [ ] `VolumeDiskCreateOptions` に `Name` は追加しない(作成名は Driver の引数で受ける)。
-    - [ ] `VolumeSnapshotCreateOptions` は更新不要(現状のまま)。
-    - [ ] Option ヘルパーを整理:
-      - [ ] (削除)`WithVolumeDiskCreateSource` は提供しない。
-      - [ ] Name 系ヘルパーは提供しない(Name は Driver 引数で受ける)。
-    - [ ] コメントは ADR `design/adr/K4x-ADR-003.md` に整合(Source はオペーク、Driver 引数で受ける)。
+- [x] Domain を調整(Driver 主導のシグネチャへ移行)
+  - [x] `domain/model/volume_port.go`
+    - [x] `VolumeDiskCreateOptions` の `Source` メンバを削除(Source は Driver メソッドの引数に移譲)。
+    - [x] `VolumeDiskCreateOptions` に `Name` は追加しない(作成名は Driver の引数で受ける)。
+    - [x] `VolumeSnapshotCreateOptions` は更新不要(現状のまま)。
+    - [x] Option ヘルパーを整理:
+      - [x] (削除)`WithVolumeDiskCreateSource` は提供しない。
+      - [x] Name 系ヘルパーは提供しない(Name は Driver 引数で受ける)。
+    - [x] コメントは ADR `design/adr/K4x-ADR-003.md` に整合(Source はオペーク、Driver 引数で受ける)。
 
-- [ ] UseCase を更新(Driver シグネチャへ引数を直渡し)
-  - [ ] `usecase/volume/disk_create.go`
-  - [ ] CLI の `-N` は Driver の `diskName` 引数へ直接渡す(Domain Options へは反映しない)。
-  - [ ] `-S` の値はそのまま Driver の `VolumeDiskCreate(ctx, ..., diskName, source, opts...)` へ渡す(完全オペーク)。
-  - [ ] `-S` 省略時は `source=""` を渡し、既定は Driver に委任。
-  - [ ] `usecase/volume/snapshot_create.go`
-  - [ ] CLI の `-N` は Driver の `snapName` 引数へ直接渡す(Domain Options へは反映しない)。
-  - [ ] `-S` の値はそのまま Driver の `VolumeSnapshotCreate(ctx, ..., snapName, source, opts...)` へ渡す(完全オペーク)。
-  - [ ] `-S` 省略時は `source=""` を渡し、既定は Driver に委任。
+- [x] UseCase を更新(Driver シグネチャへ引数を直渡し)
+  - [x] `usecase/volume/disk_create.go`
+  - [x] CLI の `-N` は Driver の `diskName` 引数へ直接渡す(Domain Options へは反映しない)。
+  - [x] `-S` の値はそのまま Driver の `VolumeDiskCreate(ctx, ..., diskName, source, opts...)` へ渡す(完全オペーク)。
+  - [x] `-S` 省略時は `source=""` を渡し、既定は Driver に委任。
+  - [x] `usecase/volume/snapshot_create.go`
+  - [x] CLI の `-N` は Driver の `snapName` 引数へ直接渡す(Domain Options へは反映しない)。
+  - [x] `-S` の値はそのまま Driver の `VolumeSnapshotCreate(ctx, ..., snapName, source, opts...)` へ渡す(完全オペーク)。
+  - [x] `-S` 省略時は `source=""` を渡し、既定は Driver に委任。
 
-- [ ] Provider Driver を対応(シグネチャ変更／後方互換なし)
-  - [ ] `platformdev.Driver` のメソッドを変更:
-    - [ ] `VolumeDiskCreate(ctx, cluster, app, volName, diskName string, source string, opts ...model.VolumeDiskCreateOption) (*model.VolumeDisk, error)`
-    - [ ] `VolumeSnapshotCreate(ctx, cluster, app, volName, snapName string, source string, opts ...model.VolumeSnapshotCreateOption) (*model.VolumeSnapshot, error)`
-  - [ ] `diskName`/`snapName`/`source` は省略時にゼロ値(空文字)を許容し、既定動作に分岐。
-  - [ ] Source はオペークで受け取り、少なくとも予約 `disk:` / `snapshot:` 接頭辞を理解する。
-  - [ ] 重複名・無効 Source は明示エラー。
-  - [ ] AKS Driver 実装 (`adapters/drivers/provider/aks`)
-    - [ ] `VolumeDiskCreate` で `source==""` の場合には新規ディスクを作成する。
-    - [ ] `VolumeSnapshotCreate` で `source==""` の場合には Assigned ディスクを取得し `disk:<name>` として処理する。単一の Assigned ディスクが見つからない場合はエラー。
+- [x] Provider Driver を対応(シグネチャ変更／後方互換なし)
+  - [x] `platformdev.Driver` のメソッドを変更:
+    - [x] `VolumeDiskCreate(ctx, cluster, app, volName, diskName string, source string, opts ...model.VolumeDiskCreateOption) (*model.VolumeDisk, error)`
+    - [x] `VolumeSnapshotCreate(ctx, cluster, app, volName, snapName string, source string, opts ...model.VolumeSnapshotCreateOption) (*model.VolumeSnapshot, error)`
+  - [x] `diskName`/`snapName`/`source` は省略時にゼロ値(空文字)を許容し、既定動作に分岐。
+  - [x] Source はオペークで受け取り、少なくとも予約 `disk:` / `snapshot:` 接頭辞を理解する。
+  - [x] 重複名・無効 Source は明示エラー。
+  - [x] AKS Driver 実装 (`adapters/drivers/provider/aks`)
+    - [x] `VolumeDiskCreate` で `source==""` の場合には新規ディスクを作成する。
+    - [x] `VolumeSnapshotCreate` で `source==""` の場合には Assigned ディスクを取得し `disk:<name>` として処理する。単一の Assigned ディスクが見つからない場合はエラー。
 
-- [ ] CLI 実装を更新
-  - [ ] `cmd/kompoxops/cmd_disk.go`: `-N|--name|--disk-name` を追加・統一、`disk create` に `-S|--source` を維持(省略時 empty)。
-  - [ ] `cmd/kompoxops/cmd_snapshot.go`: `-N|--name|--snap-name` を追加・統一、`snapshot create` に `-S|--source`(省略時は空文字を渡し Driver に委任)。
-  - [ ] ヘルプ文言(Short/Long/Example)を更新。
+- [x] CLI 実装を更新
+  - [x] `cmd/kompoxops/cmd_disk.go`: `-N|--name|--disk-name` を追加・統一、`disk create` に `-S|--source` を維持(省略時 empty)。
+  - [x] `cmd/kompoxops/cmd_snapshot.go`: `-N|--name|--snap-name` を追加・統一、`snapshot create` に `-S|--source`(省略時は空文字を渡し Driver に委任)。
+  - [x] ヘルプ文言(Short/Long/Example)を更新。
 
-- [ ] 名前制約の実装
-  - [ ] `internal/naming`
-    - [ ] DNS-1123 ラベルの共通バリデータを実装（英小文字・数字・ハイフンのみ、先頭と末尾は英数字）。
-    - [ ] `ValidateVolumeName`（最大 16 文字）、`ValidateDiskName`（最大 24 文字）、`ValidateSnapshotName`（最大 24 文字）を提供。
-  - [ ] `usecase/volume`（ユースケース境界で強制する。Source は不透明のまま未検証）
-    - [ ] `disk_create.go`: `VolumeName` を常に検証、`diskName` が指定された場合のみ検証。
-    - [ ] `snapshot_create.go`: `VolumeName` を常に検証、`snapName` が指定された場合のみ検証。
-    - [ ] `disk_assign.go`: `VolumeName` と `diskName` を検証。
-    - [ ] `disk_delete.go`: `VolumeName` と `diskName` を検証。
-    - [ ] `snapshot_delete.go`: `VolumeName` と `snapName` を検証。
-    - [ ] list 系（`disk list` / `snapshot list`）: `VolumeName` を検証。
-  - [ ] 備考: Provider Driver の基盤制約により、より厳しい制約が適用される場合がある（ドライバ側で追加検証）。
+- [x] 名前制約の実装
+  - [x] `internal/naming`
+    - [x] DNS-1123 ラベルの共通バリデータを実装（英小文字・数字・ハイフンのみ、先頭と末尾は英数字）。
+    - [x] `ValidateVolumeName`（最大 16 文字）、`ValidateDiskName`（最大 24 文字）、`ValidateSnapshotName`（最大 24 文字）を提供。
+  - [x] `usecase/volume`（ユースケース境界で強制する。Source は不透明のまま未検証）
+    - [x] `disk_create.go`: `VolumeName` を常に検証、`diskName` が指定された場合のみ検証。
+    - [x] `snapshot_create.go`: `VolumeName` を常に検証、`snapName` が指定された場合のみ検証。
+    - [x] `disk_assign.go`: `VolumeName` と `diskName` を検証。
+    - [x] `disk_delete.go`: `VolumeName` と `diskName` を検証。
+    - [x] `snapshot_delete.go`: `VolumeName` と `snapName` を検証。
+    - [x] list 系（`disk list` / `snapshot list`）: `VolumeName` を検証。
+  - [x] 備考: Provider Driver の基盤制約により、より厳しい制約が適用される場合がある（ドライバ側で追加検証）。
 
-- [ ] ドキュメント更新
-  - [ ] `design/v1/Kompox-CLI.ja.md` を本仕様に合わせて改訂。
-  - [ ] 例示コマンド(README 含む)を `-N/-S` 方針へ統一。
-  - [ ] ADR `design/adr/K4x-ADR-003.md` への参照と整合コメント(Domain Option の Name/Source 追記)を反映。
+- [x] ドキュメント更新
+  - [x] `design/v1/Kompox-CLI.ja.md` を本仕様に合わせて改訂。
+  - [x] 例示コマンド(README 含む)を `-N/-S` 方針へ統一。
+  - [x] ADR `design/adr/K4x-ADR-003.md` への参照と整合コメント(Domain Option の Name/Source 追記)を反映。
 
 - [ ] テスト整備
   - [ ] CLI: フラグ受理と UseCase への値伝播(-N/-S)をユニットで検証。
@@ -132,6 +133,8 @@ supersedes: []
   - [ ] Driver: `diskName`/`snapName`/`source`(省略時は空文字)引数が期待どおりに受け取れること(パススルー)を確認。
   - [ ] Driver: `snapshot create` にて `source==""` の場合に Assigned ディスクを解決して使用し、Assigned が無ければエラーとなることをユニット/インテグレーションで確認(AKS Driver での実装含む)。
   - [ ] スモーク: `disk create` 省略(空ディスク)、`disk create -S snapshot:...`、`snapshot create` 省略/明示の基本系が通ること。
+  - [x] 名前制約: internal/naming のバリデータをユニットで検証。
+  - [x] 名前制約: UseCase 層での検証が正しく動作すること。
 
 ## テスト
 
