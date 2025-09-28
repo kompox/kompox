@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore/arm"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/kompox/kompox/domain/model"
@@ -123,10 +124,7 @@ func (d *driver) VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluste
 		}
 	}
 	source = strings.TrimSpace(source)
-	var (
-		sourceID   string
-		diskTagVal string
-	)
+	var sourceResourceID string
 	if source == "" {
 		disks, lerr := d.VolumeDiskList(ctx, cluster, app, volName)
 		if lerr != nil {
@@ -142,32 +140,40 @@ func (d *driver) VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluste
 		case 0:
 			return nil, fmt.Errorf("no assigned disk available for volume %s", volName)
 		case 1:
-			var id string
-			if id, err = d.resolveKompoxDiskResourceID(ctx, app, volName, assigned[0].Name); err != nil {
+			sourceResourceID, err = d.resolveKompoxDiskResourceID(ctx, app, volName, assigned[0].Name)
+			if err != nil {
 				return nil, fmt.Errorf("resolve assigned disk %q: %w", assigned[0].Name, err)
 			}
-			sourceID = id
-			diskTagVal = assigned[0].Name
 		default:
 			return nil, fmt.Errorf("multiple assigned disks found for volume %s", volName)
 		}
 	} else {
-		sourceID, err = d.resolveSourceDiskResourceID(ctx, app, volName, source)
+		sourceResourceID, err = d.resolveSourceDiskResourceID(ctx, app, volName, source)
 		if err != nil {
 			return nil, fmt.Errorf("resolve source %q: %w", source, err)
 		}
 	}
+
+	// Determine if the source Resource ID is a snapshot to choose proper createOption.
+	// Use Azure SDK's Resource ID parser and fail fast if it cannot be parsed.
+	rid, err := arm.ParseResourceID(sourceResourceID)
+	if err != nil {
+		return nil, fmt.Errorf("parse source resource ID: %w", err)
+	}
+	createOption := armcompute.DiskCreateOptionCopy
+	if strings.EqualFold(rid.ResourceType.Namespace, "Microsoft.Compute") && strings.EqualFold(rid.ResourceType.Type, "snapshots") {
+		createOption = armcompute.DiskCreateOptionCopyStart
+	}
+
+	// New snapshot resource name
 	snapResourceName, err := d.appSnapshotName(app, volName, snapName)
 	if err != nil {
 		return nil, fmt.Errorf("generate snapshot resource name: %w", err)
 	}
-	// Base tags from app identity
+
+	// New snapshot tags
 	tags := d.appResourceTags(app.Name)
-	// Add volume/snapshot specific tags
 	tags[tagVolumeName] = to.Ptr(volName)
-	if diskTagVal != "" {
-		tags[tagDiskName] = to.Ptr(diskTagVal)
-	}
 	tags[tagSnapshotName] = to.Ptr(snapName)
 
 	snap := armcompute.Snapshot{
@@ -175,8 +181,8 @@ func (d *driver) VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluste
 		Tags:     tags,
 		Properties: &armcompute.SnapshotProperties{
 			CreationData: &armcompute.CreationData{
-				CreateOption:     to.Ptr(armcompute.DiskCreateOptionCopy),
-				SourceResourceID: to.Ptr(sourceID),
+				CreateOption:     to.Ptr(createOption),
+				SourceResourceID: to.Ptr(sourceResourceID),
 			},
 			Incremental: to.Ptr(true),
 		},
