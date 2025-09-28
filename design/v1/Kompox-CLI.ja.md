@@ -464,7 +464,7 @@ app.volumes で定義された論理ボリュームに属するディスク (ボ
 
 ```
 kompoxops disk list   --app-name <appName> --vol-name <volName>                     ディスク一覧表示
-kompoxops disk create --app-name <appName> --vol-name <volName> [--zone <zone>] [--options <json>] [--bootstrap] 新しいディスク作成 (サイズは app.volumes 定義を使用)
+kompoxops disk create --app-name <appName> --vol-name <volName> [-S <source>] [--zone <zone>] [--options <json>] [--bootstrap] 新しいディスク作成 (サイズは app.volumes 定義を使用)
 kompoxops disk assign --app-name <appName> --vol-name <volName> --disk-name <name>  指定ディスクを <volName> の Assigned に設定 (他は自動的に Unassign)
 kompoxops disk delete --app-name <appName> --vol-name <volName> --disk-name <name>  指定ディスク削除 (Assigned 中はエラー)
 ```
@@ -477,6 +477,10 @@ kompoxops disk delete --app-name <appName> --vol-name <volName> --disk-name <nam
 
 create 専用オプション
 
+- `--source | -S` ディスクの作成元を示す任意文字列。CLI では解釈・検証・正規化を一切行わず、そのまま UseCase→Provider Driver に透過的に渡す。受理形式は Provider Driver の仕様に従う。最低限の共通語彙として次を予約する:
+  - `disk:<name>`: Kompox 管理ディスク名を参照
+  - `snapshot:<name>`: Kompox 管理スナップショット名を参照
+  - 省略時は `snapshot:` と同義として扱われる
 - `--zone | -Z` アベイラビリティゾーンを指定 (app.deployment.zone をオーバーライド)
 - `--options | -O` ボリュームオプションをJSON形式で指定 (app.volumes.options をオーバーライド/マージ)
 - `--bootstrap` 全ボリュームについて Assigned ディスクが 1 件も存在しない場合に限り、各ボリューム 1 件ずつ新規作成する一括初期化モード。`--vol-name` と同時指定不可。
@@ -485,6 +489,7 @@ create 専用オプション
 
 - `<volName>` は app.volumes に存在しない場合エラー。
 - create: ディスク名は自動生成 (例: ULID 等) または `--name` 指定 (存在重複はエラー)。
+- create の `--source` は CLI/UseCase で解釈せず不透明(opaque)に扱う。最終的な解決やバリデーションは Provider Driver の責務。
 - assign: 1 論理ボリュームにつき同時に Assigned=true は 0 または 1。既に同一ディスクが Assigned なら成功 (冪等)。別ディスクが Assigned の場合は自動でそのディスクを Unassign 後に指定を Assign。
 - delete: 対象が存在しなければ成功 (冪等)。Assigned=true のディスクは `--force` 無しで拒否。
 - list 出力列例: NAME  ASSIGNED  SIZE  HANDLE(SHORT)  CREATED              UPDATED
@@ -516,9 +521,16 @@ vol-202312  false     32Gi   9ab1c02 (az)  2023-12-31T09:00Z    2024-01-10T12:05
 新しいボリュームインスタンスを作成します (サイズは app.volumes 定義)。
 
 オプション：
+- `--source | -S`: ディスク作成元を示す任意文字列。CLI は解釈・検証・正規化を行わず、そのまま Provider Driver に渡す。受理フォーマットは各 Driver の仕様に従う。(予約語: `disk:`/`snapshot:`、省略時は `snapshot:` と同義)
 - `--zone | -Z`: デプロイメントゾーンを指定。app.deployment.zone の設定をオーバーライドします。
 - `--options | -O`: ボリュームオプションをJSON形式で指定。app.volumes.options の設定をオーバーライド/マージします。
 - `--bootstrap`: 全ボリューム未初期化時に 1 件ずつ一括作成。`--vol-name` と同時指定不可。
+
+Source の扱い (パススルー):
+- CLI/UseCase は `--source` の値をパースしない。検証や正規化は Provider Driver が行う。
+- ドライバ共通の最低限の語彙として `disk:`/`snapshot:` を予約。`disk:<name>` は Kompox 管理ディスク名、`snapshot:<name>` は Kompox 管理スナップショット名を意味する。
+- 省略時は `snapshot:` の省略とみなす。
+- 例: AKS ドライバでは Kompox 管理名に加え Azure ARM Resource ID 等も受理し、ドライバ内部で解決する。
 
 使用例：
 ```bash
@@ -533,6 +545,18 @@ kompoxops disk create -V myvolume --options '{"sku":"PremiumV2_LRS","iops":3000}
 
 # ゾーンとオプション両方を指定
 kompoxops disk create -V myvolume -Z "3" -O '{"sku":"Premium_LRS"}'
+
+# スナップショットから復元 (新API)
+kompoxops disk create -V myvolume -S snapshot:backup-20250927
+
+# 管理ディスクをコピー
+kompoxops disk create -V myvolume -S disk:gold-master
+
+# クラウドのリソースIDからインポート (例: Azure ARM Resource ID)
+kompoxops disk create -V myvolume -S /subscriptions/.../providers/Microsoft.Compute/disks/d2
+
+# 省略形: 'snapshot:' 省略をドライバが許容する実装例
+kompoxops disk create -V myvolume -S daily-20250927
 ```
 
 #### kompoxops disk assign
@@ -544,13 +568,15 @@ kompoxops disk create -V myvolume -Z "3" -O '{"sku":"Premium_LRS"}'
 指定インスタンスを削除します (Assigned 中は `--force` なしで拒否)。
 
 ### kompoxops snapshot
+
 app.volumes で定義された論理ボリュームに属するスナップショットを操作する。
+
+スナップショットからのディスク作成は `kompoxops disk create -S` を使用する。
 
 ```
 kompoxops snapshot list    --app-name <appName> --vol-name <volName>                       スナップショット一覧表示
 kompoxops snapshot create  --app-name <appName> --vol-name <volName> --disk-name <disk>    指定ディスクからスナップショット作成
 kompoxops snapshot delete  --app-name <appName> --vol-name <volName> --snapshot-name <snap>指定スナップショットを削除 (NotFoundは成功)
-kompoxops snapshot restore --app-name <appName> --vol-name <volName> --snapshot-name <snap> [--zone <zone>] [--options <json>] スナップショットから新規ディスクを作成
 ```
 
 共通オプション
@@ -561,19 +587,13 @@ kompoxops snapshot restore --app-name <appName> --vol-name <volName> --snapshot-
 サブコマンドごとの必須オプション
 
 - `create`: `--disk-name | -D` 作成元ディスク名を指定
-- `delete`/`restore`: `--snapshot-name | -S` 対象スナップショット名を指定
-
-restore 専用オプション
-
-- `--zone | -Z` アベイラビリティゾーンを指定 (app.deployment.zone をオーバーライド)
-- `--options | -O` ボリュームオプションをJSON形式で指定 (app.volumes.options をオーバーライド/マージ)
+- `delete`: `--snapshot-name | -S` 対象スナップショット名を指定
 
 仕様
 
 - list: `CreatedAt` の降順で返す。出力は JSON 配列。
 - create: 指定ディスクからクラウドネイティブのスナップショットを作成し、JSON で 1 件返す。
 - delete: 存在しない場合も成功 (冪等)。
-- restore: 指定スナップショットから新しいディスクを作成し、JSON で 1 件返す。復元ディスクは `Assigned=false`。切替は `kompoxops disk assign` で行う。
 
 使用例
 
@@ -583,18 +603,6 @@ kompoxops snapshot list -V db
 
 # ディスク db の現在のアクティブインスタンスから作成 (例: 名前が ULID)
 kompoxops snapshot create -V db -D 01J8WXYZABCDEF1234567890GH
-
-# 復元して新規ディスクを作る (デフォルト設定)
-kompoxops snapshot restore -V db -S 01J8WXYZABCDEF1234567890JK
-
-# 特定のゾーンで復元
-kompoxops snapshot restore -V db -S 01J8WXYZABCDEF1234567890JK --zone "1"
-
-# オプションを指定して復元
-kompoxops snapshot restore -V db -S 01J8WXYZABCDEF1234567890JK --options '{"sku":"StandardSSD_LRS"}'
-
-# ゾーンとオプション両方を指定して復元
-kompoxops snapshot restore -V db -S 01J8WXYZABCDEF1234567890JK -Z "2" -O '{"sku":"Premium_LRS","iops":2000}'
 
 # スナップショット削除
 kompoxops snapshot delete -V db -S 01J8WXYZABCDEF1234567890JK
@@ -611,29 +619,6 @@ kompoxops snapshot delete -V db -S 01J8WXYZABCDEF1234567890JK
 #### kompoxops snapshot delete
 
 指定スナップショットを削除します (NotFound の場合も成功)。
-
-#### kompoxops snapshot restore
-
-指定スナップショットから新しいボリュームインスタンスを作成します (復元ディスクは Assigned=false)。
-
-オプション：
-- `--zone | -Z`: デプロイメントゾーンを指定。app.deployment.zone の設定をオーバーライドします。
-- `--options | -O`: ボリュームオプションをJSON形式で指定。app.volumes.options の設定をオーバーライド/マージします。
-
-使用例：
-```bash
-# デフォルト設定でスナップショット復元
-kompoxops snapshot restore -V myvolume -S snapshot123
-
-# 特定のゾーンで復元
-kompoxops snapshot restore -V myvolume -S snapshot123 --zone "1"
-
-# オプションを指定して復元
-kompoxops snapshot restore -V myvolume -S snapshot123 --options '{"sku":"StandardSSD_LRS"}'
-
-# ゾーンとオプション両方を指定
-kompoxops snapshot restore -V myvolume -S snapshot123 -Z "2" -O '{"sku":"Premium_LRS"}'
-```
 
 ### kompoxops admin
 
@@ -769,7 +754,7 @@ kompoxops box ssh -- <ssh args...>
 kompoxops box ssh -- kompox@a
 kompoxops box ssh -- root@dummy
 
-# -l オプション形式  
+# -l オプション形式
 kompoxops box ssh -- -l kompox hostname
 kompoxops box ssh -- hostname -l root
 
