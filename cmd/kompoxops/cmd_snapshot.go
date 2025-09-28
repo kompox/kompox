@@ -11,12 +11,16 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var flagVolumeSnapshotName string
+
 // newCmdSnapshot returns the root snapshot command.
 func newCmdSnapshot() *cobra.Command {
 	cmd := &cobra.Command{Use: "snapshot", Short: "Manage volume snapshots", SilenceUsage: true, SilenceErrors: true, DisableSuggestions: true, RunE: func(cmd *cobra.Command, args []string) error { return fmt.Errorf("invalid command") }}
 	// Reuse common app name flag variable defined in cmd_disk.go
 	cmd.PersistentFlags().StringVarP(&flagVolumeAppName, "app-name", "A", "", "App name (default: app.name in kompoxops.yml)")
 	cmd.PersistentFlags().StringP("vol-name", "V", "", "Volume name (required)")
+	cmd.PersistentFlags().StringVarP(&flagVolumeSnapshotName, "name", "N", "", "Snapshot name (optional for create; required for delete)")
+	cmd.PersistentFlags().StringVar(&flagVolumeSnapshotName, "snap-name", "", "Snapshot name (alias of --name)")
 	// Per-subcommand flags: disk-name and snapshot-name
 	cmd.AddCommand(newCmdSnapshotList(), newCmdSnapshotCreate(), newCmdSnapshotDelete())
 	return cmd
@@ -64,7 +68,7 @@ func newCmdSnapshotList() *cobra.Command {
 }
 
 func newCmdSnapshotCreate() *cobra.Command {
-	cmd := &cobra.Command{Use: "create", Short: "Create snapshot from a disk", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+	cmd := &cobra.Command{Use: "create", Short: "Create snapshot", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
 		u, err := buildVolumeUseCase(cmd)
 		if err != nil {
 			return err
@@ -80,17 +84,14 @@ func newCmdSnapshotCreate() *cobra.Command {
 		if volName == "" {
 			return fmt.Errorf("--vol-name required")
 		}
-		// disk-name is provided as a flag for create
-		diskName, _ := cmd.Flags().GetString("disk-name")
-		if diskName == "" {
-			return fmt.Errorf("--disk-name required")
-		}
+		snapshotName := flagVolumeSnapshotName
+		source, _ := cmd.Flags().GetString("source")
 		appID, err := resolveAppIDByNameForSnapshot(ctx, u, appName)
 		if err != nil {
 			return err
 		}
-		logger.Info(ctx, "create snapshot", "app", appName, "volume", volName, "disk", diskName)
-		out, err := u.SnapshotCreate(ctx, &vuc.SnapshotCreateInput{AppID: appID, VolumeName: volName, DiskName: diskName})
+		logger.Info(ctx, "create snapshot", "app", appName, "volume", volName, "source", source, "name", snapshotName)
+		out, err := u.SnapshotCreate(ctx, &vuc.SnapshotCreateInput{AppID: appID, VolumeName: volName, SnapshotName: snapshotName, Source: source})
 		if err != nil {
 			return err
 		}
@@ -98,7 +99,7 @@ func newCmdSnapshotCreate() *cobra.Command {
 		enc.SetIndent("", "  ")
 		return enc.Encode(out.Snapshot)
 	}}
-	cmd.Flags().StringP("disk-name", "D", "", "Disk name (required)")
+	cmd.Flags().StringP("source", "S", "", "Source identifier for snapshot creation (forwarded to provider driver)")
 	return cmd
 }
 
@@ -119,9 +120,9 @@ func newCmdSnapshotDelete() *cobra.Command {
 		if volName == "" {
 			return fmt.Errorf("--vol-name required")
 		}
-		snapName, _ := cmd.Flags().GetString("snapshot-name")
+		snapName := flagVolumeSnapshotName
 		if snapName == "" {
-			return fmt.Errorf("--snapshot-name required")
+			return fmt.Errorf("--name (or --snap-name) required")
 		}
 		appID, err := resolveAppIDByNameForSnapshot(ctx, u, appName)
 		if err != nil {
@@ -133,6 +134,5 @@ func newCmdSnapshotDelete() *cobra.Command {
 		}
 		return nil
 	}}
-	cmd.Flags().StringP("snapshot-name", "S", "", "Snapshot name (required)")
 	return cmd
 }

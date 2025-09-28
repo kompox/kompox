@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/kompox/kompox/domain/model"
+	"github.com/kompox/kompox/internal/naming"
 )
 
 // DiskCreateInput parameters for DiskCreate use case.
@@ -13,6 +14,8 @@ type DiskCreateInput struct {
 	AppID string `json:"app_id"`
 	// VolumeName logical volume name.
 	VolumeName string `json:"volume_name"`
+	// DiskName optional explicit disk identifier; empty string lets driver auto-generate.
+	DiskName string `json:"disk_name,omitempty"`
 	// Zone overrides app.deployment.zone when specified.
 	Zone string `json:"zone,omitempty"`
 	// Options overrides/merges with app.volumes.options when specified.
@@ -32,6 +35,14 @@ type DiskCreateOutput struct {
 func (u *UseCase) DiskCreate(ctx context.Context, in *DiskCreateInput) (*DiskCreateOutput, error) {
 	if in == nil || in.AppID == "" || in.VolumeName == "" {
 		return nil, fmt.Errorf("missing parameters")
+	}
+	if err := naming.ValidateVolumeName(in.VolumeName); err != nil {
+		return nil, fmt.Errorf("validate volume name: %w", err)
+	}
+	if in.DiskName != "" {
+		if err := naming.ValidateDiskName(in.DiskName); err != nil {
+			return nil, fmt.Errorf("validate disk name: %w", err)
+		}
 	}
 	app, err := u.Repos.App.Get(ctx, in.AppID)
 	if err != nil {
@@ -61,11 +72,8 @@ func (u *UseCase) DiskCreate(ctx context.Context, in *DiskCreateInput) (*DiskCre
 	if in.Options != nil {
 		opts = append(opts, model.WithVolumeDiskCreateOptions(in.Options))
 	}
-	if in.Source != "" {
-		opts = append(opts, model.WithVolumeDiskCreateSource(in.Source))
-	}
 
-	disk, err := u.VolumePort.DiskCreate(ctx, cluster, app, in.VolumeName, opts...)
+	disk, err := u.VolumePort.DiskCreate(ctx, cluster, app, in.VolumeName, in.DiskName, in.Source, opts...)
 	if err != nil {
 		return nil, err
 	}

@@ -3,6 +3,8 @@ package volume
 import (
 	"context"
 	"fmt"
+
+	"github.com/kompox/kompox/internal/naming"
 )
 
 // SnapshotDeleteInput parameters for deleting a snapshot.
@@ -18,6 +20,12 @@ type SnapshotDeleteOutput struct{}
 func (u *UseCase) SnapshotDelete(ctx context.Context, in *SnapshotDeleteInput) (*SnapshotDeleteOutput, error) {
 	if in == nil || in.AppID == "" || in.VolumeName == "" || in.SnapshotName == "" {
 		return nil, fmt.Errorf("missing parameters")
+	}
+	if err := naming.ValidateVolumeName(in.VolumeName); err != nil {
+		return nil, fmt.Errorf("validate volume name: %w", err)
+	}
+	if err := naming.ValidateSnapshotName(in.SnapshotName); err != nil {
+		return nil, fmt.Errorf("validate snapshot name: %w", err)
 	}
 	app, err := u.Repos.App.Get(ctx, in.AppID)
 	if err != nil {

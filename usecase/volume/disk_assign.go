@@ -3,6 +3,8 @@ package volume
 import (
 	"context"
 	"fmt"
+
+	"github.com/kompox/kompox/internal/naming"
 )
 
 // DiskAssignInput parameters.
@@ -21,6 +23,12 @@ type DiskAssignOutput struct{}
 func (u *UseCase) DiskAssign(ctx context.Context, in *DiskAssignInput) (*DiskAssignOutput, error) {
 	if in == nil || in.AppID == "" || in.VolumeName == "" || in.DiskName == "" {
 		return nil, fmt.Errorf("missing parameters")
+	}
+	if err := naming.ValidateVolumeName(in.VolumeName); err != nil {
+		return nil, fmt.Errorf("validate volume name: %w", err)
+	}
+	if err := naming.ValidateDiskName(in.DiskName); err != nil {
+		return nil, fmt.Errorf("validate disk name: %w", err)
 	}
 	app, err := u.Repos.App.Get(ctx, in.AppID)
 	if err != nil {

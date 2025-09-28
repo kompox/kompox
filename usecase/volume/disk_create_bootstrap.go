@@ -128,7 +128,7 @@ func (u *UseCase) DiskCreateBootstrap(ctx context.Context, in *DiskCreateBootstr
 			if in.Options != nil {
 				opts = append(opts, model.WithVolumeDiskCreateOptions(in.Options))
 			}
-			disk, cerr := u.VolumePort.DiskCreate(ctx, cluster, app, av.Name, opts...)
+			disk, cerr := u.VolumePort.DiskCreate(ctx, cluster, app, av.Name, "", "", opts...)
 			if cerr != nil {
 				return nil, fmt.Errorf("disk create failed for volume %s: %w", av.Name, cerr)
 			}

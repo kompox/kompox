@@ -42,6 +42,13 @@ const (
 	keyResourceGroupName = "AZURE_RESOURCE_GROUP_NAME"
 )
 
+// Volume related limits
+const (
+	maxVolumeName   = 16
+	maxDiskName     = 24
+	maxSnapshotName = 24
+)
+
 // safeTruncate ensures resulting name does not exceed Azure RG length, preserving hash suffix.
 // Returns an error if the hash is too long to accommodate any base characters.
 func safeTruncate(base, hash string) (string, error) {
@@ -128,6 +135,12 @@ func (d *driver) appResourceGroupName(app *model.App) (string, error) {
 }
 
 func (d *driver) appDiskName(app *model.App, volName string, diskName string) (string, error) {
+	if len(volName) > maxVolumeName {
+		return "", fmt.Errorf("volume name %q exceeds max length %d", volName, maxVolumeName)
+	}
+	if len(diskName) > maxDiskName {
+		return "", fmt.Errorf("disk name %q exceeds max length %d", diskName, maxDiskName)
+	}
 	h := naming.NewHashes(d.ServiceName(), d.ProviderName(), "", app.Name)
 	base := fmt.Sprintf("%s_disk_%s_%s", d.resourcePrefix, volName, diskName)
 	result, err := safeTruncate(base, h.AppID)
@@ -138,6 +151,12 @@ func (d *driver) appDiskName(app *model.App, volName string, diskName string) (s
 }
 
 func (d *driver) appSnapshotName(app *model.App, volName string, snapshotName string) (string, error) {
+	if len(volName) > maxVolumeName {
+		return "", fmt.Errorf("volume name %q exceeds max length %d", volName, maxVolumeName)
+	}
+	if len(snapshotName) > maxSnapshotName {
+		return "", fmt.Errorf("snapshot name %q exceeds max length %d", snapshotName, maxSnapshotName)
+	}
 	h := naming.NewHashes(d.ServiceName(), d.ProviderName(), "", app.Name)
 	base := fmt.Sprintf("%s_snap_%s_%s", d.resourcePrefix, volName, snapshotName)
 	result, err := safeTruncate(base, h.AppID)

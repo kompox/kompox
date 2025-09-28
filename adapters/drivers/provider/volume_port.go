@@ -52,12 +52,12 @@ func (a *volumePortAdapter) DiskList(ctx context.Context, cluster *model.Cluster
 
 // DiskCreate creates (provisions) a new disk belonging to
 // the logical volume identified by volName for the specified cluster/app.
-func (a *volumePortAdapter) DiskCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, opts ...model.VolumeDiskCreateOption) (*model.VolumeDisk, error) {
+func (a *volumePortAdapter) DiskCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, diskName string, source string, opts ...model.VolumeDiskCreateOption) (*model.VolumeDisk, error) {
 	drv, err := a.getDriver(ctx, cluster, app)
 	if err != nil {
 		return nil, err
 	}
-	return drv.VolumeDiskCreate(ctx, cluster, app, volName, opts...)
+	return drv.VolumeDiskCreate(ctx, cluster, app, volName, diskName, source, opts...)
 }
 
 // DiskDelete deletes the named disk (diskName) belonging
@@ -91,12 +91,12 @@ func (a *volumePortAdapter) SnapshotList(ctx context.Context, cluster *model.Clu
 }
 
 // SnapshotCreate creates a snapshot from a specified volume disk.
-func (a *volumePortAdapter) SnapshotCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, diskName string, opts ...model.VolumeSnapshotCreateOption) (*model.VolumeSnapshot, error) {
+func (a *volumePortAdapter) SnapshotCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, source string, opts ...model.VolumeSnapshotCreateOption) (*model.VolumeSnapshot, error) {
 	drv, err := a.getDriver(ctx, cluster, app)
 	if err != nil {
 		return nil, err
 	}
-	return drv.VolumeSnapshotCreate(ctx, cluster, app, volName, diskName, opts...)
+	return drv.VolumeSnapshotCreate(ctx, cluster, app, volName, snapName, source, opts...)
 }
 
 // SnapshotDelete deletes the specified snapshot.

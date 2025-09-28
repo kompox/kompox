@@ -10,6 +10,12 @@ import (
 	"github.com/kompox/kompox/internal/logging"
 )
 
+// IDs used by this driver
+const (
+	// Contributor role definition GUID (tenant-agnostic)
+	contributorRoleID = "b24988ac-6180-42a0-ab88-20f7382dd24c"
+)
+
 // ensureAzureResourceGroupCreated ensures RG exists for Create path only.
 func (d *driver) ensureAzureResourceGroupCreated(ctx context.Context, rg string, tags map[string]*string, principalID string) error {
 	log := logging.FromContext(ctx)
@@ -31,8 +37,8 @@ func (d *driver) ensureAzureResourceGroupCreated(ctx context.Context, rg string,
 	}
 	// Create assignment with deterministic GUID name derived from (principalID, roleDefinitionID)
 	scope := *groupRes.ID
-	roleDefinitionID := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s", d.AzureSubscriptionId, contributorRoleDefinitionID)
-	log.Info(ctx, "ensuring role assignment", "scope", scope, "principal_id", principalID, "role_definition_id", contributorRoleDefinitionID)
+	roleDefinitionID := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s", d.AzureSubscriptionId, contributorRoleID)
+	log.Info(ctx, "ensuring role assignment", "scope", scope, "principal_id", principalID, "role_id", contributorRoleID)
 	if err := d.ensureAzureRole(ctx, scope, principalID, roleDefinitionID); err != nil {
 		return err
 	}

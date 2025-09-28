@@ -5,13 +5,15 @@ import (
 	"fmt"
 
 	"github.com/kompox/kompox/domain/model"
+	"github.com/kompox/kompox/internal/naming"
 )
 
 // SnapshotCreateInput parameters for creating a snapshot.
 type SnapshotCreateInput struct {
-	AppID      string `json:"app_id"`
-	VolumeName string `json:"volume_name"`
-	DiskName   string `json:"disk_name"`
+	AppID        string `json:"app_id"`
+	VolumeName   string `json:"volume_name"`
+	SnapshotName string `json:"snapshot_name,omitempty"`
+	Source       string `json:"source,omitempty"`
 }
 
 // SnapshotCreateOutput result for creating a snapshot.
@@ -21,8 +23,16 @@ type SnapshotCreateOutput struct {
 
 // SnapshotCreate creates a snapshot for a given volume disk.
 func (u *UseCase) SnapshotCreate(ctx context.Context, in *SnapshotCreateInput) (*SnapshotCreateOutput, error) {
-	if in == nil || in.AppID == "" || in.VolumeName == "" || in.DiskName == "" {
+	if in == nil || in.AppID == "" || in.VolumeName == "" {
 		return nil, fmt.Errorf("missing parameters")
+	}
+	if err := naming.ValidateVolumeName(in.VolumeName); err != nil {
+		return nil, fmt.Errorf("validate volume name: %w", err)
+	}
+	if in.SnapshotName != "" {
+		if err := naming.ValidateSnapshotName(in.SnapshotName); err != nil {
+			return nil, fmt.Errorf("validate snapshot name: %w", err)
+		}
 	}
 	app, err := u.Repos.App.Get(ctx, in.AppID)
 	if err != nil {
@@ -43,7 +53,7 @@ func (u *UseCase) SnapshotCreate(ctx context.Context, in *SnapshotCreateInput) (
 	if err != nil {
 		return nil, fmt.Errorf("volume not defined: %w", err)
 	}
-	snap, err := u.VolumePort.SnapshotCreate(ctx, cluster, app, in.VolumeName, in.DiskName)
+	snap, err := u.VolumePort.SnapshotCreate(ctx, cluster, app, in.VolumeName, in.SnapshotName, in.Source)
 	if err != nil {
 		return nil, err
 	}

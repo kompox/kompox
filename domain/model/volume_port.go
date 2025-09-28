@@ -14,7 +14,6 @@ type VolumeDiskCreateOptions struct {
 	Force   bool
 	Zone    string         // Override zone from app.deployment.zone config
 	Options map[string]any // Override/merge with app.volumes.options config
-	Source  string         // Source for disk creation (snapshot name, resource ID, etc.)
 }
 type VolumeDiskDeleteOptions struct{ Force bool }
 type VolumeDiskAssignOptions struct{ Force bool }
@@ -45,9 +44,6 @@ func WithVolumeDiskCreateZone(zone string) VolumeDiskCreateOption {
 func WithVolumeDiskCreateOptions(options map[string]any) VolumeDiskCreateOption {
 	return func(o *VolumeDiskCreateOptions) { o.Options = options }
 }
-func WithVolumeDiskCreateSource(source string) VolumeDiskCreateOption {
-	return func(o *VolumeDiskCreateOptions) { o.Source = source }
-}
 func WithVolumeDiskDeleteForce() VolumeDiskDeleteOption {
 	return func(o *VolumeDiskDeleteOptions) { o.Force = true }
 }
@@ -68,11 +64,13 @@ func WithVolumeSnapshotDeleteForce() VolumeSnapshotDeleteOption {
 // VolumePort abstracts volume disk and snapshot operations provided by drivers.
 type VolumePort interface {
 	DiskList(ctx context.Context, cluster *Cluster, app *App, volName string, opts ...VolumeDiskListOption) ([]*VolumeDisk, error)
-	DiskCreate(ctx context.Context, cluster *Cluster, app *App, volName string, opts ...VolumeDiskCreateOption) (*VolumeDisk, error)
+	// DiskCreate provisions a new disk. diskName and source are forwarded to the driver as-is.
+	DiskCreate(ctx context.Context, cluster *Cluster, app *App, volName string, diskName string, source string, opts ...VolumeDiskCreateOption) (*VolumeDisk, error)
 	DiskDelete(ctx context.Context, cluster *Cluster, app *App, volName string, diskName string, opts ...VolumeDiskDeleteOption) error
 	DiskAssign(ctx context.Context, cluster *Cluster, app *App, volName string, diskName string, opts ...VolumeDiskAssignOption) error
 	SnapshotList(ctx context.Context, cluster *Cluster, app *App, volName string, opts ...VolumeSnapshotListOption) ([]*VolumeSnapshot, error)
-	SnapshotCreate(ctx context.Context, cluster *Cluster, app *App, volName string, diskName string, opts ...VolumeSnapshotCreateOption) (*VolumeSnapshot, error)
+	// SnapshotCreate provisions a new snapshot and forwards opaque parameters to the driver.
+	SnapshotCreate(ctx context.Context, cluster *Cluster, app *App, volName string, snapName string, source string, opts ...VolumeSnapshotCreateOption) (*VolumeSnapshot, error)
 	SnapshotDelete(ctx context.Context, cluster *Cluster, app *App, volName string, snapName string, opts ...VolumeSnapshotDeleteOption) error
 }
 

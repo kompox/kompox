@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/kompox/kompox/domain/model"
+	"github.com/kompox/kompox/internal/naming"
 )
 
 // DiskListInput parameters for DiskList use case.
@@ -25,6 +26,9 @@ type DiskListOutput struct {
 func (u *UseCase) DiskList(ctx context.Context, in *DiskListInput) (*DiskListOutput, error) {
 	if in == nil || in.AppID == "" || in.VolumeName == "" {
 		return nil, fmt.Errorf("missing parameters")
+	}
+	if err := naming.ValidateVolumeName(in.VolumeName); err != nil {
+		return nil, fmt.Errorf("validate volume name: %w", err)
 	}
 	app, err := u.Repos.App.Get(ctx, in.AppID)
 	if err != nil {

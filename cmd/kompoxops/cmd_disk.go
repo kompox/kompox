@@ -11,13 +11,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var flagVolumeAppName string
+var (
+	flagVolumeAppName  string
+	flagVolumeDiskName string
+)
 
 func newCmdDisk() *cobra.Command {
 	cmd := &cobra.Command{Use: "disk", Short: "Manage app disks", SilenceUsage: true, SilenceErrors: true, DisableSuggestions: true, RunE: func(cmd *cobra.Command, args []string) error { return fmt.Errorf("invalid command") }}
 	cmd.PersistentFlags().StringVarP(&flagVolumeAppName, "app-name", "A", "", "App name (default: app.name in kompoxops.yml)")
 	cmd.PersistentFlags().StringP("vol-name", "V", "", "Volume name (required for list/create/assign/delete)")
-	cmd.PersistentFlags().StringP("disk-name", "D", "", "Disk name (required for assign/delete)")
+	cmd.PersistentFlags().StringVarP(&flagVolumeDiskName, "name", "N", "", "Disk name (optional for create; required for assign/delete)")
+	cmd.PersistentFlags().StringVar(&flagVolumeDiskName, "disk-name", "", "Disk name (alias of --name)")
 	cmd.AddCommand(newCmdDiskList(), newCmdDiskCreate(), newCmdDiskAssign(), newCmdDiskDelete())
 	return cmd
 }
@@ -91,11 +95,15 @@ func newCmdDiskCreate() *cobra.Command {
 		}
 		volName, _ := cmd.Flags().GetString("vol-name")
 		bootstrap, _ := cmd.Flags().GetBool("bootstrap")
+		diskName := flagVolumeDiskName
 		if bootstrap && volName != "" {
 			return fmt.Errorf("--vol-name must not be specified with --bootstrap")
 		}
 		if !bootstrap && volName == "" {
 			return fmt.Errorf("--vol-name required")
+		}
+		if bootstrap && diskName != "" {
+			return fmt.Errorf("--name/--disk-name must not be specified with --bootstrap")
 		}
 		appID, err := resolveAppIDByName(ctx, u, appName)
 		if err != nil {
@@ -104,7 +112,7 @@ func newCmdDiskCreate() *cobra.Command {
 
 		// Parse zone, options, and source flags
 		zone, _ := cmd.Flags().GetString("zone")
-		optionsStr, _ := cmd.Flags().GetString("options") 
+		optionsStr, _ := cmd.Flags().GetString("options")
 		source, _ := cmd.Flags().GetString("source")
 		var options map[string]any
 		if optionsStr != "" {
@@ -131,8 +139,8 @@ func newCmdDiskCreate() *cobra.Command {
 			return enc.Encode(disks)
 		}
 
-		input := &vuc.DiskCreateInput{AppID: appID, VolumeName: volName, Zone: zone, Options: options, Source: source}
-		logger.Info(ctx, "create volume instance start", "app", appName, "volume", volName)
+		input := &vuc.DiskCreateInput{AppID: appID, VolumeName: volName, DiskName: diskName, Zone: zone, Options: options, Source: source}
+		logger.Info(ctx, "create volume instance start", "app", appName, "volume", volName, "name", diskName, "source", source)
 		out, err := u.DiskCreate(ctx, input)
 		if err != nil {
 			return err
@@ -165,9 +173,9 @@ func newCmdDiskAssign() *cobra.Command {
 		if volName == "" {
 			return fmt.Errorf("--vol-name required")
 		}
-		diskName, _ := cmd.Flags().GetString("disk-name")
+		diskName := flagVolumeDiskName
 		if diskName == "" {
-			return fmt.Errorf("--disk-name required")
+			return fmt.Errorf("--name (or --disk-name) required")
 		}
 		appID, err := resolveAppIDByName(ctx, u, appName)
 		if err != nil {
@@ -199,9 +207,9 @@ func newCmdDiskDelete() *cobra.Command {
 		if volName == "" {
 			return fmt.Errorf("--vol-name required")
 		}
-		diskName, _ := cmd.Flags().GetString("disk-name")
+		diskName := flagVolumeDiskName
 		if diskName == "" {
-			return fmt.Errorf("--disk-name required")
+			return fmt.Errorf("--name (or --disk-name) required")
 		}
 		appID, err := resolveAppIDByName(ctx, u, appName)
 		if err != nil {
