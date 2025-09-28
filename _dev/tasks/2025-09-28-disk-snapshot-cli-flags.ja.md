@@ -141,6 +141,7 @@ supersedes: []
 ## 進捗
 
 - 2025-09-28: タスク作成(本ファイル)。前提: 2025-09-27 の Source パススルー実装が完了済み。
+- 2025-09-28: 実装完了。Domain model, Provider Driver インターフェース, UseCase, CLI commands を K4x-ADR-003 仕様に更新。
 
 ## 参考
 

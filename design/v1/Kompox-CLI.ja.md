@@ -463,24 +463,24 @@ kompoxops secret pull delete -A app1
 app.volumes で定義された論理ボリュームに属するディスク (ボリュームインスタンス) を操作する。
 
 ```
-kompoxops disk list   --app-name <appName> --vol-name <volName>                     ディスク一覧表示
-kompoxops disk create --app-name <appName> --vol-name <volName> [-S <source>] [--zone <zone>] [--options <json>] [--bootstrap] 新しいディスク作成 (サイズは app.volumes 定義を使用)
-kompoxops disk assign --app-name <appName> --vol-name <volName> --disk-name <name>  指定ディスクを <volName> の Assigned に設定 (他は自動的に Unassign)
-kompoxops disk delete --app-name <appName> --vol-name <volName> --disk-name <name>  指定ディスク削除 (Assigned 中はエラー)
+kompoxops disk list   --app-name <appName> --vol-name <volName>                   ディスク一覧表示
+kompoxops disk create --app-name <appName> --vol-name <volName> [-N <name>] [-S <source>] [--zone <zone>] [--options <json>] [--bootstrap] 新しいディスク作成 (サイズは app.volumes 定義を使用)
+kompoxops disk assign --app-name <appName> --vol-name <volName> --name <name>    指定ディスクを <volName> の Assigned に設定 (他は自動的に Unassign)
+kompoxops disk delete --app-name <appName> --vol-name <volName> --name <name>    指定ディスク削除 (Assigned 中はエラー)
 ```
 
 共通オプション
 
 - `--app-name | -A` アプリ名を指定 (デフォルト: kompoxops.yml の app.naame)
 - `--vol-name | -V` ボリューム名を指定
-- `--disk-name | -D` ディスク名を指定
+- `--name | -N` ディスク名を指定 (assign/delete で必須、create で省略時自動生成)
 
 create 専用オプション
 
 - `--source | -S` ディスクの作成元を示す任意文字列。CLI では解釈・検証・正規化を一切行わず、そのまま UseCase→Provider Driver に透過的に渡す。受理形式は Provider Driver の仕様に従う。最低限の共通語彙として次を予約する:
   - `disk:<name>`: Kompox 管理ディスク名を参照
   - `snapshot:<name>`: Kompox 管理スナップショット名を参照
-  - 省略時は `snapshot:` と同義として扱われる
+  - 省略時は空ディスクを作成
 - `--zone | -Z` アベイラビリティゾーンを指定 (app.deployment.zone をオーバーライド)
 - `--options | -O` ボリュームオプションをJSON形式で指定 (app.volumes.options をオーバーライド/マージ)
 - `--bootstrap` 全ボリュームについて Assigned ディスクが 1 件も存在しない場合に限り、各ボリューム 1 件ずつ新規作成する一括初期化モード。`--vol-name` と同時指定不可。
@@ -489,7 +489,8 @@ create 専用オプション
 
 - `<volName>` は app.volumes に存在しない場合エラー。
 - create: ディスク名は自動生成 (例: ULID 等) または `--name` 指定 (存在重複はエラー)。
-- create の `--source` は CLI/UseCase で解釈せず不透明(opaque)に扱う。最終的な解決やバリデーションは Provider Driver の責務。
+- create の `--source` は CLI/UseCase で解釈せず不透明(opaque)に扱う。最終的な解決やバリデーションは Provider Driver の責務。省略時は空ディスクを作成。
+- assign: 1 論理ボリュームにつき同時に Assigned=true は 0 または 1。既に同一ディスクが Assigned なら成功 (冪等)。別ディスクが Assigned の場合は自動でそのディスクを Unassign 後に指定を Assign。
 - assign: 1 論理ボリュームにつき同時に Assigned=true は 0 または 1。既に同一ディスクが Assigned なら成功 (冪等)。別ディスクが Assigned の場合は自動でそのディスクを Unassign 後に指定を Assign。
 - delete: 対象が存在しなければ成功 (冪等)。Assigned=true のディスクは `--force` 無しで拒否。
 - list 出力列例: NAME  ASSIGNED  SIZE  HANDLE(SHORT)  CREATED              UPDATED
@@ -521,7 +522,8 @@ vol-202312  false     32Gi   9ab1c02 (az)  2023-12-31T09:00Z    2024-01-10T12:05
 新しいボリュームインスタンスを作成します (サイズは app.volumes 定義)。
 
 オプション：
-- `--source | -S`: ディスク作成元を示す任意文字列。CLI は解釈・検証・正規化を行わず、そのまま Provider Driver に渡す。受理フォーマットは各 Driver の仕様に従う。(予約語: `disk:`/`snapshot:`、省略時は `snapshot:` と同義)
+- `--name | -N`: 作成するディスク名。省略時は自動生成。
+- `--source | -S`: ディスク作成元を示す任意文字列。CLI は解釈・検証・正規化を行わず、そのまま Provider Driver に渡す。受理フォーマットは各 Driver の仕様に従う。(予約語: `disk:`/`snapshot:`、省略時は空ディスク作成)
 - `--zone | -Z`: デプロイメントゾーンを指定。app.deployment.zone の設定をオーバーライドします。
 - `--options | -O`: ボリュームオプションをJSON形式で指定。app.volumes.options の設定をオーバーライド/マージします。
 - `--bootstrap`: 全ボリューム未初期化時に 1 件ずつ一括作成。`--vol-name` と同時指定不可。
@@ -529,13 +531,16 @@ vol-202312  false     32Gi   9ab1c02 (az)  2023-12-31T09:00Z    2024-01-10T12:05
 Source の扱い (パススルー):
 - CLI/UseCase は `--source` の値をパースしない。検証や正規化は Provider Driver が行う。
 - ドライバ共通の最低限の語彙として `disk:`/`snapshot:` を予約。`disk:<name>` は Kompox 管理ディスク名、`snapshot:<name>` は Kompox 管理スナップショット名を意味する。
-- 省略時は `snapshot:` の省略とみなす。
+- 省略時は空ディスクを作成。
 - 例: AKS ドライバでは Kompox 管理名に加え Azure ARM Resource ID 等も受理し、ドライバ内部で解決する。
 
 使用例：
 ```bash
-# デフォルト設定でディスク作成
+# デフォルト設定でディスク作成 (空ディスク)
 kompoxops disk create -V myvolume
+
+# 名前を指定してディスク作成
+kompoxops disk create -V myvolume -N mydisk
 
 # 特定のゾーンでディスク作成
 kompoxops disk create -V myvolume --zone "2"
@@ -546,7 +551,7 @@ kompoxops disk create -V myvolume --options '{"sku":"PremiumV2_LRS","iops":3000}
 # ゾーンとオプション両方を指定
 kompoxops disk create -V myvolume -Z "3" -O '{"sku":"Premium_LRS"}'
 
-# スナップショットから復元 (新API)
+# スナップショットから復元
 kompoxops disk create -V myvolume -S snapshot:backup-20250927
 
 # 管理ディスクをコピー
@@ -554,40 +559,71 @@ kompoxops disk create -V myvolume -S disk:gold-master
 
 # クラウドのリソースIDからインポート (例: Azure ARM Resource ID)
 kompoxops disk create -V myvolume -S /subscriptions/.../providers/Microsoft.Compute/disks/d2
-
-# 省略形: 'snapshot:' 省略をドライバが許容する実装例
-kompoxops disk create -V myvolume -S daily-20250927
 ```
 
 #### kompoxops disk assign
 
 指定インスタンスを Assigned=true に設定し、他を自動的に Unassign します。
 
+使用例：
+```bash
+kompoxops disk assign -V myvolume -N mydisk
+```
+
 #### kompoxops disk delete
 
 指定インスタンスを削除します (Assigned 中は `--force` なしで拒否)。
+
+使用例：
+```bash
+kompoxops disk delete -V myvolume -N mydisk
+```
 
 ### kompoxops snapshot
 
 app.volumes で定義された論理ボリュームに属するスナップショットを操作する。
 
-スナップショットからのディスク作成は `kompoxops disk create -S` を使用する。
+K4x-ADR-003 に従い、統一されたフラグ形式を使用：
 
 ```
-kompoxops snapshot list    --app-name <appName> --vol-name <volName>                       スナップショット一覧表示
-kompoxops snapshot create  --app-name <appName> --vol-name <volName> --disk-name <disk>    指定ディスクからスナップショット作成
-kompoxops snapshot delete  --app-name <appName> --vol-name <volName> --snapshot-name <snap>指定スナップショットを削除 (NotFoundは成功)
+kompoxops snapshot list    --app-name <appName> --vol-name <volName>                             スナップショット一覧表示
+kompoxops snapshot create  --app-name <appName> --vol-name <volName> [--name <snap>] [-S <src>]  スナップショット作成
+kompoxops snapshot delete  --app-name <appName> --vol-name <volName> --name <snap>               指定スナップショットを削除
+```
+
+共通オプション：
+- `--app-name | -A` アプリケーション名
+- `--vol-name | -V` 論理ボリューム名  
+- `--name | -N` スナップショット名 (create では省略時自動生成、delete では必須)
+
+#### kompoxops snapshot create
+
+オプション：
+- `--source | -S`: スナップショット作成元を示す任意文字列。CLI は解釈せず Provider Driver に透過的に渡す。省略時は Assigned ディスクを自動検出して使用。
+
+Source の扱い：
+- 省略時: Assigned ディスクが 1 件のみ存在する場合にそれを使用、0 件または複数件の場合はエラー
+- 指定時: `disk:<name>`, `snapshot:<name>` 等の予約語彙または provider 固有の形式
+
+使用例：
+```bash
+# Assigned ディスクからスナップショット作成 (自動検出)
+kompoxops snapshot create -V myvolume
+
+# 名前を指定してスナップショット作成
+kompoxops snapshot create -V myvolume -N backup-20250928
+
+# 特定のディスクからスナップショット作成
+kompoxops snapshot create -V myvolume -S disk:mydisk
+
+# 削除
+kompoxops snapshot delete -V myvolume -N backup-20250928
 ```
 
 共通オプション
 
 - `--app-name | -A` アプリ名を指定 (デフォルト: kompoxops.yml の app.name)
 - `--vol-name | -V` ボリューム名を指定
-
-サブコマンドごとの必須オプション
-
-- `create`: `--disk-name | -D` 作成元ディスク名を指定
-- `delete`: `--snapshot-name | -S` 対象スナップショット名を指定
 
 仕様
 
