@@ -11,6 +11,7 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/kompox/kompox/domain/model"
+	"github.com/kompox/kompox/internal/logging"
 	"github.com/kompox/kompox/internal/naming"
 )
 
@@ -218,6 +219,9 @@ func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, a
 	if cluster == nil || app == nil {
 		return nil, fmt.Errorf("cluster/app nil")
 	}
+
+	log := logging.FromContext(ctx)
+
 	// Process options
 	options := &model.VolumeDiskCreateOptions{}
 	for _, opt := range opts {
@@ -243,12 +247,13 @@ func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, a
 		zone = options.Zone
 	}
 	// Retrieve AKS principal ID from deployment outputs (per-cluster)
+	var principalID string
 	outputs, err := d.azureDeploymentOutputs(ctx, cluster)
-	if err != nil {
-		return nil, fmt.Errorf("get deployment outputs: %w", err)
+	if err == nil {
+		principalID = outputs[outputAksPrincipalID].(string)
+	} else {
+		log.Warn(ctx, "Failed to get deployment outputs", "error", azureShorterErrorString(err))
 	}
-	principalID, _ := outputs[outputAksPrincipalID].(string)
-
 	// Inline azureVolumeDiskCreate logic
 	rg, err := d.appResourceGroupName(app)
 	if err != nil {
@@ -259,8 +264,10 @@ func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, a
 	}
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
-	if err := d.ensureAzureResourceGroupCreated(ctx, rg, d.appResourceTags(app.Name), principalID); err != nil {
-		return nil, fmt.Errorf("ensure RG: %w", err)
+	// Role assignment is skipped if principalID is empty
+	err = d.ensureAzureResourceGroupCreated(ctx, rg, d.appResourceTags(app.Name), principalID)
+	if err != nil {
+		log.Warn(ctx, "Failed to ensure RG", "resource_group", rg, "principal_id", principalID, "error", azureShorterErrorString(err))
 	}
 	disksClient, err := armcompute.NewDisksClient(d.AzureSubscriptionId, d.TokenCredential, nil)
 	if err != nil {
