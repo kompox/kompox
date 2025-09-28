@@ -9,9 +9,10 @@ import (
 
 // SnapshotCreateInput parameters for creating a snapshot.
 type SnapshotCreateInput struct {
-	AppID      string `json:"app_id"`
-	VolumeName string `json:"volume_name"`
-	DiskName   string `json:"disk_name"`
+	AppID        string `json:"app_id"`
+	VolumeName   string `json:"volume_name"`
+	SnapshotName string `json:"snapshot_name,omitempty"` // Target snapshot name (empty for auto-generated)
+	Source       string `json:"source,omitempty"`       // Source for snapshot creation (opaque, empty for default/assigned disk)
 }
 
 // SnapshotCreateOutput result for creating a snapshot.
@@ -19,9 +20,9 @@ type SnapshotCreateOutput struct {
 	Snapshot *model.VolumeSnapshot `json:"snapshot"`
 }
 
-// SnapshotCreate creates a snapshot for a given volume disk.
+// SnapshotCreate creates a snapshot for a given volume source.
 func (u *UseCase) SnapshotCreate(ctx context.Context, in *SnapshotCreateInput) (*SnapshotCreateOutput, error) {
-	if in == nil || in.AppID == "" || in.VolumeName == "" || in.DiskName == "" {
+	if in == nil || in.AppID == "" || in.VolumeName == "" {
 		return nil, fmt.Errorf("missing parameters")
 	}
 	app, err := u.Repos.App.Get(ctx, in.AppID)
@@ -43,7 +44,8 @@ func (u *UseCase) SnapshotCreate(ctx context.Context, in *SnapshotCreateInput) (
 	if err != nil {
 		return nil, fmt.Errorf("volume not defined: %w", err)
 	}
-	snap, err := u.VolumePort.SnapshotCreate(ctx, cluster, app, in.VolumeName, in.DiskName)
+	// Pass snapName and source directly to driver per K4x-ADR-003
+	snap, err := u.VolumePort.SnapshotCreate(ctx, cluster, app, in.VolumeName, in.SnapshotName, in.Source)
 	if err != nil {
 		return nil, err
 	}

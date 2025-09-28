@@ -13,11 +13,13 @@ type DiskCreateInput struct {
 	AppID string `json:"app_id"`
 	// VolumeName logical volume name.
 	VolumeName string `json:"volume_name"`
+	// DiskName target disk name (empty for auto-generated).
+	DiskName string `json:"disk_name,omitempty"`
 	// Zone overrides app.deployment.zone when specified.
 	Zone string `json:"zone,omitempty"`
 	// Options overrides/merges with app.volumes.options when specified.
 	Options map[string]any `json:"options,omitempty"`
-	// Source specifies the source for disk creation (snapshot name, resource ID, etc.).
+	// Source specifies the source for disk creation (opaque string as per K4x-ADR-003).
 	// Empty means create an empty disk. The interpretation is delegated to the provider driver.
 	Source string `json:"source,omitempty"`
 }
@@ -61,11 +63,9 @@ func (u *UseCase) DiskCreate(ctx context.Context, in *DiskCreateInput) (*DiskCre
 	if in.Options != nil {
 		opts = append(opts, model.WithVolumeDiskCreateOptions(in.Options))
 	}
-	if in.Source != "" {
-		opts = append(opts, model.WithVolumeDiskCreateSource(in.Source))
-	}
+	// Source is now passed directly to Driver per K4x-ADR-003
 
-	disk, err := u.VolumePort.DiskCreate(ctx, cluster, app, in.VolumeName, opts...)
+	disk, err := u.VolumePort.DiskCreate(ctx, cluster, app, in.VolumeName, in.DiskName, in.Source, opts...)
 	if err != nil {
 		return nil, err
 	}

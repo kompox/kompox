@@ -260,7 +260,7 @@ func (d *driver) VolumeDiskList(ctx context.Context, cluster *model.Cluster, app
 }
 
 // VolumeDiskCreate implements spec method.
-func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, opts ...model.VolumeDiskCreateOption) (*model.VolumeDisk, error) {
+func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, diskName string, source string, opts ...model.VolumeDiskCreateOption) (*model.VolumeDisk, error) {
 	if cluster == nil || app == nil {
 		return nil, fmt.Errorf("cluster/app nil")
 	}
@@ -311,11 +311,15 @@ func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, a
 	if err != nil {
 		return nil, fmt.Errorf("new disks client: %w", err)
 	}
-	diskName, err := naming.NewCompactID()
-	if err != nil {
-		return nil, fmt.Errorf("compact id: %w", err)
+	// Use provided diskName or generate one if empty
+	targetDiskName := diskName
+	if targetDiskName == "" {
+		targetDiskName, err = naming.NewCompactID()
+		if err != nil {
+			return nil, fmt.Errorf("compact id: %w", err)
+		}
 	}
-	diskResourceName, err := d.appDiskName(app, volName, diskName)
+	diskResourceName, err := d.appDiskName(app, volName, targetDiskName)
 	if err != nil {
 		return nil, fmt.Errorf("generate disk resource name: %w", err)
 	}
@@ -330,19 +334,19 @@ func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, a
 	tags := d.appResourceTags(app.Name)
 	// Add volume/disk specific tags
 	tags[tagVolumeName] = to.Ptr(volName)
-	tags[tagDiskName] = to.Ptr(diskName)
+	tags[tagDiskName] = to.Ptr(targetDiskName)
 	tags[tagDiskAssigned] = to.Ptr(assignedValue)
 
-	// Determine the creation option and source based on the Source field
+	// Determine the creation option and source based on the source parameter (K4x-ADR-003)
 	var creationData *armcompute.CreationData
-	if options.Source == "" {
+	if source == "" {
 		// Empty disk (default behavior)
 		creationData = &armcompute.CreationData{CreateOption: to.Ptr(armcompute.DiskCreateOptionEmpty)}
 	} else {
 		// Interpret the source string to determine creation method
-		sourceID, err := d.resolveSourceID(ctx, cluster, app, volName, options.Source)
+		sourceID, err := d.resolveSourceID(ctx, cluster, app, volName, source)
 		if err != nil {
-			return nil, fmt.Errorf("resolve source %q: %w", options.Source, err)
+			return nil, fmt.Errorf("resolve source %q: %w", source, err)
 		}
 		creationData = &armcompute.CreationData{
 			CreateOption:     to.Ptr(armcompute.DiskCreateOptionCopy),
@@ -532,7 +536,7 @@ func (d *driver) VolumeSnapshotList(ctx context.Context, cluster *model.Cluster,
 	return out, nil
 }
 
-func (d *driver) VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, diskName string, _ ...model.VolumeSnapshotCreateOption) (*model.VolumeSnapshot, error) {
+func (d *driver) VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, source string, _ ...model.VolumeSnapshotCreateOption) (*model.VolumeSnapshot, error) {
 	if cluster == nil || app == nil {
 		return nil, fmt.Errorf("cluster/app nil")
 	}
@@ -546,24 +550,59 @@ func (d *driver) VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluste
 	if err != nil {
 		return nil, fmt.Errorf("new snapshots client: %w", err)
 	}
-	diskResourceName, err := d.appDiskName(app, volName, diskName)
-	if err != nil {
-		return nil, fmt.Errorf("generate disk resource name: %w", err)
+
+	// Determine source disk based on source parameter (K4x-ADR-003)
+	var sourceDiskResourceID string
+	if source == "" {
+		// Default: find the assigned disk for this volume
+		items, err := d.VolumeDiskList(ctx, cluster, app, volName)
+		if err != nil {
+			return nil, fmt.Errorf("list volume disks: %w", err)
+		}
+		var assignedDisk *model.VolumeDisk
+		for _, item := range items {
+			if item.Assigned {
+				if assignedDisk != nil {
+					return nil, fmt.Errorf("multiple assigned disks found; specify source explicitly")
+				}
+				assignedDisk = item
+			}
+		}
+		if assignedDisk == nil {
+			return nil, fmt.Errorf("no assigned disk found; specify source explicitly")
+		}
+		// Convert to Azure resource ID
+		diskResourceName, err := d.appDiskName(app, volName, assignedDisk.Name)
+		if err != nil {
+			return nil, fmt.Errorf("generate disk resource name: %w", err)
+		}
+		disksClient, err := armcompute.NewDisksClient(d.AzureSubscriptionId, d.TokenCredential, nil)
+		if err != nil {
+			return nil, fmt.Errorf("new disks client: %w", err)
+		}
+		diskRes, err := disksClient.Get(ctx, rg, diskResourceName, nil)
+		if err != nil {
+			return nil, fmt.Errorf("get disk: %w", err)
+		}
+		sourceDiskResourceID = *diskRes.ID
+	} else {
+		// Interpret the source string to determine source disk
+		sourceID, err := d.resolveSourceID(ctx, cluster, app, volName, source)
+		if err != nil {
+			return nil, fmt.Errorf("resolve source %q: %w", source, err)
+		}
+		sourceDiskResourceID = sourceID
 	}
-	// Resolve source disk resource ID
-	disksClient, err := armcompute.NewDisksClient(d.AzureSubscriptionId, d.TokenCredential, nil)
-	if err != nil {
-		return nil, fmt.Errorf("new disks client: %w", err)
+
+	// Use provided snapName or generate one if empty
+	targetSnapName := snapName
+	if targetSnapName == "" {
+		targetSnapName, err = naming.NewCompactID()
+		if err != nil {
+			return nil, fmt.Errorf("compact id: %w", err)
+		}
 	}
-	diskRes, err := disksClient.Get(ctx, rg, diskResourceName, nil)
-	if err != nil {
-		return nil, fmt.Errorf("get disk: %w", err)
-	}
-	snapName, err := naming.NewCompactID()
-	if err != nil {
-		return nil, fmt.Errorf("compact id: %w", err)
-	}
-	snapResourceName, err := d.appSnapshotName(app, volName, snapName)
+	snapResourceName, err := d.appSnapshotName(app, volName, targetSnapName)
 	if err != nil {
 		return nil, fmt.Errorf("generate snapshot resource name: %w", err)
 	}
@@ -571,8 +610,7 @@ func (d *driver) VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluste
 	tags := d.appResourceTags(app.Name)
 	// Add volume/snapshot specific tags
 	tags[tagVolumeName] = to.Ptr(volName)
-	tags[tagDiskName] = to.Ptr(diskName)
-	tags[tagSnapshotName] = to.Ptr(snapName)
+	tags[tagSnapshotName] = to.Ptr(targetSnapName)
 
 	snap := armcompute.Snapshot{
 		Location: to.Ptr(d.AzureLocation),
@@ -580,7 +618,7 @@ func (d *driver) VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluste
 		Properties: &armcompute.SnapshotProperties{
 			CreationData: &armcompute.CreationData{
 				CreateOption:     to.Ptr(armcompute.DiskCreateOptionCopy),
-				SourceResourceID: diskRes.ID,
+				SourceResourceID: &sourceDiskResourceID,
 			},
 			Incremental: to.Ptr(true),
 		},

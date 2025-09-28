@@ -57,7 +57,7 @@ func (d *driver) ClusterKubeconfig(ctx context.Context, cluster *model.Cluster) 
 func (d *driver) VolumeDiskList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, _ ...model.VolumeDiskListOption) ([]*model.VolumeDisk, error) {
 	return nil, fmt.Errorf("VolumeDiskList is not implemented for k3s provider")
 }
-func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, _ ...model.VolumeDiskCreateOption) (*model.VolumeDisk, error) {
+func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, diskName string, source string, _ ...model.VolumeDiskCreateOption) (*model.VolumeDisk, error) {
 	return nil, fmt.Errorf("VolumeDiskCreate is not implemented for k3s provider")
 }
 func (d *driver) VolumeDiskDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, diskName string, _ ...model.VolumeDiskDeleteOption) error {
@@ -71,7 +71,7 @@ func (d *driver) VolumeDiskAssign(ctx context.Context, cluster *model.Cluster, a
 func (d *driver) VolumeSnapshotList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, _ ...model.VolumeSnapshotListOption) ([]*model.VolumeSnapshot, error) {
 	return nil, fmt.Errorf("VolumeSnapshotList is not implemented for k3s provider")
 }
-func (d *driver) VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, diskName string, _ ...model.VolumeSnapshotCreateOption) (*model.VolumeSnapshot, error) {
+func (d *driver) VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, source string, _ ...model.VolumeSnapshotCreateOption) (*model.VolumeSnapshot, error) {
 	return nil, fmt.Errorf("VolumeSnapshotCreate is not implemented for k3s provider")
 }
 func (d *driver) VolumeSnapshotDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, _ ...model.VolumeSnapshotDeleteOption) error {

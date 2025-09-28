@@ -43,7 +43,9 @@ type Driver interface {
 	VolumeDiskList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, opts ...model.VolumeDiskListOption) ([]*model.VolumeDisk, error)
 
 	// VolumeDiskCreate creates a disk of the specified logical volume.
-	VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, opts ...model.VolumeDiskCreateOption) (*model.VolumeDisk, error)
+	// diskName: target disk name (empty for auto-generated name)
+	// source: opaque source string (empty for default/empty disk creation) - see K4x-ADR-003
+	VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, diskName string, source string, opts ...model.VolumeDiskCreateOption) (*model.VolumeDisk, error)
 
 	// VolumeDiskDelete deletes a disk of the specified logical volume.
 	VolumeDiskDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, diskName string, opts ...model.VolumeDiskDeleteOption) error
@@ -54,8 +56,10 @@ type Driver interface {
 	// VolumeSnapshotList returns a list of snapshots of the specified volume.
 	VolumeSnapshotList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, opts ...model.VolumeSnapshotListOption) ([]*model.VolumeSnapshot, error)
 
-	// VolumeSnapshotCreate creates a snapshot from the specified disk.
-	VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, diskName string, opts ...model.VolumeSnapshotCreateOption) (*model.VolumeSnapshot, error)
+	// VolumeSnapshotCreate creates a snapshot from the specified source.
+	// snapName: target snapshot name (empty for auto-generated name)
+	// source: opaque source string (empty for default/assigned disk) - see K4x-ADR-003
+	VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, source string, opts ...model.VolumeSnapshotCreateOption) (*model.VolumeSnapshot, error)
 
 	// VolumeSnapshotDelete deletes the specified snapshot.
 	VolumeSnapshotDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, opts ...model.VolumeSnapshotDeleteOption) error
