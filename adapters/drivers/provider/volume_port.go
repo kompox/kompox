@@ -108,15 +108,6 @@ func (a *volumePortAdapter) SnapshotDelete(ctx context.Context, cluster *model.C
 	return drv.VolumeSnapshotDelete(ctx, cluster, app, volName, snapName, opts...)
 }
 
-// SnapshotRestore creates a new volume disk from the specified snapshot.
-func (a *volumePortAdapter) SnapshotRestore(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, opts ...model.VolumeSnapshotRestoreOption) (*model.VolumeDisk, error) {
-	drv, err := a.getDriver(ctx, cluster, app)
-	if err != nil {
-		return nil, err
-	}
-	return drv.VolumeSnapshotRestore(ctx, cluster, app, volName, snapName, opts...)
-}
-
 // GetVolumePort returns a model.VolumePort implemented via provider drivers.
 func GetVolumePort(services domain.ServiceRepository, providers domain.ProviderRepository, clusters domain.ClusterRepository, apps domain.AppRepository) model.VolumePort {
 	return &volumePortAdapter{services: services, providers: providers, clusters: clusters, apps: apps}

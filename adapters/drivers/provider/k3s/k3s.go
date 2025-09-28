@@ -77,9 +77,6 @@ func (d *driver) VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluste
 func (d *driver) VolumeSnapshotDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, _ ...model.VolumeSnapshotDeleteOption) error {
 	return fmt.Errorf("VolumeSnapshotDelete is not implemented for k3s provider")
 }
-func (d *driver) VolumeSnapshotRestore(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, _ ...model.VolumeSnapshotRestoreOption) (*model.VolumeDisk, error) {
-	return nil, fmt.Errorf("VolumeSnapshotRestore is not implemented for k3s provider")
-}
 
 // VolumeClass returns empty spec (no opinion) for k3s provider.
 func (d *driver) VolumeClass(ctx context.Context, cluster *model.Cluster, app *model.App, vol model.AppVolume) (model.VolumeClass, error) {

@@ -18,7 +18,7 @@ func newCmdSnapshot() *cobra.Command {
 	cmd.PersistentFlags().StringVarP(&flagVolumeAppName, "app-name", "A", "", "App name (default: app.name in kompoxops.yml)")
 	cmd.PersistentFlags().StringP("vol-name", "V", "", "Volume name (required)")
 	// Per-subcommand flags: disk-name and snapshot-name
-	cmd.AddCommand(newCmdSnapshotList(), newCmdSnapshotCreate(), newCmdSnapshotDelete(), newCmdSnapshotRestore())
+	cmd.AddCommand(newCmdSnapshotList(), newCmdSnapshotCreate(), newCmdSnapshotDelete())
 	return cmd
 }
 
@@ -134,66 +134,5 @@ func newCmdSnapshotDelete() *cobra.Command {
 		return nil
 	}}
 	cmd.Flags().StringP("snapshot-name", "S", "", "Snapshot name (required)")
-	return cmd
-}
-
-func newCmdSnapshotRestore() *cobra.Command {
-	cmd := &cobra.Command{Use: "restore", Short: "Restore snapshot into a new disk", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
-		u, err := buildVolumeUseCase(cmd)
-		if err != nil {
-			return err
-		}
-		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Minute)
-		defer cancel()
-		logger := logging.FromContext(ctx)
-		appName, err := getSnapshotAppName(cmd)
-		if err != nil {
-			return err
-		}
-		volName, _ := cmd.Flags().GetString("vol-name")
-		if volName == "" {
-			return fmt.Errorf("--vol-name required")
-		}
-		snapName, _ := cmd.Flags().GetString("snapshot-name")
-		if snapName == "" {
-			return fmt.Errorf("--snapshot-name required")
-		}
-		appID, err := resolveAppIDByNameForSnapshot(ctx, u, appName)
-		if err != nil {
-			return err
-		}
-
-		// Parse zone and options flags
-		zone, _ := cmd.Flags().GetString("zone")
-		optionsStr, _ := cmd.Flags().GetString("options")
-
-		input := &vuc.SnapshotRestoreInput{
-			AppID:        appID,
-			VolumeName:   volName,
-			SnapshotName: snapName,
-			Zone:         zone,
-		}
-
-		// Parse JSON options if provided
-		if optionsStr != "" {
-			var options map[string]any
-			if err := json.Unmarshal([]byte(optionsStr), &options); err != nil {
-				return fmt.Errorf("invalid JSON in --options: %w", err)
-			}
-			input.Options = options
-		}
-
-		logger.Info(ctx, "restore snapshot", "app", appName, "volume", volName, "snapshot", snapName)
-		out, err := u.SnapshotRestore(ctx, input)
-		if err != nil {
-			return err
-		}
-		enc := json.NewEncoder(cmd.OutOrStdout())
-		enc.SetIndent("", "  ")
-		return enc.Encode(out.Disk)
-	}}
-	cmd.Flags().StringP("snapshot-name", "S", "", "Snapshot name (required)")
-	cmd.Flags().StringP("zone", "Z", "", "Override deployment zone")
-	cmd.Flags().StringP("options", "O", "", "Override volume options (JSON)")
 	return cmd
 }

@@ -60,10 +60,6 @@ type Driver interface {
 	// VolumeSnapshotDelete deletes the specified snapshot.
 	VolumeSnapshotDelete(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, opts ...model.VolumeSnapshotDeleteOption) error
 
-	// VolumeSnapshotRestore creates a new disk from the specified snapshot.
-	// The returned disk should have Assigned=false; switching is handled by VolumeDiskAssign.
-	VolumeSnapshotRestore(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, snapName string, opts ...model.VolumeSnapshotRestoreOption) (*model.VolumeDisk, error)
-
 	// VolumeClass returns provider specific volume provisioning parameters for the given logical volume.
 	// Empty fields mean "no opinion" and the caller should omit them from generated manifests rather than
 	// substituting provider-specific defaults. This keeps kube layer free from provider assumptions.
