@@ -52,6 +52,13 @@ supersedes: []
 `-N/--name`(create 時の任意指定)
 - 省略時は自動命名(例: ULID 等)。重複時はエラー。
 
+名前の制約(Kompox ベースライン)
+- Volume name: DNS-1123 ラベル、1..16 文字
+- Disk name: DNS-1123 ラベル、1..24 文字
+- Snapshot name: DNS-1123 ラベル、1..24 文字
+- DNS-1123 ラベルの定義: 英小文字・数字・ハイフン(-)のみ、先頭と末尾は英数字
+- 注意: Provider Driver の基盤制約により、実際に許容される長さや文字種がさらに厳しくなる場合があります。ドライバ側で追加の検証が行われることがあります（ベースラインに加えて適用）。
+
 ## 設計原則(再掲)
 
 - Source は CLI/UseCase でパース・検証・正規化しない。
@@ -100,6 +107,19 @@ supersedes: []
   - [ ] `cmd/kompoxops/cmd_disk.go`: `-N|--name|--disk-name` を追加・統一、`disk create` に `-S|--source` を維持(省略時 empty)。
   - [ ] `cmd/kompoxops/cmd_snapshot.go`: `-N|--name|--snap-name` を追加・統一、`snapshot create` に `-S|--source`(省略時は空文字を渡し Driver に委任)。
   - [ ] ヘルプ文言(Short/Long/Example)を更新。
+
+- [ ] 名前制約の実装
+  - [ ] `internal/naming`
+    - [ ] DNS-1123 ラベルの共通バリデータを実装（英小文字・数字・ハイフンのみ、先頭と末尾は英数字）。
+    - [ ] `ValidateVolumeName`（最大 16 文字）、`ValidateDiskName`（最大 24 文字）、`ValidateSnapshotName`（最大 24 文字）を提供。
+  - [ ] `usecase/volume`（ユースケース境界で強制する。Source は不透明のまま未検証）
+    - [ ] `disk_create.go`: `VolumeName` を常に検証、`diskName` が指定された場合のみ検証。
+    - [ ] `snapshot_create.go`: `VolumeName` を常に検証、`snapName` が指定された場合のみ検証。
+    - [ ] `disk_assign.go`: `VolumeName` と `diskName` を検証。
+    - [ ] `disk_delete.go`: `VolumeName` と `diskName` を検証。
+    - [ ] `snapshot_delete.go`: `VolumeName` と `snapName` を検証。
+    - [ ] list 系（`disk list` / `snapshot list`）: `VolumeName` を検証。
+  - [ ] 備考: Provider Driver の基盤制約により、より厳しい制約が適用される場合がある（ドライバ側で追加検証）。
 
 - [ ] ドキュメント更新
   - [ ] `design/v1/Kompox-CLI.ja.md` を本仕様に合わせて改訂。

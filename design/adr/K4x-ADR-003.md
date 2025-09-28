@@ -29,6 +29,12 @@ language: en
 - Naming flag aliases:
   - disk: `-N | --name | --disk-name`
   - snapshot: `-N | --name | --snap-name`
+- Naming constraints (Kompox-wide baseline):
+  - Volume name: DNS-1123 label, length 1..16
+  - Disk name: DNS-1123 label, length 1..24
+  - Snapshot name: DNS-1123 label, length 1..24
+  - DNS-1123 label means lowercase alphanumeric and hyphen (-) only, must start and end with an alphanumeric character.
+  - Note: Provider drivers may enforce stricter limits due to underlying platform constraints; such driver-specific validation occurs in addition to the baseline above.
 - Source contract (`-S|--source`, create-only):
   - Format: `-S [<type>:]<name>`
     - Common vocabulary: `disk:<name>` references a Kompox-managed disk; `snapshot:<name>` references a Kompox-managed snapshot.
