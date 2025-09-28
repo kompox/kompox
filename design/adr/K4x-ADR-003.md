@@ -30,10 +30,11 @@ language: en
   - disk: `-N | --name | --disk-name`
   - snapshot: `-N | --name | --snap-name`
 - Source contract (`-S|--source`, create-only):
-  - Opaque: CLI/UseCase do not parse/validate/normalize; drivers interpret the value.
-  - Format: `-S [<type>:]<name>` with shared types `disk | snapshot`.
+  - Format: `-S [<type>:]<name>`
+    - Common vocabulary: `disk:<name>` references a Kompox-managed disk; `snapshot:<name>` references a Kompox-managed snapshot.
     - If the user omits the type: `disk create` → use `snapshot:<name>`, `snapshot create` → use `disk:<name>`.
     - If the user omits `-S` entirely: `disk create` → create an empty disk; `snapshot create` → resolve Assigned disk and use `disk:<name>`.
+  - CLI/UseCase do not parse/validate/normalize, do treat it as opaque; drivers interpret the value.
 
 ## Rationale
 
@@ -55,10 +56,7 @@ language: en
 
 - Breaking change: legacy flag forms are not preserved by design.
 - CLI help/docs/tests must be updated to reflect `-N` and `-S` semantics and defaults.
-- UseCase behavior:
-  - `snapshot create` with omitted `-S` resolves the currently Assigned disk and translates to `disk:<name>` (error if none).
-  - `disk create` with omitted `-S` creates an empty disk via the provider's default path.
-  - When users specify `-S` but omit the type in the value, apply default types: `disk create` → `snapshot:<name>`, `snapshot create` → `disk:<name>`.
+- CLI/UseCase do not interpret `Source` at all; it is passed verbatim to drivers even when omitted (empty string).
 - Provider drivers remain the source of truth for `Source` resolution and validation.
 
 ## Risks and Mitigations
