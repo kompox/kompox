@@ -3,7 +3,7 @@ id: 2025-09-27-disk-snapshot-unify
 title: Disk/Snapshot 機能統合(disk create -S)
 status: active
 owner: yaegashi
-updated: 2025-09-27
+updated: 2025-09-28
 language: ja
 ---
 # Task: Disk/Snapshot 機能統合(`disk create -S`)
@@ -101,9 +101,9 @@ language: ja
 - [x] 2) UseCase 拡張（入力に Source を追加しオプションへ反映）
 - [x] 3) CLI 拡張（-S/--source を追加、解釈・正規化なしでパススルー）
 - [x] 4) Provider Driver (AKS) 拡張（Empty/Copy/Import の切替を実装）
-- [ ] 5) ドキュメント更新（design/v1/Kompox-CLI.ja.md に -S を追記）
+- [x] 5) ドキュメント更新（design/v1/Kompox-CLI.ja.md に -S を追記）
 - [ ] 6) テスト整備（CLI/UseCase パススルー、Driver 分岐・バリデーション）
-- [ ] 7) 削除フェーズ（snapshot restore 経路・記述の撤去）
+- [x] 7) 削除フェーズ（snapshot restore 経路・記述の撤去）
 
 ## 参照
 

@@ -1,7 +1,7 @@
 ---
 id: README
 title: 開発者向けタスク索引
-updated: 2025-09-27
+updated: 2025-09-28
 language: ja
 ---
 
@@ -16,7 +16,7 @@ language: ja
 
 | ID | タイトル | ステータス | カテゴリ | 担当 | 更新日 | 言語 |
 |---|---|---|---|---|---|---|
-| [2025-09-27-disk-snapshot-unify](./2025-09-27-disk-snapshot-unify.ja.md) | Disk/Snapshot 機能統合(disk create -S) | active |  | yaegashi | 2025-09-27 | ja |
+| [2025-09-27-disk-snapshot-unify](./2025-09-27-disk-snapshot-unify.ja.md) | Disk/Snapshot 機能統合(disk create -S) | active |  | yaegashi | 2025-09-28 | ja |
 
 ---
 
