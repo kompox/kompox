@@ -1,0 +1,56 @@
+version: v1
+service:
+  name: ${SERVICE_NAME}
+provider:
+  name: aks1
+  driver: aks
+  settings:
+    AZURE_AUTH_METHOD: azure_cli
+    AZURE_SUBSCRIPTION_ID: ${AZURE_SUBSCRIPTION_ID}
+    AZURE_LOCATION: ${AZURE_LOCATION}
+cluster:
+  name: cluster1
+  existing: false
+  ingress:
+    certEmail: yaegashi@live.jp
+    certResolver: staging
+    domain: cluster1.aks1.exp.kompox.dev
+    certificates:
+      - name: l0wdevtls
+        source: https://l0wdevtls-jpe-prd1.vault.azure.net/secrets/cluster1-aks1-exp-kompox-dev
+  settings:
+    AZURE_AKS_SYSTEM_VM_SIZE: ${AZURE_AKS_SYSTEM_VM_SIZE}
+    AZURE_AKS_SYSTEM_VM_DISK_TYPE: ${AZURE_AKS_SYSTEM_VM_DISK_TYPE}
+    AZURE_AKS_SYSTEM_VM_DISK_SIZE_GB: ${AZURE_AKS_SYSTEM_VM_DISK_SIZE_GB}
+    AZURE_AKS_SYSTEM_VM_PRIORITY: ${AZURE_AKS_SYSTEM_VM_PRIORITY}
+    AZURE_AKS_SYSTEM_VM_ZONES: ${AZURE_AKS_SYSTEM_VM_ZONES}
+    AZURE_AKS_USER_VM_SIZE: ${AZURE_AKS_USER_VM_SIZE}
+    AZURE_AKS_USER_VM_DISK_TYPE: ${AZURE_AKS_USER_VM_DISK_TYPE}
+    AZURE_AKS_USER_VM_DISK_SIZE_GB: ${AZURE_AKS_USER_VM_DISK_SIZE_GB}
+    AZURE_AKS_USER_VM_PRIORITY: ${AZURE_AKS_USER_VM_PRIORITY}
+    AZURE_AKS_USER_VM_ZONES: ${AZURE_AKS_USER_VM_ZONES}
+app:
+  name: app1
+  compose:
+    services:
+      whoami:
+        image: traefik/woami
+        ports:
+          - 8080:80
+  ingress:
+    certResolver: staging
+    rules:
+      - name: main
+        port: 8080
+        hosts: [whoami.custom.exp.kompox.dev]
+  deployment:
+    zone: "1"
+  volumes:
+    - name: vol1
+      size: 10Gi
+      options:
+        sku: PremiumV2_LRS
+    - name: vol2
+      size: 10Gi
+      options:
+        sku: PremiumV2_LRS
