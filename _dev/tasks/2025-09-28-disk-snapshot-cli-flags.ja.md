@@ -1,7 +1,7 @@
 ---
 id: 2025-09-28-disk-snapshot-cli-flags
 title: Disk/Snapshot CLI フラグ統一(-N/-S)
-status: active
+status: done
 owner: yaegashi
 updated: 2025-09-29
 language: ja
@@ -127,14 +127,14 @@ supersedes: []
   - [x] 例示コマンド(README 含む)を `-N/-S` 方針へ統一。
   - [x] ADR `design/adr/K4x-ADR-003.md` への参照と整合コメント(Domain Option の Name/Source 追記)を反映。
 
-- [ ] テスト整備
-  - [ ] CLI: フラグ受理と UseCase への値伝播(-N/-S)をユニットで検証。
-  - [ ] UseCase: `-S` 値は文字列を一切加工せずに Driver へ透過し、`-S` 省略時は空文字を渡すことを確認。
-  - [ ] Driver: `diskName`/`snapName`/`source`(省略時は空文字)引数が期待どおりに受け取れること(パススルー)を確認。
-  - [ ] Driver: `snapshot create` にて `source==""` の場合に Assigned ディスクを解決して使用し、Assigned が無ければエラーとなることをユニット/インテグレーションで確認(AKS Driver での実装含む)。
-  - [ ] スモーク: `disk create` 省略(空ディスク)、`disk create -S snapshot:...`、`snapshot create` 省略/明示の基本系が通ること。
-  - [x] 名前制約: internal/naming のバリデータをユニットで検証。
-  - [x] 名前制約: UseCase 層での検証が正しく動作すること。
+- [x] テスト整備 (ユニットテストが難しいものはE2Eテストで代替)
+  - [x] CLI: フラグ受理と UseCase への値伝播(-N/-S)をE2Eテストで確認。
+  - [x] UseCase: `-S` 値は文字列を一切加工せずに Driver へ透過し、`-S` 省略時は空文字を渡すことをE2Eテストで確認。
+  - [x] Driver: `diskName`/`snapName`/`source`(省略時は空文字)引数が期待どおりに受け取れること(パススルー)をE2Eテストで確認。
+  - [x] Driver: `snapshot create` にて `source==""` の場合に Assigned ディスクを解決して使用し、Assigned が無ければエラーとなることをE2Eテストで確認(AKS Driver での実装含む)。
+  - [x] スモーク: `disk create` 省略(空ディスク)、`disk create -S snapshot:...`、`snapshot create` 省略/明示の基本系が通ることをE2Eテストで確認。
+  - [x] 名前制約: internal/naming のバリデータをユニットテストで検証。
+  - [x] 名前制約: UseCase 層での検証が正しく動作することをユニットテストで検証。
 
 ## テスト
 
@@ -164,6 +164,7 @@ supersedes: []
 ## 進捗
 
 - 2025-09-28: タスク作成(本ファイル)。前提: 2025-09-27 の Source パススルー実装が完了済み。
+- 2025-09-29: 実装完了。ユニットテストが難しいものはE2Eテストで代替。
 
 ## 参考
 
