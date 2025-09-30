@@ -16,6 +16,10 @@ import (
 // ToModels converts the configuration to domain models with proper references.
 // Returns models in the order: service, provider, cluster, app
 func (r *Root) ToModels() (*model.Service, *model.Provider, *model.Cluster, *model.App, error) {
+	if err := r.Validate(); err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("invalid configuration: %w", err)
+	}
+
 	now := time.Now()
 
 	// Generate UUIDs for each resource

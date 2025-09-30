@@ -3,6 +3,7 @@ package kompoxopscfg
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -93,5 +94,36 @@ func TestLoad_InvalidYAML(t *testing.T) {
 
 	if _, err := Load(path); err == nil {
 		t.Fatalf("expected error for invalid YAML, got nil")
+	}
+}
+
+func TestLoad_InvalidVolumeName(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bad-volume.yml")
+
+	content := `version: v1
+service:
+  name: ops
+provider:
+  name: k3s1
+  driver: k3s
+cluster:
+  name: test-cluster
+app:
+  name: sample-app
+  compose: ./docker-compose.yml
+  volumes:
+    - name: INVALID
+      size: 1Gi
+`
+
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatalf("failed to write temp yaml: %v", err)
+	}
+
+	if _, err := Load(path); err == nil {
+		t.Fatalf("expected validation error, got nil")
+	} else if !strings.Contains(err.Error(), "invalid volume name") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

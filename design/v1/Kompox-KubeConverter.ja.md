@@ -199,16 +199,27 @@ BASE = Pod template が参照するすべての Secret リソースの `kompox.d
 
 ### ボリューム
 
+ボリューム関連名称の制約 (K4x-ADR-003)
+
+- Volume 名: DNS-1123 ラベル、長さ 1..16
+  - 正規表現: `^[a-z0-9]([-a-z0-9]{0,14}[a-z0-9])?$`
+- Disk 名: DNS-1123 ラベル、長さ 1..24
+- Snapshot 名: DNS-1123 ラベル、長さ 1..24
+- 注: プロバイダドライバは基盤プラットフォームの制約に合わせて、上記より厳しい制限を追加で行うことがある。
+
 app.volumes スキーマ
 
 ```yaml
 app.volumes:
   - name: <name>
     size: <size>
+    options:
+      <key>: <value>
 ```
 
-- name: `^[a-z]([-a-z0-9]{0,14})$`
+- name: DNS-1123 ラベル、長さ 1..16、正規表現: `^[a-z0-9]([-a-z0-9]{0,14}[a-z0-9])?$`
 - size: `32Gi` など
+- options: Provider Driver が解釈するボリュームオプション。key/value ともに文字列。
 
 Compose の `services.<service>.volumes` は compose-go によりパースされる。
 

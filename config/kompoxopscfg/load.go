@@ -20,5 +20,9 @@ func Load(path string) (*Root, error) {
 		return nil, fmt.Errorf("failed to unmarshal YAML: %w", err)
 	}
 
+	if err := cfg.Validate(); err != nil {
+		return nil, fmt.Errorf("invalid configuration: %w", err)
+	}
+
 	return &cfg, nil
 }

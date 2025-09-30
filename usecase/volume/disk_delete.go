@@ -49,6 +49,25 @@ func (u *UseCase) DiskDelete(ctx context.Context, in *DiskDeleteInput) (*DiskDel
 	if err != nil {
 		return nil, fmt.Errorf("volume not defined: %w", err)
 	}
+	// Prevent deleting an assigned disk per CLI spec: list disks and check assignment.
+	items, err := u.VolumePort.DiskList(ctx, cluster, app, in.VolumeName)
+	if err != nil {
+		return nil, err
+	}
+	var found bool
+	for _, d := range items {
+		if d.Name == in.DiskName {
+			found = true
+			if d.Assigned {
+				return nil, fmt.Errorf("disk %s is assigned; assign another disk first before deletion", in.DiskName)
+			}
+			break
+		}
+	}
+	if !found {
+		return nil, fmt.Errorf("disk not found: %s", in.DiskName)
+	}
+
 	if err := u.VolumePort.DiskDelete(ctx, cluster, app, in.VolumeName, in.DiskName); err != nil {
 		return nil, err
 	}
