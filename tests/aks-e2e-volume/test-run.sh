@@ -1,7 +1,6 @@
 #!/bin/bash
 
 set -euo pipefail
-IFS=$'\n\t'
 
 CREATED_DISKS=()
 CREATED_SNAPSHOTS=()
@@ -15,7 +14,10 @@ log() {
 }
 
 run() {
-	(set -x; "$@")
+	local q
+	printf -v q '%q ' "$@"
+	log "+ ${q% }"
+	"$@"
 }
 
 WORKDIR=$(mktemp -d)
@@ -195,7 +197,7 @@ fi
 log "Deleting unassigned disk $DISK_FROM_SNAPSHOT"
 run ./kompoxops disk delete -V "$VOLUME" -N "$DISK_FROM_SNAPSHOT"
 
-CREATED_DISKS=($(printf '%s\n' "${CREATED_DISKS[@]}" | grep -v "^$DISK_FROM_SNAPSHOT$" || true))
+mapfile -t CREATED_DISKS < <(printf '%s\n' "${CREATED_DISKS[@]}" | grep -v "^$DISK_FROM_SNAPSHOT$" || true)
 
 log "Creating temporary disk to exercise --source without snapshot prefix"
 if ! retry_capture DISK_TEMP_JSON run ./kompoxops disk create -V "$VOLUME" -N "$DISK_TEMP" -S "disk:$DISK_BASE"; then
@@ -207,12 +209,12 @@ assert_field_equals "$DISK_TEMP_JSON" '.name' "$DISK_TEMP" "disk create with dis
 
 log "Deleting temporary disk $DISK_TEMP"
 run ./kompoxops disk delete -V "$VOLUME" -N "$DISK_TEMP"
-CREATED_DISKS=($(printf '%s\n' "${CREATED_DISKS[@]}" | grep -v "^$DISK_TEMP$" || true))
+mapfile -t CREATED_DISKS < <(printf '%s\n' "${CREATED_DISKS[@]}" | grep -v "^$DISK_TEMP$" || true)
 
 log "Deleting snapshots using --snap-name"
 for SNAP in "$SNAP_EXPLICIT" "$SNAP_AUTO"; do
 	run ./kompoxops snapshot delete -V "$VOLUME" --snap-name "$SNAP"
-	CREATED_SNAPSHOTS=($(printf '%s\n' "${CREATED_SNAPSHOTS[@]}" | grep -v "^$SNAP$" || true))
+	mapfile -t CREATED_SNAPSHOTS < <(printf '%s\n' "${CREATED_SNAPSHOTS[@]}" | grep -v "^$SNAP$" || true)
 done
 
 log "Verifying invalid disk name is rejected"

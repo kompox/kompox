@@ -49,7 +49,7 @@ app:
     - name: vol1
       size: 10Gi
       options:
-        sku: PremiumV2_LRS
+        sku: Premium_LRS
     - name: vol2
       size: 10Gi
       options:
