@@ -39,6 +39,12 @@ type Driver interface {
 	// Implementations may fetch admin/user credentials depending on provider capability.
 	ClusterKubeconfig(ctx context.Context, cluster *model.Cluster) ([]byte, error)
 
+	// ClusterDNSApply applies a DNS record set in the provider-managed DNS zones.
+	// The method must be idempotent and best-effort: providers should suppress recoverable
+	// write failures unless opts request strict handling. Invalid input or context
+	// cancellation should still return an error.
+	ClusterDNSApply(ctx context.Context, cluster *model.Cluster, rset model.DNSRecordSet, opts ...model.ClusterDNSApplyOption) error
+
 	// VolumeDiskList returns a list of disks of the specified logical volume.
 	VolumeDiskList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, opts ...model.VolumeDiskListOption) ([]*model.VolumeDisk, error)
 

@@ -53,6 +53,11 @@ func (d *driver) ClusterKubeconfig(ctx context.Context, cluster *model.Cluster) 
 	return nil, fmt.Errorf("ClusterKubeconfig is not implemented for k3s provider")
 }
 
+// ClusterDNSApply is a no-op for the k3s provider driver.
+func (d *driver) ClusterDNSApply(ctx context.Context, cluster *model.Cluster, rset model.DNSRecordSet, opts ...model.ClusterDNSApplyOption) error {
+	return nil
+}
+
 // Volume management (not implemented for k3s)
 func (d *driver) VolumeDiskList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, _ ...model.VolumeDiskListOption) ([]*model.VolumeDisk, error) {
 	return nil, fmt.Errorf("VolumeDiskList is not implemented for k3s provider")

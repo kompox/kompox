@@ -92,6 +92,15 @@ func (a *clusterPortAdapter) Uninstall(ctx context.Context, cluster *model.Clust
 	return drv.ClusterUninstall(ctx, cluster, opts...)
 }
 
+// DNSApply delegates DNS record operations to the provider driver.
+func (a *clusterPortAdapter) DNSApply(ctx context.Context, cluster *model.Cluster, rset model.DNSRecordSet, opts ...model.ClusterDNSApplyOption) error {
+	drv, err := a.getDriver(ctx, cluster)
+	if err != nil {
+		return err
+	}
+	return drv.ClusterDNSApply(ctx, cluster, rset, opts...)
+}
+
 // GetClusterPort returns a model.ClusterPort implemented via provider drivers.
 func GetClusterPort(services domain.ServiceRepository, providers domain.ProviderRepository) model.ClusterPort {
 	return &clusterPortAdapter{services: services, providers: providers}

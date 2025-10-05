@@ -302,3 +302,26 @@ func (d *driver) ClusterKubeconfig(ctx context.Context, cluster *model.Cluster) 
 	defer cancel()
 	return d.azureKubeconfig(ctx, cluster)
 }
+
+// ClusterDNSApply is a placeholder for provider-managed DNS integration.
+// The AKS driver currently does not manage DNS records directly and therefore
+// logs the request and returns nil for best-effort semantics.
+func (d *driver) ClusterDNSApply(ctx context.Context, cluster *model.Cluster, rset model.DNSRecordSet, opts ...model.ClusterDNSApplyOption) error {
+	settings := &model.ClusterDNSApplyOptions{}
+	for _, opt := range opts {
+		if opt == nil {
+			continue
+		}
+		opt(settings)
+	}
+
+	clusterName := "(nil)"
+	if cluster != nil {
+		clusterName = cluster.Name
+	}
+
+	log := logging.FromContext(ctx)
+	log.Debug(ctx, "aks driver ClusterDNSApply noop", "cluster", clusterName, "fqdn", rset.FQDN, "type", rset.Type, "values", rset.RData, "zone_hint", settings.ZoneHint, "strict", settings.Strict, "dry_run", settings.DryRun)
+
+	return nil
+}
