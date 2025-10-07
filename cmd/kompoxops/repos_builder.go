@@ -14,6 +14,7 @@ import (
 	"github.com/kompox/kompox/usecase/app"
 	"github.com/kompox/kompox/usecase/box"
 	"github.com/kompox/kompox/usecase/cluster"
+	"github.com/kompox/kompox/usecase/dns"
 	"github.com/kompox/kompox/usecase/provider"
 	"github.com/kompox/kompox/usecase/secret"
 	"github.com/kompox/kompox/usecase/service"
@@ -198,6 +199,20 @@ func buildSecretRepos(cmd *cobra.Command) (*secret.Repos, error) {
 		return nil, err
 	}
 	return &secret.Repos{
+		Service:  repos.Service,
+		Provider: repos.Provider,
+		Cluster:  repos.Cluster,
+		App:      repos.App,
+	}, nil
+}
+
+// buildDNSRepos creates repositories needed for DNS use cases.
+func buildDNSRepos(cmd *cobra.Command) (*dns.Repos, error) {
+	repos, err := buildRepos(cmd)
+	if err != nil {
+		return nil, err
+	}
+	return &dns.Repos{
 		Service:  repos.Service,
 		Provider: repos.Provider,
 		Cluster:  repos.Cluster,

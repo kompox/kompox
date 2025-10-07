@@ -13,6 +13,7 @@ import (
 	"github.com/kompox/kompox/internal/logging"
 	"github.com/kompox/kompox/internal/terminal"
 	"github.com/kompox/kompox/usecase/app"
+	"github.com/kompox/kompox/usecase/dns"
 	vuc "github.com/kompox/kompox/usecase/volume"
 	"github.com/spf13/cobra"
 	appsv1 "k8s.io/api/apps/v1"
@@ -169,6 +170,7 @@ func newCmdAppValidate() *cobra.Command {
 //   - Deployment/Service/Ingress perform create or update (simple Update with existing resourceVersion)
 func newCmdAppDeploy() *cobra.Command {
 	var bootstrapDisks bool
+	var updateDNS bool
 	cmd := &cobra.Command{
 		Use:                "deploy",
 		Short:              "Deploy app to cluster (apply generated Kubernetes objects)",
@@ -219,10 +221,28 @@ func newCmdAppDeploy() *cobra.Command {
 			if _, err := appUC.Deploy(ctx, &app.DeployInput{AppID: target.ID}); err != nil {
 				return err
 			}
+
+			// Update DNS if requested
+			if updateDNS {
+				dnsUC, derr := buildDNSUseCase(cmd)
+				if derr != nil {
+					return fmt.Errorf("failed to build DNS use case: %w", derr)
+				}
+				logger.Info(ctx, "updating DNS records", "app", appName)
+				_, derr = dnsUC.Deploy(ctx, &dns.DeployInput{
+					AppID:         target.ID,
+					ComponentName: "app",
+				})
+				if derr != nil {
+					return fmt.Errorf("failed to update DNS: %w", derr)
+				}
+			}
+
 			return nil
 		},
 	}
 	cmd.Flags().BoolVar(&bootstrapDisks, "bootstrap-disks", false, "Create one assigned disk per volume if none exist (fails on partial state)")
+	cmd.Flags().BoolVar(&updateDNS, "update-dns", false, "Update DNS records after deployment")
 	return cmd
 }
 
@@ -235,6 +255,7 @@ func newCmdAppDeploy() *cobra.Command {
 //   - When --delete-namespace is provided, also delete the Namespace resource.
 func newCmdAppDestroy() *cobra.Command {
 	var deleteNamespace bool
+	var updateDNS bool
 	cmd := &cobra.Command{
 		Use:                "destroy",
 		Short:              "Destroy app resources from cluster (label-selected delete)",
@@ -249,6 +270,7 @@ func newCmdAppDestroy() *cobra.Command {
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
 			defer cancel()
+			logger := logging.FromContext(ctx)
 
 			appName, err := getAppName(cmd, args)
 			if err != nil {
@@ -270,6 +292,22 @@ func newCmdAppDestroy() *cobra.Command {
 				return fmt.Errorf("app %s not found", appName)
 			}
 
+			// Destroy DNS records if requested (before destroying the app)
+			if updateDNS {
+				dnsUC, derr := buildDNSUseCase(cmd)
+				if derr != nil {
+					return fmt.Errorf("failed to build DNS use case: %w", derr)
+				}
+				logger.Info(ctx, "destroying DNS records", "app", appName)
+				_, derr = dnsUC.Destroy(ctx, &dns.DestroyInput{
+					AppID:         target.ID,
+					ComponentName: "app",
+				})
+				if derr != nil {
+					return fmt.Errorf("failed to destroy DNS: %w", derr)
+				}
+			}
+
 			if _, err := appUC.Destroy(ctx, &app.DestroyInput{AppID: target.ID, DeleteNamespace: deleteNamespace}); err != nil {
 				return err
 			}
@@ -277,6 +315,7 @@ func newCmdAppDestroy() *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&deleteNamespace, "delete-namespace", false, "Also delete the Namespace resource")
+	cmd.Flags().BoolVar(&updateDNS, "update-dns", false, "Destroy DNS records before destroying the app")
 	return cmd
 }
 

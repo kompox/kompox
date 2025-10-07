@@ -5,6 +5,7 @@ import (
 	"github.com/kompox/kompox/usecase/app"
 	"github.com/kompox/kompox/usecase/box"
 	"github.com/kompox/kompox/usecase/cluster"
+	"github.com/kompox/kompox/usecase/dns"
 	"github.com/kompox/kompox/usecase/provider"
 	"github.com/kompox/kompox/usecase/secret"
 	"github.com/kompox/kompox/usecase/service"
@@ -85,4 +86,16 @@ func buildSecretUseCase(cmd *cobra.Command) (*secret.UseCase, error) {
 		return nil, err
 	}
 	return &secret.UseCase{Repos: repos}, nil
+}
+
+// buildDNSUseCase creates DNS use case with required repositories and ports.
+func buildDNSUseCase(cmd *cobra.Command) (*dns.UseCase, error) {
+	repos, err := buildDNSRepos(cmd)
+	if err != nil {
+		return nil, err
+	}
+	return &dns.UseCase{
+		Repos:       repos,
+		ClusterPort: providerdrv.GetClusterPort(repos.Service, repos.Provider),
+	}, nil
 }

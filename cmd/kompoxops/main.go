@@ -70,6 +70,7 @@ func newRootCmd() *cobra.Command {
 	cmd.AddCommand(newCmdBox())
 	cmd.AddCommand(newCmdDisk())
 	cmd.AddCommand(newCmdSnapshot())
+	cmd.AddCommand(newCmdDNS())
 	cmd.AddCommand(newCmdAdmin())
 	return cmd
 }
