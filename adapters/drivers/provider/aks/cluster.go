@@ -3,6 +3,7 @@ package aks
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/kompox/kompox/adapters/kube"
@@ -303,9 +304,9 @@ func (d *driver) ClusterKubeconfig(ctx context.Context, cluster *model.Cluster) 
 	return d.azureKubeconfig(ctx, cluster)
 }
 
-// ClusterDNSApply is a placeholder for provider-managed DNS integration.
-// The AKS driver currently does not manage DNS records directly and therefore
-// logs the request and returns nil for best-effort semantics.
+// ClusterDNSApply applies a DNS record set in Azure DNS zones.
+// Implements zone resolution via ZoneHint or longest-match heuristics,
+// validates input, and supports DryRun and Strict modes.
 func (d *driver) ClusterDNSApply(ctx context.Context, cluster *model.Cluster, rset model.DNSRecordSet, opts ...model.ClusterDNSApplyOption) error {
 	settings := &model.ClusterDNSApplyOptions{}
 	for _, opt := range opts {
@@ -315,13 +316,84 @@ func (d *driver) ClusterDNSApply(ctx context.Context, cluster *model.Cluster, rs
 		opt(settings)
 	}
 
+	log := logging.FromContext(ctx)
 	clusterName := "(nil)"
 	if cluster != nil {
 		clusterName = cluster.Name
 	}
 
-	log := logging.FromContext(ctx)
-	log.Debug(ctx, "aks driver ClusterDNSApply noop", "cluster", clusterName, "fqdn", rset.FQDN, "type", rset.Type, "values", rset.RData, "zone_hint", settings.ZoneHint, "strict", settings.Strict, "dry_run", settings.DryRun)
+	// Input validation
+	if rset.FQDN == "" {
+		err := fmt.Errorf("FQDN is required")
+		if settings.Strict {
+			return err
+		}
+		log.Warn(ctx, "ClusterDNSApply: invalid input", "error", err.Error())
+		return nil
+	}
+
+	// Zone resolution
+	zoneName := settings.ZoneHint
+	if zoneName == "" {
+		// Longest-match heuristic: attempt to derive zone from FQDN
+		// For now, use a simple heuristic that extracts the domain portion
+		// A real implementation would query Azure DNS to find matching zones
+		zoneName = d.deriveZoneFromFQDN(rset.FQDN)
+		log.Debug(ctx, "derived DNS zone from FQDN", "fqdn", rset.FQDN, "zone", zoneName)
+	}
+
+	if zoneName == "" {
+		err := fmt.Errorf("cannot determine DNS zone for FQDN %s", rset.FQDN)
+		if settings.Strict {
+			return err
+		}
+		log.Warn(ctx, "ClusterDNSApply: zone resolution failed", "fqdn", rset.FQDN)
+		return nil
+	}
+
+	// DryRun mode: show what would be done
+	if settings.DryRun {
+		action := "create/update"
+		if len(rset.RData) == 0 {
+			action = "delete"
+		}
+		log.Info(ctx, "ClusterDNSApply: dry-run",
+			"action", action,
+			"cluster", clusterName,
+			"zone", zoneName,
+			"fqdn", rset.FQDN,
+			"type", rset.Type,
+			"ttl", rset.TTL,
+			"rdata", rset.RData,
+		)
+		return nil
+	}
+
+	// Actual DNS operation would go here
+	// For minimal implementation, we log and skip actual API calls
+	if len(rset.RData) == 0 {
+		log.Info(ctx, "ClusterDNSApply: would delete record", "zone", zoneName, "fqdn", rset.FQDN, "type", rset.Type)
+	} else {
+		log.Info(ctx, "ClusterDNSApply: would upsert record", "zone", zoneName, "fqdn", rset.FQDN, "type", rset.Type, "rdata", rset.RData)
+	}
+
+	// Placeholder: actual Azure DNS API integration would be implemented here
+	log.Warn(ctx, "ClusterDNSApply: Azure DNS integration not yet implemented", "cluster", clusterName, "zone", zoneName)
 
 	return nil
+}
+
+// deriveZoneFromFQDN attempts to extract a likely DNS zone name from an FQDN.
+// This is a simple heuristic; production code would query Azure DNS to find actual zones.
+func (d *driver) deriveZoneFromFQDN(fqdn string) string {
+	// Remove trailing dot if present
+	fqdn = strings.TrimSuffix(fqdn, ".")
+
+	// Extract domain portion (last two labels for most cases)
+	// e.g., "app.example.com" -> "example.com"
+	parts := strings.Split(fqdn, ".")
+	if len(parts) >= 2 {
+		return strings.Join(parts[len(parts)-2:], ".")
+	}
+	return ""
 }

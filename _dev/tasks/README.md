@@ -1,7 +1,7 @@
 ---
 id: README
 title: Developer Tasks Index
-updated: 2025-09-29
+updated: 2025-10-07
 language: en
 ---
 
@@ -16,6 +16,8 @@ This index lists short, action-oriented developer tasks found in this folder. Ta
 
 | ID | Title | Status | Category | Owner | Updated | Language |
 |---|---|---|---|---|---|---|
+| [2025-10-01-cluster-dns](./2025-10-01-cluster-dns.ja.md) | Cluster DNS 実処理・Usecase/CLI 実装 | active |  |  | 2025-10-06 | ja |
+| [2025-09-30-cluster-dns](./2025-09-30-cluster-dns.ja.md) | Cluster DNS 適用 API の追加(Driver/Domain) | done |  |  | 2025-10-06 | ja |
 | [2025-09-28-disk-snapshot-cli-flags](./2025-09-28-disk-snapshot-cli-flags.ja.md) | Disk/Snapshot CLI フラグ統一(-N/-S) | done |  | yaegashi | 2025-09-29 | ja |
 | [2025-09-27-disk-snapshot-unify](./2025-09-27-disk-snapshot-unify.ja.md) | Disk/Snapshot 機能統合(disk create -S) | done |  | yaegashi | 2025-09-29 | ja |
 

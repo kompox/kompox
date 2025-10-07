@@ -9,7 +9,7 @@ supersededBy: []
 
 ## Context
 
-- In Kompox, ingress hostnames appear in `kompoxops.yml` specifically in `cluster.ingress.domain` and `app.ingress.rules[].hosts`. Historically, users needed to manually configure their DNS zone to map these hostnames to the cluster ingress endpoint IP address.
+- In Kompox, ingress hostnames are defined in `kompoxops.yml` via `app.ingress.rules[].hosts` and become accessible once the app is deployed to a cluster with an ingress controller. Historically, users needed to manually configure their DNS zone to map these hostnames to the cluster ingress endpoint IP address.
 - This manual step is error-prone, time-consuming, and complicates automation. Some providers support first-class DNS services that we can leverage to reduce operational toil.
 - We want to introduce an optional capability to apply DNS records for ingress endpoints automatically, while keeping provider-specific DNS integration encapsulated in each provider driver.
 - Requirements and constraints:
@@ -17,7 +17,7 @@ supersededBy: []
   - Provider-agnostic API surface in the domain layer; provider-specific resolution and write logic in drivers.
   - Idempotent and best-effort semantics by default. DNS write failures should not break core workflows.
   - Allow warnings/logging when updates fail; only escalate to errors when explicitly requested.
-  - Configurability of manageable DNS zones/domains via `cluster.ingress.domain` and/or `cluster.settings` (details vary by driver).
+  - DNS records must reflect actual deployed state (ingress hosts with LoadBalancer IPs from deployed Kubernetes Ingress resources) rather than configuration intent alone. This ensures DNS management operates on real operational state.
 
 ## Decision
 
@@ -34,14 +34,21 @@ Introduce a generic DNS apply capability centered around a record-set abstractio
   - Provide a corresponding DNS apply operation and encapsulate provider-specific behaviors including zone discovery/selection, ingress endpoint resolution, and record formatting.
 
 - Scope for ingress automation
-  - Drivers may implement helper logic to discover the cluster ingress public address (e.g., LoadBalancer IPs) and upsert `A/AAAA` records for the FQDNs declared in `cluster.ingress.domain` and `app.ingress.rules[].hosts`.
-  - The exact way manageable zones are chosen depends on driver configuration (e.g., `cluster.ingress.domain`, provider credentials, and `cluster.settings`).
+  - Drivers may implement helper logic to discover the cluster ingress public address (e.g., LoadBalancer IPs from Kubernetes Ingress resources) and upsert `A/AAAA` records for the FQDNs obtained from deployed apps.
+  - DNS management targets actual deployed ingress hosts retrieved via `kube.Client.IngressHosts()` which returns FQDN and LoadBalancer IP pairs from Kubernetes Ingress resources. This ensures DNS reflects real operational state rather than configuration values.
+  - The exact way manageable zones are chosen depends on driver configuration (e.g., zone hints via `--zone` flag, provider credentials, and `cluster.settings`).
 
 - Use case layer
-  - Introduce `usecase/dns` to orchestrate DNS operations across config, domain model, and drivers.
+  - Introduce `usecase/dns` to orchestrate DNS operations. The use case:
+    - Accepts AppID as the primary input to identify the target application.
+    - Uses `kube.Client.IngressHosts(ctx, namespace, labelSelector)` to retrieve FQDN and LoadBalancer IP pairs from actual deployed Kubernetes Ingress resources.
+    - Constructs DNS record sets (A records) inline with the retrieved IPs.
+    - Calls `ClusterPort.DNSApply` for each FQDN with appropriate options.
 
 - CLI
-  - Add `kompoxops dns deploy` and `kompoxops dns destroy`. `app deploy/destroy` may optionally invoke the corresponding DNS operation via `--update-dns`.
+  - Add `kompoxops dns deploy` and `kompoxops dns destroy` commands with `--app` flag to specify target application.
+  - `app deploy/destroy` may optionally invoke the corresponding DNS operation via `--update-dns` flag, passing AppID directly to the DNS use case.
+  - Common flags: `--zone` (zone hint), `--strict` (error on write failures), `--dry-run` (show planned changes without applying).
   - Rationale: aligns with deploy/destroy verbs; DNS deploy covers create/update, DNS destroy covers removal of records deterministically associated to the app (no GC of orphans).
 
 ### Operation timing and cleanup policy
@@ -97,6 +104,8 @@ DNS records are applied and removed during explicit lifecycle operations: via `k
 ## References
 
 - Tasks
-  - [2025-09-30]
+  - [2025-09-30-cluster-dns] - Initial design and planning task
+  - [2025-10-01-cluster-dns] - Current implementation task with detailed specifications
 
-[2025-09-30]: ../../_dev/tasks/2025-09-30-cluster-dns.ja.md
+[2025-09-30-cluster-dns]: ../../_dev/tasks/2025-09-30-cluster-dns.ja.md
+[2025-10-01-cluster-dns]: ../../_dev/tasks/2025-10-01-cluster-dns.ja.md
