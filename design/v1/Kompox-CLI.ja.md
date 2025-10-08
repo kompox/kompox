@@ -2,8 +2,8 @@
 id: Kompox-CLI
 title: Kompox PaaS CLI
 version: v1
-status: out-of-sync
-updated: 2025-09-26
+status: synced
+updated: 2025-10-08
 language: ja
 ---
 
@@ -30,6 +30,7 @@ kompoxops init              設定ファイルの雛形作成
 kompoxops cluster           クラスタ操作
 kompoxops app               アプリ操作
 kompoxops secret            シークレット操作
+kompoxops dns               DNS 操作
 kompoxops disk              ディスク操作
 kompoxops snapshot          スナップショット操作
 kompoxops admin             管理ツール
@@ -264,6 +265,7 @@ Compose の検証と K8s マニフェスト生成を行います。`--out-compos
 オプション:
 
 - `--bootstrap-disks` 全 app.volumes で Assigned ディスクが 0 件の場合に限り、各ボリューム 1 件ずつ新規ディスクを自動作成してからデプロイを続行する。部分的に一部ボリュームのみ未初期化 (Assigned=0) / 他は 1 件以上 Assigned の混在状態や、未割当ディスクのみが残っている不整合状態はエラー。
+- `--update-dns` デプロイ完了後に DNS レコードを自動的に更新する。`kompoxops dns deploy` 相当の処理を実行する (ベストエフォートモード)。
 
 ディスク初期化挙動 (概要):
 1. 判定: 全ボリュームで Assigned=0 ?
@@ -279,11 +281,21 @@ kompoxops app deploy --bootstrap-disks
 
 # 2 回目以降: 既に 1 件ずつあるので作成せず適用のみ
 kompoxops app deploy --bootstrap-disks
+
+# DNS レコードも同時に更新
+kompoxops app deploy --update-dns
 ```
 
 #### kompoxops app destroy
 
 デプロイ済みリソースをクラスタから削除します (冪等)。
+
+オプション:
+
+- `--delete-namespace` Namespace リソースも削除する
+- `--update-dns` 削除前に DNS レコードを自動的に削除する。`kompoxops dns destroy` 相当の処理を実行する (ベストエフォートモード)。
+
+挙動:
 
 - 次のラベルがついたリソースのみ削除する
   - `app.kubernetes.io/instance: app1-inHASH`
@@ -293,6 +305,19 @@ kompoxops app deploy --bootstrap-disks
 
 備考:
 - PV/PVC を削除しても、StorageClass/PV の ReclaimPolicy が Retain の場合はクラウドディスク本体は保持されます。
+
+使用例:
+```bash
+# 基本的な削除
+kompoxops app destroy
+
+# Namespace も含めて削除
+kompoxops app destroy --delete-namespace
+
+# DNS レコードも同時に削除
+kompoxops app destroy --update-dns
+```
+
 
 #### kompoxops app status
 
@@ -368,6 +393,7 @@ kompoxops secret pull delete --app-name <appName>
 共通オプション
 
 - `--app-name | -A` アプリ名を指定 (デフォルト: kompoxops.yml の app.name)
+- `--component | -C` コンポーネント名を指定 (デフォルト: `app`)
 
 #### kompoxops secret env
 
@@ -388,6 +414,7 @@ kompoxops secret env set -A <appName> -S <serviceName> -f override.env
 主なオプション:
 - `-S, --service <serviceName>` 対象コンテナ (Compose service 名) を指定 (必須)
 - `-f, --file <path>`          読み込むファイル (必須)
+- `-C, --component <name>`     コンポーネント名を指定 (デフォルト: `app`)
 
 サポートファイル形式: `.env` / `.yml` / `.yaml` / `.json`
 
@@ -396,6 +423,9 @@ kompoxops secret env set -A <appName> -S <serviceName> -f override.env
 ```
 # 環境変数設定を作成
 kompoxops secret env set -A app1 -S app -f staging.env
+
+# コンポーネント名を指定
+kompoxops secret env set -A app1 -S app -f staging.env -C mycomponent
 ```
 
 ##### kompoxops secret env delete
@@ -410,12 +440,16 @@ kompoxops secret env delete -A <appName> -S <serviceName>
 
 主なオプション:
 - `-S, --service <serviceName>` 対象コンテナ (Compose service 名) を指定 (必須)
+- `-C, --component <name>`     コンポーネント名を指定 (デフォルト: `app`)
 
 使用例:
 
 ```
 # 環境変数設定を削除
 kompoxops secret env delete -A app1 -S app
+
+# コンポーネント名を指定
+kompoxops secret env delete -A app1 -S app -C mycomponent
 ```
 
 #### kompoxops secret pull
@@ -433,13 +467,17 @@ kompoxops secret pull set -A <appName> -f ~/.docker/config.json
 ```
 
 主なオプション:
-- `-f, --file <path>`  Docker 認証ファイル (`config.json`) を指定 (必須)
+- `-f, --file <path>`      Docker 認証ファイル (`config.json`) を指定 (必須)
+- `-C, --component <name>` コンポーネント名を指定 (デフォルト: `app`)
 
 使用例:
 
 ```
 # 認証情報を設定
 kompoxops secret pull set -A app1 -f ~/.docker/config.json
+
+# コンポーネント名を指定
+kompoxops secret pull set -A app1 -f ~/.docker/config.json -C mycomponent
 ```
 
 ##### kompoxops secret pull delete
@@ -451,12 +489,94 @@ kompoxops secret pull set -A app1 -f ~/.docker/config.json
 ```
 kompoxops secret pull delete -A <appName>
 ```
+
+主なオプション:
+- `-C, --component <name>` コンポーネント名を指定 (デフォルト: `app`)
+
 使用例:
 
 ```
 # 認証情報を削除
 kompoxops secret pull delete -A app1
+
+# コンポーネント名を指定
+kompoxops secret pull delete -A app1 -C mycomponent
 ```
+
+### kompoxops dns
+
+アプリの Ingress エンドポイントに対応する DNS レコードを管理します。
+
+```
+kompoxops dns deploy  --app-name <appName>    DNS レコードの作成/更新
+kompoxops dns destroy --app-name <appName>    DNS レコードの削除
+```
+
+共通オプション
+
+- `--app-name | -A` アプリ名を指定 (デフォルト: kompoxops.yml の app.name)
+- `--component | -C` コンポーネント名を指定 (デフォルト: `app`)
+- `--strict` DNS 書き込み失敗時にエラーで終了 (デフォルトは警告のみで継続)
+- `--dry-run` 実際の変更を行わず、計画のみを表示
+
+仕様
+
+- DNS レコードはデプロイ済みアプリの Ingress リソースから取得した FQDN と IP アドレスに基づいて管理されます。
+- `--component` オプションでコンポーネント名を指定できます (デフォルト: `app`)。コンポーネント名は Ingress リソースの選択に使用されます。
+- 各 FQDN に対して A レコードを作成/更新/削除します。
+- DNS ゾーンの選択は FQDN に対する最長一致で自動推定されます。
+- デフォルトはベストエフォートモード: DNS 書き込み失敗は警告として記録され、処理は継続します。
+- `--strict` 指定時は DNS 書き込み失敗をエラーとして扱い、処理を中断します。
+- 決定的に関連付け可能なレコード (アプリの Ingress ホストに対応するもの) のみを対象とします。
+- 自動的なガベージコレクションは行いません。
+
+#### kompoxops dns deploy
+
+アプリの Ingress ホストに対応する DNS レコードを作成/更新します (冪等)。
+
+使用例:
+
+```
+# 基本的な DNS レコード適用
+kompoxops dns deploy -A app1
+
+# DryRun モードで計画のみ表示
+kompoxops dns deploy -A app1 --dry-run
+
+# Strict モードで実行 (失敗時にエラー終了)
+kompoxops dns deploy -A app1 --strict
+
+# コンポーネント名を指定
+kompoxops dns deploy -A app1 -C mycomponent
+```
+
+備考:
+- デプロイ済みの Ingress リソースが存在しない場合は、操作対象がないため成功します。
+- `app deploy --update-dns` でアプリのデプロイと同時に DNS レコードを更新できます。
+
+#### kompoxops dns destroy
+
+アプリの Ingress ホストに対応する DNS レコードを削除します (冪等)。
+
+使用例:
+
+```
+# DNS レコードの削除
+kompoxops dns destroy -A app1
+
+# DryRun モードで削除計画を表示
+kompoxops dns destroy -A app1 --dry-run
+
+# Strict モードで実行
+kompoxops dns destroy -A app1 --strict
+
+# コンポーネント名を指定
+kompoxops dns destroy -A app1 -C mycomponent
+```
+
+備考:
+- 対象レコードが存在しない場合も成功します (冪等)。
+- `app destroy --update-dns` でアプリの削除と同時に DNS レコードを削除できます。
 
 ### kompoxops disk
 

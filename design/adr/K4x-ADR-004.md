@@ -27,7 +27,7 @@ Introduce a generic DNS apply capability centered around a record-set abstractio
   - Add a provider-agnostic record-set model and type identifiers (e.g., A/AAAA/CNAME/TXT/MX/NS/SRV/CAA) to represent the desired DNS state per FQDN and type.
 
 - Domain port
-  - Expose `DNSApply` to apply a single record set per call with options for zone hint, strict mode, and dry-run.
+  - Expose `DNSApply` to apply a single record set per call with options for strict mode and dry-run.
   - Semantics: idempotent and best-effort by default; provider write failures do not surface as errors unless strict mode is enabled.
 
 - Provider drivers
@@ -36,7 +36,7 @@ Introduce a generic DNS apply capability centered around a record-set abstractio
 - Scope for ingress automation
   - Drivers may implement helper logic to discover the cluster ingress public address (e.g., LoadBalancer IPs from Kubernetes Ingress resources) and upsert `A/AAAA` records for the FQDNs obtained from deployed apps.
   - DNS management targets actual deployed ingress hosts retrieved via `kube.Client.IngressHosts()` which returns FQDN and LoadBalancer IP pairs from Kubernetes Ingress resources. This ensures DNS reflects real operational state rather than configuration values.
-  - The exact way manageable zones are chosen depends on driver configuration (e.g., zone hints via `--zone` flag, provider credentials, and `cluster.settings`).
+  - The exact way manageable zones are chosen depends on driver configuration (e.g., provider credentials and `cluster.settings`).
 
 - Use case layer
   - Introduce `usecase/dns` to orchestrate DNS operations. The use case:
@@ -48,7 +48,7 @@ Introduce a generic DNS apply capability centered around a record-set abstractio
 - CLI
   - Add `kompoxops dns deploy` and `kompoxops dns destroy` commands with `--app` flag to specify target application.
   - `app deploy/destroy` may optionally invoke the corresponding DNS operation via `--update-dns` flag, passing AppID directly to the DNS use case.
-  - Common flags: `--zone` (zone hint), `--strict` (error on write failures), `--dry-run` (show planned changes without applying).
+  - Common flags: `--strict` (error on write failures), `--dry-run` (show planned changes without applying).
   - Rationale: aligns with deploy/destroy verbs; DNS deploy covers create/update, DNS destroy covers removal of records deterministically associated to the app (no GC of orphans).
 
 ### Operation timing and cleanup policy
@@ -96,7 +96,7 @@ DNS records are applied and removed during explicit lifecycle operations: via `k
   - AKS and K3s drivers implement no-op placeholders that log and return nil.
 
 3) Provider implementations
-  - Implement DNS updates per provider (e.g., Azure DNS for AKS) with support for `ZoneHint`, `Strict`, and `DryRun`.
+  - Implement DNS updates per provider (e.g., Azure DNS for AKS) with support for `Strict` and `DryRun`.
 
 4) Use case and CLI wiring
   - Add `usecase/dns` and wire `kompoxops dns deploy/destroy` to it; allow `kompoxops app deploy/destroy --update-dns` to call the same use case flows.
@@ -106,6 +106,8 @@ DNS records are applied and removed during explicit lifecycle operations: via `k
 - Tasks
   - [2025-09-30-cluster-dns] - Initial design and planning task
   - [2025-10-01-cluster-dns] - Current implementation task with detailed specifications
+  - [2025-10-07-aks-dns] - AKS driver DNS implementation task
 
 [2025-09-30-cluster-dns]: ../../_dev/tasks/2025-09-30-cluster-dns.ja.md
 [2025-10-01-cluster-dns]: ../../_dev/tasks/2025-10-01-cluster-dns.ja.md
+[2025-10-07-aks-dns]: ../../_dev/tasks/2025-10-07-aks-dns.ja.md
