@@ -20,7 +20,7 @@ cat kompoxops.yml
 
 kubectl get ns
 
-./kompoxops app deploy
+./kompoxops app deploy --update-dns
 
 ./kompoxops app status
 

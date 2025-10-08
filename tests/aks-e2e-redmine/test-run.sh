@@ -14,6 +14,6 @@ cat kompoxops.yml
 
 ./kompoxops cluster status
 
-./kompoxops app deploy --bootstrap-disks
+./kompoxops app deploy --bootstrap-disks --update-dns
 
 ./kompoxops app status

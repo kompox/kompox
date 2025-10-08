@@ -16,8 +16,10 @@ cluster:
     certResolver: staging
     domain: cluster1.aks1.exp.kompox.dev
     certificates:
-      - name: l0wdevtls
+      - name: l0wdevtls-cluster
         source: https://l0wdevtls-jpe-prd1.vault.azure.net/secrets/cluster1-aks1-exp-kompox-dev
+      - name: l0wdevtls-custom
+        source: https://l0wdevtls-jpe-prd1.vault.azure.net/secrets/custom-exp-kompox-dev
   settings:
     AZURE_AKS_SYSTEM_VM_SIZE: ${AZURE_AKS_SYSTEM_VM_SIZE}
     AZURE_AKS_SYSTEM_VM_DISK_TYPE: ${AZURE_AKS_SYSTEM_VM_DISK_TYPE}
@@ -29,8 +31,9 @@ cluster:
     AZURE_AKS_USER_VM_DISK_SIZE_GB: ${AZURE_AKS_USER_VM_DISK_SIZE_GB}
     AZURE_AKS_USER_VM_PRIORITY: ${AZURE_AKS_USER_VM_PRIORITY}
     AZURE_AKS_USER_VM_ZONES: ${AZURE_AKS_USER_VM_ZONES}
+    AZURE_AKS_DNS_ZONE_RESOURCE_IDS: ${AZURE_AKS_DNS_ZONE_RESOURCE_IDS}
 app:
-  name: app1
+  name: basic
   compose: file:compose.yml
   ingress:
     certResolver: staging
