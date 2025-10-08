@@ -12,9 +12,28 @@ import (
 	"github.com/google/uuid"
 )
 
-// assignRole assigns the given role definition to the specified principal at the provided scope.
+// Built-in Azure role definition IDs (UUIDs)
+// These are tenant-agnostic and consistent across all Azure subscriptions.
+const (
+	// Contributor - Full management access to all resources
+	roleDefIDContributor = "b24988ac-6180-42a0-ab88-20f7382dd24c"
+
+	// DNS Zone Contributor - Manage DNS zones and record sets
+	roleDefIDDNSZoneContributor = "befefa01-2a29-4197-83a8-272ff33ce314"
+
+	// Key Vault Secrets User - Read secret contents
+	roleDefIDKeyVaultSecretsUser = "4633458b-17de-408a-b874-0445c86b69e6"
+)
+
+// azureRoleDefinitionID builds the full role definition ID for the subscription scope.
+// roleID is the UUID of the built-in or custom role.
+func (d *driver) azureRoleDefinitionID(roleDefID string) string {
+	return fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s",
+		d.AzureSubscriptionId, roleDefID)
+}
+
+// ensureAzureRole assigns the given role definition to the specified principal at the provided scope.
 func (d *driver) ensureAzureRole(ctx context.Context, scope, principalID, roleDefinitionID string) error {
-	// Create a role assignments client on demand
 	client, err := armauthorization.NewRoleAssignmentsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
 	if err != nil {
 		return fmt.Errorf("failed to create role assignments client: %w", err)

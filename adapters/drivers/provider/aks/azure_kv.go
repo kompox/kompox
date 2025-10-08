@@ -13,9 +13,6 @@ import (
 	"github.com/kompox/kompox/internal/logging"
 )
 
-// Key Vault Secrets User role definition ID
-const keyVaultSecretsUserRoleID = "4633458b-17de-408a-b874-0445c86b69e6"
-
 // assignRolesKeyVaultSecrets assigns Key Vault Secrets User role to the User Assigned Managed Identity
 // for all Key Vault secrets referenced in cluster.Ingress.Certificates.
 func (d *driver) ensureAzureRoleKeyVaultSecret(ctx context.Context, cluster *model.Cluster, principalID string) error {
@@ -70,9 +67,7 @@ func (d *driver) ensureAzureRoleKeyVaultSecret(ctx context.Context, cluster *mod
 		return fmt.Errorf("failed to get Key Vault resource IDs: %w", err)
 	}
 
-	// Build the role definition ID (subscription scoped) for Key Vault Secrets User
-	roleDefinitionID := fmt.Sprintf("/subscriptions/%s/providers/Microsoft.Authorization/roleDefinitions/%s",
-		d.AzureSubscriptionId, keyVaultSecretsUserRoleID)
+	roleDefinitionID := d.azureRoleDefinitionID(roleDefIDKeyVaultSecretsUser)
 
 	// Assign roles for each secret individually
 	successCount := 0
