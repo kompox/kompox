@@ -1,0 +1,27 @@
+services:
+  easyauth:
+    image: mcr.microsoft.com/appsvc/middleware:stage6
+    ports:
+      - 8000:8000
+      - 8080:80
+    env_file:
+      - compose-easyauth.yml
+      - path: compose-easyauth.override.yml
+        required: false
+    environment:
+      - Host.ListenUrl=http://0.0.0.0:8000
+      - Host.DestinationHostUrl=http://127.0.0.1:80
+      - Host.AutoHealingMiddlewareEnabled=false
+      - Host.UseConsoleLogging=true
+      - Host.UseFileLogging=true
+      - Host.RewriteHostHeader=false
+      - WEBSITE_AUTH_FROM_FILE=true
+      - WEBSITE_AUTH_FILE_PATH=/data/easyauth.json
+      - WEBSITE_AUTH_PROXY_HEADER_CONVENTION=NoProxy
+    volumes:
+      - ./data/easyauth:/data
+  whoami:
+    image: traefik/whoami
+    network_mode: service:easyauth
+    environment:
+      - TZ=Asia/Tokyo

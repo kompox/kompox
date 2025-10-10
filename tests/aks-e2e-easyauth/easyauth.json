@@ -1,0 +1,55 @@
+{
+  "platform": {
+    "enabled": true
+  },
+  "globalValidation": {
+    "requireAuthentication": true,
+    "unauthenticatedClientAction": "RedirectToLoginPage",
+    "redirectToProvider": "azureActiveDirectory",
+    "excludedPaths": []
+  },
+  "identityProviders": {
+    "azureActiveDirectory": {
+      "enabled": true,
+      "registration": {
+        "openIdIssuer": "https://sts.windows.net/bcd388dd-3247-4137-9a8d-a55a4b2de147/v2.0",
+        "clientId": "58dd14c7-e64a-477e-85f6-0ad469dc0bfc",
+        "clientSecretSettingName": "MICROSOFT_PROVIDER_AUTHENTICATION_SECRET"
+      },
+      "login": {
+        "disableWWWAuthenticate": false,
+        "loginParameters": [
+          "scope=openid profile email offline_access"
+        ]
+      },
+      "validation": {
+        "allowedAudiences": [
+          "api://58dd14c7-e64a-477e-85f6-0ad469dc0bfc"
+        ],
+        "defaultAuthorizationPolicy": {
+          "allowedPrincipals": {
+            "groups": [
+              "172f0ebf-3331-4238-b0a4-d573a8b8eb9c"
+            ]
+          }
+        }
+      },
+      "isAutoProvisioned": false
+    }
+  },
+  "login": {
+    "tokenStore": {
+      "enabled": true,
+      "fileSystem": {
+        "directory": "/data"
+      }
+    },
+    "preserveUrlFragmentsForLogins": false
+  },
+  "httpSettings": {
+    "requireHttps": false,
+    "forwardProxy": {
+      "convention": "Standard"
+    }
+  }
+}
