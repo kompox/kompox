@@ -1,0 +1,18 @@
+services:
+  traefik:
+    image: traefik:v3.5
+    network_mode: host
+    command:
+      - --log.level=INFO
+      - --accesslog=true
+      - --entrypoints.web.address=:8080
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.easyauth.rule=PathPrefix(`/`)
+      - traefik.http.routers.easyauth.entrypoints=web
+      - traefik.http.routers.easyauth.service=easyauth
+      - traefik.http.services.easyauth.loadbalancer.server.url=http://localhost:8000
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

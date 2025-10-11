@@ -5,4 +5,4 @@
 /data
 /test-seed.env
 /test-local.env
-/*.override.yml
+/compose-easyauth.override.yml

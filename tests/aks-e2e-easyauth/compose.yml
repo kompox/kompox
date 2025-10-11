@@ -3,7 +3,6 @@ services:
     image: mcr.microsoft.com/appsvc/middleware:stage6
     ports:
       - 8000:8000
-      - 8080:80
     env_file:
       - compose-easyauth.yml
       - path: compose-easyauth.override.yml
@@ -16,12 +15,17 @@ services:
       - Host.UseFileLogging=true
       - Host.RewriteHostHeader=false
       - WEBSITE_AUTH_FROM_FILE=true
-      - WEBSITE_AUTH_FILE_PATH=/data/easyauth.json
-      - WEBSITE_AUTH_PROXY_HEADER_CONVENTION=NoProxy
+      - WEBSITE_AUTH_FILE_PATH=/app/easyauth-config.json
     volumes:
       - ./data/easyauth:/data
+    configs:
+      - source: easyauth-config
+        target: /app/easyauth-config.json
   whoami:
     image: traefik/whoami
     network_mode: service:easyauth
     environment:
       - TZ=Asia/Tokyo
+configs:
+  easyauth-config:
+    file: easyauth-config.json
