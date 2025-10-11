@@ -1,7 +1,7 @@
 ---
 id: README
 title: Kompox 設計ドキュメント目次
-updated: 2025-10-08
+updated: 2025-10-11
 language: ja
 ---
 
@@ -15,7 +15,7 @@ language: ja
 |---|---|---|---|---|---|
 | [Kompox-Arch-Implementation](./v1/Kompox-Arch-Implementation.ja.md) | Kompox Implementation Architecture | ja | v1 | synced | 2025-09-27 |
 | [Kompox-KubeClient](./v1/Kompox-KubeClient.ja.md) | Kompox Kube Client ガイド | ja | v1 | out-of-sync | 2025-09-26 |
-| [Kompox-KubeConverter](./v1/Kompox-KubeConverter.ja.md) | Kompox Kube Converter ガイド | ja | v1 | synced | 2025-09-26 |
+| [Kompox-KubeConverter](./v1/Kompox-KubeConverter.ja.md) | Kompox Kube Converter ガイド | ja | v1 | synced | 2025-10-10 |
 | [Kompox-CLI](./v1/Kompox-CLI.ja.md) | Kompox PaaS CLI | ja | v1 | synced | 2025-10-08 |
 | [Kompox-Resources](./v1/Kompox-Resources.ja.md) | Kompox PaaS Resources | ja | v1 | archived | 2025-09-26 |
 | [Kompox-ProviderDriver-AKS](./v1/Kompox-ProviderDriver-AKS.ja.md) | Kompox Provider Driver AKS ガイド | ja | v1 | out-of-sync | 2025-09-26 |
@@ -48,6 +48,7 @@ language: ja
 |---|---|---|---|---|---|
 | [K4x-ADR-004](./adr/K4x-ADR-004.md) | Cluster ingress endpoint DNS auto-update |  |  | accepted | - |
 | [K4x-ADR-001](./adr/K4x-ADR-001.md) | Implement Kompox PaaS as a Kubernetes Operator | en |  | proposed | 2025-09-26 |
+| [K4x-ADR-005](./adr/K4x-ADR-005.md) | Support Compose configs/secrets and make bind volumes directory-only |  |  | accepted | - |
 | [K4x-ADR-003](./adr/K4x-ADR-003.md) | Unify Disk/Snapshot CLI flags and adopt opaque Source contract | en |  | accepted | 2025-09-28 |
 | [K4x-ADR-002](./adr/K4x-ADR-002.md) | Unify snapshot restore into disk create | en |  | accepted | 2025-09-27 |
 

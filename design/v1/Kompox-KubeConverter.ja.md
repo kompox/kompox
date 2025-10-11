@@ -3,7 +3,7 @@ id: Kompox-KubeConverter
 title: Kompox Kube Converter ガイド
 version: v1
 status: synced
-updated: 2025-09-26
+updated: 2025-10-10
 language: ja
 ---
 
@@ -80,13 +80,7 @@ Kompox では Kubernetes Server-Side Apply の Field Manager を用いてフィ�
   - app.compose.services により作られるコンテナの名前を使用する
   - Service(ingress) 名前衝突回避: `<appName>-app` または `<appName>-box` で始まる名前はエラーとする
   - Namespace内では単一のappしかデプロイできないのでapp.compose.servicesによる名前衝突はない
-- Secret(pull): `<appName>-<componentName>--pull`
-  - kompoxops secret pull コマンドで作成するリソースの予約
-- Secret(base): `<appName>-<componentName>-<containerName>-base`
-  - env_file が存在する app.compose.services により作られるコンテナの名前を使用する
-- Secret(override): `<appName>-<componentName>-<containerName>-override`
-  - env_file が存在する app.compose.services により作られるコンテナの名前を使用する
-  - kompoxops secret env コマンドで作成するリソースの予約
+- ConfigMap/Secret: 命名は「ConfigMap/Secret リソース」節の命名表を参照
 - Ingress:
   - デフォルトドメイン用: `<appName>-<componentName>-default`
   - カスタムドメイン用: `<appName>-<componentName>-custom`
@@ -133,22 +127,22 @@ metadata:
 - `kompox.dev/volume-handle-previous` は初回のデプロイ時には設定しない。
 - `<diskResourceId>` は `aks` の場合は Azure Disk リソース ID となる (サブスクリプション GUID 露出に注意: 閲覧権限を最小化)。
 
-Secret には次のアノテーションを設定する。
+ConfigMap/Secret には次のアノテーションを設定する。
 
 ```yaml
 metadata:
   annotations:
-    kompox.dev/compose-secret-hash: <secretHASH>
+    kompox.dev/compose-content-hash: <hash>
 ```
 
 Deployment の pod template には次のアノテーションを設定するが、これは Converter では出力しない。
-デプロイランタイムがデプロイ完了後にすべての Secret リソースをスキャンして Deployment リソースに patch する。
+デプロイランタイムがデプロイ完了後にすべての ConfigMap/Secret リソースをスキャンして Deployment リソースに patch する。
 このときの Field Manager は `kompox-runtime` を用いる。
 
 ```yaml
 metadata:
   annotations:
-    kompox.dev/compose-secret-hash: <podSecretHASH>
+    kompox.dev/compose-content-hash: <podContentHASH>
 ```
 
 ### ハッシュの種類と生成規則
@@ -183,23 +177,25 @@ BASE = service.name + ":" + provider.name + ":" + app.name
 BASE = クラウドディスクリソースのID (/subscriptions/.... など)
 ```
 
-`<secretHASH>` (Secret に格納された環境変数の内容を示すハッシュ)
+`<contentHASH>` (ConfigMap/Secret の内容を示すハッシュ)
 
 ```
-BASE = すべての `KEY=VALUE` について `KEY` を辞書順にソートして `KEY=VALUE<NUL>` を連結したバイト列
+BASE = リソース種別ごとに以下のとおり。
+  - Secret: すべての `KEY=VALUE` について `KEY` を辞書順にソートして `KEY=VALUE<NUL>` を連結したバイト列
+  - ConfigMap: すべての `KEY=VALUE` について `KEY` を辞書順にソートして `KEY=VALUE<NUL>` を連結したバイト列
 ```
 
-`<podSecretHASH>` (Pod が参照する Secret リソースのハッシュ)
+`<podContentHASH>` (Pod が参照する ConfigMap/Secret リソースのハッシュ)
 
 ```
-BASE = Pod template が参照するすべての Secret リソースの `kompox.dev/compose-secret-hash` アノテーションの文字列(存在しない場合は空文字列)を、imagePullSecrets列挙順、コンテナの名前の辞書順・コンテナ内の列挙順に連結したバイト列
+BASE = Pod template が参照するすべての ConfigMap/Secret リソースの `kompox.dev/compose-content-hash` アノテーションの文字列(存在しない場合は空文字列)を、imagePullSecrets列挙順、コンテナの名前の辞書順・コンテナ内の列挙順に連結したバイト列
 ```
 
 各ハッシュの衝突が理論上発生した場合は実装側でハッシュ長 (6→8→10 文字…) を自動延長する。
 
 ### ボリューム
 
-ボリューム関連名称の制約 (K4x-ADR-003)
+ボリューム関連名称の制約 [K4x-ADR-003]
 
 - Volume 名: DNS-1123 ラベル、長さ 1..16
   - 正規表現: `^[a-z0-9]([-a-z0-9]{0,14}[a-z0-9])?$`
@@ -286,19 +282,26 @@ app:
 
 未指定フィールドは出力しない。limits のみ指定時に requests を補完しない。
 
-### Secret
+### Config/Secret
 
-#### Secret リソース
+#### ConfigMap/Secret リソース
 
-component ごと、container ごとに次の名前の Secret リソースを予約する。これらは必要な場合だけ作られる。
+この節では、Kompox が生成・参照する ConfigMap/Secret の命名規則を統一表で示す。Compose の `configs`/`secrets` 由来のリソースと、CLI/compose で予約される Secret(pull/base/override)を含む。詳細仕様(マウントや制約、競合解決など)は次節「configs/secrets」を参照。
+
+次の命名表に従って、必要な場合のみリソースが作成される。
 
 |名前|タイプ|生成条件|説明|
 |-|-|-|-|
-|`<appName>-<componentName>--pull`|`kubernetes.io/dockerconfigjson`|CLI: `kompoxops secret pull`|コンテナレジストリ認証|
-|`<appName>-<componentName>-<containerName>-base`|`Opaque`|Compose: `env_file`|コンテナ環境変数|
-|`<appName>-<componentName>-<containerName>-override`|`Opaque`|CLI: `kompoxops secret env`|コンテナ環境変数|
+|`<appName>-<componentName>--cfg-<configName>`|ConfigMap|Compose: `configs`(トップレベル定義を `services.<svc>.configs` から参照)|単一ファイル構成(テキスト)。UTF-8(BOM 無し)、NUL 無し、≤1 MiB。subPath 単一ファイル readOnly マウント|
+|`<appName>-<componentName>--sec-<secretName>`|Secret(`Opaque`)|Compose: `secrets`(トップレベル定義を `services.<svc>.secrets` から参照)|単一ファイル秘密(テキスト/バイナリ)。UTF-8 かつ NUL 無しは `data`、それ以外は `binaryData`。subPath 単一ファイル readOnly マウント|
+|`<appName>-<componentName>--pull`|Secret(`kubernetes.io/dockerconfigjson`)|CLI: `kompoxops secret pull`|コンテナレジストリ認証|
+|`<appName>-<componentName>-<containerName>-base`|Secret(`Opaque`)|Compose: `env_file`|コンテナ環境変数|
+|`<appName>-<componentName>-<containerName>-override`|Secret(`Opaque`)|CLI: `kompoxops secret env`|コンテナ環境変数|
 
-各 Secret リソースに対して Converter はアノテーション `kompox.dev/compose-secret-hash: <secretHASH>` を出力する。
+注記(アノテーション・命名制約)
+- すべての ConfigMap/Secret にアノテーション `kompox.dev/compose-content-hash` を付与する(内容から決定的に算出)。
+- `<configName>`/`<secretName>` は DNS-1123 ラベル準拠(1..63 文字、英小文字・数字・ハイフン。先頭末尾は英数字)。
+- リソース名の総文字数は Kubernetes の上限(≤253)以内とする。
 
 Converter は pod template においてコンテナレジストリ認証 Secret を参照する imagePullSecrets を出力しない。
 CLI による設定時に imagePullSecrets を patch する。
@@ -316,16 +319,17 @@ envFrom:
     optional: true
 ```
 
-Converter は pod template においてアノテーション `kompox.dev/compose-secret-hash: <podSecretHASH>` を出力しない。
+Converter は pod template においてアノテーション `kompox.dev/compose-content-hash: <podContentHASH>` を出力しない。
 デプロイランタイムがデプロイ完了後にすべての Secret リソースをスキャンして Deployment リソースに patch する。
 このときの Field Manager は `kompox-runtime` を用いる。
 
-`<podSecretHASH>` は次のように計算する。
-- Pod が参照する Secret を次の順で列挙
-  - imagePullSecrets: 列挙順
-  - envFrom: コンテナ名の辞書順 → コンテナ内の列挙順
-- 存在する Secret の `kompox.dev/compose-secret-hash` ハッシュ文字列を取得 (存在しなければ空文字列)
-- Secret の列挙順にハッシュ文字列を連結した文字列を BASE として HASH を適用する
+`<podContentHASH>` は次のように計算する。
+- Pod が参照する ConfigMap/Secret を次の順で列挙
+  - imagePullSecrets(Secret のみ): 列挙順
+  - envFrom(Secret のみ): コンテナ名の辞書順 → コンテナ内の列挙順
+  - volumeMounts(ConfigMap/Secret): コンテナ名の辞書順 → コンテナ内の列挙順 → volumeMount 名の辞書順
+- 列挙した各リソースの `kompox.dev/compose-content-hash` の文字列(存在しなければ空文字列)を取得
+- 列挙順に連結した文字列を BASE として HASH を適用する
 
 CLI による Secret リソース設定方法
 
@@ -338,12 +342,160 @@ kompoxops secret pull set -f ~/.docker/config.json
 kompoxops secret pull delete
 ```
 
+(上記の命名・制約・アノテーションを前提として、以下に configs/secrets の構文と変換仕様を示す。)
+
+#### configs/secrets
+
+Compose 標準の `configs`/`secrets` を単一ファイルの注入に用いる。`volumes` は「ディレクトリ専用」とし、単一ファイルは必ず `configs`/`secrets` で表現する。
+変換結果は Compose 宣言を主要な決定要因とする。ただし、bind volumes の検証では、ファイルシステム状態を参照して単一ファイル bind を検出・拒否する（configs/secrets への移行を促す）。
+詳細な設計と根拠は [K4x-ADR-005] を参照。
+
+- Compose 側の構文
+  - トップレベル定義(Compose ルート)
+    - `configs:` / `secrets:` に名前付きエントリを定義する。
+    - 形: `{ file | name | external }` を許可する。
+  - `file`: 参照するローカルファイル(相対パスのみを推奨)。
+  - `name`: 明示名を指定(省略時はキー名を使用)。
+  - `external`: 外部定義として扱う(Kompox では name としてパススルー)。
+  - サービス参照(`services.<svc>.configs` / `services.<svc>.secrets`)
+  - 短縮形: `<name>`(`source: <name>` と同義)。
+    - 拡張形: `{ source, target, mode? }` をサポート。`uid/gid` は無視する。
+  - `target` はコンテナ内のファイルパス(単一ファイル)。省略時のデフォルト:
+    - `configs`: `/<configName>` (Docker Swarm 仕様準拠)
+    - `secrets`: `/run/secrets/<secretName>` (Docker Swarm 仕様準拠)
+  - 同一 `target` の多重割り当てはエラー。
+    - `volumes` と同一 `target` が競合する場合は `configs/secrets` を優先し、`volumes` エントリは無視して警告する。
+  - `mode`: Kubernetes の `volumes[].{configMap|secret}.items[].mode` に反映する(8進数、例: `0444`)。未指定時は Kubernetes 既定(`0644`)に従う。
+
+- Kubernetes への変換
+  - configs → ConfigMap
+    - 各エントリを 1 つの ConfigMap の `data` として格納。テキスト制約: UTF-8(BOM 無し)・NUL 文字なし。サイズ上限は 1 MiB/ConfigMap。
+    - キー名は既定で `basename(file)`。サービス参照の `target` ファイル名との対応は `subPath=<key>` で行う。
+    - マウント: `volumes` + `volumeMounts`(`subPath=<key>`, `mountPath=<target>`, `readOnly: true`)。
+    - アノテーション: `kompox.dev/compose-content-hash` を付与。`data` のキーを辞書順に並べ、値(raw bytes)連結の SHA256 を基に決定的に計算する。
+  - secrets → Secret(type: Opaque)
+    - 内容はテキスト/バイナリを許容。UTF-8 かつ NUL 無しは `data`、それ以外は `binaryData` に格納。
+    - マウント: `volumes` + `volumeMounts`(`subPath=<key>`, `mountPath=<target>`, `readOnly: true`)。
+    - アノテーション: `kompox.dev/compose-content-hash` を付与。`data`/`binaryData` のキーを辞書順に並べ、値(raw bytes)連結の SHA256 を基に決定的に計算する。
+  - リソース命名は「ConfigMap/Secret リソース」節を参照。
+  - Pod 内の `volumes`/`volumeMounts` の命名規則:
+    - ConfigMap をマウントする場合の `volumes[].name` と `volumeMounts[].name` は `cfg-<configName>`。
+    - Secret をマウントする場合の `volumes[].name` と `volumeMounts[].name` は `sec-<secretName>`。
+    - ここで `<configName>`/`<secretName>` はトップレベル `configs`/`secrets` のエントリ名(DNS-1123 準拠)。
+
+- volumes ポリシー(ディレクトリ専用)
+  - 相対 bind: `./sub/dir:/mount` は `app.volumes[0]` を参照し `subPath=sub/dir` として PVC サブパスでマウント。
+  - 絶対 bind: `/host:/mount` はエラー。
+  - 単一ファイル bind の検出:
+    - bind source が実際に存在し、かつファイルの場合 → エラー（解決策を提示: "単一ファイルは configs/secrets を使用"）
+    - bind source が存在しない場合 → 許可（ディレクトリとして自動作成される想定）
+    - bind source が存在し、かつディレクトリの場合 → 許可（PVC subPath として処理）
+  - `target` が `configs/secrets` と衝突する場合:
+    - 同一 `target` を `configs/secrets` が占有していれば `volumes` を無視して警告。
+
+例(抜粋)
+
+Compose（明示的な target 指定）:
+
+```yaml
+services:
+  app:
+    image: app
+    configs:
+      - source: nginx-conf
+        target: /etc/nginx/nginx.conf
+        mode: 0444
+    secrets:
+      - source: api-key
+        target: /run/secrets/api-key
+        mode: 0444
+configs:
+  nginx-conf:
+    file: ./nginx/nginx.conf
+secrets:
+  api-key:
+    file: ./secrets/api-key.txt
+```
+
+Compose（短縮形: デフォルト target 使用）:
+
+```yaml
+services:
+  app:
+    image: app
+    configs:
+      - nginx-conf  # デフォルト target: /nginx-conf
+    secrets:
+      - api-key     # デフォルト target: /run/secrets/api-key
+configs:
+  nginx-conf:
+    file: ./nginx/nginx.conf
+secrets:
+  api-key:
+    file: ./secrets/api-key.txt
+```
+
+Kubernetes(概念図):
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: <app>-<comp>--cfg-nginx-conf
+  annotations:
+    kompox.dev/compose-content-hash: <hash>
+data:
+  nginx.conf: |
+    ...
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: <app>-<comp>--sec-api-key
+  annotations:
+    kompox.dev/compose-content-hash: <hash>
+type: Opaque
+data:
+  api-key: <base64>
+---
+# Deployment の volumeMounts(抜粋)
+volumeMounts:
+  - name: cfg-nginx-conf
+    mountPath: /etc/nginx/nginx.conf
+    subPath: nginx.conf
+    readOnly: true
+  - name: sec-api-key
+    mountPath: /run/secrets/api-key
+    subPath: api-key
+    readOnly: true
+---
+# Deployment の volumes(抜粋)
+volumes:
+  - name: cfg-nginx-conf
+    configMap:
+      name: <app>-<comp>--cfg-nginx-conf
+      items:
+        - key: nginx.conf
+          path: nginx.conf
+          mode: 0444
+  - name: sec-api-key
+    secret:
+      secretName: <app>-<comp>--sec-api-key
+      items:
+        - key: api-key
+          path: api-key
+          mode: 0444
+```
+
 #### env_file
 
 Compose の `env_file` は次のように取り扱う。
 
 - 列挙順にすべてのファイルを読み込みマージし 1 つの Secret リソースを生成する。
 - Secret リソースの名前は `<appName>-<componentName>-<containerName>-base` とする。
+- `required` フィールド対応:
+  - `required: false` を指定したファイルが存在しない場合、エラーにせず空のマップとして扱う（Docker Compose 仕様準拠）
+  - `required: true`（デフォルト）の場合は従来通りファイル不在時にエラー
 - ファイルパス制約:
   - 相対パスのみ (正規化後に `..` を含むものはエラー)
   - symlink / ディレクトリ / デバイス / FIFO / ソケットはエラー (外部脱出や非決定性を防ぐ)
@@ -420,10 +572,10 @@ Service 生成の仕様
 - `rules`
   - `app.ingress.rules` の各エントリに対して1つを出力
   - `host` は `<appName>-idHASH-<port>.{cluster.ingress.domain}`
-    - ここで `<port>` は `app.ingress.rules.port`（Compose の `hostPort`）
+  - ここで `<port>` は `app.ingress.rules.port`(Compose の `hostPort`)
     - 例: `main(8080→80)` は `app1-idHASH-8080.ops.kompox.dev`、`admin(8081→8080)` は `app1-idHASH-8081.ops.kompox.dev`
   - `path: /` および `pathType: Prefix`
-- annotations 設定（certresolver を設定せず静的 TLS 証明書を使用する）
+- annotations 設定(certresolver を設定せず静的 TLS 証明書を使用する)
 ```yaml
 traefik.ingress.kubernetes.io/router.entrypoints: websecure
 traefik.ingress.kubernetes.io/router.tls: "true"
@@ -436,7 +588,7 @@ traefik.ingress.kubernetes.io/router.tls: "true"
 - `rules`
   - `app.ingress.rules` の `hosts` 配列の各要素ごとに1つを出力
   - `path: /` および `pathType: Prefix`
-- annotations 設定（certresolver を設定して ACME TLS 証明書を使用する）
+- annotations 設定(certresolver を設定して ACME TLS 証明書を使用する)
 ```yaml
 traefik.ingress.kubernetes.io/router.entrypoints: websecure
 traefik.ingress.kubernetes.io/router.tls: "true"
@@ -529,7 +681,7 @@ Deployment.spec.template.spec.nodeSelector に `kompox.dev/node-pool: <pool>` �
 |apps|deployments|get list watch|
 |apps|replicasets|get list watch|
 
-この Service Account は Kompox ユーザー（人間）用であり、ワークロードの Pod へは自動で割り当てない。
+この Service Account は Kompox ユーザー(人間)用であり、ワークロードの Pod へは自動で割り当てない。
 
 ## 例1
 
@@ -564,6 +716,14 @@ app:
           - env.yml
         environment:
           TZ: Asia/Tokyo
+        configs:
+          - source: nginx-conf
+            target: /etc/nginx/nginx.conf
+            mode: 0444
+        secrets:
+          - source: api-key
+            target: /run/secrets/api-key
+            mode: 0444
         ports:
           - "8080:80"
           - "8081:8080"
@@ -589,6 +749,12 @@ app:
           limits:
             cpu: 200m
             memory: 512Mi
+    configs:
+      nginx-conf:
+        file: ./nginx/nginx.conf
+    secrets:
+      api-key:
+        file: ./secrets/api-key.txt
   ingress:
     certResolver: staging
     rules:
@@ -870,6 +1036,14 @@ spec:
         - containerPort: 80
         - containerPort: 8080
         volumeMounts:
+        - name: cfg-nginx-conf
+          mountPath: /etc/nginx/nginx.conf
+          subPath: nginx.conf
+          readOnly: true
+        - name: sec-api-key
+          mountPath: /run/secrets/api-key
+          subPath: api-key
+          readOnly: true
         - name: default
           mountPath: /data
           subPath: data/app
@@ -918,6 +1092,20 @@ spec:
           - name: db
             mountPath: /work/db
       volumes:
+        - name: cfg-nginx-conf
+          configMap:
+            name: app1-app--cfg-nginx-conf
+            items:
+              - key: nginx.conf
+                path: nginx.conf
+                mode: 0444
+        - name: sec-api-key
+          secret:
+            secretName: app1-app--sec-api-key
+            items:
+              - key: api-key
+                path: api-key
+                mode: 0444
         - name: default
           persistentVolumeClaim:
             claimName: k4x-spHASH-default-idHASH-volHASH
@@ -988,6 +1176,44 @@ spec:
     app: app1-app
 ---
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app1-app--cfg-nginx-conf
+  namespace: k4x-spHASH-app1-idHASH
+  labels:
+    app: app1-app
+    app.kubernetes.io/name: app1
+    app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/component: app
+    app.kubernetes.io/managed-by: kompox
+    kompox.dev/app-instance-hash: inHASH
+    kompox.dev/app-id-hash: idHASH
+  annotations:
+    kompox.dev/compose-content-hash: <hash>
+data:
+  nginx.conf: |
+    ...
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app1-app--sec-api-key
+  namespace: k4x-spHASH-app1-idHASH
+  labels:
+    app: app1-app
+    app.kubernetes.io/name: app1
+    app.kubernetes.io/instance: app1-inHASH
+    app.kubernetes.io/component: app
+    app.kubernetes.io/managed-by: kompox
+    kompox.dev/app-instance-hash: inHASH
+    kompox.dev/app-id-hash: idHASH
+  annotations:
+    kompox.dev/compose-content-hash: <hash>
+type: Opaque
+data:
+  api-key: <base64>
+---
+apiVersion: v1
 kind: Secret
 metadata:
   name: app1-app-app-base
@@ -1001,7 +1227,7 @@ metadata:
     kompox.dev/app-instance-hash: inHASH
     kompox.dev/app-id-hash: idHASH
   annotations:
-    kompox.dev/compose-secret-hash: containerSecretHASH
+    kompox.dev/compose-content-hash: containerContentHASH
 type: Opaque
 data:
   USERNAME: YWRtaW4=
@@ -1088,3 +1314,8 @@ spec:
                 port:
                   name: admin
 ```
+
+<!-- ADR References -->
+
+[K4x-ADR-003]: ../adr/K4x-ADR-003.md
+[K4x-ADR-005]: ../adr/K4x-ADR-005.md
