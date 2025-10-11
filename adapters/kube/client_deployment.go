@@ -13,9 +13,9 @@ import (
 	"github.com/kompox/kompox/internal/logging"
 )
 
-// PatchDeploymentPodSecretHash updates the deployment's secret hash annotation and imagePullSecrets list
+// PatchDeploymentPodContentHash updates the deployment's content hash annotation and imagePullSecrets list
 // based on presence of pullSecretName. Only patches when something changes.
-func (c *Client) PatchDeploymentPodSecretHash(ctx context.Context, namespace, deploymentName string) error {
+func (c *Client) PatchDeploymentPodContentHash(ctx context.Context, namespace, deploymentName string) error {
 	if c == nil || c.Clientset == nil || namespace == "" || deploymentName == "" {
 		return nil
 	}
@@ -28,9 +28,17 @@ func (c *Client) PatchDeploymentPodSecretHash(ctx context.Context, namespace, de
 	if err != nil {
 		return fmt.Errorf("list secrets: %w", err)
 	}
+	cmList, err := c.Clientset.CoreV1().ConfigMaps(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return fmt.Errorf("list configmaps: %w", err)
+	}
 	var secrets []*corev1.Secret
 	for i := range secList.Items {
 		secrets = append(secrets, &secList.Items[i])
+	}
+	var configMaps []*corev1.ConfigMap
+	for i := range cmList.Items {
+		configMaps = append(configMaps, &cmList.Items[i])
 	}
 
 	// Derive expected pull secret name from deploymentName convention (<app>-<component>) + "--pull".
@@ -49,10 +57,10 @@ func (c *Client) PatchDeploymentPodSecretHash(ctx context.Context, namespace, de
 	} else {
 		desiredSpec.ImagePullSecrets = nil
 	}
-	newHash := computePodSecretHash(desiredSpec, secrets)
+	newHash := ComputePodContentHash(desiredSpec, secrets, configMaps)
 	prev := ""
 	if dep.Spec.Template.Annotations != nil {
-		prev = dep.Spec.Template.Annotations[AnnotationK4xComposeSecretHash]
+		prev = dep.Spec.Template.Annotations[AnnotationK4xComposeContentHash]
 	}
 	// Detect imagePullSecrets change.
 	imagePullSecretsChanged := false
@@ -73,7 +81,7 @@ func (c *Client) PatchDeploymentPodSecretHash(ctx context.Context, namespace, de
 		s = strings.ReplaceAll(s, "~", "~0")
 		return strings.ReplaceAll(s, "/", "~1")
 	}
-	path := "/spec/template/metadata/annotations/" + escape(AnnotationK4xComposeSecretHash)
+	path := "/spec/template/metadata/annotations/" + escape(AnnotationK4xComposeContentHash)
 
 	type op struct {
 		Op    string `json:"op"`
@@ -88,7 +96,7 @@ func (c *Client) PatchDeploymentPodSecretHash(ctx context.Context, namespace, de
 				op{Op: "add", Path: "/spec/template/metadata/annotations", Value: map[string]string{}},
 				op{Op: "add", Path: path, Value: newHash},
 			)
-		} else if _, exists := dep.Spec.Template.Annotations[AnnotationK4xComposeSecretHash]; exists {
+		} else if _, exists := dep.Spec.Template.Annotations[AnnotationK4xComposeContentHash]; exists {
 			patch = append(patch, op{Op: "replace", Path: path, Value: newHash})
 		} else {
 			patch = append(patch, op{Op: "add", Path: path, Value: newHash})
@@ -120,7 +128,7 @@ func (c *Client) PatchDeploymentPodSecretHash(ctx context.Context, namespace, de
 		mp := map[string]any{"spec": map[string]any{"template": map[string]any{}}}
 		tpl := mp["spec"].(map[string]any)["template"].(map[string]any)
 		if hashChanged {
-			tpl["metadata"] = map[string]any{"annotations": map[string]string{AnnotationK4xComposeSecretHash: newHash}}
+			tpl["metadata"] = map[string]any{"annotations": map[string]string{AnnotationK4xComposeContentHash: newHash}}
 		}
 		if imagePullSecretsChanged {
 			specMap := map[string]any{}

@@ -18,7 +18,7 @@ const (
 	LabelK4xNodePool               = K4xDomain + "/node-pool"
 	LabelK4xNodeZone               = K4xDomain + "/node-zone"
 
-	AnnotationK4xApp               = K4xDomain + "/app"
-	AnnotationK4xProviderDriver    = K4xDomain + "/provider-driver"
-	AnnotationK4xComposeSecretHash = K4xDomain + "/compose-secret-hash"
+	AnnotationK4xApp                = K4xDomain + "/app"
+	AnnotationK4xProviderDriver     = K4xDomain + "/provider-driver"
+	AnnotationK4xComposeContentHash = K4xDomain + "/compose-content-hash"
 )

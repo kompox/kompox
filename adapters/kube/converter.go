@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -71,8 +73,14 @@ type Converter struct {
 	K8sHeadlessServices []*corev1.Service // for intra-pod DNS aliasing
 	K8sIngressDefault   *netv1.Ingress
 	K8sIngressCustom    *netv1.Ingress
-	K8sDeployment       *appsv1.Deployment // built at Build() time
-	K8sSecrets          []*corev1.Secret   // generated from compose env_file (service order)
+	K8sDeployment       *appsv1.Deployment  // built at Build() time
+	K8sSecrets          []*corev1.Secret    // generated from compose env_file (service order)
+	K8sConfigMaps       []*corev1.ConfigMap // generated from compose configs
+	K8sConfigSecrets    []*corev1.Secret    // generated from compose secrets
+
+	// Config/Secret mount metadata (collected during Convert, consumed by Build for volume definitions)
+	configMapMounts    map[string]*configMapMount    // keyed by configName
+	configSecretMounts map[string]*configSecretMount // keyed by secretName
 
 	// Optional security and access resources
 	K8sNetworkPolicy  *netv1.NetworkPolicy
@@ -87,6 +95,29 @@ type Converter struct {
 
 	// Non-fatal notes during planning
 	warnings []string
+}
+
+// targetMapping represents a target path mapping source.
+type targetMapping struct {
+	source   string // "config:<name>", "secret:<name>", or "volume:<name>"
+	target   string // target path
+	location string // for error messages (e.g., "service foo")
+}
+
+// configMapMount holds metadata for ConfigMap volume mounting.
+type configMapMount struct {
+	configName string  // top-level config name
+	cmName     string  // K8s ConfigMap resource name
+	key        string  // data key (filename)
+	mode       *uint32 // optional file mode from service reference (10-base)
+}
+
+// configSecretMount holds metadata for Secret volume mounting.
+type configSecretMount struct {
+	secretName string  // top-level secret name
+	secName    string  // K8s Secret resource name
+	key        string  // data key (filename)
+	mode       *uint32 // optional file mode from service reference (10-base)
 }
 
 // ConverterVolumeBinding represents a static binding for one logical volume.
@@ -115,7 +146,14 @@ type ConverterVolumeBinding struct {
 // identifiers that do not require Compose parsing (hashes, namespace, labels).
 // Compose parsing and plan construction are performed by Convert.
 func NewConverter(svc *model.Service, prv *model.Provider, cls *model.Cluster, a *model.App, component string) *Converter {
-	c := &Converter{Svc: svc, Prv: prv, Cls: cls, App: a}
+	c := &Converter{
+		Svc:                svc,
+		Prv:                prv,
+		Cls:                cls,
+		App:                a,
+		configMapMounts:    make(map[string]*configMapMount),
+		configSecretMounts: make(map[string]*configSecretMount),
+	}
 	if svc != nil && prv != nil && cls != nil && a != nil {
 		hashes := naming.NewHashes(svc.Name, prv.Name, cls.Name, a.Name)
 		c.HashSP = hashes.Provider
@@ -161,6 +199,65 @@ func NewConverter(svc *model.Service, prv *model.Provider, cls *model.Cluster, a
 	return c
 }
 
+// checkTargetConflict validates that target paths do not conflict.
+// It detects:
+// - Duplicate targets within configs/secrets for the same service (error)
+// - Conflicts between volumes and configs/secrets (warning: configs/secrets win, volumes ignored)
+//
+// Returns: errors slice (fatal conflicts), warnings slice (non-fatal conflicts)
+func checkTargetConflict(serviceName string, targetMappings []targetMapping) ([]string, []string) {
+	var errs []string
+	var warns []string
+
+	// Track targets by type
+	targetSources := make(map[string][]targetMapping)
+	for _, tm := range targetMappings {
+		targetSources[tm.target] = append(targetSources[tm.target], tm)
+	}
+
+	// Check each target for conflicts
+	for target, sources := range targetSources {
+		if len(sources) == 1 {
+			continue
+		}
+
+		// Separate by type
+		var volumeSources []targetMapping
+		var configSecretSources []targetMapping
+		for _, src := range sources {
+			if strings.HasPrefix(src.source, "volume:") {
+				volumeSources = append(volumeSources, src)
+			} else {
+				configSecretSources = append(configSecretSources, src)
+			}
+		}
+
+		// Multiple configs/secrets targeting same path → error
+		if len(configSecretSources) > 1 {
+			sourceNames := make([]string, len(configSecretSources))
+			for i, cs := range configSecretSources {
+				sourceNames[i] = cs.source
+			}
+			errs = append(errs, fmt.Sprintf(
+				"service %s: target path %q has duplicate configs/secrets: %v",
+				serviceName, target, sourceNames,
+			))
+		}
+
+		// configs/secrets vs volumes conflict → warn and ignore volumes
+		if len(configSecretSources) > 0 && len(volumeSources) > 0 {
+			for _, vs := range volumeSources {
+				warns = append(warns, fmt.Sprintf(
+					"service %s: target path %q conflicts between %s and %s; ignoring volume (use configs/secrets for single files)",
+					serviceName, target, configSecretSources[0].source, vs.source,
+				))
+			}
+		}
+	}
+
+	return errs, warns
+}
+
 // Convert parses Compose and constructs the provider-agnostic plan into this Converter.
 // It validates ports and volumes, and synthesizes Namespace/Service/Ingress and containers.
 func (c *Converter) Convert(ctx context.Context) ([]string, error) {
@@ -190,11 +287,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		if len(s.EnvFiles) == 0 {
 			continue
 		}
-		var files []string
-		for _, ef := range s.EnvFiles {
-			files = append(files, ef.Path)
-		}
-		kv, _, err := mergeEnvFiles(".", files)
+		kv, _, err := mergeEnvFiles(".", s.EnvFiles)
 		if err != nil {
 			return nil, fmt.Errorf("env_file for service %s: %w", s.Name, err)
 		}
@@ -207,12 +300,75 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 				Name:        SecretEnvBaseName(c.App.Name, c.ComponentName, s.Name),
 				Namespace:   nsName,
 				Labels:      c.ComponentLabels,
-				Annotations: map[string]string{AnnotationK4xComposeSecretHash: ComputeSecretHash(kv)},
+				Annotations: map[string]string{AnnotationK4xComposeContentHash: ComputeContentHash(kv)},
 			},
 			Type: corev1.SecretTypeOpaque,
 			Data: data,
 		}
 		secrets = append(secrets, secret)
+	}
+
+	// Process top-level configs and secrets
+	configMaps := []*corev1.ConfigMap{}
+	configSecrets := []*corev1.Secret{}
+
+	// Build configs → ConfigMaps
+	for name, cfg := range proj.Configs {
+		if err := validateConfigSecretName(name); err != nil {
+			return nil, fmt.Errorf("config name validation: %w", err)
+		}
+		key, content, isValidUTF8Text, err := resolveConfigOrSecretFile(".", name, types.FileObjectConfig(cfg), true)
+		if err != nil {
+			return nil, fmt.Errorf("resolve config %q: %w", name, err)
+		}
+		if content == nil {
+			// External or name-only passthrough: skip generation (K8s resource must pre-exist)
+			continue
+		}
+		if !isValidUTF8Text {
+			return nil, fmt.Errorf("config %q: content must be valid UTF-8 without BOM and no NUL bytes", name)
+		}
+		cmName := ConfigMapName(c.App.Name, c.ComponentName, name)
+		data := map[string]string{key: string(content)}
+		cm := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        cmName,
+				Namespace:   nsName,
+				Labels:      c.ComponentLabels,
+				Annotations: map[string]string{AnnotationK4xComposeContentHash: ComputeContentHash(data)},
+			},
+			Data: data,
+		}
+		configMaps = append(configMaps, cm)
+	}
+
+	// Build secrets → Secrets
+	for name, sec := range proj.Secrets {
+		if err := validateConfigSecretName(name); err != nil {
+			return nil, fmt.Errorf("secret name validation: %w", err)
+		}
+		key, content, _, err := resolveConfigOrSecretFile(".", name, types.FileObjectConfig(sec), false)
+		if err != nil {
+			return nil, fmt.Errorf("resolve secret %q: %w", name, err)
+		}
+		if content == nil {
+			// External or name-only passthrough: skip generation
+			continue
+		}
+		secName := ConfigSecretName(c.App.Name, c.ComponentName, name)
+		data := map[string][]byte{key: content}
+		contentHash := ComputeContentHash(map[string]string{key: string(content)})
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        secName,
+				Namespace:   nsName,
+				Labels:      c.ComponentLabels,
+				Annotations: map[string]string{AnnotationK4xComposeContentHash: contentHash},
+			},
+			Type: corev1.SecretTypeOpaque,
+			Data: data,
+		}
+		configSecrets = append(configSecrets, secret)
 	}
 
 	// Compose services parsing & validation
@@ -224,6 +380,9 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 
 	for _, s := range proj.Services { // deterministic order from compose-go
 		ctn := corev1.Container{Name: s.Name, Image: s.Image}
+
+		// Collect target mappings for conflict detection
+		var targetMappings []targetMapping
 
 		// environment
 		for k, v := range s.Environment {
@@ -286,6 +445,14 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 				if strings.HasPrefix(v.Source, "/") {
 					return nil, fmt.Errorf("absolute bind volume not supported: %s", v.Source)
 				}
+				// Check if bind source is a single file (not a directory).
+				// If the path exists and is a file, reject it (use configs/secrets instead).
+				// If the path doesn't exist, allow it (will be auto-created as directory).
+				if info, err := os.Stat(v.Source); err == nil {
+					if !info.IsDir() {
+						return nil, fmt.Errorf("bind volume source must be a directory, not a single file: %s (use configs/secrets for single-file mounts)", v.Source)
+					}
+				}
 				if len(c.App.Volumes) == 0 {
 					return nil, fmt.Errorf("relative bind volume '%s' requires at least one app volume (default) defined", v.Source)
 				}
@@ -309,6 +476,12 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 			default:
 				return nil, fmt.Errorf("unsupported volume type: %s (source=%s target=%s)", v.Type, v.Source, v.Target)
 			}
+			// Track target mapping for conflict detection
+			targetMappings = append(targetMappings, targetMapping{
+				source:   fmt.Sprintf("volume:%s", v.Source),
+				target:   v.Target,
+				location: fmt.Sprintf("service %s", s.Name),
+			})
 			if subPath != "" {
 				if subPathsPerVolume[volName] == nil {
 					subPathsPerVolume[volName] = map[string]struct{}{}
@@ -319,6 +492,168 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 				ctn.VolumeMounts = append(ctn.VolumeMounts, corev1.VolumeMount{Name: volName, MountPath: v.Target})
 			}
 		}
+
+		// configs: mount as single files via ConfigMap volumes
+		for _, cfgRef := range s.Configs {
+			if cfgRef.Source == "" {
+				return nil, fmt.Errorf("service %s: config reference must have source", s.Name)
+			}
+			// Apply default target if not specified: /<configName>
+			target := cfgRef.Target
+			if target == "" {
+				target = "/" + cfgRef.Source
+			}
+			// Resolve config definition
+			cfgDef, ok := proj.Configs[cfgRef.Source]
+			if !ok {
+				return nil, fmt.Errorf("service %s: config %q not defined in top-level configs", s.Name, cfgRef.Source)
+			}
+			// Skip external/name-only (assumed to exist in cluster)
+			if cfgDef.External || (cfgDef.Name != "" && cfgDef.File == "" && cfgDef.Content == "") {
+				continue
+			}
+			// Track target mapping for conflict detection
+			targetMappings = append(targetMappings, targetMapping{
+				source:   fmt.Sprintf("config:%s", cfgRef.Source),
+				target:   target,
+				location: fmt.Sprintf("service %s", s.Name),
+			})
+			// Generate volume name for this ConfigMap
+			volName := ConfigMapVolumeName(cfgRef.Source)
+			// Determine key (filename) for items
+			key := filepath.Base(cfgDef.File)
+			if cfgDef.File == "" && cfgDef.Content != "" {
+				key = cfgRef.Source
+			}
+			// Store mount metadata for Build()
+			if _, exists := c.configMapMounts[cfgRef.Source]; !exists {
+				cmName := ConfigMapName(c.App.Name, c.ComponentName, cfgRef.Source)
+				var mode *uint32
+				if cfgRef.Mode != nil {
+					m := uint32(*cfgRef.Mode)
+					mode = &m
+				}
+				c.configMapMounts[cfgRef.Source] = &configMapMount{
+					configName: cfgRef.Source,
+					cmName:     cmName,
+					key:        key,
+					mode:       mode,
+				}
+			}
+			// Add volumeMount (volume will be added in Build())
+			ctn.VolumeMounts = append(ctn.VolumeMounts, corev1.VolumeMount{
+				Name:      volName,
+				MountPath: target,
+				SubPath:   key,
+				ReadOnly:  true,
+			})
+		}
+
+		// secrets: mount as single files via Secret volumes
+		for _, secRef := range s.Secrets {
+			if secRef.Source == "" {
+				return nil, fmt.Errorf("service %s: secret reference must have source", s.Name)
+			}
+			// Apply default target if not specified: /run/secrets/<secretName>
+			target := secRef.Target
+			if target == "" {
+				target = "/run/secrets/" + secRef.Source
+			}
+			// Resolve secret definition
+			secDef, ok := proj.Secrets[secRef.Source]
+			if !ok {
+				return nil, fmt.Errorf("service %s: secret %q not defined in top-level secrets", s.Name, secRef.Source)
+			}
+			// Skip external/name-only
+			if secDef.External || (secDef.Name != "" && secDef.File == "" && secDef.Content == "") {
+				continue
+			}
+			// Track target mapping for conflict detection
+			targetMappings = append(targetMappings, targetMapping{
+				source:   fmt.Sprintf("secret:%s", secRef.Source),
+				target:   target,
+				location: fmt.Sprintf("service %s", s.Name),
+			})
+			// Generate volume name for this Secret
+			volName := ConfigSecretVolumeName(secRef.Source)
+			// Determine key
+			key := filepath.Base(secDef.File)
+			if secDef.File == "" && secDef.Content != "" {
+				key = secRef.Source
+			}
+			// Store mount metadata for Build()
+			if _, exists := c.configSecretMounts[secRef.Source]; !exists {
+				secName := ConfigSecretName(c.App.Name, c.ComponentName, secRef.Source)
+				var mode *uint32
+				if secRef.Mode != nil {
+					m := uint32(*secRef.Mode)
+					mode = &m
+				}
+				c.configSecretMounts[secRef.Source] = &configSecretMount{
+					secretName: secRef.Source,
+					secName:    secName,
+					key:        key,
+					mode:       mode,
+				}
+			}
+			// Add volumeMount (volume will be added in Build())
+			ctn.VolumeMounts = append(ctn.VolumeMounts, corev1.VolumeMount{
+				Name:      volName,
+				MountPath: target,
+				SubPath:   key,
+				ReadOnly:  true,
+			})
+		}
+
+		// Check for target conflicts within this service
+		conflictErrs, conflictWarns := checkTargetConflict(s.Name, targetMappings)
+		if len(conflictErrs) > 0 {
+			return nil, fmt.Errorf("target conflicts in service %s: %s", s.Name, strings.Join(conflictErrs, "; "))
+		}
+		c.warnings = append(c.warnings, conflictWarns...)
+
+		// Filter out volume mounts that conflict with configs/secrets
+		// (warnings were already recorded above)
+		if len(conflictWarns) > 0 {
+			// Build a set of conflicting volume targets
+			conflictingVolTargets := make(map[string]bool)
+			for _, tm := range targetMappings {
+				if !strings.HasPrefix(tm.source, "volume:") {
+					continue
+				}
+				// Check if this volume target conflicts with any config/secret
+				for _, other := range targetMappings {
+					if strings.HasPrefix(other.source, "config:") || strings.HasPrefix(other.source, "secret:") {
+						if tm.target == other.target {
+							conflictingVolTargets[tm.target] = true
+							break
+						}
+					}
+				}
+			}
+			// Remove conflicting volume mounts from container
+			if len(conflictingVolTargets) > 0 {
+				filteredMounts := []corev1.VolumeMount{}
+				for _, vm := range ctn.VolumeMounts {
+					// Keep mount if it's not a conflicting volume mount
+					// (config/secret mounts don't have volume names in our tracking)
+					isVolumeMount := false
+					for volName := range volDefs {
+						if vm.Name == volName || vm.Name == c.App.Volumes[0].Name {
+							isVolumeMount = true
+							break
+						}
+					}
+					if isVolumeMount && conflictingVolTargets[vm.MountPath] {
+						// Skip this mount (already warned)
+						continue
+					}
+					filteredMounts = append(filteredMounts, vm)
+				}
+				ctn.VolumeMounts = filteredMounts
+			}
+		}
+
 		applyXKompoxResources(&ctn, s.Extensions["x-kompox"]) // resources/limits
 		containers = append(containers, ctn)
 	}
@@ -606,6 +941,8 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 	c.K8sIngressDefault = ingDefault
 	c.K8sIngressCustom = ingCustom
 	c.K8sSecrets = secrets
+	c.K8sConfigMaps = configMaps
+	c.K8sConfigSecrets = configSecrets
 	// Assign security resources
 	c.K8sNetworkPolicy = npObj
 	c.K8sServiceAccount = saObj
@@ -829,6 +1166,46 @@ func (c *Converter) Build() ([]string, error) {
 		})
 	}
 
+	// Add ConfigMap volumes
+	for _, cm := range c.configMapMounts {
+		volName := ConfigMapVolumeName(cm.configName)
+		items := []corev1.KeyToPath{{Key: cm.key, Path: cm.key}}
+		if cm.mode != nil {
+			// Convert 10-base uint32 to octal int32 for Kubernetes
+			mode := int32(*cm.mode)
+			items[0].Mode = &mode
+		}
+		podVolumes = append(podVolumes, corev1.Volume{
+			Name: volName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: cm.cmName},
+					Items:                items,
+				},
+			},
+		})
+	}
+
+	// Add Secret volumes
+	for _, sec := range c.configSecretMounts {
+		volName := ConfigSecretVolumeName(sec.secretName)
+		items := []corev1.KeyToPath{{Key: sec.key, Path: sec.key}}
+		if sec.mode != nil {
+			// Convert 10-base uint32 to octal int32 for Kubernetes
+			mode := int32(*sec.mode)
+			items[0].Mode = &mode
+		}
+		podVolumes = append(podVolumes, corev1.Volume{
+			Name: volName,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: sec.secName,
+					Items:      items,
+				},
+			},
+		})
+	}
+
 	// Use precomputed NodeSelector from NewConverter
 	nodeSelector := c.NodeSelector
 
@@ -884,6 +1261,12 @@ func (c *Converter) VolumeObjects() []runtime.Object {
 // DeploymentObjects returns the Deployment, Service, and Ingress resources.
 func (c *Converter) DeploymentObjects() []runtime.Object {
 	var objs []runtime.Object
+	for _, cm := range c.K8sConfigMaps {
+		objs = append(objs, cm)
+	}
+	for _, sec := range c.K8sConfigSecrets {
+		objs = append(objs, sec)
+	}
 	for _, sec := range c.K8sSecrets { // secrets first so Deployment can refer via envFrom in future
 		objs = append(objs, sec)
 	}

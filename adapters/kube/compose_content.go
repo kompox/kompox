@@ -8,10 +8,9 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 
-	"github.com/kompox/kompox/internal/naming"
+	"github.com/compose-spec/compose-go/v2/types"
 	yaml "gopkg.in/yaml.v3"
 )
 
@@ -21,7 +20,8 @@ var (
 
 // ReadEnvDirFile reads an env file relative to baseDir (Compose env_file semantics).
 // It rejects absolute paths, traversal, symlinks, and directories.
-func ReadEnvDirFile(baseDir, relPath string) (map[string]string, error) {
+// When required is false and the file does not exist, returns empty map without error.
+func ReadEnvDirFile(baseDir, relPath string, required bool) (map[string]string, error) {
 	if strings.HasPrefix(relPath, "/") {
 		return nil, fmt.Errorf("env_file must be relative: %s", relPath)
 	}
@@ -31,6 +31,10 @@ func ReadEnvDirFile(baseDir, relPath string) (map[string]string, error) {
 	full := filepath.Join(baseDir, relPath)
 	info, err := os.Lstat(full)
 	if err != nil {
+		if !required && os.IsNotExist(err) {
+			// Optional file does not exist, return empty map
+			return map[string]string{}, nil
+		}
 		return nil, fmt.Errorf("env_file stat failed: %w", err)
 	}
 	if info.Mode()&os.ModeSymlink != 0 {
@@ -218,36 +222,16 @@ func rejectControl(s string) error {
 	return nil
 }
 
-// computeSecretHash returns base36 SHA256 prefix length 6 using naming.ShortHash logic.
-func ComputeSecretHash(kv map[string]string) string {
-	if len(kv) == 0 {
-		return naming.ShortHash("", 6)
-	}
-	var keys []string
-	for k := range kv {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	var b strings.Builder
-	for _, k := range keys {
-		b.WriteString(k)
-		b.WriteByte('=')
-		b.WriteString(kv[k])
-		b.WriteByte(0)
-	}
-	return naming.ShortHash(b.String(), 6)
-}
-
 // mergeEnvFiles returns merged map in order (later overrides earlier); also list of overridden keys (for potential warnings).
-func mergeEnvFiles(baseDir string, files []string) (map[string]string, map[string]string, error) {
+func mergeEnvFiles(baseDir string, envFiles []types.EnvFile) (map[string]string, map[string]string, error) {
 	merged := map[string]string{}
 	overrides := map[string]string{} // key -> previous value
-	for _, f := range files {
-		f = strings.TrimSpace(f)
+	for _, ef := range envFiles {
+		f := strings.TrimSpace(ef.Path)
 		if f == "" {
 			continue
 		}
-		m, err := ReadEnvDirFile(baseDir, f)
+		m, err := ReadEnvDirFile(baseDir, f, ef.Required)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -263,6 +247,3 @@ func mergeEnvFiles(baseDir string, files []string) (map[string]string, map[strin
 	}
 	return merged, overrides, nil
 }
-
-// Exposed helper for converter (minimal surface).
-// (buildComposeSecret removed; logic now inlined in Converter.Convert)

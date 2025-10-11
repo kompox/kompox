@@ -134,7 +134,7 @@ func (u *UseCase) Env(ctx context.Context, in *EnvInput) (*EnvOutput, error) {
 		if err := kube.ValidateSecretData(kv); err != nil {
 			return nil, fmt.Errorf("validate env: %w", err)
 		}
-		hash := kube.ComputeSecretHash(kv)
+		hash := kube.ComputeContentHash(kv)
 		out.Hash = hash
 		for k := range kv {
 			out.Keys = append(out.Keys, k)
@@ -147,7 +147,7 @@ func (u *UseCase) Env(ctx context.Context, in *EnvInput) (*EnvOutput, error) {
 		existing, err := kcli.Clientset.CoreV1().Secrets(namespace).Get(ctx, secretName, metav1.GetOptions{})
 		if err == nil && existing != nil {
 			need := false
-			if existing.Annotations == nil || existing.Annotations[kube.AnnotationK4xComposeSecretHash] != hash {
+			if existing.Annotations == nil || existing.Annotations[kube.AnnotationK4xComposeContentHash] != hash {
 				need = true
 			} else if len(existing.Data) != len(kv) {
 				need = true
@@ -163,7 +163,7 @@ func (u *UseCase) Env(ctx context.Context, in *EnvInput) (*EnvOutput, error) {
 				if existing.Annotations == nil {
 					existing.Annotations = map[string]string{}
 				}
-				existing.Annotations[kube.AnnotationK4xComposeSecretHash] = hash
+				existing.Annotations[kube.AnnotationK4xComposeContentHash] = hash
 				existing.Data = map[string][]byte{}
 				for k, v := range kv {
 					existing.Data[k] = []byte(v)
@@ -181,7 +181,7 @@ func (u *UseCase) Env(ctx context.Context, in *EnvInput) (*EnvOutput, error) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        secretName,
 					Namespace:   namespace,
-					Annotations: map[string]string{kube.AnnotationK4xComposeSecretHash: hash},
+					Annotations: map[string]string{kube.AnnotationK4xComposeContentHash: hash},
 				},
 				Type: corev1.SecretTypeOpaque,
 				Data: map[string][]byte{},
@@ -198,8 +198,8 @@ func (u *UseCase) Env(ctx context.Context, in *EnvInput) (*EnvOutput, error) {
 	}
 
 	if !in.DryRun && out.Applied && c.ResourceName != "" {
-		if err := kcli.PatchDeploymentPodSecretHash(ctx, namespace, c.ResourceName); err != nil {
-			logger.Warn(ctx, "patch deployment secret hash failed", "err", err)
+		if err := kcli.PatchDeploymentPodContentHash(ctx, namespace, c.ResourceName); err != nil {
+			logger.Warn(ctx, "patch deployment content hash failed", "err", err)
 		}
 	}
 	return out, nil

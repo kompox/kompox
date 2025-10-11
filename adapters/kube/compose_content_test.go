@@ -6,6 +6,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/compose-spec/compose-go/v2/types"
 	"github.com/kompox/kompox/internal/naming"
 )
 
@@ -23,7 +24,11 @@ func TestMergeEnvFiles_DotEnvBasic(t *testing.T) {
 	dir := t.TempDir()
 	f1 := writeTemp(t, dir, "base.env", "A=1\nB=2\n# comment\nC=raw value\n")
 	f2 := writeTemp(t, dir, "override.env", "B=22\nC=' spaced '\nD=4\n")
-	kv, overrides, err := mergeEnvFiles(dir, []string{f1, f2})
+	envFiles := []types.EnvFile{
+		{Path: f1, Required: true},
+		{Path: f2, Required: true},
+	}
+	kv, overrides, err := mergeEnvFiles(dir, envFiles)
 	if err != nil {
 		t.Fatalf("mergeEnvFiles: %v", err)
 	}
@@ -41,7 +46,7 @@ func TestMergeEnvFiles_DotEnvBasic(t *testing.T) {
 		t.Errorf("keys mismatch got=%v want=%v", got, wantKeys)
 	}
 	// Hash deterministic
-	h := ComputeSecretHash(kv)
+	h := ComputeContentHash(kv)
 	if h == "" {
 		t.Errorf("expected non-empty hash")
 	}
@@ -51,7 +56,11 @@ func TestMergeEnvFiles_JSON_YAML_Types(t *testing.T) {
 	dir := t.TempDir()
 	jf := writeTemp(t, dir, "vars.json", "{\n  \"A\": 10, \n  \"B\": true, \n  \"C\": false, \n  \"S\": \"str\"\n}\n")
 	yf := writeTemp(t, dir, "vars.yaml", "A: 1\nB: true\nC: false\nS: str\n")
-	kv, _, err := mergeEnvFiles(dir, []string{jf, yf})
+	envFiles := []types.EnvFile{
+		{Path: jf, Required: true},
+		{Path: yf, Required: true},
+	}
+	kv, _, err := mergeEnvFiles(dir, envFiles)
 	if err != nil {
 		t.Fatalf("mergeEnvFiles: %v", err)
 	}
@@ -77,7 +86,7 @@ func TestMergeEnvFiles_Empty(t *testing.T) {
 	if len(kv) != 0 {
 		t.Errorf("expected empty map")
 	}
-	if ComputeSecretHash(kv) != naming.ShortHash("", 6) {
+	if ComputeContentHash(kv) != naming.ShortHash("", 6) {
 		t.Errorf("empty hash mismatch")
 	}
 }
@@ -85,8 +94,49 @@ func TestMergeEnvFiles_Empty(t *testing.T) {
 func TestReadEnvDirFile_InvalidKey(t *testing.T) {
 	dir := t.TempDir()
 	bad := writeTemp(t, dir, "bad.env", "1ABC=zzz\n")
-	_, err := ReadEnvDirFile(dir, bad)
+	_, err := ReadEnvDirFile(dir, bad, true)
 	if err == nil {
 		t.Fatalf("expected error for invalid key")
+	}
+}
+
+func TestReadEnvDirFile_OptionalMissing(t *testing.T) {
+	dir := t.TempDir()
+	// File does not exist, but required=false should not error
+	kv, err := ReadEnvDirFile(dir, "nonexistent.env", false)
+	if err != nil {
+		t.Fatalf("expected no error for optional missing file, got: %v", err)
+	}
+	if len(kv) != 0 {
+		t.Errorf("expected empty map for optional missing file, got: %v", kv)
+	}
+}
+
+func TestReadEnvDirFile_RequiredMissing(t *testing.T) {
+	dir := t.TempDir()
+	// File does not exist and required=true should error
+	_, err := ReadEnvDirFile(dir, "nonexistent.env", true)
+	if err == nil {
+		t.Fatalf("expected error for required missing file")
+	}
+}
+
+func TestMergeEnvFiles_OptionalMissing(t *testing.T) {
+	dir := t.TempDir()
+	f1 := writeTemp(t, dir, "base.env", "A=1\nB=2\n")
+	envFiles := []types.EnvFile{
+		{Path: f1, Required: true},
+		{Path: "missing.env", Required: false}, // Optional file that doesn't exist
+	}
+	kv, _, err := mergeEnvFiles(dir, envFiles)
+	if err != nil {
+		t.Fatalf("mergeEnvFiles: %v", err)
+	}
+	// Should only contain keys from base.env
+	if kv["A"] != "1" || kv["B"] != "2" {
+		t.Errorf("expected A=1 B=2, got: %v", kv)
+	}
+	if len(kv) != 2 {
+		t.Errorf("expected 2 keys, got: %d", len(kv))
 	}
 }
