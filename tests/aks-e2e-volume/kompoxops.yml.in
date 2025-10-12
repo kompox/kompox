@@ -1,5 +1,5 @@
 version: v1
-service:
+workspace:
   name: ${SERVICE_NAME}
 provider:
   name: aks1

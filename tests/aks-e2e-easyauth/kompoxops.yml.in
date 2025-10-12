@@ -1,5 +1,5 @@
 version: v1
-service:
+workspace:
   name: ${SERVICE_NAME}
 provider:
   name: aks1
@@ -41,8 +41,6 @@ app:
       - name: easyauth
         port: 8000
         hosts: [easyauth.custom.exp.kompox.dev]
-      - name: whoami
-        port: 8080
   deployment:
     zone: "1"
   volumes:
