@@ -3,7 +3,7 @@ id: Kompox-Resources
 title: Kompox PaaS Resources
 version: v1
 status: archived
-updated: 2025-09-26
+updated: 2025-10-12
 language: ja
 ---
 
@@ -14,19 +14,19 @@ language: ja
 Kompox PaaS では次の kind のリソースを扱う。
 
 - Persistent Resources (DBで永続化するリソース)
-  - Service
+  - Workspace
   - Provider
   - Cluster
   - App
 
 ## Persistent Resources
 
-### Service
+### Workspace
 
 ```yaml
 version: v1
-kind: Service
-name: <service-name>
+kind: Workspace
+name: <workspace-name>
 ```
 
 ### Provider
@@ -35,7 +35,7 @@ name: <service-name>
 version: v1
 kind: Provider
 name: <provider-name>
-service: <service-name>
+workspace: <workspace-name>
 driver: <driver-name>
 settings:
   <setting-name>: <setting-value>

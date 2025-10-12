@@ -3,7 +3,7 @@ id: Kompox-ProviderDriver-AKS
 title: Kompox Provider Driver AKS ガイド
 version: v1
 status: out-of-sync
-updated: 2025-09-26
+updated: 2025-10-12
 language: ja
 ---
 
@@ -25,11 +25,11 @@ AKS クラスタおよび付随する監視 / レジストリ / Key Vault / ユ�
 | 項目 | 値 |
 |------|----|
 | Driver ID | `aks` |
-| Deployment Stack 名 | `kompox_<ServiceName>_<ProviderName>_<ClusterName>` |
-| 付与クラスタタグ (Azure 全リソース共通タグ) | `kompox-cluster` = `<ServiceName>/<ProviderName>/<ClusterName>` |
+| Deployment Stack 名 | `kompox_<WorkspaceName>_<ProviderName>_<ClusterName>` |
+| 付与クラスタタグ (Azure 全リソース共通タグ) | `kompox-cluster` = `<WorkspaceName>/<ProviderName>/<ClusterName>` |
 | 追加タグ | `managed-by=kompox` |
 
-`ServiceName` はサービスが nil の場合 `(nil)` となる。
+`WorkspaceName` はワークスペースが nil の場合 `(nil)` となる。
 
 ## 設定パラメータ
 ### Provider 設定 (必須 / 任意)

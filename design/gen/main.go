@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -262,6 +263,17 @@ func groupDocs(docs []Doc, orderKeys []string) []Group {
 	var groups []Group
 	for _, key := range orderKeys {
 		if docs := buckets[key]; len(docs) > 0 {
+			// Apply per-group sorting rules before appending.
+			if strings.EqualFold(key, "adr") {
+				sort.SliceStable(docs, func(i, j int) bool {
+					ni := adrNumberFromDoc(docs[i])
+					nj := adrNumberFromDoc(docs[j])
+					if ni == nj {
+						return docs[i].RelPath < docs[j].RelPath
+					}
+					return ni < nj
+				})
+			}
 			groups = append(groups, Group{Key: key, Docs: docs})
 			used[key] = true
 		}
@@ -275,9 +287,66 @@ func groupDocs(docs []Doc, orderKeys []string) []Group {
 	}
 	sort.Strings(rest)
 	for _, k := range rest {
-		groups = append(groups, Group{Key: k, Docs: buckets[k]})
+		ds := buckets[k]
+		if strings.EqualFold(k, "adr") {
+			sort.SliceStable(ds, func(i, j int) bool {
+				ni := adrNumberFromDoc(ds[i])
+				nj := adrNumberFromDoc(ds[j])
+				if ni == nj {
+					return ds[i].RelPath < ds[j].RelPath
+				}
+				return ni < nj
+			})
+		}
+		groups = append(groups, Group{Key: k, Docs: ds})
 	}
 	return groups
+}
+
+// adrNumberFromDoc extracts the numeric ADR id (e.g., 6 from "K4x-ADR-006").
+// Returns a large number when it cannot extract, so unknowns go last.
+func adrNumberFromDoc(d Doc) int {
+	// Prefer front-matter id.
+	if n, ok := adrNumberFromString(d.ID); ok {
+		return n
+	}
+	// Fallback to filename.
+	base := filepath.Base(d.RelPath)
+	stem := strings.TrimSuffix(base, filepath.Ext(base))
+	if n, ok := adrNumberFromString(stem); ok {
+		return n
+	}
+	return 1 << 30
+}
+
+func adrNumberFromString(s string) (int, bool) {
+	if s == "" {
+		return 0, false
+	}
+	up := strings.ToUpper(s)
+	idx := strings.LastIndex(up, "ADR-")
+	if idx < 0 {
+		return 0, false
+	}
+	numPart := s[idx+4:]
+	// take leading digits only
+	end := 0
+	for end < len(numPart) {
+		c := numPart[end]
+		if c < '0' || c > '9' {
+			break
+		}
+		end++
+	}
+	if end == 0 {
+		return 0, false
+	}
+	numPart = numPart[:end]
+	n, err := strconv.Atoi(numPart)
+	if err != nil {
+		return 0, false
+	}
+	return n, true
 }
 
 // inferGroupKeyFromPath returns first directory segment as a grouping key.

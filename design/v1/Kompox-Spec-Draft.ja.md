@@ -3,7 +3,7 @@ id: Kompox-Spec-Draft
 title: Kompox 仕様ドラフト
 version: v1
 status: archived
-updated: 2025-09-26
+updated: 2025-10-12
 language: ja
 ---
 
@@ -68,7 +68,7 @@ kompoxops snapshot delete ... スナップショットリソースの削除
 
 ```yaml
 version: 1
-service:
+workspace:
   name: ops
 provider:
   name: aks1
@@ -77,7 +77,7 @@ provider:
     AZURE_TOKEN_CREDENTIALS: dev
     AZURE_TENANT_ID: xxxxxx
     AZURE_SUBSCRIPTION_ID: xxxxxx
-    AZURE_LOCATION: japaneast          
+    AZURE_LOCATION: japaneast
 cluster:
   name: my-aks
   auth:
@@ -85,7 +85,7 @@ cluster:
     kubeconfig: ~/.kube/config
     context: my-aks
   ingress:
-    controller: traefik  
+    controller: traefik
     namespace: traefik
   domain: ops.kompox.dev
   settings:
@@ -95,7 +95,7 @@ app:
   compose: compose.yml
   ingress:
     http_80: www.my-app.kompox.dev
-    http_8080: admin.my-app.kompox.dev     
+    http_8080: admin.my-app.kompox.dev
   resources:
     cpu: 500m
     memory: 1Gi
@@ -136,20 +136,20 @@ kompox-created-at: 2025-08-11T12:34:56Z
 Kompox PaaS REST API リソースモデル
 
 ```go
-// サービス (シングルトンリソース)
-type Service struct {
+// ワークスペース (シングルトンリソース)
+type Workspace struct {
   Name string // DNSホスト名の制約
 }
 
 // プロバイダ
 type Provider struct {
   Name string
-  Service string             // Service.Name の参照
+  Workspace string           // Workspace.Name の参照
   Driver string              // aks, k3s, oke, etc.
   Settings map[string]string // Provider固有の設定値
 }
 
-// Kubernetesクラスタ (Serviceに所属する)
+// Kubernetesクラスタ (Workspaceに所属する)
 type Cluster struct {
   Name string                // DNSホスト名の制約
   Provider string            // Provider.Name の参照
@@ -178,22 +178,22 @@ type App struct {
   Ingress map[string]string   // カスタムDNSホスト名 Ingress 設定
   Resources map[string]string // Podリソース設定 (cpu, memory, etc.)
   Settings map[string]string  // App固有の設定値
-}          
+}
 ```
 
 Kompox PaaS REST API 実装仕様
 
 - kompoxsvcはコンテナWebアプリとして実装するが、具体的なホストサービスはターゲットインフラの種類ごとに異なる。
-  - コントロールプレーンAPIを提供するサーバ(kompoxsvc)と、それにアクセスするクライアントCLI(kompox)をGo言語で実装する。  
+  - コントロールプレーンAPIを提供するサーバ(kompoxsvc)と、それにアクセスするクライアントCLI(kompox)をGo言語で実装する。
   - Azureの場合はAzure Cotainer AppsとAzure Database for MySQL flexible serverでホストする。
   - シングルノードK3sの場合はそのK3sホストで稼働するprivilegedなコンテナWebアプリとしてsqlite3でホストする。
-- Service
+- Workspace
   - 管理者が設定するシングルトンのリソース
   - NameはRFC1123準拠のDNSラベル名
 - Provider
   - 管理者が設定するクラスタプロバイダのリソース
   - NameはRFC1123準拠のDNSラベル名
-  - Serviceに所属する
+  - Workspaceに所属する
   - Driverでクラスタの種類を指定する aks,k3s,oke など
   - SettingsでProvider固有の設定を指定する
 - Cluster
@@ -209,9 +209,9 @@ Kompox PaaS REST API 実装仕様
   - NameはRFC1123準拠のDNSラベル名
   - Clusterに所属する
   - ComposeにDocker Compose設定を格納する
-  - IngressでカスタムDNSホスト名のIngress設定を指定する    
-  - ResourcesでPodの割り当てを指定する  
-  - SettingsでCluster.Provider固有の設定を指定する  
+  - IngressでカスタムDNSホスト名のIngress設定を指定する
+  - ResourcesでPodの割り当てを指定する
+  - SettingsでCluster.Provider固有の設定を指定する
 - 各 Cluster では Traefik Proxy をイングレスコントローラとしてデプロイする。
 - 各 Cluster ごとにデフォルト DNS として \*.{cluster.ingress.domain} のワイルドカードSSL証明書を Traefik Proxy に設定する。 証明書の取得・保持方法は Provider により異なる。
 - ユーザーは App を作成・所有・デプロイできる。
@@ -228,6 +228,6 @@ Kompox PaaS REST API 実装仕様
 - ユーザーはClusterのパブリックFQDNとIPアドレスを取得できる。カスタムDNSホストのCNAMEやAレコードにこれを設定することはユーザーの責任とする。Traefik ProxyはLet's EncryptのTLS-ALPN-01チャレンジによりSSL証明書を自動取得する。
 - ユーザーはAppに属するディスクのリスト、インポート、エクスポート、削除、切り替えができる。
 - ユーザーはAppに属するスナップショットのリスト、作成、復元、エクスポート、削除ができる。
-- Appに属するディスクやスナップショットなどのクラウドリソースの列挙の方法は Provider/Cluster/App に依存する。通常は "{Service.Name}/{Provider.Name}/{Cluster.Name}/{App.Name}" という値を持つタグをリソースに設定することで識別する。    
+- Appに属するディスクやスナップショットなどのクラウドリソースの列挙の方法は Provider/Cluster/App に依存する。通常は "{Workspace.Name}/{Provider.Name}/{Cluster.Name}/{App.Name}" という値を持つタグをリソースに設定することで識別する。
 - ユーザーは所有する App の K8s ネームスペースに限定した権限を持つ K8s API トークンが得られる。これによりユーザーはコンテナの稼働状況やログを取得でき、コマンド実行やシェル接続もできる。リソースの更新や削除は許可しない。
 - AKS においては OIDC 連携に対応する。指定した Entra ID ユーザー・サービスプリンシパルは上記の権限を持つK8s API トークンが得られる。

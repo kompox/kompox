@@ -123,7 +123,7 @@ Azure Kubernetes Service (AKS) 向けの設定ファイル [kompoxops.yml](./tes
 
 ```yaml
 version: v1
-service:
+workspace:
   name: aks-e2e-gitea-20250925-060355
 provider:
   name: aks1

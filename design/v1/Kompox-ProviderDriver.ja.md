@@ -3,7 +3,7 @@ id: Kompox-ProviderDriver
 title: Kompox Provider Driver ガイド
 version: v1
 status: synced
-updated: 2025-10-08
+updated: 2025-10-12
 language: ja
 ---
 
@@ -39,9 +39,9 @@ type Driver interface {
     // ID returns the provider driver identifier (e.g., "aks").
     ID() string
 
-    // ServiceName returns the service name associated with this driver instance.
-    // May return "(nil)" if no service is associated (e.g., for testing).
-    ServiceName() string
+    // WorkspaceName returns the workspace name associated with this driver instance.
+    // May return "(nil)" if no workspace is associated (e.g., for testing).
+    WorkspaceName() string
 
     // ProviderName returns the provider name associated with this driver instance.
     ProviderName() string
@@ -112,13 +112,13 @@ type Driver interface {
 ## レジストリと生成
 
 - レジストリ: `/adapters/drivers/provider/registry.go` の `Register(name, factory)` を使用し、`init()` で自己登録。
-- 生成: Usecase 側は `GetDriverFactory()` でファクトリを取得し、`factory(service, provider)` でドライバを生成する。
+- 生成: Usecase 側は `GetDriverFactory()` でファクトリを取得し、`factory(workspace, provider)` でドライバを生成する。
 
 登録例(抜粋)
 ```go
 func init() {
-  providerdrv.Register("aks", func(service *model.Service, provider *model.Provider) (providerdrv.Driver, error) {
-    // validate provider.Settings and service as needed, create credentials, return driver
+  providerdrv.Register("aks", func(workspace *model.Workspace, provider *model.Provider) (providerdrv.Driver, error) {
+    // validate provider.Settings and workspace as needed, create credentials, return driver
     return &driver{/* ... */}, nil
   })
 }

@@ -3,7 +3,7 @@ id: Kompox-KubeConverter
 title: Kompox Kube Converter ガイド
 version: v1
 status: synced
-updated: 2025-10-10
+updated: 2025-10-12
 language: ja
 ---
 
@@ -14,7 +14,7 @@ language: ja
 本書は `adapters/kube` が提供するコンバータ `kube.Converter` の設計と公開契約を解説します。Docker Compose を入力として、Kubernetes マニフェストへ変換する方針とルールを示します。
 
 - 本書で扱う主な事項:
-  - Service/Provider/Cluster/App 定義からのマニフェスト生成規則
+  - Workspace/Provider/Cluster/App 定義からのマニフェスト生成規則
 
 ## 方針
 
@@ -110,7 +110,7 @@ Namespace には次のアノテーションを設定する。
 ```yaml
 metadata:
   annotations:
-    kompox.dev/app: <serviceName>/<providerName>/<clusterName>/<appName>
+    kompox.dev/app: <workspaceName>/<providerName>/<clusterName>/<appName>
     kompox.dev/provider-driver: <providerDriverName>
 ```
 
@@ -153,22 +153,22 @@ metadata:
 HASH = BASEのSHA256バイト列を256bitのLSB first bigintとして扱い36進数表記した冒頭6文字
 ```
 
-`<spHASH>` (サービス・プロバイダハッシュ)
+`<spHASH>` (ワークスペース・プロバイダハッシュ)
 
 ```
-BASE = service.name + ":" + provider.name
+BASE = workspace.name + ":" + provider.name
 ```
 
 `<inHASH>` (クラスタ依存アプリハッシュ)
 
 ```
-BASE = service.name + ":" + provider.name + ":" + cluster.name + ":" + app.name
+BASE = workspace.name + ":" + provider.name + ":" + cluster.name + ":" + app.name
 ```
 
 `<idHASH>` (クラスタ非依存アプリハッシュ)
 
 ```
-BASE = service.name + ":" + provider.name + ":" + app.name
+BASE = workspace.name + ":" + provider.name + ":" + app.name
 ```
 
 `<volHASH>` (クラウドディスクリソースハッシュ)
@@ -689,7 +689,7 @@ Deployment.spec.template.spec.nodeSelector に `kompox.dev/node-pool: <pool>` �
 
 ```yaml
 version: v1
-service:
+workspace:
   name: ops
 provider:
   name: aks1

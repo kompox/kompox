@@ -3,7 +3,7 @@ id: Kompox-CLI
 title: Kompox PaaS CLI
 version: v1
 status: synced
-updated: 2025-10-08
+updated: 2025-10-12
 language: ja
 ---
 
@@ -47,15 +47,15 @@ kompoxops は永続化DBなしで動作することができる。
 リソース定義ファイル kompoxops.yml をグローバルオプションで `--db-url file:kompoxops.yml` のように指定すると、
 リソース定義をインメモリDBに読み込み、それに対して Kompox PaaS と同様の操作を行うことができる。
 
-kompoxops.yml には service, provider, cluster, app の各定義が 1 つずつ含まれる。
+kompoxops.yml には workspace, provider, cluster, app の各定義が 1 つずつ含まれる。
 それらは kompoxops の memory データベースストアに読み込まれて
-自動的に app → cluster → provider → service の依存関係が設定される。
+自動的に app → cluster → provider → workspace の依存関係が設定される。
 
 kompoxops.yml の例:
 
 ```yaml
 version: v1
-service:
+workspace:
   name: ops
 provider:
   name: aks1
@@ -137,7 +137,7 @@ kompoxops cluster kubeconfig --cluster-name <clusterName>    kubectl 用 kubecon
 
 - `--cluster-name | -C` クラスタ名を指定 (デフォルト: kompoxops.yml の cluster.name)
 
-provision/deprovision コマンドは service/provider/cluster リソースの設定に従って K8s クラスタを作成・削除する。
+provision/deprovision コマンドは workspace/provider/cluster リソースの設定に従って K8s クラスタを作成・削除する。
 既存のクラスタを参照する場合は cluster.existing を true に設定する。
 cluster.existing が true の場合 provision/deprovision は常に成功を返す。
 
@@ -198,7 +198,7 @@ Provider Driver からクラスタの kubeconfig(管理者資格)を取得し、
 - `--merge` 既存 kubeconfig に統合(既定: `~/.kube/config`)
 - `--kubeconfig PATH` 統合先ファイル(既定: `~/.kube/config`)
 - `--context NAME` 生成する context 名(既定: `kompoxops-<clusterName>`)
-- `--namespace NS` context のデフォルト namespace。未指定で設定ファイルが読み込まれている場合は Service/Provider/Cluster/App 名から導出された内部既定値が自動で入る。
+- `--namespace NS` context のデフォルト namespace。未指定で設定ファイルが読み込まれている場合は Workspace/Provider/Cluster/App 名から導出された内部既定値が自動で入る。
 - `--set-current` 統合後に current-context を新しい context に設定
 - `--force` 同名エントリがある場合に上書き(未指定時は `-1`, `-2` のように自動ユニーク化)
 - `--temp` セキュアな一時ファイルに保存してパスを出力
@@ -1031,9 +1031,9 @@ SCPとrsyncの使い分け:
 
 ```
 kompoxops admin [--db-url <URL>] <KIND> <VERB> <options...>
-kompoxops admin service list
-kompoxops admin service get svc-a
-kompoxops admin service create -f svc-a.yml
-kompoxops admin service update svc-a -f svc-a.yml
-kompoxops admin service delete svc-a
+kompoxops admin workspace list
+kompoxops admin workspace get ws-a
+kompoxops admin workspace create -f ws-a.yml
+kompoxops admin workspace update ws-a -f ws-a.yml
+kompoxops admin workspace delete ws-a
 ```

@@ -3,7 +3,7 @@ id: Kompox-Arch-Implementation
 title: Kompox Implementation Architecture
 version: v1
 status: synced
-updated: 2025-09-27
+updated: 2025-10-12
 language: ja
 ---
 
@@ -43,7 +43,7 @@ usecase/                ユースケース層
   cluster/              package cluster: Cluster リソースのユースケース
   provider/             package provider: Provider リソースのユースケース
   secret/               package secret: Secret リソースのユースケース
-  service/              package service: Service リソースのユースケース
+  workspace/            package workspace: Workspace リソースのユースケース
   volume/               package volume: Volume リソースのユースケース
 
 config/
@@ -86,7 +86,7 @@ Makefile                Make タスク定義
 このプロジェクトでは次の種類 (kind) のリソースを管理する。
 UseCase で REST API の CRUD 操作を定義する。
 
-- Service
+- Workspace
 - Provider
 - Cluster
 - App
@@ -161,7 +161,7 @@ type ClusterStatus struct { ... }
 
 - フィールド名はコンテキストによる省略を禁止（例: AppID を ID としない）。`AppID`, `ProviderID`, `ClusterID` 等の完全形を維持
 - 直列化要件: すべての公開フィールドに JSON タグ（snake_case）を付与し、安定したストレージ/ログ出力互換性を確保
-- `Output` が 1 つの主要エンティティを返す場合は `Service *model.Service` のように明示。複数の場合は `Services []*model.Service` 等の複数形
+- `Output` が 1 つの主要エンティティを返す場合は `Workspace *model.Workspace` のように明示。複数の場合は `Workspaces []*model.Workspace` 等の複数形
 - 追加情報（メタデータや集計値）が必要な場合も `Output` にフィールドを追加し、戻り値シグネチャは変えない
 - 空出力は `type DeleteOutput struct{}` のように空 struct を許可
 
@@ -180,10 +180,10 @@ type ClusterStatus struct { ... }
 ```go
 // Repos はユースケースが利用するリポジトリ依存関係の束。
 type Repos struct {
-  Service  domain.ServiceRepository
-  Provider domain.ProviderRepository
-  Cluster  domain.ClusterRepository
-  App      domain.AppRepository
+  Workspace domain.WorkspaceRepository
+  Provider  domain.ProviderRepository
+  Cluster   domain.ClusterRepository
+  App       domain.AppRepository
 }
 
 // UseCase は <resource> に対するアプリケーションサービスを提供する。
@@ -203,16 +203,16 @@ type CreateInput struct {
 
 // CreateOutput は作成結果。
 type CreateOutput struct {
-  Service *model.Service `json:"service"`
+  Workspace *model.Workspace `json:"workspace"`
 }
 
-// Create は新しい Service を作成する。
+// Create は新しい Workspace を作成する。
 func (u *UseCase) Create(ctx context.Context, in *CreateInput) (*CreateOutput, error) {
   if in == nil { return nil, model.ErrInvalidArgument }
   if in.Name == "" { return nil, model.ErrInvalidArgument }
-  svc := &model.Service{ /* ... */ }
-  if err := u.Repos.Service.Create(ctx, svc); err != nil { return nil, err }
-  return &CreateOutput{Service: svc}, nil
+  ws := &model.Workspace{ /* ... */ }
+  if err := u.Repos.Workspace.Create(ctx, ws); err != nil { return nil, err }
+  return &CreateOutput{Workspace: ws}, nil
 }
 ```
 
@@ -243,12 +243,12 @@ func (u *UseCase) Status(ctx context.Context, in *StatusInput) (*StatusOutput, e
 ### 例: 削除のみのメソッド (`delete.go`)
 
 ```go
-type DeleteInput struct { ServiceID string `json:"service_id"` }
+type DeleteInput struct { WorkspaceID string `json:"workspace_id"` }
 type DeleteOutput struct{}
 
 func (u *UseCase) Delete(ctx context.Context, in *DeleteInput) (*DeleteOutput, error) {
-  if in == nil || in.ServiceID == "" { return nil, model.ErrInvalidArgument }
-  if err := u.Repos.Service.Delete(ctx, in.ServiceID); err != nil { return nil, err }
+  if in == nil || in.WorkspaceID == "" { return nil, model.ErrInvalidArgument }
+  if err := u.Repos.Workspace.Delete(ctx, in.WorkspaceID); err != nil { return nil, err }
   return &DeleteOutput{}, nil
 }
 ```
