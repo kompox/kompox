@@ -10,8 +10,8 @@ import (
 
 // clusterPortAdapter implements model.ClusterPort backed by provider drivers.
 type clusterPortAdapter struct {
-	services  domain.ServiceRepository
-	providers domain.ProviderRepository
+	workspaces domain.WorkspaceRepository
+	providers  domain.ProviderRepository
 }
 
 // getDriver fetches a provider driver for the given cluster.
@@ -23,15 +23,15 @@ func (a *clusterPortAdapter) getDriver(ctx context.Context, cluster *model.Clust
 	if err != nil {
 		return nil, fmt.Errorf("failed to get provider %s: %w", cluster.ProviderID, err)
 	}
-	var service *model.Service
-	if provider.ServiceID != "" {
-		service, _ = a.services.Get(ctx, provider.ServiceID)
+	var workspace *model.Workspace
+	if provider.WorkspaceID != "" {
+		workspace, _ = a.workspaces.Get(ctx, provider.WorkspaceID)
 	}
 	factory, ok := GetDriverFactory(provider.Driver)
 	if !ok {
 		return nil, fmt.Errorf("unknown provider driver: %s", provider.Driver)
 	}
-	drv, err := factory(service, provider)
+	drv, err := factory(workspace, provider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create driver %s: %w", provider.Driver, err)
 	}
@@ -102,6 +102,6 @@ func (a *clusterPortAdapter) DNSApply(ctx context.Context, cluster *model.Cluste
 }
 
 // GetClusterPort returns a model.ClusterPort implemented via provider drivers.
-func GetClusterPort(services domain.ServiceRepository, providers domain.ProviderRepository) model.ClusterPort {
-	return &clusterPortAdapter{services: services, providers: providers}
+func GetClusterPort(workspaces domain.WorkspaceRepository, providers domain.ProviderRepository) model.ClusterPort {
+	return &clusterPortAdapter{workspaces: workspaces, providers: providers}
 }

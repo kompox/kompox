@@ -2,8 +2,8 @@ package model
 
 import "time"
 
-// Service represents a deployable logical service.
-type Service struct {
+// Workspace represents a deployable logical workspace.
+type Workspace struct {
 	ID        string
 	Name      string
 	CreatedAt time.Time

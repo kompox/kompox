@@ -93,7 +93,7 @@ services:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &model.Service{Name: "testsvc"}
+			svc := &model.Workspace{Name: "testsvc"}
 			prv := &model.Provider{Name: "testprv", Driver: "test"}
 			cls := &model.Cluster{Name: "testcls"}
 			app := &model.App{

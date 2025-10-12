@@ -467,15 +467,15 @@ func newCmdClusterKubeconfig() *cobra.Command {
 			if err != nil || providerObj == nil {
 				return fmt.Errorf("failed to get provider %s: %w", clusterObj.ProviderID, err)
 			}
-			var serviceObj *model.Service
-			if providerObj.ServiceID != "" {
-				serviceObj, _ = clusterUC.Repos.Service.Get(ctx, providerObj.ServiceID)
+			var workspaceObj *model.Workspace
+			if providerObj.WorkspaceID != "" {
+				workspaceObj, _ = clusterUC.Repos.Workspace.Get(ctx, providerObj.WorkspaceID)
 			}
 			factory, ok := providerdrv.GetDriverFactory(providerObj.Driver)
 			if !ok {
 				return fmt.Errorf("unknown provider driver: %s", providerObj.Driver)
 			}
-			drv, err := factory(serviceObj, providerObj)
+			drv, err := factory(workspaceObj, providerObj)
 			if err != nil {
 				return fmt.Errorf("failed to create driver %s: %w", providerObj.Driver, err)
 			}
@@ -490,24 +490,15 @@ func newCmdClusterKubeconfig() *cobra.Command {
 				contextName = fmt.Sprintf("kompoxops-%s", clusterName)
 			}
 			// Derive default namespace if not explicitly provided via --namespace.
-			// We use naming.NewHashes(service, provider, cluster, app).Namespace when
+			// We use naming.NewHashes(workspace, provider, cluster, app).Namespace when
 			// configRoot is available and app name configured; otherwise keep empty to
 			// preserve upstream kubeconfig default namespace behavior.
 			if namespaceName == "" && configRoot != nil {
-				serviceName := ""
-				providerName := ""
-				appName := ""
-				if configRoot.Service.Name != "" {
-					serviceName = configRoot.Service.Name
-				}
-				if providerObj != nil {
-					providerName = providerObj.Name
-				}
-				if configRoot.App.Name != "" {
-					appName = configRoot.App.Name
-				}
-				if serviceName != "" && providerName != "" && appName != "" { // require all to avoid accidental collision
-					hashes := naming.NewHashes(serviceName, providerName, clusterName, appName)
+				workspaceName := configRoot.Workspace.Name
+				providerName := providerObj.Name
+				appName := configRoot.App.Name
+				if workspaceName != "" && providerName != "" && appName != "" { // require all to avoid accidental collision
+					hashes := naming.NewHashes(workspaceName, providerName, clusterName, appName)
 					namespaceName = hashes.Namespace
 				}
 			}

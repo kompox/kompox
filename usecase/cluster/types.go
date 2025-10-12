@@ -7,9 +7,9 @@ import (
 
 // Repos holds repositories needed for cluster use cases.
 type Repos struct {
-	Service  domain.ServiceRepository
-	Cluster  domain.ClusterRepository
-	Provider domain.ProviderRepository
+	Workspace domain.WorkspaceRepository
+	Cluster   domain.ClusterRepository
+	Provider  domain.ProviderRepository
 }
 
 // UseCase wires repositories and ports needed for cluster use cases.

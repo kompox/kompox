@@ -18,7 +18,7 @@ func newCmdAdmin() *cobra.Command {
 			return fmt.Errorf("invalid command")
 		},
 	}
-	c.AddCommand(newCmdAdminService())
+	c.AddCommand(newCmdAdminWorkspace())
 	c.AddCommand(newCmdAdminProvider())
 	c.AddCommand(newCmdAdminCluster())
 	c.AddCommand(newCmdAdminApp())

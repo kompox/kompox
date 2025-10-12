@@ -13,7 +13,7 @@ import (
 
 // driver implements the AKS provider driver.
 type driver struct {
-	serviceName         string
+	workspaceName       string
 	providerName        string
 	resourcePrefix      string
 	TokenCredential     azcore.TokenCredential
@@ -24,8 +24,8 @@ type driver struct {
 // ID returns the provider identifier.
 func (d *driver) ID() string { return "aks" }
 
-// ServiceName returns the service name associated with this driver instance.
-func (d *driver) ServiceName() string { return d.serviceName }
+// WorkspaceName returns the workspace name associated with this driver instance.
+func (d *driver) WorkspaceName() string { return d.workspaceName }
 
 // ProviderName returns the provider name associated with this driver instance.
 func (d *driver) ProviderName() string { return d.providerName }
@@ -35,11 +35,11 @@ func (d *driver) ResourceGroupBaseName() string { return d.resourcePrefix }
 
 // init registers the AKS driver.
 func init() {
-	providerdrv.Register("aks", func(service *model.Service, provider *model.Provider) (providerdrv.Driver, error) {
-		// Determine ServiceName
-		serviceName := "(nil)"
-		if service != nil {
-			serviceName = service.Name
+	providerdrv.Register("aks", func(workspace *model.Workspace, provider *model.Provider) (providerdrv.Driver, error) {
+		// Determine WorkspaceName
+		workspaceName := "(nil)"
+		if workspace != nil {
+			workspaceName = workspace.Name
 		}
 
 		settings := provider.Settings
@@ -113,7 +113,7 @@ func init() {
 
 		prefix := get(keyResourcePrefix)
 		if prefix == "" {
-			h := naming.NewHashes(serviceName, provider.Name, "", "")
+			h := naming.NewHashes(workspaceName, provider.Name, "", "")
 			// Default Azure resource prefix aligns with namespace/pv naming spec: k4x-<spHASH>
 			prefix = fmt.Sprintf("k4x-%s", h.Provider)
 		}
@@ -122,7 +122,7 @@ func init() {
 		}
 
 		return &driver{
-			serviceName:         serviceName,
+			workspaceName:       workspaceName,
 			providerName:        provider.Name,
 			resourcePrefix:      prefix,
 			TokenCredential:     cred,

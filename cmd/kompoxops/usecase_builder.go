@@ -8,8 +8,8 @@ import (
 	"github.com/kompox/kompox/usecase/dns"
 	"github.com/kompox/kompox/usecase/provider"
 	"github.com/kompox/kompox/usecase/secret"
-	"github.com/kompox/kompox/usecase/service"
 	"github.com/kompox/kompox/usecase/volume"
+	"github.com/kompox/kompox/usecase/workspace"
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +21,7 @@ func buildAppUseCase(cmd *cobra.Command) (*app.UseCase, error) {
 	}
 	return &app.UseCase{
 		Repos:      repos,
-		VolumePort: providerdrv.GetVolumePort(repos.Service, repos.Provider, repos.Cluster, repos.App),
+		VolumePort: providerdrv.GetVolumePort(repos.Workspace, repos.Provider, repos.Cluster, repos.App),
 	}, nil
 }
 
@@ -33,7 +33,7 @@ func buildClusterUseCase(cmd *cobra.Command) (*cluster.UseCase, error) {
 	}
 	return &cluster.UseCase{
 		Repos:       repos,
-		ClusterPort: providerdrv.GetClusterPort(repos.Service, repos.Provider),
+		ClusterPort: providerdrv.GetClusterPort(repos.Workspace, repos.Provider),
 	}, nil
 }
 
@@ -46,13 +46,13 @@ func buildProviderUseCase(cmd *cobra.Command) (*provider.UseCase, error) {
 	return &provider.UseCase{Repos: repos}, nil
 }
 
-// buildServiceUseCase creates service use case with required repositories.
-func buildServiceUseCase(cmd *cobra.Command) (*service.UseCase, error) {
-	repos, err := buildServiceRepos(cmd)
+// buildWorkspaceUseCase creates workspace use case with required repositories.
+func buildWorkspaceUseCase(cmd *cobra.Command) (*workspace.UseCase, error) {
+	repos, err := buildWorkspaceRepos(cmd)
 	if err != nil {
 		return nil, err
 	}
-	return &service.UseCase{Repos: repos}, nil
+	return &workspace.UseCase{Repos: repos}, nil
 }
 
 // buildVolumeUseCase creates volume use case with required repositories and ports.
@@ -63,7 +63,7 @@ func buildVolumeUseCase(cmd *cobra.Command) (*volume.UseCase, error) {
 	}
 	return &volume.UseCase{
 		Repos:      repos,
-		VolumePort: providerdrv.GetVolumePort(repos.Service, repos.Provider, repos.Cluster, repos.App),
+		VolumePort: providerdrv.GetVolumePort(repos.Workspace, repos.Provider, repos.Cluster, repos.App),
 	}, nil
 }
 
@@ -75,7 +75,7 @@ func buildBoxUseCase(cmd *cobra.Command) (*box.UseCase, error) {
 	}
 	return &box.UseCase{
 		Repos:      repos,
-		VolumePort: providerdrv.GetVolumePort(repos.Service, repos.Provider, repos.Cluster, repos.App),
+		VolumePort: providerdrv.GetVolumePort(repos.Workspace, repos.Provider, repos.Cluster, repos.App),
 	}, nil
 }
 
@@ -96,6 +96,6 @@ func buildDNSUseCase(cmd *cobra.Command) (*dns.UseCase, error) {
 	}
 	return &dns.UseCase{
 		Repos:       repos,
-		ClusterPort: providerdrv.GetClusterPort(repos.Service, repos.Provider),
+		ClusterPort: providerdrv.GetClusterPort(repos.Workspace, repos.Provider),
 	}, nil
 }

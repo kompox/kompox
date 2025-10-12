@@ -94,7 +94,7 @@ func TestCheckTargetConflict_MultipleConfigsConflict(t *testing.T) {
 
 // TestConvert_ConfigDefaultTarget tests that configs without target use default /<configName>
 func TestConvert_ConfigDefaultTarget(t *testing.T) {
-	svc := &model.Service{Name: "testsvc"}
+	svc := &model.Workspace{Name: "testsvc"}
 	prv := &model.Provider{Name: "testprv", Driver: "test"}
 	cls := &model.Cluster{Name: "testcls"}
 
@@ -138,7 +138,7 @@ func TestConvert_ConfigDefaultTarget(t *testing.T) {
 
 // TestConvert_SecretDefaultTarget tests that secrets without target use default /run/secrets/<secretName>
 func TestConvert_SecretDefaultTarget(t *testing.T) {
-	svc := &model.Service{Name: "testsvc"}
+	svc := &model.Workspace{Name: "testsvc"}
 	prv := &model.Provider{Name: "testprv", Driver: "test"}
 	cls := &model.Cluster{Name: "testcls"}
 
@@ -182,7 +182,7 @@ func TestConvert_SecretDefaultTarget(t *testing.T) {
 
 // TestConvert_ConfigSecretExplicitTarget tests that explicit targets override defaults
 func TestConvert_ConfigSecretExplicitTarget(t *testing.T) {
-	svc := &model.Service{Name: "testsvc"}
+	svc := &model.Workspace{Name: "testsvc"}
 	prv := &model.Provider{Name: "testprv", Driver: "test"}
 	cls := &model.Cluster{Name: "testcls"}
 

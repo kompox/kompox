@@ -13,7 +13,7 @@ func TestLoad_Success(t *testing.T) {
 
 	content := `
 version: v1
-service:
+workspace:
   name: ops
 provider:
   name: k3s1
@@ -59,8 +59,8 @@ app:
 	if cfg.Version != "v1" {
 		t.Errorf("expected version v1, got %s", cfg.Version)
 	}
-	if cfg.Service.Name != "ops" {
-		t.Errorf("unexpected service name: %s", cfg.Service.Name)
+	if cfg.Workspace.Name != "ops" {
+		t.Errorf("unexpected workspace name: %s", cfg.Workspace.Name)
 	}
 	if cfg.Provider.Name != "k3s1" || cfg.Provider.Driver != "k3s" {
 		t.Errorf("unexpected provider: %+v", cfg.Provider)
@@ -102,7 +102,7 @@ func TestLoad_InvalidVolumeName(t *testing.T) {
 	path := filepath.Join(dir, "bad-volume.yml")
 
 	content := `version: v1
-service:
+workspace:
   name: ops
 provider:
   name: k3s1

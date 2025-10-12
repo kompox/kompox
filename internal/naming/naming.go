@@ -11,18 +11,18 @@ import (
 	"math/big"
 )
 
-// Hashes groups hierarchical short hashes derived from service, provider,
+// Hashes groups hierarchical short hashes derived from workspace, provider,
 // cluster and app identifiers.
 //
 // Mapping (semantic scope -> field):
 //
-//	service                          -> Service
-//	service/provider                 -> Provider
-//	service/provider/cluster         -> Cluster
-//	service/provider/app             -> AppID (cluster independent)
-//	service/provider/cluster/app     -> AppInstance (cluster dependent)
+//	workspace                          -> Workspace
+//	workspace/provider                 -> Provider
+//	workspace/provider/cluster         -> Cluster
+//	workspace/provider/app             -> AppID (cluster independent)
+//	workspace/provider/cluster/app     -> AppInstance (cluster dependent)
 type Hashes struct {
-	Service     string
+	Workspace   string
 	Provider    string
 	Cluster     string
 	AppID       string
@@ -53,13 +53,13 @@ func VolumeHash(handle string) string {
 }
 
 // NewHashes computes hierarchical hashes for the given identifiers.
-func NewHashes(service, provider, cluster, app string) Hashes {
+func NewHashes(workspace, provider, cluster, app string) Hashes {
 	h := Hashes{
-		Service:     ShortHash(service, defaultLength),
-		Provider:    ShortHash(fmt.Sprintf("%s:%s", service, provider), defaultLength),
-		Cluster:     ShortHash(fmt.Sprintf("%s:%s:%s", service, provider, cluster), defaultLength),
-		AppID:       ShortHash(fmt.Sprintf("%s:%s:%s", service, provider, app), defaultLength),
-		AppInstance: ShortHash(fmt.Sprintf("%s:%s:%s:%s", service, provider, cluster, app), defaultLength),
+		Workspace:   ShortHash(workspace, defaultLength),
+		Provider:    ShortHash(fmt.Sprintf("%s:%s", workspace, provider), defaultLength),
+		Cluster:     ShortHash(fmt.Sprintf("%s:%s:%s", workspace, provider, cluster), defaultLength),
+		AppID:       ShortHash(fmt.Sprintf("%s:%s:%s", workspace, provider, app), defaultLength),
+		AppInstance: ShortHash(fmt.Sprintf("%s:%s:%s:%s", workspace, provider, cluster, app), defaultLength),
 	}
 	// Namespace naming format:
 	//   k4x-<spHASH>-<appName>-<idHASH>

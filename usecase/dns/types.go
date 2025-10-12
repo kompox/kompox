@@ -7,13 +7,13 @@ import (
 
 // Repos bundles repository dependencies used by DNS use cases.
 type Repos struct {
-	Service  domain.ServiceRepository
-	Provider domain.ProviderRepository
-	Cluster  domain.ClusterRepository
-	App      domain.AppRepository
+	Workspace domain.WorkspaceRepository
+	Provider  domain.ProviderRepository
+	Cluster   domain.ClusterRepository
+	App       domain.AppRepository
 }
 
-// UseCase provides application services for DNS operations.
+// UseCase provides application logic for DNS operations.
 type UseCase struct {
 	Repos       *Repos
 	ClusterPort model.ClusterPort

@@ -43,16 +43,16 @@ func (u *UseCase) Logs(ctx context.Context, in *LogsInput) (*LogsOutput, error) 
 	if err != nil || providerObj == nil {
 		return nil, fmt.Errorf("failed to get provider %s: %w", clusterObj.ProviderID, err)
 	}
-	var serviceObj *model.Service
-	if providerObj.ServiceID != "" {
-		serviceObj, _ = u.Repos.Service.Get(ctx, providerObj.ServiceID)
+	var workspaceObj *model.Workspace
+	if providerObj.WorkspaceID != "" {
+		workspaceObj, _ = u.Repos.Workspace.Get(ctx, providerObj.WorkspaceID)
 	}
 
 	factory, ok := providerdrv.GetDriverFactory(providerObj.Driver)
 	if !ok {
 		return nil, fmt.Errorf("unknown provider driver: %s", providerObj.Driver)
 	}
-	drv, err := factory(serviceObj, providerObj)
+	drv, err := factory(workspaceObj, providerObj)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create driver %s: %w", providerObj.Driver, err)
 	}
@@ -66,7 +66,7 @@ func (u *UseCase) Logs(ctx context.Context, in *LogsInput) (*LogsOutput, error) 
 	}
 
 	// Determine namespace via converter
-	c := kube.NewConverter(serviceObj, providerObj, clusterObj, appObj, "app")
+	c := kube.NewConverter(workspaceObj, providerObj, clusterObj, appObj, "app")
 	if _, err := c.Convert(ctx); err != nil {
 		return nil, fmt.Errorf("convert failed: %w", err)
 	}

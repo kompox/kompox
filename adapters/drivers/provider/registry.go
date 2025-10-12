@@ -13,9 +13,9 @@ type Driver interface {
 	// ID returns the provider driver identifier (e.g., "aks").
 	ID() string
 
-	// ServiceName returns the service name associated with this driver instance.
-	// May return "(nil)" if no service is associated (e.g., for testing).
-	ServiceName() string
+	// WorkspaceName returns the workspace name associated with this driver instance.
+	// May return "(nil)" if no workspace is associated (e.g., for testing).
+	WorkspaceName() string
 
 	// ProviderName returns the provider name associated with this driver instance.
 	ProviderName() string
@@ -75,7 +75,7 @@ type Driver interface {
 }
 
 // driverFactory is a constructor function for a provider driver.
-type driverFactory func(service *model.Service, provider *model.Provider) (Driver, error)
+type driverFactory func(workspace *model.Workspace, provider *model.Provider) (Driver, error)
 
 // registry holds registered drivers by name.
 var registry = map[string]driverFactory{}

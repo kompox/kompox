@@ -7,12 +7,12 @@ import (
 	"github.com/kompox/kompox/domain/model"
 )
 
-// ServiceRepository stores and retrieves Service aggregates.
-type ServiceRepository interface {
-	Create(ctx context.Context, s *model.Service) error
-	Get(ctx context.Context, id string) (*model.Service, error)
-	List(ctx context.Context) ([]*model.Service, error)
-	Update(ctx context.Context, s *model.Service) error
+// WorkspaceRepository stores and retrieves Workspace aggregates.
+type WorkspaceRepository interface {
+	Create(ctx context.Context, s *model.Workspace) error
+	Get(ctx context.Context, id string) (*model.Workspace, error)
+	List(ctx context.Context) ([]*model.Workspace, error)
+	Update(ctx context.Context, s *model.Workspace) error
 	Delete(ctx context.Context, id string) error
 }
 
@@ -50,10 +50,10 @@ type UnitOfWork interface {
 
 // Repositories groups repository interfaces for use inside UnitOfWork.
 type Repositories struct {
-	Service  ServiceRepository
-	Provider ProviderRepository
-	Cluster  ClusterRepository
-	App      AppRepository
+	Workspace WorkspaceRepository
+	Provider  ProviderRepository
+	Cluster   ClusterRepository
+	App       AppRepository
 }
 
 var ErrUnitOfWorkNotSupported = errors.New("unit of work not supported (memory)")

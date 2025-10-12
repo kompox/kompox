@@ -17,8 +17,8 @@ import (
 	"github.com/kompox/kompox/usecase/dns"
 	"github.com/kompox/kompox/usecase/provider"
 	"github.com/kompox/kompox/usecase/secret"
-	"github.com/kompox/kompox/usecase/service"
 	"github.com/kompox/kompox/usecase/volume"
+	"github.com/kompox/kompox/usecase/workspace"
 	"github.com/spf13/cobra"
 )
 
@@ -85,10 +85,10 @@ func buildRepos(cmd *cobra.Command) (*domain.Repositories, error) {
 		configRoot = store.ConfigRoot
 
 		repos := &domain.Repositories{
-			Service:  store.ServiceRepository,
-			Provider: store.ProviderRepository,
-			Cluster:  store.ClusterRepository,
-			App:      store.AppRepository,
+			Workspace: store.WorkspaceRepository,
+			Provider:  store.ProviderRepository,
+			Cluster:   store.ClusterRepository,
+			App:       store.AppRepository,
 		}
 		reposCacheMu.Lock()
 		reposCache[dbURL] = repos
@@ -104,10 +104,10 @@ func buildRepos(cmd *cobra.Command) (*domain.Repositories, error) {
 			return nil, err
 		}
 		return &domain.Repositories{
-			Service:  rdb.NewServiceRepository(db),
-			Provider: rdb.NewProviderRepository(db),
-			Cluster:  rdb.NewClusterRepository(db),
-			App:      rdb.NewAppRepository(db),
+			Workspace: rdb.NewWorkspaceRepository(db),
+			Provider:  rdb.NewProviderRepository(db),
+			Cluster:   rdb.NewClusterRepository(db),
+			App:       rdb.NewAppRepository(db),
 		}, nil
 
 	default:
@@ -122,10 +122,10 @@ func buildAppRepos(cmd *cobra.Command) (*app.Repos, error) {
 		return nil, err
 	}
 	return &app.Repos{
-		Service:  repos.Service,
-		Provider: repos.Provider,
-		Cluster:  repos.Cluster,
-		App:      repos.App,
+		Workspace: repos.Workspace,
+		Provider:  repos.Provider,
+		Cluster:   repos.Cluster,
+		App:       repos.App,
 	}, nil
 }
 
@@ -136,9 +136,9 @@ func buildClusterRepos(cmd *cobra.Command) (*cluster.Repos, error) {
 		return nil, err
 	}
 	return &cluster.Repos{
-		Service:  repos.Service,
-		Provider: repos.Provider,
-		Cluster:  repos.Cluster,
+		Workspace: repos.Workspace,
+		Provider:  repos.Provider,
+		Cluster:   repos.Cluster,
 	}, nil
 }
 
@@ -153,14 +153,14 @@ func buildProviderRepos(cmd *cobra.Command) (*provider.Repos, error) {
 	}, nil
 }
 
-// buildServiceRepos creates repositories needed for service use cases.
-func buildServiceRepos(cmd *cobra.Command) (*service.Repos, error) {
+// buildWorkspaceRepos creates repositories needed for workspace use cases.
+func buildWorkspaceRepos(cmd *cobra.Command) (*workspace.Repos, error) {
 	repos, err := buildRepos(cmd)
 	if err != nil {
 		return nil, err
 	}
-	return &service.Repos{
-		Service: repos.Service,
+	return &workspace.Repos{
+		Workspace: repos.Workspace,
 	}, nil
 }
 
@@ -171,10 +171,10 @@ func buildVolumeRepos(cmd *cobra.Command) (*volume.Repos, error) {
 		return nil, err
 	}
 	return &volume.Repos{
-		Service:  repos.Service,
-		Provider: repos.Provider,
-		Cluster:  repos.Cluster,
-		App:      repos.App,
+		Workspace: repos.Workspace,
+		Provider:  repos.Provider,
+		Cluster:   repos.Cluster,
+		App:       repos.App,
 	}, nil
 }
 
@@ -185,10 +185,10 @@ func buildBoxRepos(cmd *cobra.Command) (*box.Repos, error) {
 		return nil, err
 	}
 	return &box.Repos{
-		Service:  repos.Service,
-		Provider: repos.Provider,
-		Cluster:  repos.Cluster,
-		App:      repos.App,
+		Workspace: repos.Workspace,
+		Provider:  repos.Provider,
+		Cluster:   repos.Cluster,
+		App:       repos.App,
 	}, nil
 }
 
@@ -199,10 +199,10 @@ func buildSecretRepos(cmd *cobra.Command) (*secret.Repos, error) {
 		return nil, err
 	}
 	return &secret.Repos{
-		Service:  repos.Service,
-		Provider: repos.Provider,
-		Cluster:  repos.Cluster,
-		App:      repos.App,
+		Workspace: repos.Workspace,
+		Provider:  repos.Provider,
+		Cluster:   repos.Cluster,
+		App:       repos.App,
 	}, nil
 }
 
@@ -213,9 +213,9 @@ func buildDNSRepos(cmd *cobra.Command) (*dns.Repos, error) {
 		return nil, err
 	}
 	return &dns.Repos{
-		Service:  repos.Service,
-		Provider: repos.Provider,
-		Cluster:  repos.Cluster,
-		App:      repos.App,
+		Workspace: repos.Workspace,
+		Provider:  repos.Provider,
+		Cluster:   repos.Cluster,
+		App:       repos.App,
 	}, nil
 }

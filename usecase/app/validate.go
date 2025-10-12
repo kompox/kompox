@@ -82,18 +82,18 @@ func (u *UseCase) Validate(ctx context.Context, in *ValidateInput) (*ValidateOut
 		out.Warnings = append(out.Warnings, "compose conversion skipped: provider not found")
 		return out, nil
 	}
-	svc, serr := u.Repos.Service.Get(ctx, prv.ServiceID)
+	ws, serr := u.Repos.Workspace.Get(ctx, prv.WorkspaceID)
 	if serr != nil {
-		return out, fmt.Errorf("failed to get service: %w", serr)
+		return out, fmt.Errorf("failed to get workspace: %w", serr)
 	}
-	if svc == nil {
-		out.Warnings = append(out.Warnings, "compose conversion skipped: service not found")
+	if ws == nil {
+		out.Warnings = append(out.Warnings, "compose conversion skipped: workspace not found")
 		return out, nil
 	}
 	// Instantiate provider driver for conversion (volume class, etc.)
 	var drv providerdrv.Driver
 	if factory, ok := providerdrv.GetDriverFactory(prv.Driver); ok {
-		if d, derr := factory(svc, prv); derr == nil {
+		if d, derr := factory(ws, prv); derr == nil {
 			drv = d
 		}
 	}
@@ -145,7 +145,7 @@ func (u *UseCase) Validate(ctx context.Context, in *ValidateInput) (*ValidateOut
 	if len(out.Errors) > 0 {
 		return out, nil
 	}
-	conv := kube.NewConverter(svc, prv, cls, app, "app")
+	conv := kube.NewConverter(ws, prv, cls, app, "app")
 	if conv == nil {
 		out.Warnings = append(out.Warnings, "compose conversion failed: converter initialization failed")
 		return out, nil

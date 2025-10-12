@@ -9,34 +9,35 @@ import (
 	"os"
 	"time"
 
+	"github.com/kompox/kompox/usecase/workspace"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"github.com/kompox/kompox/usecase/service"
 	"gopkg.in/yaml.v3"
 )
 
-// serviceSpec is the YAML/JSON on-disk representation for create/update.
-type serviceSpec struct {
+// workspaceSpec is the YAML/JSON on-disk representation for create/update.
+type workspaceSpec struct {
 	Name string `yaml:"name" json:"name"`
 }
 
-func newCmdAdminService() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:                "service",
-		Short:              "Manage Service resources",
+func newCmdAdminWorkspace() *cobra.Command {
+	c := &cobra.Command{
+		Use:                "workspace",
+		Aliases:            []string{"ws"},
+		Short:              "Workspace admin commands",
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return fmt.Errorf("invalid command")
+			return cmd.Help()
 		},
 	}
-	cmd.AddCommand(newCmdAdminServiceList())
-	cmd.AddCommand(newCmdAdminServiceGet())
-	cmd.AddCommand(newCmdAdminServiceCreate())
-	cmd.AddCommand(newCmdAdminServiceUpdate())
-	cmd.AddCommand(newCmdAdminServiceDelete())
-	return cmd
+	c.AddCommand(newCmdAdminWorkspaceList())
+	c.AddCommand(newCmdAdminWorkspaceGet())
+	c.AddCommand(newCmdAdminWorkspaceCreate())
+	c.AddCommand(newCmdAdminWorkspaceUpdate())
+	c.AddCommand(newCmdAdminWorkspaceDelete())
+	return c
 }
 
 // findFlag recursively searches parents for a flag.
@@ -52,26 +53,26 @@ func findFlag(cmd *cobra.Command, name string) *pflag.Flag {
 	return nil
 }
 
-func newCmdAdminServiceList() *cobra.Command {
+func newCmdAdminWorkspaceList() *cobra.Command {
 	return &cobra.Command{
 		Use:                "list",
-		Short:              "List services",
+		Short:              "List workspaces",
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			uc, err := buildServiceUseCase(cmd)
+			uc, err := buildWorkspaceUseCase(cmd)
 			if err != nil {
 				return err
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 			defer cancel()
-			out, err := uc.List(ctx, &service.ListInput{})
+			out, err := uc.List(ctx, &workspace.ListInput{})
 			if err != nil {
 				return err
 			}
 			enc := json.NewEncoder(cmd.OutOrStdout())
-			for _, it := range out.Services {
+			for _, it := range out.Workspaces {
 				if err := enc.Encode(it); err != nil {
 					return err
 				}
@@ -81,33 +82,33 @@ func newCmdAdminServiceList() *cobra.Command {
 	}
 }
 
-func newCmdAdminServiceGet() *cobra.Command {
+func newCmdAdminWorkspaceGet() *cobra.Command {
 	return &cobra.Command{
 		Use:                "get <id>",
-		Short:              "Get a service",
+		Short:              "Get a workspace",
 		Args:               cobra.ExactArgs(1),
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			uc, err := buildServiceUseCase(cmd)
+			uc, err := buildWorkspaceUseCase(cmd)
 			if err != nil {
 				return err
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 			defer cancel()
-			out, err := uc.Get(ctx, &service.GetInput{ServiceID: args[0]})
+			out, err := uc.Get(ctx, &workspace.GetInput{WorkspaceID: args[0]})
 			if err != nil {
 				return err
 			}
 			enc := json.NewEncoder(cmd.OutOrStdout())
 			enc.SetIndent("", "  ")
-			return enc.Encode(out.Service)
+			return enc.Encode(out.Workspace)
 		},
 	}
 }
 
-func readServiceSpec(cmd *cobra.Command, path string) (*serviceSpec, error) {
+func readWorkspaceSpec(cmd *cobra.Command, path string) (*workspaceSpec, error) {
 	if path == "" {
 		return nil, errors.New("spec file required (-f)")
 	}
@@ -126,61 +127,61 @@ func readServiceSpec(cmd *cobra.Command, path string) (*serviceSpec, error) {
 	if err != nil {
 		return nil, err
 	}
-	var spec serviceSpec
+	var spec workspaceSpec
 	if err := yaml.Unmarshal(b, &spec); err != nil {
 		return nil, err
 	}
 	return &spec, nil
 }
 
-func newCmdAdminServiceCreate() *cobra.Command {
+func newCmdAdminWorkspaceCreate() *cobra.Command {
 	var file string
 	c := &cobra.Command{
 		Use:                "create",
-		Short:              "Create a service (from spec file)",
+		Short:              "Create a workspace (from spec file)",
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			uc, err := buildServiceUseCase(cmd)
+			uc, err := buildWorkspaceUseCase(cmd)
 			if err != nil {
 				return err
 			}
-			spec, err := readServiceSpec(cmd, file)
+			spec, err := readWorkspaceSpec(cmd, file)
 			if err != nil {
 				return err
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 			defer cancel()
-			out, err := uc.Create(ctx, &service.CreateInput{Name: spec.Name})
+			out, err := uc.Create(ctx, &workspace.CreateInput{Name: spec.Name})
 			if err != nil {
 				return err
 			}
 			enc := json.NewEncoder(cmd.OutOrStdout())
 			enc.SetIndent("", "  ")
-			return enc.Encode(out.Service)
+			return enc.Encode(out.Workspace)
 		},
 	}
-	c.Flags().StringVarP(&file, "file", "f", "", "Path to service spec (YAML), or '-' for stdin")
+	c.Flags().StringVarP(&file, "file", "f", "", "Path to workspace spec (YAML), or '-' for stdin")
 	_ = c.MarkFlagRequired("file")
 	return c
 }
 
-func newCmdAdminServiceUpdate() *cobra.Command {
+func newCmdAdminWorkspaceUpdate() *cobra.Command {
 	var file string
 	c := &cobra.Command{
 		Use:                "update <id>",
-		Short:              "Update a service (merge from spec)",
+		Short:              "Update a workspace (merge from spec)",
 		Args:               cobra.ExactArgs(1),
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			uc, err := buildServiceUseCase(cmd)
+			uc, err := buildWorkspaceUseCase(cmd)
 			if err != nil {
 				return err
 			}
-			spec, err := readServiceSpec(cmd, file)
+			spec, err := readWorkspaceSpec(cmd, file)
 			if err != nil {
 				return err
 			}
@@ -190,36 +191,36 @@ func newCmdAdminServiceUpdate() *cobra.Command {
 			if spec.Name != "" {
 				namePtr = &spec.Name
 			}
-			out, err := uc.Update(ctx, &service.UpdateInput{ServiceID: args[0], Name: namePtr})
+			out, err := uc.Update(ctx, &workspace.UpdateInput{WorkspaceID: args[0], Name: namePtr})
 			if err != nil {
 				return err
 			}
 			enc := json.NewEncoder(cmd.OutOrStdout())
 			enc.SetIndent("", "  ")
-			return enc.Encode(out.Service)
+			return enc.Encode(out.Workspace)
 		},
 	}
-	c.Flags().StringVarP(&file, "file", "f", "", "Path to service spec (YAML), or '-' for stdin")
+	c.Flags().StringVarP(&file, "file", "f", "", "Path to workspace spec (YAML), or '-' for stdin")
 	_ = c.MarkFlagRequired("file")
 	return c
 }
 
-func newCmdAdminServiceDelete() *cobra.Command {
+func newCmdAdminWorkspaceDelete() *cobra.Command {
 	c := &cobra.Command{
 		Use:                "delete <id>",
-		Short:              "Delete a service",
+		Short:              "Delete a workspace",
 		Args:               cobra.ExactArgs(1),
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			uc, err := buildServiceUseCase(cmd)
+			uc, err := buildWorkspaceUseCase(cmd)
 			if err != nil {
 				return err
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Second)
 			defer cancel()
-			if _, err := uc.Delete(ctx, &service.DeleteInput{ServiceID: args[0]}); err != nil {
+			if _, err := uc.Delete(ctx, &workspace.DeleteInput{WorkspaceID: args[0]}); err != nil {
 				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "deleted %s\n", args[0])

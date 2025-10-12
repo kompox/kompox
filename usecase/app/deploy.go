@@ -62,7 +62,7 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 		return nil, fmt.Errorf("no Kubernetes objects generated for app %s", appObj.Name)
 	}
 
-	// Resolve related cluster/provider/service for kubeconfig.
+	// Resolve related cluster/provider/workspace for kubeconfig.
 	clusterObj, err := u.Repos.Cluster.Get(ctx, appObj.ClusterID)
 	if err != nil || clusterObj == nil {
 		return nil, fmt.Errorf("failed to get cluster %s: %w", appObj.ClusterID, err)
@@ -71,9 +71,9 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 	if err != nil || providerObj == nil {
 		return nil, fmt.Errorf("failed to get provider %s: %w", clusterObj.ProviderID, err)
 	}
-	var serviceObj *model.Service
-	if providerObj.ServiceID != "" {
-		serviceObj, _ = u.Repos.Service.Get(ctx, providerObj.ServiceID)
+	var workspaceObj *model.Workspace
+	if providerObj.WorkspaceID != "" {
+		workspaceObj, _ = u.Repos.Workspace.Get(ctx, providerObj.WorkspaceID)
 	}
 
 	// Instantiate provider driver and obtain kubeconfig.
@@ -81,7 +81,7 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 	if !ok {
 		return nil, fmt.Errorf("unknown provider driver: %s", providerObj.Driver)
 	}
-	drv, err := factory(serviceObj, providerObj)
+	drv, err := factory(workspaceObj, providerObj)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create driver %s: %w", providerObj.Driver, err)
 	}

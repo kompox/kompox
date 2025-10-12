@@ -11,7 +11,7 @@ func TestRoot_ToModels(t *testing.T) {
 		name string
 		root Root
 		want struct {
-			serviceName   string
+			workspaceName string
 			providerName  string
 			clusterName   string
 			appName       string
@@ -23,8 +23,8 @@ func TestRoot_ToModels(t *testing.T) {
 			name: "basic conversion with volume options",
 			root: Root{
 				Version: "v1",
-				Service: Service{
-					Name: "test-service",
+				Workspace: Workspace{
+					Name: "test-workspace",
 				},
 				Provider: Provider{
 					Name:   "test-provider",
@@ -49,7 +49,7 @@ func TestRoot_ToModels(t *testing.T) {
 				},
 				App: App{
 					Name:    "test-app",
-					Compose: "services:\n  web:\n    image: nginx",
+					Compose: "workspaces:\n  web:\n    image: nginx",
 					Ingress: AppIngress{
 						CertResolver: "production",
 						Rules: []AppIngressRule{
@@ -85,18 +85,18 @@ func TestRoot_ToModels(t *testing.T) {
 				},
 			},
 			want: struct {
-				serviceName   string
+				workspaceName string
 				providerName  string
 				clusterName   string
 				appName       string
 				volumesCount  int
 				volumeOptions map[string]any
 			}{
-				serviceName:  "test-service",
-				providerName: "test-provider",
-				clusterName:  "test-cluster",
-				appName:      "test-app",
-				volumesCount: 1,
+				workspaceName: "test-workspace",
+				providerName:  "test-provider",
+				clusterName:   "test-cluster",
+				appName:       "test-app",
+				volumesCount:  1,
 				volumeOptions: map[string]any{
 					"sku":  "PremiumV2_LRS",
 					"iops": 3000,
@@ -108,8 +108,8 @@ func TestRoot_ToModels(t *testing.T) {
 			name: "conversion without volume options",
 			root: Root{
 				Version: "v1",
-				Service: Service{
-					Name: "simple-service",
+				Workspace: Workspace{
+					Name: "simple-workspace",
 				},
 				Provider: Provider{
 					Name:   "simple-provider",
@@ -121,7 +121,7 @@ func TestRoot_ToModels(t *testing.T) {
 				},
 				App: App{
 					Name:    "simple-app",
-					Compose: "services:\n  app:\n    image: hello-world",
+					Compose: "workspaces:\n  app:\n    image: hello-world",
 					Volumes: []AppVolume{
 						{
 							Name: "simple-volume",
@@ -132,14 +132,14 @@ func TestRoot_ToModels(t *testing.T) {
 				},
 			},
 			want: struct {
-				serviceName   string
+				workspaceName string
 				providerName  string
 				clusterName   string
 				appName       string
 				volumesCount  int
 				volumeOptions map[string]any
 			}{
-				serviceName:   "simple-service",
+				workspaceName: "simple-workspace",
 				providerName:  "simple-provider",
 				clusterName:   "simple-cluster",
 				appName:       "simple-app",
@@ -151,25 +151,25 @@ func TestRoot_ToModels(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service, provider, cluster, app, err := tt.root.ToModels()
+			workspace, provider, cluster, app, err := tt.root.ToModels()
 			if err != nil {
 				t.Fatalf("ToModels() error = %v", err)
 			}
 
-			// Verify service
-			if service.Name != tt.want.serviceName {
-				t.Errorf("service.Name = %v, want %v", service.Name, tt.want.serviceName)
+			// Verify workspace
+			if workspace.Name != tt.want.workspaceName {
+				t.Errorf("workspace.Name = %v, want %v", workspace.Name, tt.want.workspaceName)
 			}
-			if service.ID == "" {
-				t.Error("service.ID should not be empty")
+			if workspace.ID == "" {
+				t.Error("workspace.ID should not be empty")
 			}
 
 			// Verify provider
 			if provider.Name != tt.want.providerName {
 				t.Errorf("provider.Name = %v, want %v", provider.Name, tt.want.providerName)
 			}
-			if provider.ServiceID != service.ID {
-				t.Errorf("provider.ServiceID = %v, want %v", provider.ServiceID, service.ID)
+			if provider.WorkspaceID != workspace.ID {
+				t.Errorf("provider.WorkspaceID = %v, want %v", provider.WorkspaceID, workspace.ID)
 			}
 
 			// Verify cluster
@@ -220,8 +220,8 @@ func TestRoot_ToModels(t *testing.T) {
 			}
 
 			// Verify timestamps are set
-			if service.CreatedAt.IsZero() {
-				t.Error("service.CreatedAt should be set")
+			if workspace.CreatedAt.IsZero() {
+				t.Error("workspace.CreatedAt should be set")
 			}
 			if provider.CreatedAt.IsZero() {
 				t.Error("provider.CreatedAt should be set")

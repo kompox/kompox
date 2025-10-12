@@ -7,10 +7,10 @@ import (
 
 // Repos holds repositories required for volume operations.
 type Repos struct {
-	Service  domain.ServiceRepository
-	Provider domain.ProviderRepository
-	Cluster  domain.ClusterRepository
-	App      domain.AppRepository
+	Workspace domain.WorkspaceRepository
+	Provider  domain.ProviderRepository
+	Cluster   domain.ClusterRepository
+	App       domain.AppRepository
 }
 
 // UseCase wires dependencies for volume operations.

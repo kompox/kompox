@@ -18,7 +18,7 @@ import (
 
 // TestNewConverter tests the basic constructor and precomputed identifiers
 func TestNewConverter(t *testing.T) {
-	svc := &model.Service{Name: "testsvc"}
+	svc := &model.Workspace{Name: "testsvc"}
 	prv := &model.Provider{Name: "testprv", Driver: "test"}
 	cls := &model.Cluster{Name: "testcls"}
 	app := &model.App{Name: "testapp", Compose: ""}
@@ -62,7 +62,7 @@ func TestNewConverter(t *testing.T) {
 
 // TestNamingK4xPrefix ensures namespace and volume resource names adopt the new k4x- prefix.
 func TestNamingK4xPrefix(t *testing.T) {
-	svc := &model.Service{Name: "svc"}
+	svc := &model.Workspace{Name: "svc"}
 	prv := &model.Provider{Name: "prv", Driver: "test"}
 	cls := &model.Cluster{Name: "cls"}
 	app := &model.App{Name: "app", Compose: "services:\n  c:\n    image: busybox\n"}
@@ -309,7 +309,7 @@ services:
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &model.Service{Name: "testsvc"}
+			svc := &model.Workspace{Name: "testsvc"}
 			prv := &model.Provider{Name: "testprv", Driver: "test"}
 			cls := tt.cluster
 			if cls == nil {
@@ -363,7 +363,7 @@ services:
       - cache:/tmp/cache
 `
 
-	svc := &model.Service{Name: "testsvc"}
+	svc := &model.Workspace{Name: "testsvc"}
 	prv := &model.Provider{Name: "testprv", Driver: "test"}
 	cls := &model.Cluster{Name: "testcls"}
 	app := &model.App{
@@ -545,7 +545,7 @@ services:
       ENV_VAR: test_value
 `
 
-	svc := &model.Service{Name: "testsvc"}
+	svc := &model.Workspace{Name: "testsvc"}
 	prv := &model.Provider{Name: "testprv", Driver: "test"}
 	cls := &model.Cluster{Name: "testcls"}
 	app := &model.App{
@@ -805,7 +805,7 @@ services:
       PORT: "3000"
 `
 
-	svc := &model.Service{Name: "myservice"}
+	svc := &model.Workspace{Name: "myservice"}
 	prv := &model.Provider{Name: "myprovider", Driver: "test"}
 	cls := &model.Cluster{Name: "mycluster", Ingress: &model.ClusterIngress{Domain: "ops.kompox.dev"}}
 	app := &model.App{
@@ -1067,7 +1067,7 @@ services:
 
 // TestDeploymentNodeSelector tests the nodeSelector functionality from app.deployment spec
 func TestDeploymentNodeSelector(t *testing.T) {
-	svc := &model.Service{Name: "ops"}
+	svc := &model.Workspace{Name: "ops"}
 	prv := &model.Provider{Name: "aks1", Driver: "aks"}
 	cls := &model.Cluster{Name: "cluster1"}
 
@@ -1208,7 +1208,7 @@ services:
   worker:
     image: busybox:1.36
 `
-	svc := &model.Service{Name: "svc"}
+	svc := &model.Workspace{Name: "svc"}
 	prv := &model.Provider{Name: "prv", Driver: "test"}
 	cls := &model.Cluster{Name: "cls"}
 	app := &model.App{Name: "demo", Compose: compose}
@@ -1257,7 +1257,7 @@ services:
 func TestZeroHeadlessServices(t *testing.T) {
 	ctx := context.Background()
 	compose := `services: {}`
-	svc := &model.Service{Name: "svc"}
+	svc := &model.Workspace{Name: "svc"}
 	prv := &model.Provider{Name: "prv", Driver: "test"}
 	cls := &model.Cluster{Name: "cls"}
 	app := &model.App{Name: "empty", Compose: compose}

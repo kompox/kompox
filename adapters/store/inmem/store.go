@@ -9,33 +9,33 @@ import (
 
 // Store provides a unified interface for all in-memory repositories.
 type Store struct {
-	ServiceRepository  *ServiceRepository
-	ProviderRepository *ProviderRepository
-	ClusterRepository  *ClusterRepository
-	AppRepository      *AppRepository
-	ConfigRoot         *kompoxopscfg.Root
+	WorkspaceRepository *WorkspaceRepository
+	ProviderRepository  *ProviderRepository
+	ClusterRepository   *ClusterRepository
+	AppRepository       *AppRepository
+	ConfigRoot          *kompoxopscfg.Root
 }
 
 // NewStore creates a new in-memory store with all repositories.
 func NewStore() *Store {
 	return &Store{
-		ServiceRepository:  NewServiceRepository(),
-		ProviderRepository: NewProviderRepository(),
-		ClusterRepository:  NewClusterRepository(),
-		AppRepository:      NewAppRepository(),
+		WorkspaceRepository: NewWorkspaceRepository(),
+		ProviderRepository:  NewProviderRepository(),
+		ClusterRepository:   NewClusterRepository(),
+		AppRepository:       NewAppRepository(),
 	}
 }
 
 // LoadFromConfig loads a kompoxops.yml configuration into the memory store.
 func (s *Store) LoadFromConfig(ctx context.Context, cfg *kompoxopscfg.Root) error {
 	// Convert configuration to domain models
-	service, provider, cluster, app, err := cfg.ToModels()
+	workspace, provider, cluster, app, err := cfg.ToModels()
 	if err != nil {
 		return err
 	}
 
-	// Store models in dependency order: service → provider → cluster → app
-	if err := s.ServiceRepository.Create(ctx, service); err != nil {
+	// Store models in dependency order: workspace → provider → cluster → app
+	if err := s.WorkspaceRepository.Create(ctx, workspace); err != nil {
 		return err
 	}
 
@@ -66,7 +66,7 @@ func (s *Store) LoadFromFile(ctx context.Context, path string) error {
 }
 
 // Compile-time assertions
-var _ domain.ServiceRepository = (*ServiceRepository)(nil)
+var _ domain.WorkspaceRepository = (*WorkspaceRepository)(nil)
 var _ domain.ProviderRepository = (*ProviderRepository)(nil)
 var _ domain.ClusterRepository = (*ClusterRepository)(nil)
 var _ domain.AppRepository = (*AppRepository)(nil)

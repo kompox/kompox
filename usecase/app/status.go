@@ -65,13 +65,13 @@ func (u *UseCase) Status(ctx context.Context, in *StatusInput) (*StatusOutput, e
 	if prv == nil {
 		return nil, fmt.Errorf("provider not found: %s", cls.ProviderID)
 	}
-	svc, err := u.Repos.Service.Get(ctx, prv.ServiceID)
+	ws, err := u.Repos.Workspace.Get(ctx, prv.WorkspaceID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get service: %w", err)
+		return nil, fmt.Errorf("failed to get workspace: %w", err)
 	}
 
 	// Compute namespace and selector via converter
-	c := kube.NewConverter(svc, prv, cls, appObj, "app")
+	c := kube.NewConverter(ws, prv, cls, appObj, "app")
 	if _, err := c.Convert(ctx); err != nil {
 		return nil, fmt.Errorf("convert failed: %w", err)
 	}
@@ -82,7 +82,7 @@ func (u *UseCase) Status(ctx context.Context, in *StatusInput) (*StatusOutput, e
 	if !ok {
 		return nil, fmt.Errorf("unknown provider driver: %s", prv.Driver)
 	}
-	drv, err := factory(svc, prv)
+	drv, err := factory(ws, prv)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create driver %s: %w", prv.Driver, err)
 	}

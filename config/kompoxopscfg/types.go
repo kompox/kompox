@@ -5,15 +5,15 @@ package kompoxopscfg
 
 // Root is the root structure of kompoxops.yml.
 type Root struct {
-	Version  string   `yaml:"version"`
-	Service  Service  `yaml:"service"`
-	Provider Provider `yaml:"provider"`
-	Cluster  Cluster  `yaml:"cluster"`
-	App      App      `yaml:"app"`
+	Version   string    `yaml:"version"`
+	Workspace Workspace `yaml:"workspace"`
+	Provider  Provider  `yaml:"provider"`
+	Cluster   Cluster   `yaml:"cluster"`
+	App       App       `yaml:"app"`
 }
 
-// Service represents global service settings.
-type Service struct {
+// Workspace represents global workspace settings.
+type Workspace struct {
 	Name string `yaml:"name"` // RFC1123-compliant DNS label
 }
 

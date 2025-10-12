@@ -10,10 +10,10 @@ import (
 
 // volumePortAdapter implements model.VolumePort backed by provider drivers.
 type volumePortAdapter struct {
-	services  domain.ServiceRepository
-	providers domain.ProviderRepository
-	clusters  domain.ClusterRepository
-	apps      domain.AppRepository
+	workspaces domain.WorkspaceRepository
+	providers  domain.ProviderRepository
+	clusters   domain.ClusterRepository
+	apps       domain.AppRepository
 }
 
 // getDriver fetches driver for given cluster+app (cluster and app already looked up or retrieved inside methods).
@@ -25,15 +25,15 @@ func (a *volumePortAdapter) getDriver(ctx context.Context, cluster *model.Cluste
 	if err != nil {
 		return nil, fmt.Errorf("failed to get provider %s: %w", cluster.ProviderID, err)
 	}
-	var service *model.Service
-	if provider.ServiceID != "" {
-		service, _ = a.services.Get(ctx, provider.ServiceID)
+	var workspace *model.Workspace
+	if provider.WorkspaceID != "" {
+		workspace, _ = a.workspaces.Get(ctx, provider.WorkspaceID)
 	}
 	factory, ok := GetDriverFactory(provider.Driver)
 	if !ok {
 		return nil, fmt.Errorf("unknown provider driver: %s", provider.Driver)
 	}
-	drv, err := factory(service, provider)
+	drv, err := factory(workspace, provider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create driver %s: %w", provider.Driver, err)
 	}
@@ -109,6 +109,6 @@ func (a *volumePortAdapter) SnapshotDelete(ctx context.Context, cluster *model.C
 }
 
 // GetVolumePort returns a model.VolumePort implemented via provider drivers.
-func GetVolumePort(services domain.ServiceRepository, providers domain.ProviderRepository, clusters domain.ClusterRepository, apps domain.AppRepository) model.VolumePort {
-	return &volumePortAdapter{services: services, providers: providers, clusters: clusters, apps: apps}
+func GetVolumePort(workspaces domain.WorkspaceRepository, providers domain.ProviderRepository, clusters domain.ClusterRepository, apps domain.AppRepository) model.VolumePort {
+	return &volumePortAdapter{workspaces: workspaces, providers: providers, clusters: clusters, apps: apps}
 }

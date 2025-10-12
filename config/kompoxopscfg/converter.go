@@ -14,8 +14,8 @@ import (
 )
 
 // ToModels converts the configuration to domain models with proper references.
-// Returns models in the order: service, provider, cluster, app
-func (r *Root) ToModels() (*model.Service, *model.Provider, *model.Cluster, *model.App, error) {
+// Returns models in the order: workspace, provider, cluster, app
+func (r *Root) ToModels() (*model.Workspace, *model.Provider, *model.Cluster, *model.App, error) {
 	if err := r.Validate(); err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("invalid configuration: %w", err)
 	}
@@ -25,7 +25,7 @@ func (r *Root) ToModels() (*model.Service, *model.Provider, *model.Cluster, *mod
 	// Generate UUIDs for each resource
 	serviceID, err := generateID()
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("failed to generate service ID: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to generate workspace ID: %w", err)
 	}
 
 	providerID, err := generateID()
@@ -43,23 +43,23 @@ func (r *Root) ToModels() (*model.Service, *model.Provider, *model.Cluster, *mod
 		return nil, nil, nil, nil, fmt.Errorf("failed to generate app ID: %w", err)
 	}
 
-	// Create Service
-	service := &model.Service{
+	// Create Workspace
+	workspace := &model.Workspace{
 		ID:        serviceID,
-		Name:      r.Service.Name,
+		Name:      r.Workspace.Name,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
 
-	// Create Provider (references Service)
+	// Create Provider (references Workspace)
 	provider := &model.Provider{
-		ID:        providerID,
-		Name:      r.Provider.Name,
-		ServiceID: serviceID,
-		Driver:    r.Provider.Driver,
-		Settings:  r.Provider.Settings,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:          providerID,
+		Name:        r.Provider.Name,
+		WorkspaceID: serviceID,
+		Driver:      r.Provider.Driver,
+		Settings:    r.Provider.Settings,
+		CreatedAt:   now,
+		UpdatedAt:   now,
 	}
 
 	// Create Cluster (references Provider)
@@ -95,7 +95,7 @@ func (r *Root) ToModels() (*model.Service, *model.Provider, *model.Cluster, *mod
 		UpdatedAt:  now,
 	}
 
-	return service, provider, cluster, app, nil
+	return workspace, provider, cluster, app, nil
 }
 
 // generateID generates a simple random ID for demo purposes

@@ -22,16 +22,16 @@ import (
 
 // Resource tag names
 const (
-	tagServiceName  = "kompox-service-name"
-	tagProviderName = "kompox-provider-name"
-	tagClusterName  = "kompox-cluster-name"
-	tagClusterHash  = "kompox-cluster-hash"
-	tagAppName      = "kompox-app-name"
-	tagAppIDHash    = "kompox-app-id-hash"
-	tagVolumeName   = "kompox-volume"        // volume name
-	tagDiskName     = "kompox-disk-name"     // disk name (CompactID)
-	tagDiskAssigned = "kompox-disk-assigned" // true/false
-	tagSnapshotName = "kompox-snapshot-name" // snapshot name (CompactID)
+	tagWorkspaceName = "kompox-workspace-name"
+	tagProviderName  = "kompox-provider-name"
+	tagClusterName   = "kompox-cluster-name"
+	tagClusterHash   = "kompox-cluster-hash"
+	tagAppName       = "kompox-app-name"
+	tagAppIDHash     = "kompox-app-id-hash"
+	tagVolumeName    = "kompox-volume"        // volume name
+	tagDiskName      = "kompox-disk-name"     // disk name (CompactID)
+	tagDiskAssigned  = "kompox-disk-assigned" // true/false
+	tagSnapshotName  = "kompox-snapshot-name" // snapshot name (CompactID)
 )
 
 // Resource group related limits and setting keys.
@@ -76,13 +76,13 @@ func tagsForLog(tags map[string]*string) map[string]string {
 
 // clusterResourceTags generates key-values for tagging cluster-scoped Azure resources.
 func (d *driver) clusterResourceTags(clusterName string) map[string]*string {
-	h := naming.NewHashes(d.ServiceName(), d.ProviderName(), clusterName, "")
+	h := naming.NewHashes(d.WorkspaceName(), d.ProviderName(), clusterName, "")
 	return map[string]*string{
-		tagServiceName:  to.Ptr(d.ServiceName()),
-		tagProviderName: to.Ptr(d.ProviderName()),
-		tagClusterName:  to.Ptr(clusterName),
-		tagClusterHash:  to.Ptr(h.Cluster),
-		"managed-by":    to.Ptr("kompox"),
+		tagWorkspaceName: to.Ptr(d.WorkspaceName()),
+		tagProviderName:  to.Ptr(d.ProviderName()),
+		tagClusterName:   to.Ptr(clusterName),
+		tagClusterHash:   to.Ptr(h.Cluster),
+		"managed-by":     to.Ptr("kompox"),
 	}
 }
 
@@ -95,7 +95,7 @@ func (d *driver) clusterResourceGroupName(cluster *model.Cluster) (string, error
 			return v, nil
 		}
 	}
-	h := naming.NewHashes(d.ServiceName(), d.ProviderName(), cluster.Name, "")
+	h := naming.NewHashes(d.WorkspaceName(), d.ProviderName(), cluster.Name, "")
 	base := fmt.Sprintf("%s_cls_%s", d.resourcePrefix, cluster.Name)
 	result, err := safeTruncate(base, h.Cluster)
 	if err != nil {
@@ -106,13 +106,13 @@ func (d *driver) clusterResourceGroupName(cluster *model.Cluster) (string, error
 
 // appResourceTags generates key-values for tagging app-scoped Azure resources.
 func (d *driver) appResourceTags(appName string) map[string]*string {
-	h := naming.NewHashes(d.ServiceName(), d.ProviderName(), "", appName)
+	h := naming.NewHashes(d.WorkspaceName(), d.ProviderName(), "", appName)
 	return map[string]*string{
-		tagServiceName:  to.Ptr(d.ServiceName()),
-		tagProviderName: to.Ptr(d.ProviderName()),
-		tagAppName:      to.Ptr(appName),
-		tagAppIDHash:    to.Ptr(h.AppID),
-		"managed-by":    to.Ptr("kompox"),
+		tagWorkspaceName: to.Ptr(d.WorkspaceName()),
+		tagProviderName:  to.Ptr(d.ProviderName()),
+		tagAppName:       to.Ptr(appName),
+		tagAppIDHash:     to.Ptr(h.AppID),
+		"managed-by":     to.Ptr("kompox"),
 	}
 }
 
@@ -125,7 +125,7 @@ func (d *driver) appResourceGroupName(app *model.App) (string, error) {
 			return v, nil
 		}
 	}
-	h := naming.NewHashes(d.ServiceName(), d.ProviderName(), "", app.Name)
+	h := naming.NewHashes(d.WorkspaceName(), d.ProviderName(), "", app.Name)
 	base := fmt.Sprintf("%s_app_%s", d.resourcePrefix, app.Name)
 	result, err := safeTruncate(base, h.AppID)
 	if err != nil {
@@ -141,7 +141,7 @@ func (d *driver) appDiskName(app *model.App, volName string, diskName string) (s
 	if len(diskName) > maxDiskName {
 		return "", fmt.Errorf("disk name %q exceeds max length %d", diskName, maxDiskName)
 	}
-	h := naming.NewHashes(d.ServiceName(), d.ProviderName(), "", app.Name)
+	h := naming.NewHashes(d.WorkspaceName(), d.ProviderName(), "", app.Name)
 	base := fmt.Sprintf("%s_disk_%s_%s", d.resourcePrefix, volName, diskName)
 	result, err := safeTruncate(base, h.AppID)
 	if err != nil {
@@ -157,7 +157,7 @@ func (d *driver) appSnapshotName(app *model.App, volName string, snapshotName st
 	if len(snapshotName) > maxSnapshotName {
 		return "", fmt.Errorf("snapshot name %q exceeds max length %d", snapshotName, maxSnapshotName)
 	}
-	h := naming.NewHashes(d.ServiceName(), d.ProviderName(), "", app.Name)
+	h := naming.NewHashes(d.WorkspaceName(), d.ProviderName(), "", app.Name)
 	base := fmt.Sprintf("%s_snap_%s_%s", d.resourcePrefix, volName, snapshotName)
 	result, err := safeTruncate(base, h.AppID)
 	if err != nil {

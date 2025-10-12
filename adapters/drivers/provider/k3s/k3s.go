@@ -10,15 +10,15 @@ import (
 
 // driver implements the K3s provider driver.
 type driver struct {
-	serviceName  string
-	providerName string
+	workspaceName string
+	providerName  string
 }
 
 // ID returns the provider identifier.
 func (d *driver) ID() string { return "k3s" }
 
-// ServiceName returns the service name associated with this driver instance.
-func (d *driver) ServiceName() string { return d.serviceName }
+// WorkspaceName returns the workspace name associated with this driver instance.
+func (d *driver) WorkspaceName() string { return d.workspaceName }
 
 // ProviderName returns the provider name associated with this driver instance.
 func (d *driver) ProviderName() string { return d.providerName }
@@ -90,19 +90,19 @@ func (d *driver) VolumeClass(ctx context.Context, cluster *model.Cluster, app *m
 
 // init registers the K3s driver.
 func init() {
-	providerdrv.Register("k3s", func(service *model.Service, provider *model.Provider) (providerdrv.Driver, error) {
-		// Determine ServiceName
-		serviceName := "(nil)"
-		if service != nil {
-			serviceName = service.Name
+	providerdrv.Register("k3s", func(workspace *model.Workspace, provider *model.Provider) (providerdrv.Driver, error) {
+		// Determine WorkspaceName
+		workspaceName := "(nil)"
+		if workspace != nil {
+			workspaceName = workspace.Name
 		}
 
 		if provider.Settings != nil && provider.Settings["disabled"] == "true" {
 			return nil, fmt.Errorf("k3s provider disabled by settings")
 		}
 		return &driver{
-			serviceName:  serviceName,
-			providerName: provider.Name,
+			workspaceName: workspaceName,
+			providerName:  provider.Name,
 		}, nil
 	})
 }

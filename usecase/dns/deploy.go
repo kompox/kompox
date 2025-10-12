@@ -52,25 +52,25 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 		return nil, fmt.Errorf("get cluster: %w", err)
 	}
 
-	// Get provider and service
+	// Get provider and workspace
 	provider, err := u.Repos.Provider.Get(ctx, cluster.ProviderID)
 	if err != nil {
 		return nil, fmt.Errorf("get provider: %w", err)
 	}
-	var service *model.Service
-	if provider.ServiceID != "" {
-		service, _ = u.Repos.Service.Get(ctx, provider.ServiceID)
+	var workspace *model.Workspace
+	if provider.WorkspaceID != "" {
+		workspace, _ = u.Repos.Workspace.Get(ctx, provider.WorkspaceID)
 	}
 
 	// Create kube.Converter to get namespace and selector
-	c := kube.NewConverter(service, provider, cluster, app, in.ComponentName)
+	c := kube.NewConverter(workspace, provider, cluster, app, in.ComponentName)
 
 	// Build provider driver to get kubeconfig
 	factory, ok := providerdrv.GetDriverFactory(provider.Driver)
 	if !ok {
 		return nil, fmt.Errorf("unknown provider driver: %s", provider.Driver)
 	}
-	drv, err := factory(service, provider)
+	drv, err := factory(workspace, provider)
 	if err != nil {
 		return nil, fmt.Errorf("create driver: %w", err)
 	}

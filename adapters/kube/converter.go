@@ -34,7 +34,7 @@ import (
 // - Build assembles final Kubernetes objects using the plan and stored binding artifacts (Assemble phase).
 type Converter struct {
 	// Domain references
-	Svc *model.Service
+	Svc *model.Workspace
 	Prv *model.Provider
 	Cls *model.Cluster
 	App *model.App
@@ -145,7 +145,7 @@ type ConverterVolumeBinding struct {
 // NewConverter creates a converter bound to domain objects and precomputes
 // identifiers that do not require Compose parsing (hashes, namespace, labels).
 // Compose parsing and plan construction are performed by Convert.
-func NewConverter(svc *model.Service, prv *model.Provider, cls *model.Cluster, a *model.App, component string) *Converter {
+func NewConverter(svc *model.Workspace, prv *model.Provider, cls *model.Cluster, a *model.App, component string) *Converter {
 	c := &Converter{
 		Svc:                svc,
 		Prv:                prv,

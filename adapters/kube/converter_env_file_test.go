@@ -20,7 +20,7 @@ func TestEnvFileSingleService(t *testing.T) {
 		"      - b.json\n" +
 		"    environment:\n" +
 		"      RUNTIME: x\n"
-	svc := &model.Service{Name: "svc"}
+	svc := &model.Workspace{Name: "svc"}
 	prv := &model.Provider{Name: "prv", Driver: "test"}
 	cls := &model.Cluster{Name: "cls"}
 	app := &model.App{Name: "demo", Compose: compose}
@@ -109,7 +109,7 @@ func TestEnvFileMultipleServices(t *testing.T) {
 		"    image: busybox:1.36\n" +
 		"    env_file:\n" +
 		"      - worker.env\n"
-	svc := &model.Service{Name: "svc"}
+	svc := &model.Workspace{Name: "svc"}
 	prv := &model.Provider{Name: "prv", Driver: "test"}
 	cls := &model.Cluster{Name: "cls"}
 	app := &model.App{Name: "demo2", Compose: compose}
@@ -178,7 +178,7 @@ func TestEnvFromWithoutEnvFile(t *testing.T) {
 	compose := "services:\n" +
 		"  lone:\n" +
 		"    image: busybox:1.36\n"
-	svc := &model.Service{Name: "svc"}
+	svc := &model.Workspace{Name: "svc"}
 	prv := &model.Provider{Name: "prv", Driver: "test"}
 	cls := &model.Cluster{Name: "cls"}
 	app := &model.App{Name: "novars", Compose: compose}
