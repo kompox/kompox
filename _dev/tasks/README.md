@@ -1,7 +1,7 @@
 ---
 id: README
 title: Developer Tasks Index
-updated: 2025-10-12
+updated: 2025-10-13
 language: en
 ---
 
@@ -16,6 +16,7 @@ This index lists short, action-oriented developer tasks found in this folder. Ta
 
 | ID | Title | Status | Category | Owner | Updated | Language |
 |---|---|---|---|---|---|---|
+| [2025-10-13-crd](./2025-10-13-crd.ja.md) | CRD DTO とローダーの初期実装（ops.kompox.dev/v1alpha1） | done |  | yaegashi | 2025-10-13 | ja |
 | [2025-10-12-workspace](./2025-10-12-workspace.ja.md) | Domain Service → Workspace への改名 | completed |  |  | 2025-10-12 | ja |
 | [2025-10-10-configs-secrets](./2025-10-10-configs-secrets.md) | Kube Converter における configs/secrets 対応と volumes ディレクトリ専用化 | done |  |  | 2025-10-11 | ja |
 | [2025-10-07-aks-dns](./2025-10-07-aks-dns.ja.md) | AKS Driver - ClusterDNSApply 実装と DNS 権限付与 | active |  |  | 2025-10-08 | ja |

@@ -1,7 +1,7 @@
 ---
 id: README
 title: Kompox 設計ドキュメント目次
-updated: 2025-10-12
+updated: 2025-10-13
 language: ja
 ---
 
@@ -13,6 +13,7 @@ language: ja
 
 | ID | Title | Language | Version | Status | Last updated |
 |---|---|---|---|---|---|
+| [Kompox-CRD](./v1/Kompox-CRD.ja.md) | Kompox CRD-style configuration | ja | v1 | draft | 2025-10-13 |
 | [Kompox-Arch-Implementation](./v1/Kompox-Arch-Implementation.ja.md) | Kompox Implementation Architecture | ja | v1 | synced | 2025-10-12 |
 | [Kompox-KubeClient](./v1/Kompox-KubeClient.ja.md) | Kompox Kube Client ガイド | ja | v1 | out-of-sync | 2025-09-26 |
 | [Kompox-KubeConverter](./v1/Kompox-KubeConverter.ja.md) | Kompox Kube Converter ガイド | ja | v1 | synced | 2025-10-12 |
@@ -52,6 +53,8 @@ language: ja
 | [K4x-ADR-004](./adr/K4x-ADR-004.md) | Cluster ingress endpoint DNS auto-update |  |  | accepted | - |
 | [K4x-ADR-005](./adr/K4x-ADR-005.md) | Support Compose configs/secrets and make bind volumes directory-only |  |  | accepted | - |
 | [K4x-ADR-006](./adr/K4x-ADR-006.md) | Rename domain model Service to Workspace |  |  | accepted | - |
+| [K4x-ADR-007](./adr/K4x-ADR-007.md) | Introduce CRD-style configuration |  |  | accepted | - |
+| [K4x-ADR-008](./adr/K4x-ADR-008.md) | Introduce Box as a first-class ops kind |  |  | proposed | - |
 
 **ステータスの意味:**
 
