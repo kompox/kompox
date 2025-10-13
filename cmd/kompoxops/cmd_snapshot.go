@@ -16,24 +16,14 @@ var flagVolumeSnapshotName string
 // newCmdSnapshot returns the root snapshot command.
 func newCmdSnapshot() *cobra.Command {
 	cmd := &cobra.Command{Use: "snapshot", Short: "Manage volume snapshots", SilenceUsage: true, SilenceErrors: true, DisableSuggestions: true, RunE: func(cmd *cobra.Command, args []string) error { return fmt.Errorf("invalid command") }}
-	// Reuse common app name flag variable defined in cmd_disk.go
-	cmd.PersistentFlags().StringVarP(&flagVolumeAppName, "app-name", "A", "", "App name (default: app.name in kompoxops.yml)")
+	cmd.PersistentFlags().StringVarP(&flagAppID, "app-id", "A", "", "App ID (FQN: ws/prv/cls/app)")
+	cmd.PersistentFlags().StringVar(&flagAppName, "app-name", "", "App name (backward compatibility, use --app-id)")
 	cmd.PersistentFlags().StringP("vol-name", "V", "", "Volume name (required)")
 	cmd.PersistentFlags().StringVarP(&flagVolumeSnapshotName, "name", "N", "", "Snapshot name (optional for create; required for delete)")
 	cmd.PersistentFlags().StringVar(&flagVolumeSnapshotName, "snap-name", "", "Snapshot name (alias of --name)")
 	// Per-subcommand flags: disk-name and snapshot-name
 	cmd.AddCommand(newCmdSnapshotList(), newCmdSnapshotCreate(), newCmdSnapshotDelete())
 	return cmd
-}
-
-func getSnapshotAppName(cmd *cobra.Command) (string, error) {
-	// Reuse disk helper to keep a single source of truth
-	return getDiskAppName(cmd)
-}
-
-func resolveAppIDByNameForSnapshot(ctx context.Context, u *vuc.UseCase, appName string) (string, error) {
-	// Reuse the same lookup as disk commands
-	return resolveAppIDByName(ctx, u, appName)
 }
 
 func newCmdSnapshotList() *cobra.Command {
@@ -44,18 +34,17 @@ func newCmdSnapshotList() *cobra.Command {
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
 		defer cancel()
-		appName, err := getSnapshotAppName(cmd)
-		if err != nil {
-			return err
-		}
+
 		volName, _ := cmd.Flags().GetString("vol-name")
 		if volName == "" {
 			return fmt.Errorf("--vol-name required")
 		}
-		appID, err := resolveAppIDByNameForSnapshot(ctx, u, appName)
+
+		appID, err := resolveAppID(ctx, u.Repos.App, nil)
 		if err != nil {
 			return err
 		}
+
 		out, err := u.SnapshotList(ctx, &vuc.SnapshotListInput{AppID: appID, VolumeName: volName})
 		if err != nil {
 			return err
@@ -76,21 +65,25 @@ func newCmdSnapshotCreate() *cobra.Command {
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Minute)
 		defer cancel()
 		logger := logging.FromContext(ctx)
-		appName, err := getSnapshotAppName(cmd)
-		if err != nil {
-			return err
-		}
+
 		volName, _ := cmd.Flags().GetString("vol-name")
 		if volName == "" {
 			return fmt.Errorf("--vol-name required")
 		}
 		snapshotName := flagVolumeSnapshotName
 		source, _ := cmd.Flags().GetString("source")
-		appID, err := resolveAppIDByNameForSnapshot(ctx, u, appName)
+
+		appID, err := resolveAppID(ctx, u.Repos.App, nil)
 		if err != nil {
 			return err
 		}
-		logger.Info(ctx, "create snapshot", "app", appName, "volume", volName, "source", source, "name", snapshotName)
+
+		// Get app for logging
+		app, err := u.Repos.App.Get(ctx, appID)
+		if err != nil {
+			return fmt.Errorf("failed to get app: %w", err)
+		}
+		logger.Info(ctx, "create snapshot", "app", app.Name, "volume", volName, "source", source, "name", snapshotName)
 		out, err := u.SnapshotCreate(ctx, &vuc.SnapshotCreateInput{AppID: appID, VolumeName: volName, SnapshotName: snapshotName, Source: source})
 		if err != nil {
 			return err
@@ -112,10 +105,7 @@ func newCmdSnapshotDelete() *cobra.Command {
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Minute)
 		defer cancel()
 		logger := logging.FromContext(ctx)
-		appName, err := getSnapshotAppName(cmd)
-		if err != nil {
-			return err
-		}
+
 		volName, _ := cmd.Flags().GetString("vol-name")
 		if volName == "" {
 			return fmt.Errorf("--vol-name required")
@@ -124,11 +114,18 @@ func newCmdSnapshotDelete() *cobra.Command {
 		if snapName == "" {
 			return fmt.Errorf("--name (or --snap-name) required")
 		}
-		appID, err := resolveAppIDByNameForSnapshot(ctx, u, appName)
+
+		appID, err := resolveAppID(ctx, u.Repos.App, nil)
 		if err != nil {
 			return err
 		}
-		logger.Info(ctx, "delete snapshot", "app", appName, "volume", volName, "snapshot", snapName)
+
+		// Get app for logging
+		app, err := u.Repos.App.Get(ctx, appID)
+		if err != nil {
+			return fmt.Errorf("failed to get app: %w", err)
+		}
+		logger.Info(ctx, "delete snapshot", "app", app.Name, "volume", volName, "snapshot", snapName)
 		if _, err := u.SnapshotDelete(ctx, &vuc.SnapshotDeleteInput{AppID: appID, VolumeName: volName, SnapshotName: snapName}); err != nil {
 			return err
 		}

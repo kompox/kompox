@@ -17,7 +17,7 @@ language: ja
 | [Kompox-Arch-Implementation](./v1/Kompox-Arch-Implementation.ja.md) | Kompox Implementation Architecture | ja | v1 | synced | 2025-10-12 |
 | [Kompox-KubeClient](./v1/Kompox-KubeClient.ja.md) | Kompox Kube Client ガイド | ja | v1 | out-of-sync | 2025-09-26 |
 | [Kompox-KubeConverter](./v1/Kompox-KubeConverter.ja.md) | Kompox Kube Converter ガイド | ja | v1 | synced | 2025-10-12 |
-| [Kompox-CLI](./v1/Kompox-CLI.ja.md) | Kompox PaaS CLI | ja | v1 | synced | 2025-10-12 |
+| [Kompox-CLI](./v1/Kompox-CLI.ja.md) | Kompox PaaS CLI | ja | v1 | synced | 2025-10-13 |
 | [Kompox-Resources](./v1/Kompox-Resources.ja.md) | Kompox PaaS Resources | ja | v1 | archived | 2025-10-12 |
 | [Kompox-ProviderDriver-AKS](./v1/Kompox-ProviderDriver-AKS.ja.md) | Kompox Provider Driver AKS ガイド | ja | v1 | out-of-sync | 2025-10-12 |
 | [Kompox-ProviderDriver](./v1/Kompox-ProviderDriver.ja.md) | Kompox Provider Driver ガイド | ja | v1 | synced | 2025-10-12 |

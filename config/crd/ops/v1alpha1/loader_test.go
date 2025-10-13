@@ -347,3 +347,141 @@ spec: {}
 		t.Errorf("Document kind = %q, want Workspace", result.Documents[0].Kind)
 	}
 }
+
+// TestLoader_TypeConversion tests that various value types (numbers, booleans, strings)
+// in settings and resources maps are automatically converted to strings, matching the
+// behavior of kompoxopscfg.
+func TestLoader_TypeConversion(t *testing.T) {
+	tmpDir := t.TempDir()
+	testFile := filepath.Join(tmpDir, "test-types.yml")
+
+	yamlContent := `---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: test-ws
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: test-provider
+  annotations:
+    ops.kompox.dev/path: test-ws
+spec:
+  driver: aks
+  settings:
+    STRING_VALUE: "hello"
+    INT_VALUE: 64
+    FLOAT_VALUE: 3.14
+    BOOL_TRUE: true
+    BOOL_FALSE: false
+    ZERO: 0
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: test-cluster
+  annotations:
+    ops.kompox.dev/path: test-ws/test-provider
+spec:
+  existing: false
+  settings:
+    DISK_SIZE_GB: 128
+    VM_COUNT: 3
+    ENABLE_FEATURE: true
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: test-app
+  annotations:
+    ops.kompox.dev/path: test-ws/test-provider/test-cluster
+spec:
+  compose: "services: {}"
+  resources:
+    CPU_LIMIT: 2
+    MEMORY_MB: 1024
+  settings:
+    PORT: 8080
+    WORKERS: 4
+    DEBUG: false
+`
+
+	if err := os.WriteFile(testFile, []byte(yamlContent), 0644); err != nil {
+		t.Fatalf("Failed to write test file: %v", err)
+	}
+
+	loader := NewLoader()
+	result, err := loader.Load(testFile)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if len(result.Errors) > 0 {
+		t.Fatalf("Load() returned errors: %v", result.Errors)
+	}
+
+	// Extract objects
+	var provider *Provider
+	var cluster *Cluster
+	var app *App
+	for _, doc := range result.Documents {
+		switch doc.Kind {
+		case "Provider":
+			provider = doc.Object.(*Provider)
+		case "Cluster":
+			cluster = doc.Object.(*Cluster)
+		case "App":
+			app = doc.Object.(*App)
+		}
+	}
+
+	if provider == nil {
+		t.Fatal("Provider document not found")
+	}
+	if cluster == nil {
+		t.Fatal("Cluster document not found")
+	}
+	if app == nil {
+		t.Fatal("App document not found")
+	}
+
+	// Test all settings and resources
+	tests := []struct {
+		name  string
+		got   string
+		want  string
+		found bool
+	}{
+		// Provider settings
+		{"Provider.Settings.STRING_VALUE", provider.Spec.Settings["STRING_VALUE"], "hello", provider.Spec.Settings["STRING_VALUE"] != ""},
+		{"Provider.Settings.INT_VALUE", provider.Spec.Settings["INT_VALUE"], "64", provider.Spec.Settings["INT_VALUE"] != ""},
+		{"Provider.Settings.FLOAT_VALUE", provider.Spec.Settings["FLOAT_VALUE"], "3.14", provider.Spec.Settings["FLOAT_VALUE"] != ""},
+		{"Provider.Settings.BOOL_TRUE", provider.Spec.Settings["BOOL_TRUE"], "true", provider.Spec.Settings["BOOL_TRUE"] != ""},
+		{"Provider.Settings.BOOL_FALSE", provider.Spec.Settings["BOOL_FALSE"], "false", provider.Spec.Settings["BOOL_FALSE"] != ""},
+		{"Provider.Settings.ZERO", provider.Spec.Settings["ZERO"], "0", provider.Spec.Settings["ZERO"] != ""},
+		// Cluster settings
+		{"Cluster.Settings.DISK_SIZE_GB", cluster.Spec.Settings["DISK_SIZE_GB"], "128", cluster.Spec.Settings["DISK_SIZE_GB"] != ""},
+		{"Cluster.Settings.VM_COUNT", cluster.Spec.Settings["VM_COUNT"], "3", cluster.Spec.Settings["VM_COUNT"] != ""},
+		{"Cluster.Settings.ENABLE_FEATURE", cluster.Spec.Settings["ENABLE_FEATURE"], "true", cluster.Spec.Settings["ENABLE_FEATURE"] != ""},
+		// App resources
+		{"App.Resources.CPU_LIMIT", app.Spec.Resources["CPU_LIMIT"], "2", app.Spec.Resources["CPU_LIMIT"] != ""},
+		{"App.Resources.MEMORY_MB", app.Spec.Resources["MEMORY_MB"], "1024", app.Spec.Resources["MEMORY_MB"] != ""},
+		// App settings
+		{"App.Settings.PORT", app.Spec.Settings["PORT"], "8080", app.Spec.Settings["PORT"] != ""},
+		{"App.Settings.WORKERS", app.Spec.Settings["WORKERS"], "4", app.Spec.Settings["WORKERS"] != ""},
+		{"App.Settings.DEBUG", app.Spec.Settings["DEBUG"], "false", app.Spec.Settings["DEBUG"] != ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if !tt.found {
+				t.Errorf("Key not found")
+				return
+			}
+			if tt.got != tt.want {
+				t.Errorf("got %q, want %q", tt.got, tt.want)
+			}
+		})
+	}
+}

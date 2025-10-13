@@ -32,6 +32,7 @@ supersededBy: []
     - Cluster: `ws/prv/cls`
     - App: `ws/prv/cls/app`
     - Box: `ws/prv/cls/app/box`
+  - Repositories must honor pre-set IDs on Create and only auto-generate when empty; Get retrieves by ID(=FQN). Duplicate IDs should raise errors.
   - Optionally migrate later to UUID PK + FQN UNIQUE when scale/rename requirements arise
 - Kubernetes internal representation (for potential cluster storage/operator):
   - Prefer labels over annotations for selection/indexing
@@ -42,6 +43,20 @@ supersededBy: []
   - Namespace naming (own-kind hash is used):
     - `k4x-ws-<wsHash>-<wsName>`, `k4x-prv-<prvHash>-<prvName>`, `k4x-cls-<clsHash>-<clsName>`, `k4x-app-<appHash>-<appName>`
   - For `Workspace/Provider/Cluster/App`, add `status.opsNamespace`
+- CLI ingestion (v1):
+  - Flags and env vars:
+    - `--crd-path <PATH>` (repeatable) to import CRD-style YAML from files/directories recursively; supports multi-document YAML; environment override `KOMPOX_CRD_PATH=path1,path2` (comma-separated). Missing path is an error. Flags take precedence over env vars.
+    - `--crd-app <PATH>` (default: `./kompoxapp.yml`) to help infer default app name; environment override `KOMPOX_CRD_APP`. If the path does not exist, it is ignored (not an error).
+  - Activation & precedence:
+    - When any CRD inputs (from `--crd-path` and existing `--crd-app`) are successfully loaded and validated, the CLI enters CRD mode and ignores `--db-url`/`KOMPOX_DB_URL` for that session.
+    - If no CRD inputs are present/loaded, fall back to `--db-url` with the default `file:kompoxops.yml`.
+  - Default ID inference:
+    - If exactly one `App` (Kind: App) exists within the `--crd-app` input scope and `--app-id` is not provided, use its FQN(`ws/prv/cls/app`) as the default `--app-id`. If the referenced cluster is uniquely determined, set `--cluster-id` to its FQN as the default as well.
+  - Resource selection flags:
+    - Add `--app-id` and `--cluster-id` to accept resource IDs(FQN) directly and resolve via UseCase `Get(ID)`.
+    - Keep `--app-name` and `--cluster-name` for backward compatibility, but error out immediately when multiple matches exist. Do not attempt ambiguous resolution.
+  - Validation & errors:
+    - Validation is all-or-nothing after collecting all documents. On error, do not modify the database and include the source file path and the 1-based document index in error messages.
 - CLI UX split:
   - `kompoxops app ...` operates the default box (componentName=app) using kompoxapp.yml (and optional kompoxbox.yml overlay)
   - `kompoxops box ...` operates an arbitrary box; flags can override/compose without requiring files
@@ -66,6 +81,7 @@ supersededBy: []
   - Import files must include `ops.kompox.dev/path`; no directory-based inference
   - Renaming a segment changes the FQN; treated as delete + create unless we later adopt surrogate IDs
   - Additional name-length handling required when generating K8s resource names
+  - Long string PKs have index/storage overhead on some RDBs; acceptable for now, with an escape hatch to UUID PK + FQN UNIQUE when needed
 
 ## Rollout
 
@@ -78,7 +94,8 @@ supersededBy: []
   - Enhanced error reporting: validation errors include source file path and document index
 - Phase 2: UseCase and CLI integration
   - Integrate loader/validator/sink into CLI commands
-  - Implement `--scan-dir` import functionality
+  - Add `--crd-path` (repeatable) and `--crd-app` flags with env var support and precedence rules
+  - Activate CRD mode on successful import/validation and ignore `--db-url` in that session
   - Implement `app`/`box` CLI split with validations
   - Implement plan/deploy flow
 - Phase 3: Persistent storage (optional)
@@ -91,15 +108,19 @@ supersededBy: []
 ## References
 
 - [K4x-ADR-008]
+- [Kompox-CLI.ja.md]
 - [Kompox-CRD.ja.md]
 - [Kompox-KubeConverter.ja.md]
 - [2025-10-12-workspace.ja.md]
-- [2025-10-13-crd.ja.md]
+- [2025-10-13-crd-p1.ja.md]
+- [2025-10-13-crd-p2.ja.md]
 - [config/crd/ops/v1alpha1/README.md]
 
 [K4x-ADR-008]: ./K4x-ADR-008.md
+[Kompox-CLI.ja.md]: ../v1/Kompox-CLI.ja.md
 [Kompox-CRD.ja.md]: ../v1/Kompox-CRD.ja.md
 [Kompox-KubeConverter.ja.md]: ../v1/Kompox-KubeConverter.ja.md
 [2025-10-12-workspace.ja.md]: ../../../_dev/tasks/2025-10-12-workspace.ja.md
-[2025-10-13-crd.ja.md]: ../../../_dev/tasks/2025-10-13-crd.ja.md
+[2025-10-13-crd-p1.ja.md]: ../../../_dev/tasks/2025-10-13-crd-p1.ja.md
+[2025-10-13-crd-p2.ja.md]: ../../../_dev/tasks/2025-10-13-crd-p2.ja.md
 [config/crd/ops/v1alpha1/README.md]: ../../../config/crd/ops/v1alpha1/README.md

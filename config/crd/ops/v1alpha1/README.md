@@ -12,7 +12,8 @@ config/crd/ops/v1alpha1/
 ├── loader.go           # Directory scanner & YAML loader
 ├── validator.go        # Topological validation logic
 ├── sink.go             # Immutable Sink (read-only index)
-└── *_test.go           # Unit tests (30+ test cases)
+├── sink_tomodels.go    # CRD to domain model conversion (Sink.ToModels)
+└── *_test.go           # Unit tests (40+ test cases)
 ```
 
 ## Core Type Definitions
@@ -141,7 +142,7 @@ for _, doc := range result.ValidDocuments {
 - **Duplicate FQN Detection**: Detects conflicts within batch
 - **DNS-1123 Constraints**: Segments must be lowercase alphanumeric with hyphens, max 63 chars
 
-### 3. Sink API (sink.go)
+### 3. Sink API (sink.go, sink_tomodels.go)
 
 The `Sink` is an immutable, read-only index for validated CRD documents. It's designed for single-threaded CLI initialization workflows where all resources are loaded once at startup.
 
@@ -150,6 +151,8 @@ The `Sink` is an immutable, read-only index for validated CRD documents. It's de
 - **Validation on Construction**: Validates documents during construction
 - **Read-Only Access**: Get/List methods return defensive copies to prevent external mutations
 - **All-or-Nothing**: Only succeeds if all validations pass (no partial loading)
+
+#### 3.1. Basic Sink Operations
 
 ```go
 // Load documents from directory
@@ -188,6 +191,58 @@ total := sink.Count()
 - **All-or-nothing Loading**: Only succeeds if all validations pass
 - **Defensive Copying**: Get/List methods return copies to guarantee immutability
 - **FQN Primary Key**: Each resource is uniquely identified by its FQN
+
+#### 3.2. Converting to Domain Models
+
+The `ToModels` method converts CRD resources to domain models and persists them to repositories. This is analogous to `kompoxopscfg.Root.ToModels()` but for CRD sources.
+
+```go
+import (
+    "context"
+    "github.com/kompox/kompox/adapters/store/inmem"
+    crdv1 "github.com/kompox/kompox/config/crd/ops/v1alpha1"
+    "github.com/kompox/kompox/domain"
+)
+
+func main() {
+    // Load and validate CRD documents
+    loader := crdv1.NewLoader()
+    loadResult, _ := loader.Load("/path/to/config")
+    sink, _ := crdv1.NewSink(loadResult.Documents)
+    
+    // Prepare repositories
+    store := inmem.NewStore()
+    repos := crdv1.Repositories{
+        Workspace: store.WorkspaceRepository,
+        Provider:  store.ProviderRepository,
+        Cluster:   store.ClusterRepository,
+        App:       store.AppRepository,
+    }
+    
+    // Convert CRD to domain models and populate repositories
+    ctx := context.Background()
+    if err := sink.ToModels(ctx, repos); err != nil {
+        log.Fatalf("Failed to convert CRD to models: %v", err)
+    }
+    
+    // Now repositories contain domain models with proper relationships
+    domainRepos := &domain.Repositories{
+        Workspace: store.WorkspaceRepository,
+        Provider:  store.ProviderRepository,
+        Cluster:   store.ClusterRepository,
+        App:       store.AppRepository,
+    }
+    
+    // Use domain repositories in use cases
+    // ...
+}
+```
+
+**Conversion Features:**
+- **Dependency Order**: Creates resources in order (Workspace → Provider → Cluster → App)
+- **Foreign Key Resolution**: Automatically resolves parent IDs using FQN paths
+- **All-or-Nothing**: Returns error if any resource fails to convert or persist
+- **Error Context**: Includes resource name and type in error messages
 
 ### 4. Incremental Loading from Multiple Sources
 
@@ -335,6 +390,7 @@ func (e *ValidationError) Error() string {
 - `loader_test.go`: Directory scanning, YAML decoding (10+ tests)
 - `validator_test.go`: Topological validation, parent resolution (8+ tests)
 - `sink_test.go`: Staging, commit, CRUD operations (9+ tests)
+- `sink_tomodels_test.go`: CRD to domain model conversion (8+ tests)
 
 All tests can be run with `make test`.
 

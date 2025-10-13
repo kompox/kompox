@@ -46,24 +46,11 @@ func newCmdSecretEnvSet() *cobra.Command {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
 			defer cancel()
 
-			appName, err := getAppName(cmd, args)
+			appID, err := resolveAppID(ctx, secUC.Repos.App, args)
 			if err != nil {
 				return err
 			}
-			apps, err := secUC.Repos.App.List(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to list apps: %w", err)
-			}
-			var appID string
-			for _, a := range apps {
-				if a != nil && a.Name == appName {
-					appID = a.ID
-					break
-				}
-			}
-			if appID == "" {
-				return fmt.Errorf("app %s not found", appName)
-			}
+
 			if service == "" {
 				return fmt.Errorf("--service is required")
 			}
@@ -111,24 +98,11 @@ func newCmdSecretEnvDelete() *cobra.Command {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
 			defer cancel()
 
-			appName, err := getAppName(cmd, args)
+			appID, err := resolveAppID(ctx, secUC.Repos.App, args)
 			if err != nil {
 				return err
 			}
-			apps, err := secUC.Repos.App.List(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to list apps: %w", err)
-			}
-			var appID string
-			for _, a := range apps {
-				if a != nil && a.Name == appName {
-					appID = a.ID
-					break
-				}
-			}
-			if appID == "" {
-				return fmt.Errorf("app %s not found", appName)
-			}
+
 			if service == "" {
 				return fmt.Errorf("--service is required")
 			}

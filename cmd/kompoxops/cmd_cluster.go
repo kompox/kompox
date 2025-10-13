@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 
 	providerdrv "github.com/kompox/kompox/adapters/drivers/provider"
+	"github.com/kompox/kompox/domain"
 	"github.com/kompox/kompox/domain/model"
 	kcfg "github.com/kompox/kompox/internal/kubeconfig"
 	"github.com/kompox/kompox/internal/logging"
@@ -17,6 +19,7 @@ import (
 )
 
 var flagClusterName string
+var flagClusterID string
 
 func newCmdCluster() *cobra.Command {
 	cmd := &cobra.Command{
@@ -29,8 +32,9 @@ func newCmdCluster() *cobra.Command {
 			return fmt.Errorf("invalid command")
 		},
 	}
-	// Persistent flag so all subcommands can use --cluster-name / -C
-	cmd.PersistentFlags().StringVarP(&flagClusterName, "cluster-name", "C", "", "Cluster name (default: cluster.name in kompoxops.yml)")
+	// Persistent flag so all subcommands can use --cluster-name / -C / --cluster-id
+	cmd.PersistentFlags().StringVarP(&flagClusterID, "cluster-id", "C", "", "Cluster ID (FQN: ws/prv/cls)")
+	cmd.PersistentFlags().StringVar(&flagClusterName, "cluster-name", "", "Cluster name (backward compatibility, use --cluster-id)")
 	cmd.AddCommand(
 		newCmdClusterProvision(),
 		newCmdClusterDeprovision(),
@@ -41,6 +45,56 @@ func newCmdCluster() *cobra.Command {
 		newCmdClusterLogs(),
 	)
 	return cmd
+}
+
+// resolveClusterID resolves a cluster identifier to a Cluster ID (FQN).
+// Priority: --cluster-id flag > --cluster-name flag > CRD mode default > kompoxops.yml default > positional arg
+// If the identifier contains "/", it's treated as an FQN and returned as-is.
+// Otherwise, it's treated as a name and looked up via List().
+// Returns error if name matches multiple clusters or no cluster is found.
+func resolveClusterID(ctx context.Context, clusterRepo domain.ClusterRepository, args []string) (string, error) {
+	// Determine the identifier from flags/config/args
+	var idOrName string
+	if flagClusterID != "" {
+		idOrName = flagClusterID
+	} else if flagClusterName != "" {
+		idOrName = flagClusterName
+	} else if crdMode.enabled && crdMode.defaultClusterID != "" {
+		idOrName = crdMode.defaultClusterID
+	} else if configRoot != nil && configRoot.Cluster.Name != "" {
+		idOrName = configRoot.Cluster.Name
+	} else if len(args) > 0 {
+		return "", fmt.Errorf("positional cluster name is not supported; use --cluster-id or --cluster-name")
+	} else {
+		return "", fmt.Errorf("cluster not specified; use --cluster-id, --cluster-name, or set cluster.name in kompoxops.yml")
+	}
+
+	// If it looks like an FQN (contains "/"), use directly as ID
+	if strings.Contains(idOrName, "/") {
+		return idOrName, nil
+	}
+
+	// Otherwise, find cluster by name
+	clusters, err := clusterRepo.List(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to list clusters: %w", err)
+	}
+
+	var matches []string
+	for _, c := range clusters {
+		if c != nil && c.Name == idOrName {
+			matches = append(matches, c.ID)
+		}
+	}
+
+	if len(matches) == 0 {
+		return "", fmt.Errorf("cluster %q not found", idOrName)
+	}
+	if len(matches) > 1 {
+		return "", fmt.Errorf("multiple clusters found with name %q: %v (use --cluster-id to specify)", idOrName, matches)
+	}
+
+	return matches[0], nil
 }
 
 // newCmdClusterLogs streams or prints logs from a traefik ingress pod in the cluster.
@@ -60,29 +114,15 @@ func newCmdClusterLogs() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			clusterName, err := getClusterName(cmd, nil)
+
+			rctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
+			defer cancel()
+
+			clusterID, err := resolveClusterID(rctx, clusterUC.Repos.Cluster, nil)
 			if err != nil {
 				return err
 			}
-			// Find cluster by name
-			var clusterID string
-			{
-				rctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
-				defer cancel()
-				listOut, err := clusterUC.List(rctx, &uc.ListInput{})
-				if err != nil {
-					return fmt.Errorf("failed to list clusters: %w", err)
-				}
-				for _, c := range listOut.Clusters {
-					if c.Name == clusterName {
-						clusterID = c.ID
-						break
-					}
-				}
-			}
-			if clusterID == "" {
-				return fmt.Errorf("cluster %s not found", clusterName)
-			}
+
 			in := &uc.LogsInput{ClusterID: clusterID, Container: container, Follow: follow}
 			if tail > 0 {
 				in.TailLines = &tail
@@ -108,20 +148,6 @@ func newCmdClusterLogs() *cobra.Command {
 	return cmd
 }
 
-// getClusterName resolves the cluster name from flag or config file. Positional args are no longer supported.
-func getClusterName(_ *cobra.Command, args []string) (string, error) {
-	if len(args) > 0 {
-		return "", fmt.Errorf("positional cluster name is not supported; use --cluster-name")
-	}
-	if flagClusterName != "" { // explicit flag
-		return flagClusterName, nil
-	}
-	if configRoot != nil && len(configRoot.Cluster.Name) > 0 { // default from config
-		return configRoot.Cluster.Name, nil
-	}
-	return "", fmt.Errorf("cluster name not specified; use --cluster-name or set cluster.name in kompoxops.yml")
-}
-
 func newCmdClusterProvision() *cobra.Command {
 	var force bool
 	cmd := &cobra.Command{
@@ -140,38 +166,30 @@ func newCmdClusterProvision() *cobra.Command {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Minute)
 			defer cancel()
 			logger := logging.FromContext(ctx)
-			clusterName, err := getClusterName(cmd, args)
+
+			clusterID, err := resolveClusterID(ctx, clusterUC.Repos.Cluster, args)
 			if err != nil {
 				return err
 			}
-			listOut, err := clusterUC.List(ctx, &uc.ListInput{})
-			if err != nil {
-				return fmt.Errorf("failed to list clusters: %w", err)
-			}
 
-			var cluster *model.Cluster
-			for _, c := range listOut.Clusters {
-				if c.Name == clusterName {
-					cluster = c
-					break
-				}
+			getOut, err := clusterUC.Get(ctx, &uc.GetInput{ClusterID: clusterID})
+			if err != nil {
+				return fmt.Errorf("failed to get cluster: %w", err)
 			}
-			if cluster == nil {
-				return fmt.Errorf("cluster %s not found", clusterName)
-			}
-			if cluster.Existing {
-				logger.Info(ctx, "cluster marked as existing, skipping provision", "cluster", clusterName)
+			cluster := getOut.Cluster
+			if cluster.Existing && !force {
+				logger.Info(ctx, "cluster marked as existing, skipping provision", "cluster", cluster.Name)
 				return nil
 			}
 
-			logger.Info(ctx, "provision start", "cluster", clusterName)
+			logger.Info(ctx, "provision start", "cluster", cluster.Name)
 
 			// Provision the cluster via usecase
 			if _, err := clusterUC.Provision(ctx, &uc.ProvisionInput{ClusterID: cluster.ID, Force: force}); err != nil {
-				return fmt.Errorf("failed to provision cluster %s: %w", clusterName, err)
+				return fmt.Errorf("failed to provision cluster %s: %w", cluster.Name, err)
 			}
 
-			logger.Info(ctx, "provision success", "cluster", clusterName)
+			logger.Info(ctx, "provision success", "cluster", cluster.Name)
 			return nil
 		},
 	}
@@ -198,38 +216,29 @@ func newCmdClusterDeprovision() *cobra.Command {
 			defer cancel()
 			logger := logging.FromContext(ctx)
 
-			clusterName, err := getClusterName(cmd, args)
+			clusterID, err := resolveClusterID(ctx, clusterUC.Repos.Cluster, args)
 			if err != nil {
 				return err
 			}
-			listOut, err := clusterUC.List(ctx, &uc.ListInput{})
-			if err != nil {
-				return fmt.Errorf("failed to list clusters: %w", err)
-			}
 
-			var cluster *model.Cluster
-			for _, c := range listOut.Clusters {
-				if c.Name == clusterName {
-					cluster = c
-					break
-				}
+			getOut, err := clusterUC.Get(ctx, &uc.GetInput{ClusterID: clusterID})
+			if err != nil {
+				return fmt.Errorf("failed to get cluster: %w", err)
 			}
-			if cluster == nil {
-				return fmt.Errorf("cluster %s not found", clusterName)
-			}
-			if cluster.Existing {
-				logger.Info(ctx, "cluster marked as existing, skipping deprovision", "cluster", clusterName)
+			cluster := getOut.Cluster
+			if cluster.Existing && !force {
+				logger.Info(ctx, "cluster marked as existing, skipping deprovision", "cluster", cluster.Name)
 				return nil
 			}
 
-			logger.Info(ctx, "deprovision start", "cluster", clusterName)
+			logger.Info(ctx, "deprovision start", "cluster", cluster.Name)
 
 			// Deprovision the cluster via usecase
 			if _, err := clusterUC.Deprovision(ctx, &uc.DeprovisionInput{ClusterID: cluster.ID, Force: force}); err != nil {
-				return fmt.Errorf("failed to deprovision cluster %s: %w", clusterName, err)
+				return fmt.Errorf("failed to deprovision cluster %s: %w", cluster.Name, err)
 			}
 
-			logger.Info(ctx, "deprovision success", "cluster", clusterName)
+			logger.Info(ctx, "deprovision success", "cluster", cluster.Name)
 			return nil
 		},
 	}
@@ -256,35 +265,25 @@ func newCmdClusterInstall() *cobra.Command {
 			defer cancel()
 			logger := logging.FromContext(ctx)
 
-			clusterName, err := getClusterName(cmd, args)
+			clusterID, err := resolveClusterID(ctx, clusterUC.Repos.Cluster, args)
 			if err != nil {
 				return err
 			}
-			listOut, err := clusterUC.List(ctx, &uc.ListInput{})
+
+			getOut, err := clusterUC.Get(ctx, &uc.GetInput{ClusterID: clusterID})
 			if err != nil {
-				return fmt.Errorf("failed to list clusters: %w", err)
+				return fmt.Errorf("failed to get cluster: %w", err)
 			}
+			cluster := getOut.Cluster
 
-			// Find cluster by name
-			var cluster *model.Cluster
-			for _, c := range listOut.Clusters {
-				if c.Name == clusterName {
-					cluster = c
-					break
-				}
-			}
-
-			if cluster == nil {
-				return fmt.Errorf("cluster %s not found", clusterName)
-			}
-			logger.Info(ctx, "install start", "cluster", clusterName)
+			logger.Info(ctx, "install start", "cluster", cluster.Name)
 
 			// Install cluster resources via usecase
 			if _, err := clusterUC.Install(ctx, &uc.InstallInput{ClusterID: cluster.ID, Force: force}); err != nil {
-				return fmt.Errorf("failed to install cluster resources for %s: %w", clusterName, err)
+				return fmt.Errorf("failed to install cluster resources for %s: %w", cluster.Name, err)
 			}
 
-			logger.Info(ctx, "install success", "cluster", clusterName)
+			logger.Info(ctx, "install success", "cluster", cluster.Name)
 			return nil
 		},
 	}
@@ -311,35 +310,25 @@ func newCmdClusterUninstall() *cobra.Command {
 			defer cancel()
 			logger := logging.FromContext(ctx)
 
-			clusterName, err := getClusterName(cmd, args)
+			clusterID, err := resolveClusterID(ctx, clusterUC.Repos.Cluster, args)
 			if err != nil {
 				return err
 			}
-			listOut, err := clusterUC.List(ctx, &uc.ListInput{})
+
+			getOut, err := clusterUC.Get(ctx, &uc.GetInput{ClusterID: clusterID})
 			if err != nil {
-				return fmt.Errorf("failed to list clusters: %w", err)
+				return fmt.Errorf("failed to get cluster: %w", err)
 			}
+			cluster := getOut.Cluster
 
-			// Find cluster by name
-			var cluster *model.Cluster
-			for _, c := range listOut.Clusters {
-				if c.Name == clusterName {
-					cluster = c
-					break
-				}
-			}
-
-			if cluster == nil {
-				return fmt.Errorf("cluster %s not found", clusterName)
-			}
-			logger.Info(ctx, "uninstall start", "cluster", clusterName)
+			logger.Info(ctx, "uninstall start", "cluster", cluster.Name)
 
 			// Uninstall cluster resources via usecase
 			if _, err := clusterUC.Uninstall(ctx, &uc.UninstallInput{ClusterID: cluster.ID, Force: force}); err != nil {
-				return fmt.Errorf("failed to uninstall cluster resources for %s: %w", clusterName, err)
+				return fmt.Errorf("failed to uninstall cluster resources for %s: %w", cluster.Name, err)
 			}
 
-			logger.Info(ctx, "uninstall success", "cluster", clusterName)
+			logger.Info(ctx, "uninstall success", "cluster", cluster.Name)
 			return nil
 		},
 	}
@@ -364,25 +353,16 @@ func newCmdClusterStatus() *cobra.Command {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
 			defer cancel()
 
-			clusterName, err := getClusterName(cmd, args)
+			clusterID, err := resolveClusterID(ctx, clusterUC.Repos.Cluster, args)
 			if err != nil {
 				return err
 			}
-			listOut, err := clusterUC.List(ctx, &uc.ListInput{})
-			if err != nil {
-				return fmt.Errorf("failed to list clusters: %w", err)
-			}
 
-			var cluster *model.Cluster
-			for _, c := range listOut.Clusters {
-				if c.Name == clusterName {
-					cluster = c
-					break
-				}
+			getOut, err := clusterUC.Get(ctx, &uc.GetInput{ClusterID: clusterID})
+			if err != nil {
+				return fmt.Errorf("failed to get cluster: %w", err)
 			}
-			if cluster == nil {
-				return fmt.Errorf("cluster %s not found", clusterName)
-			}
+			cluster := getOut.Cluster
 
 			// Get status
 			status, err := clusterUC.Status(ctx, &uc.StatusInput{ClusterID: cluster.ID})
@@ -442,25 +422,16 @@ func newCmdClusterKubeconfig() *cobra.Command {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
 			defer cancel()
 
-			clusterName, err := getClusterName(cmd, args)
+			clusterID, err := resolveClusterID(ctx, clusterUC.Repos.Cluster, args)
 			if err != nil {
 				return err
 			}
-			// Find cluster by name
-			listOut, err := clusterUC.List(ctx, &uc.ListInput{})
+
+			getOut, err := clusterUC.Get(ctx, &uc.GetInput{ClusterID: clusterID})
 			if err != nil {
-				return fmt.Errorf("failed to list clusters: %w", err)
+				return fmt.Errorf("failed to get cluster: %w", err)
 			}
-			var clusterObj *model.Cluster
-			for _, c := range listOut.Clusters {
-				if c.Name == clusterName {
-					clusterObj = c
-					break
-				}
-			}
-			if clusterObj == nil {
-				return fmt.Errorf("cluster %s not found", clusterName)
-			}
+			clusterObj := getOut.Cluster
 
 			// Build provider driver and fetch kubeconfig bytes
 			providerObj, err := clusterUC.Repos.Provider.Get(ctx, clusterObj.ProviderID)
@@ -487,7 +458,7 @@ func newCmdClusterKubeconfig() *cobra.Command {
 			// Load new kubeconfig and normalize
 			// Decide default context name when not provided
 			if contextName == "" {
-				contextName = fmt.Sprintf("kompoxops-%s", clusterName)
+				contextName = fmt.Sprintf("kompoxops-%s", clusterObj.Name)
 			}
 			// Derive default namespace if not explicitly provided via --namespace.
 			// We use naming.NewHashes(workspace, provider, cluster, app).Namespace when
@@ -498,7 +469,7 @@ func newCmdClusterKubeconfig() *cobra.Command {
 				providerName := providerObj.Name
 				appName := configRoot.App.Name
 				if workspaceName != "" && providerName != "" && appName != "" { // require all to avoid accidental collision
-					hashes := naming.NewHashes(workspaceName, providerName, clusterName, appName)
+					hashes := naming.NewHashes(workspaceName, providerName, clusterObj.Name, appName)
 					namespaceName = hashes.Namespace
 				}
 			}

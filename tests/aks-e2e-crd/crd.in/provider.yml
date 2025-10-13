@@ -1,0 +1,13 @@
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: aks1
+  annotations:
+    ops.kompox.dev/path: ${SERVICE_NAME}
+spec:
+  driver: aks
+  settings:
+    AZURE_AUTH_METHOD: azure_cli
+    AZURE_SUBSCRIPTION_ID: ${AZURE_SUBSCRIPTION_ID}
+    AZURE_LOCATION: ${AZURE_LOCATION}

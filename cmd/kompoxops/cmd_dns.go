@@ -20,7 +20,8 @@ func newCmdDNS() *cobra.Command {
 		RunE:               func(cmd *cobra.Command, args []string) error { return fmt.Errorf("invalid command") },
 	}
 	// Persistent flag shared across subcommands (same as app command)
-	cmd.PersistentFlags().StringVarP(&flagAppName, "app-name", "A", "", "App name (default: app.name in kompoxops.yml)")
+	cmd.PersistentFlags().StringVarP(&flagAppID, "app-id", "A", "", "App ID (FQN: ws/prv/cls/app)")
+	cmd.PersistentFlags().StringVar(&flagAppName, "app-name", "", "App name (backward compatibility, use --app-id)")
 	cmd.AddCommand(newCmdDNSDeploy(), newCmdDNSDestroy())
 	return cmd
 }
@@ -47,33 +48,22 @@ func newCmdDNSDeploy() *cobra.Command {
 			defer cancel()
 			logger := logging.FromContext(ctx)
 
-			// Resolve app name using shared getAppName function
-			appName, err := getAppName(cmd, args)
+			appID, err := resolveAppID(ctx, dnsUC.Repos.App, args)
 			if err != nil {
 				return err
 			}
 
-			// Find app by name
-			apps, err := dnsUC.Repos.App.List(ctx)
+			// Get app for logging
+			app, err := dnsUC.Repos.App.Get(ctx, appID)
 			if err != nil {
-				return fmt.Errorf("failed to list apps: %w", err)
-			}
-			var appID string
-			for _, a := range apps {
-				if a != nil && a.Name == appName {
-					appID = a.ID
-					break
-				}
-			}
-			if appID == "" {
-				return fmt.Errorf("app %s not found", appName)
+				return fmt.Errorf("failed to get app: %w", err)
 			}
 
 			if component == "" {
 				component = "app"
 			}
 
-			logger.Info(ctx, "dns deploy start", "app", appName, "component", component, "strict", strict, "dry_run", dryRun)
+			logger.Info(ctx, "dns deploy start", "app", app.Name, "component", component, "strict", strict, "dry_run", dryRun)
 
 			out, err := dnsUC.Deploy(ctx, &dns.DeployInput{
 				AppID:         appID,
@@ -138,33 +128,22 @@ func newCmdDNSDestroy() *cobra.Command {
 			defer cancel()
 			logger := logging.FromContext(ctx)
 
-			// Resolve app name using shared getAppName function
-			appName, err := getAppName(cmd, args)
+			appID, err := resolveAppID(ctx, dnsUC.Repos.App, args)
 			if err != nil {
 				return err
 			}
 
-			// Find app by name
-			apps, err := dnsUC.Repos.App.List(ctx)
+			// Get app for logging
+			app, err := dnsUC.Repos.App.Get(ctx, appID)
 			if err != nil {
-				return fmt.Errorf("failed to list apps: %w", err)
-			}
-			var appID string
-			for _, a := range apps {
-				if a != nil && a.Name == appName {
-					appID = a.ID
-					break
-				}
-			}
-			if appID == "" {
-				return fmt.Errorf("app %s not found", appName)
+				return fmt.Errorf("failed to get app: %w", err)
 			}
 
 			if component == "" {
 				component = "app"
 			}
 
-			logger.Info(ctx, "dns destroy start", "app", appName, "component", component, "strict", strict, "dry_run", dryRun)
+			logger.Info(ctx, "dns destroy start", "app", app.Name, "component", component, "strict", strict, "dry_run", dryRun)
 
 			out, err := dnsUC.Destroy(ctx, &dns.DestroyInput{
 				AppID:         appID,

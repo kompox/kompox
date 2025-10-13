@@ -45,24 +45,11 @@ func newCmdSecretPullSet() *cobra.Command {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
 			defer cancel()
 
-			appName, err := getAppName(cmd, args)
+			appID, err := resolveAppID(ctx, secUC.Repos.App, args)
 			if err != nil {
 				return err
 			}
-			apps, err := secUC.Repos.App.List(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to list apps: %w", err)
-			}
-			var appID string
-			for _, a := range apps {
-				if a != nil && a.Name == appName {
-					appID = a.ID
-					break
-				}
-			}
-			if appID == "" {
-				return fmt.Errorf("app %s not found", appName)
-			}
+
 			data, rerr := os.ReadFile(filePath)
 			if rerr != nil {
 				return fmt.Errorf("read file: %w", rerr)
@@ -105,23 +92,9 @@ func newCmdSecretPullDelete() *cobra.Command {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
 			defer cancel()
 
-			appName, err := getAppName(cmd, args)
+			appID, err := resolveAppID(ctx, secUC.Repos.App, args)
 			if err != nil {
 				return err
-			}
-			apps, err := secUC.Repos.App.List(ctx)
-			if err != nil {
-				return fmt.Errorf("failed to list apps: %w", err)
-			}
-			var appID string
-			for _, a := range apps {
-				if a != nil && a.Name == appName {
-					appID = a.ID
-					break
-				}
-			}
-			if appID == "" {
-				return fmt.Errorf("app %s not found", appName)
 			}
 			if component == "" {
 				component = "app"

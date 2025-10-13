@@ -1,0 +1,18 @@
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: basic
+  annotations:
+    ops.kompox.dev/path: ${SERVICE_NAME}/aks1/cluster1
+spec:
+  compose: file:compose.yml
+  ingress:
+    certResolver: staging
+    rules:
+      - name: main
+        port: 8080
+        hosts:
+          - whoami.custom.exp.kompox.dev
+  deployment:
+    zone: "1"

@@ -3,7 +3,7 @@ id: Kompox-CLI
 title: Kompox PaaS CLI
 version: v1
 status: synced
-updated: 2025-10-12
+updated: 2025-10-13
 language: ja
 ---
 
@@ -39,19 +39,20 @@ kompoxops admin             管理ツール
 共通オプション
 
 - `--db-url <URL>` 永続化DBの接続URL。環境変数 KOMPOX_DB_URL で指定可能。
+- `--crd-path <PATH>` CRD YAML の取り込み対象（ファイルまたはディレクトリ）。複数回指定可能。環境変数 `KOMPOX_CRD_PATH=path1,path2` でも指定可能（カンマ区切り）。指定したパスが存在しない場合はエラー。
+- `--crd-app <PATH>` 既定アプリID/クラスタIDの推定に用いる CRD YAML（ファイルまたはディレクトリ）。デフォルトは `./kompoxapp.yml`。環境変数 `KOMPOX_CRD_APP` でも指定可能。指定したパスが存在しない場合は無視（エラーにはならない）。
 
-### kompoxops.yml
+### CLI 設定と読み込みモード
 
-kompoxops は永続化DBなしで動作することができる。
+kompoxops は以下の 2 系統の設定入力をサポートする。
 
-リソース定義ファイル kompoxops.yml をグローバルオプションで `--db-url file:kompoxops.yml` のように指定すると、
-リソース定義をインメモリDBに読み込み、それに対して Kompox PaaS と同様の操作を行うことができる。
+(1) 単一ファイルモード（kompoxops.yml / db-url=file:）
 
-kompoxops.yml には workspace, provider, cluster, app の各定義が 1 つずつ含まれる。
-それらは kompoxops の memory データベースストアに読み込まれて
-自動的に app → cluster → provider → workspace の依存関係が設定される。
+- `--db-url file:kompoxops.yml`（または環境変数 `KOMPOX_DB_URL=file:...`）を指定すると単一の YAML から設定を読み込む。
+- YAML には `workspace`/`provider`/`cluster`/`app` がそれぞれ 1 件ずつ含む。
+- 読み込まれた内容はインメモリ DB に投入され、`app → cluster → provider → workspace` の依存が自動設定される。
 
-kompoxops.yml の例:
+単一ファイルモードの例（kompoxops.yml）:
 
 ```yaml
 version: v1
@@ -120,22 +121,49 @@ app:
       size: 64Gi
 ```
 
+(2) CRD モード（ops.kompox.dev/v1alpha1 / --crd-path, --crd-app）
+
+- `--crd-path PATH`（複数指定可）または環境変数 `KOMPOX_CRD_PATH=path1,path2` で指定したファイル/ディレクトリから、CRD スタイルの YAML（.yml/.yaml、再帰・マルチドキュメント対応）を取り込む。
+- `--crd-app PATH`（既定: `./kompoxapp.yml`）または環境変数 `KOMPOX_CRD_APP` が存在する場合は取り込み対象に追加する（未存在は無視）。
+- 取り込み・検証に成功すると CRD モードが有効となり、このセッションでは `--db-url`/`KOMPOX_DB_URL` は無視される。
+- `--crd-app` で読み込んだ範囲に App（Kind: App）が「ちょうど 1 件」ある場合:
+  - `--app-id` 未指定時のデフォルトとしてその App の FQN (Fully Qualified Name) を採用する。
+  - その App が参照する Cluster が一意に決まる場合、`--cluster-id` 未指定時のデフォルトとしてその Cluster の FQN を採用する。
+- FQN (Fully Qualified Name) は各リソースの内部 ID であり、以下の形式を持つ:
+  - Workspace: `ws`
+  - Provider: `ws/prv`
+  - Cluster: `ws/prv/cls`
+  - App: `ws/prv/cls/app`
+- CRD スタイルの仕様（FQN/参照整合/オール・オア・ナッシング等）の詳細は [Kompox-CRD.ja.md] を参照する。
+
+優先度と既定（まとめ）
+- CRD 入力（`--crd-path` と、存在する `--crd-app`）が 1 件以上読み込まれ検証に成功 → CRD モードで動作し、`--db-url`/`KOMPOX_DB_URL` は無視。
+- CRD 入力が無い/読み込めない → 既定どおり `--db-url` を使用（未指定時は `file:kompoxops.yml`）。
+- 既定 ID は、CRD モードでは「`--crd-app` 由来で App がちょうど 1 件」のときのみ自動推定 (App FQN → `--app-id`、参照する Cluster FQN → `--cluster-id`)。単一ファイルモードでは kompoxops.yml の `app.name`/`cluster.name` が既定。
+
+注意
+- CRD 取り込みは全ドキュメント収集後に整合検証を行い、いずれかが不整合なら反映しない（オール・オア・ナッシング）。
+- エラーには読み込み元ファイルパスとマルチドキュメント内のインデックス（1-based）を含める。
+
 ### kompoxops cluster
 
 K8s クラスタ操作を行う。
 
 ```
-kompoxops cluster provision --cluster-name <clusterName>     Cluster リソース準拠の K8s クラスタを作成開始 (existingがfalseの場合)
-kompoxops cluster deprovision --cluster-name <clusterName>   Cluster リソース準拠の K8s クラスタを削除開始 (existingがfalseの場合)
-kompoxops cluster install --cluster-name <clusterName>       K8s クラスタ内のリソースをインストール開始
-kompoxops cluster uninstall --cluster-name <clusterName>     K8s クラスタ内のリソースをアンインストール開始
-kompoxops cluster status --cluster-name <clusterName>        K8s クラスタのステータスを表示
-kompoxops cluster kubeconfig --cluster-name <clusterName>    kubectl 用 kubeconfig を取得/統合
+kompoxops cluster provision --cluster-id <clusterID>         Cluster リソース準拠の K8s クラスタを作成開始 (existingがfalseの場合)
+kompoxops cluster deprovision --cluster-id <clusterID>       Cluster リソース準拠の K8s クラスタを削除開始 (existingがfalseの場合)
+kompoxops cluster install --cluster-id <clusterID>           K8s クラスタ内のリソースをインストール開始
+kompoxops cluster uninstall --cluster-id <clusterID>         K8s クラスタ内のリソースをアンインストール開始
+kompoxops cluster status --cluster-id <clusterID>            K8s クラスタのステータスを表示
+kompoxops cluster kubeconfig --cluster-id <clusterID>        kubectl 用 kubeconfig を取得/統合
 ```
 
 共通オプション
 
-- `--cluster-name | -C` クラスタ名を指定 (デフォルト: kompoxops.yml の cluster.name)
+- `--cluster-id | -C` クラスタ ID (FQN: `ws/prv/cls`) を指定。CRD モードでは App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `cluster.name` が既定。
+- `--cluster-name` クラスタ名を指定（後方互換）。複数のクラスタが同名の場合はエラー。
+
+優先度: `--cluster-id` > `--cluster-name` > CRD デフォルト (FQN) > 単一ファイルモード (`cluster.name`)
 
 provision/deprovision コマンドは workspace/provider/cluster リソースの設定に従って K8s クラスタを作成・削除する。
 既存のクラスタを参照する場合は cluster.existing を true に設定する。
@@ -237,16 +265,19 @@ kompoxops cluster kubeconfig -C cluster1 --merge --set-current
 アプリの操作を行う。
 
 ```
-kompoxops app validate --app-name <appName>
-kompoxops app deploy   --app-name <appName> [--bootstrap-disks]
-kompoxops app destroy  --app-name <appName>
-kompoxops app status   --app-name <appName>
-kompoxops app exec     --app-name <appName> -- <command> [args...]
+kompoxops app validate --app-id <appID>
+kompoxops app deploy   --app-id <appID> [--bootstrap-disks]
+kompoxops app destroy  --app-id <appID>
+kompoxops app status   --app-id <appID>
+kompoxops app exec     --app-id <appID> -- <command> [args...]
 ```
 
 共通オプション
 
-- `--app-name | -A` アプリ名を指定 (デフォルト: kompoxops.yml の app.name)
+- `--app-id | -A` アプリ ID (FQN: `ws/prv/cls/app`) を指定。CRD モードでは `--crd-app` 範囲に App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
+- `--app-name` アプリ名を指定（後方互換）。複数のアプリが同名の場合はエラー。
+
+優先度: `--app-id` > `--app-name` > CRD デフォルト (FQN) > 単一ファイルモード (`app.name`)
 
 validate コマンドは app.compose の内容を検証し Kompose により K8s マニフェストに変換する。
 YAML 構文エラーや制約違反が検出された場合はエラーを返す。
@@ -384,16 +415,19 @@ kompoxops app exec -t -c app -- sh -c 'tail -n 100 /var/log/app.log'
 アプリのシークレットの操作を行う。
 
 ```
-kompoxops secret env set     --app-name <appName> -S <service> -f <file>
-kompoxops secret env delete  --app-name <appName> -S <service>
-kompoxops secret pull set    --app-name <appName> -f <file>
-kompoxops secret pull delete --app-name <appName>
+kompoxops secret env set     --app-id <appID> -S <service> -f <file>
+kompoxops secret env delete  --app-id <appID> -S <service>
+kompoxops secret pull set    --app-id <appID> -f <file>
+kompoxops secret pull delete --app-id <appID>
 ```
 
 共通オプション
 
-- `--app-name | -A` アプリ名を指定 (デフォルト: kompoxops.yml の app.name)
+- `--app-id | -A` アプリ ID (FQN: `ws/prv/cls/app`) を指定。CRD モードでは App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
+- `--app-name` アプリ名を指定（後方互換）。複数のアプリが同名の場合はエラー。
 - `--component | -C` コンポーネント名を指定 (デフォルト: `app`)
+
+優先度: `--app-id` > `--app-name` > CRD デフォルト (FQN) > 単一ファイルモード (`app.name`)
 
 #### kompoxops secret env
 
@@ -508,16 +542,19 @@ kompoxops secret pull delete -A app1 -C mycomponent
 アプリの Ingress エンドポイントに対応する DNS レコードを管理します。
 
 ```
-kompoxops dns deploy  --app-name <appName>    DNS レコードの作成/更新
-kompoxops dns destroy --app-name <appName>    DNS レコードの削除
+kompoxops dns deploy  --app-id <appID>    DNS レコードの作成/更新
+kompoxops dns destroy --app-id <appID>    DNS レコードの削除
 ```
 
 共通オプション
 
-- `--app-name | -A` アプリ名を指定 (デフォルト: kompoxops.yml の app.name)
+- `--app-id | -A` アプリ ID (FQN: `ws/prv/cls/app`) を指定。CRD モードでは App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
+- `--app-name` アプリ名を指定（後方互換）。複数のアプリが同名の場合はエラー。
 - `--component | -C` コンポーネント名を指定 (デフォルト: `app`)
 - `--strict` DNS 書き込み失敗時にエラーで終了 (デフォルトは警告のみで継続)
 - `--dry-run` 実際の変更を行わず、計画のみを表示
+
+優先度: `--app-id` > `--app-name` > CRD デフォルト (FQN) > 単一ファイルモード (`app.name`)
 
 仕様
 
@@ -583,17 +620,20 @@ kompoxops dns destroy -A app1 -C mycomponent
 app.volumes で定義された論理ボリュームに属するディスク (ボリュームインスタンス) を操作する。
 
 ```
-kompoxops disk list   --app-name <appName> --vol-name <volName>                     ディスク一覧表示
-kompoxops disk create --app-name <appName> --vol-name <volName> [-N <name>] [-S <source>] [--zone <zone>] [--options <json>] [--bootstrap] 新しいディスク作成 (サイズは app.volumes 定義を使用)
-kompoxops disk assign --app-name <appName> --vol-name <volName> -N <name>          指定ディスクを <volName> の Assigned に設定 (他は自動的に Unassign)
-kompoxops disk delete --app-name <appName> --vol-name <volName> -N <name>          指定ディスク削除 (Assigned 中はエラー)
+kompoxops disk list   --app-id <appID> --vol-name <volName>                     ディスク一覧表示
+kompoxops disk create --app-id <appID> --vol-name <volName> [-N <name>] [-S <source>] [--zone <zone>] [--options <json>] [--bootstrap] 新しいディスク作成 (サイズは app.volumes 定義を使用)
+kompoxops disk assign --app-id <appID> --vol-name <volName> -N <name>          指定ディスクを <volName> の Assigned に設定 (他は自動的に Unassign)
+kompoxops disk delete --app-id <appID> --vol-name <volName> -N <name>          指定ディスク削除 (Assigned 中はエラー)
 ```
 
 共通オプション
 
-- `--app-name | -A` アプリ名を指定 (デフォルト: kompoxops.yml の app.name)
+- `--app-id | -A` アプリ ID (FQN: `ws/prv/cls/app`) を指定。CRD モードでは App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
+- `--app-name` アプリ名を指定（後方互換）。複数のアプリが同名の場合はエラー。
 - `--vol-name | -V` ボリューム名を指定
 - `--name | -N` 操作対象ディスク名。`--disk-name` は同義のロングエイリアス。list/create では省略可、assign/delete では必須。
+
+優先度: `--app-id` > `--app-name` > CRD デフォルト (FQN) > 単一ファイルモード (`app.name`)
 
 create 専用オプション
 
@@ -697,16 +737,19 @@ app.volumes で定義された論理ボリュームに属するスナップシ�
 スナップショットからのディスク作成は `kompoxops disk create -S` を使用する。
 
 ```
-kompoxops snapshot list    --app-name <appName> --vol-name <volName>                               スナップショット一覧表示
-kompoxops snapshot create  --app-name <appName> --vol-name <volName> [-N <name>] [-S <source>]      スナップショットを作成 (既定は Assigned ディスクを使用)
-kompoxops snapshot delete  --app-name <appName> --vol-name <volName> -N <name>                     指定スナップショットを削除 (NotFound は成功)
+kompoxops snapshot list    --app-id <appID> --vol-name <volName>                               スナップショット一覧表示
+kompoxops snapshot create  --app-id <appID> --vol-name <volName> [-N <name>] [-S <source>]      スナップショットを作成 (既定は Assigned ディスクを使用)
+kompoxops snapshot delete  --app-id <appID> --vol-name <volName> -N <name>                     指定スナップショットを削除 (NotFound は成功)
 ```
 
 共通オプション
 
-- `--app-name | -A` アプリ名を指定 (デフォルト: kompoxops.yml の app.name)
+- `--app-id | -A` アプリ ID (FQN: `ws/prv/cls/app`) を指定。CRD モードでは App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
+- `--app-name` アプリ名を指定（後方互換）。複数のアプリが同名の場合はエラー。
 - `--vol-name | -V` ボリューム名を指定
 - `--name | -N` スナップショット名。`--snap-name` は同義。create では任意、delete では必須。最大 24 文字。
+
+優先度: `--app-id` > `--app-name` > CRD デフォルト (FQN) > 単一ファイルモード (`app.name`)
 
 
 create 追加オプション
@@ -759,18 +802,21 @@ kompoxops snapshot delete -V db -N 01J8WXYZABCDEF1234567890
 アプリの Namespace に Kompox Box (Deployment/Pod) をデプロイ・操作する。
 
 ```
-kompoxops box deploy  --app-name <appName> [--image IMG] [-V vol:disk:/path]... [-c CMD]... [-a ARG]...   Kompox Box のデプロイ
-kompoxops box destroy --app-name <appName>                                                                 Kompox Box の削除
-kompoxops box status  --app-name <appName>                                                                 Kompox Box の状態表示
-kompoxops box exec    --app-name <appName> [-i] [-t] [-e ESC] -- <command> [args...]                     Kompox Box 内でコマンド実行
-kompoxops box ssh     --app-name <appName> -- <ssh args...>                                               Kompox Box への SSH 接続
-kompoxops box scp     --app-name <appName> -- <scp args...>                                               Kompox Box とのファイル転送 (SCP)
-kompoxops box rsync   --app-name <appName> -- <rsync args...>                                             Kompox Box とのファイル同期 (rsync)
+kompoxops box deploy  --app-id <appID> [--image IMG] [-V vol:disk:/path]... [-c CMD]... [-a ARG]...   Kompox Box のデプロイ
+kompoxops box destroy --app-id <appID>                                                                 Kompox Box の削除
+kompoxops box status  --app-id <appID>                                                                 Kompox Box の状態表示
+kompoxops box exec    --app-id <appID> [-i] [-t] [-e ESC] -- <command> [args...]                     Kompox Box 内でコマンド実行
+kompoxops box ssh     --app-id <appID> -- <ssh args...>                                               Kompox Box への SSH 接続
+kompoxops box scp     --app-id <appID> -- <scp args...>                                               Kompox Box とのファイル転送 (SCP)
+kompoxops box rsync   --app-id <appID> -- <rsync args...>                                             Kompox Box とのファイル同期 (rsync)
 ```
 
 共通オプション
 
-- `--app-name | -A` 対象アプリ名 (デフォルト: kompoxops.yml の app.name)
+- `--app-id | -A` アプリ ID (FQN: `ws/prv/cls/app`) を指定。CRD モードでは App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
+- `--app-name` アプリ名を指定（後方互換）。複数のアプリが同名の場合はエラー。
+
+優先度: `--app-id` > `--app-name` > CRD デフォルト (FQN) > 単一ファイルモード (`app.name`)
 
 仕様
 
@@ -1037,3 +1083,51 @@ kompoxops admin workspace create -f ws-a.yml
 kompoxops admin workspace update ws-a -f ws-a.yml
 kompoxops admin workspace delete ws-a
 ```
+
+## 実装状況
+
+### CRD 統合 (2025-10-13 実装完了)
+
+K4x-ADR-007 Phase 2 の実装により、以下の機能が利用可能になりました：
+
+**CRD モードの有効化**:
+- `--crd-path` / `--crd-app` フラグと対応する環境変数 (`KOMPOX_CRD_PATH`, `KOMPOX_CRD_APP`)
+- マルチドキュメント YAML のサポート、再帰的なディレクトリスキャン
+- オール・オア・ナッシング検証（全ドキュメント収集後に整合性チェック）
+- CRD モード有効時の `--db-url` 無視
+
+**FQN ベース ID システム**:
+- すべてのリソース (Workspace/Provider/Cluster/App) に FQN (Fully Qualified Name) を ID として付与
+- FQN 形式: Workspace=`ws`, Provider=`ws/prv`, Cluster=`ws/prv/cls`, App=`ws/prv/cls/app`
+- 親子関係も FQN で直接参照（name ベースの曖昧解決を不要化）
+
+**CLI フラグの追加と優先度**:
+- `--app-id` / `--cluster-id` フラグを追加（FQN を直接指定）
+- `--app-name` / `--cluster-name` は後方互換のため維持（複数一致時はエラー）
+- 優先度: ID フラグ > Name フラグ > CRD デフォルト (FQN) > 単一ファイルモード (name)
+- CRD モードでの自動既定値設定:
+  - `--crd-app` 範囲に App が 1 件のみ → その FQN を `--app-id` の既定値に
+  - その App が参照する Cluster が一意 → その FQN を `--cluster-id` の既定値に
+
+**リソース解決の統一**:
+- 全コマンドで共有の `resolveAppID()` および `resolveClusterID()` 関数を使用
+- UseCase ではなく `domain.Repository` を直接受け取る設計（効率化）
+- Name 指定時の複数一致はエラー、候補一覧を表示
+- 合計 33 コマンドを更新（app: 6, cluster: 7, box: 7, disk: 4, snapshot: 3, dns: 2, secret: 4）
+
+**App spec フィールドの変換**:
+- `config/crd/ops/v1alpha1/sink_tomodels.go` で App の全 spec フィールドを変換:
+  - Compose（文字列）
+  - Ingress（CertResolver + Rules 配列）
+  - Volumes（Name + Size + Options 配列）
+  - Deployment（Pool + Zone）
+  - Resources（マップ）
+  - Settings（マップ）
+- 包括的なユニットテスト追加（10 テストケース、すべてパス）
+
+**コード整理**:
+- `repos_builder.go` を 3 ファイルに分割（main / CRD / DB）
+- Name 系ヘルパー関数を削除し、直接フィールドアクセスに統一
+- 不要なタイムアウトコンテキストを削除（box コマンド）
+
+[Kompox-CRD.ja.md]: ./Kompox-CRD.ja.md

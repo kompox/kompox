@@ -1,14 +1,15 @@
 package v1alpha1
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/yaml"
 )
 
 // Document represents a parsed CRD document with its FQN and original object.
@@ -226,30 +227,35 @@ func (l *Loader) parseKindDocument(raw map[string]any, kind string, path string,
 		if err := mapToStruct(raw, &ws); err != nil {
 			return nil, fmt.Errorf("parsing Workspace: %w", err)
 		}
+		setDocumentAnnotations(&ws.ObjectMeta, path, docIndex)
 		obj = &ws
 	case "Provider":
 		var prv Provider
 		if err := mapToStruct(raw, &prv); err != nil {
 			return nil, fmt.Errorf("parsing Provider: %w", err)
 		}
+		setDocumentAnnotations(&prv.ObjectMeta, path, docIndex)
 		obj = &prv
 	case "Cluster":
 		var cls Cluster
 		if err := mapToStruct(raw, &cls); err != nil {
 			return nil, fmt.Errorf("parsing Cluster: %w", err)
 		}
+		setDocumentAnnotations(&cls.ObjectMeta, path, docIndex)
 		obj = &cls
 	case "App":
 		var app App
 		if err := mapToStruct(raw, &app); err != nil {
 			return nil, fmt.Errorf("parsing App: %w", err)
 		}
+		setDocumentAnnotations(&app.ObjectMeta, path, docIndex)
 		obj = &app
 	case "Box":
 		var box Box
 		if err := mapToStruct(raw, &box); err != nil {
 			return nil, fmt.Errorf("parsing Box: %w", err)
 		}
+		setDocumentAnnotations(&box.ObjectMeta, path, docIndex)
 		obj = &box
 	default:
 		return nil, fmt.Errorf("unsupported kind: %s", kind)
@@ -264,17 +270,28 @@ func (l *Loader) parseKindDocument(raw map[string]any, kind string, path string,
 	}, nil
 }
 
+// setDocumentAnnotations sets document metadata annotations on a resource's ObjectMeta.
+// It ensures the annotations map is initialized and sets doc-path and doc-index.
+func setDocumentAnnotations(meta *metav1.ObjectMeta, path string, docIndex int) {
+	if meta.Annotations == nil {
+		meta.Annotations = make(map[string]string)
+	}
+	meta.Annotations[AnnotationDocPath] = path
+	meta.Annotations[AnnotationDocIndex] = fmt.Sprintf("%d", docIndex)
+}
+
 // mapToStruct converts a map[string]any to a struct using JSON marshaling/unmarshaling.
 // This approach preserves JSON tags used in Kubernetes types.
 func mapToStruct(m map[string]any, target any) error {
-	// Convert to JSON bytes
-	jsonBytes, err := json.Marshal(m)
+	// Convert to YAML bytes (which handles type conversions more leniently than JSON)
+	yamlBytes, err := yaml.Marshal(m)
 	if err != nil {
-		return fmt.Errorf("marshaling to JSON: %w", err)
+		return fmt.Errorf("marshaling to YAML: %w", err)
 	}
 
-	// Unmarshal into target
-	if err := json.Unmarshal(jsonBytes, target); err != nil {
+	// Unmarshal into target using YAML (not JSON)
+	// This allows numeric values to be automatically converted to strings in map[string]string fields
+	if err := yaml.Unmarshal(yamlBytes, target); err != nil {
 		return fmt.Errorf("unmarshaling to struct: %w", err)
 	}
 

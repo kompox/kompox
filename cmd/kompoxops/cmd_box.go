@@ -16,8 +16,6 @@ import (
 
 const defaultBoxImage = "ghcr.io/kompox/kompox/box"
 
-var flagBoxAppName string
-
 func newCmdBox() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:                "box",
@@ -27,37 +25,10 @@ func newCmdBox() *cobra.Command {
 		DisableSuggestions: true,
 		RunE:               func(cmd *cobra.Command, args []string) error { return fmt.Errorf("invalid command") },
 	}
-	cmd.PersistentFlags().StringVarP(&flagBoxAppName, "app-name", "A", "", "App name (default: app.name in kompoxops.yml)")
+	cmd.PersistentFlags().StringVarP(&flagAppID, "app-id", "A", "", "App ID (FQN: ws/prv/cls/app)")
+	cmd.PersistentFlags().StringVar(&flagAppName, "app-name", "", "App name (backward compatibility, use --app-id)")
 	cmd.AddCommand(newCmdBoxDeploy(), newCmdBoxDestroy(), newCmdBoxStatus(), newCmdBoxExec(), newCmdBoxSsh(), newCmdBoxSCP(), newCmdBoxRsync())
 	return cmd
-}
-
-// Resolve app name from flag or config file. No positional args supported.
-func getBoxAppName(_ *cobra.Command, args []string) (string, error) {
-	if len(args) > 0 {
-		return "", fmt.Errorf("positional app name is not supported; use --app-name")
-	}
-	if flagBoxAppName != "" {
-		return flagBoxAppName, nil
-	}
-	if configRoot != nil && len(configRoot.App.Name) > 0 {
-		return configRoot.App.Name, nil
-	}
-	return "", fmt.Errorf("app name not specified; use --app-name or set app.name in kompoxops.yml")
-}
-
-// resolveAppIDByNameUsingBoxUC lists apps via the same repositories used by boxUC to avoid ID mismatches.
-func resolveAppIDByNameUsingBoxUC(ctx context.Context, boxUC *boxuc.UseCase, name string) (string, error) {
-	apps, err := boxUC.Repos.App.List(ctx)
-	if err != nil {
-		return "", err
-	}
-	for _, a := range apps {
-		if a.Name == name {
-			return a.ID, nil
-		}
-	}
-	return "", fmt.Errorf("app %s not found", name)
 }
 
 func newCmdBoxDeploy() *cobra.Command {
@@ -84,11 +55,7 @@ func newCmdBoxDeploy() *cobra.Command {
 
 			logger := logging.FromContext(ctx)
 
-			appName, err := getBoxAppName(cmd, args)
-			if err != nil {
-				return err
-			}
-			appID, err := resolveAppIDByNameUsingBoxUC(ctx, boxUC, appName)
+			appID, err := resolveAppID(ctx, boxUC.Repos.App, args)
 			if err != nil {
 				return err
 			}
@@ -170,11 +137,7 @@ func newCmdBoxDestroy() *cobra.Command {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
 			defer cancel()
 
-			appName, err := getBoxAppName(cmd, args)
-			if err != nil {
-				return err
-			}
-			appID, err := resolveAppIDByNameUsingBoxUC(ctx, boxUC, appName)
+			appID, err := resolveAppID(ctx, boxUC.Repos.App, args)
 			if err != nil {
 				return err
 			}
@@ -203,11 +166,7 @@ func newCmdBoxStatus() *cobra.Command {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
 			defer cancel()
 
-			appName, err := getBoxAppName(cmd, args)
-			if err != nil {
-				return err
-			}
-			appID, err := resolveAppIDByNameUsingBoxUC(ctx, boxUC, appName)
+			appID, err := resolveAppID(ctx, boxUC.Repos.App, args)
 			if err != nil {
 				return err
 			}
@@ -244,26 +203,18 @@ func newCmdBoxExec() *cobra.Command {
 			ctx := cmd.Context()
 			logger := logging.FromContext(ctx)
 
-			appName, err := getBoxAppName(cmd, nil)
+			appID, err := resolveAppID(ctx, boxUC.Repos.App, nil)
 			if err != nil {
 				return err
 			}
-			// Resolve app ID using a short-lived context
-			{
-				rctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-				defer cancel()
-				appID, err := resolveAppIDByNameUsingBoxUC(rctx, boxUC, appName)
-				if err != nil {
-					return err
-				}
-				if len(args) == 0 {
-					return fmt.Errorf("command is required after --")
-				}
-				_, err = boxUC.Exec(ctx, &boxuc.ExecInput{AppID: appID, Command: args, Stdin: stdin, TTY: tty, Escape: escape})
-				if err != nil {
-					logger.Error(ctx, "exec failed", "error", err)
-					return err
-				}
+
+			if len(args) == 0 {
+				return fmt.Errorf("command is required after --")
+			}
+			_, err = boxUC.Exec(ctx, &boxuc.ExecInput{AppID: appID, Command: args, Stdin: stdin, TTY: tty, Escape: escape})
+			if err != nil {
+				logger.Error(ctx, "exec failed", "error", err)
+				return err
 			}
 			return nil
 		},
@@ -290,24 +241,15 @@ func newCmdBoxSsh() *cobra.Command {
 			ctx := cmd.Context()
 			logger := logging.FromContext(ctx)
 
-			appName, err := getBoxAppName(cmd, nil)
+			appID, err := resolveAppID(ctx, boxUC.Repos.App, nil)
 			if err != nil {
 				return err
 			}
-			// Resolve app ID using a short-lived context
-			{
-				rctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-				defer cancel()
-				appID, err := resolveAppIDByNameUsingBoxUC(rctx, boxUC, appName)
-				if err != nil {
-					return err
-				}
 
-				_, err = boxUC.SSH(ctx, &boxuc.SSHInput{AppID: appID, SSHArgs: args})
-				if err != nil {
-					logger.Error(ctx, "SSH failed", "error", err)
-					return err
-				}
+			_, err = boxUC.SSH(ctx, &boxuc.SSHInput{AppID: appID, SSHArgs: args})
+			if err != nil {
+				logger.Error(ctx, "SSH failed", "error", err)
+				return err
 			}
 			return nil
 		},
@@ -331,24 +273,15 @@ func newCmdBoxRsync() *cobra.Command {
 			ctx := cmd.Context()
 			logger := logging.FromContext(ctx)
 
-			appName, err := getBoxAppName(cmd, nil)
+			appID, err := resolveAppID(ctx, boxUC.Repos.App, nil)
 			if err != nil {
 				return err
 			}
-			// Resolve app ID using a short-lived context
-			{
-				rctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-				defer cancel()
-				appID, err := resolveAppIDByNameUsingBoxUC(rctx, boxUC, appName)
-				if err != nil {
-					return err
-				}
 
-				_, err = boxUC.Rsync(ctx, &boxuc.RsyncInput{AppID: appID, RsyncArgs: args})
-				if err != nil {
-					logger.Error(ctx, "rsync failed", "error", err)
-					return err
-				}
+			_, err = boxUC.Rsync(ctx, &boxuc.RsyncInput{AppID: appID, RsyncArgs: args})
+			if err != nil {
+				logger.Error(ctx, "rsync failed", "error", err)
+				return err
 			}
 			return nil
 		},
@@ -373,24 +306,15 @@ func newCmdBoxSCP() *cobra.Command {
 			ctx := cmd.Context()
 			logger := logging.FromContext(ctx)
 
-			appName, err := getBoxAppName(cmd, nil)
+			appID, err := resolveAppID(ctx, boxUC.Repos.App, nil)
 			if err != nil {
 				return err
 			}
-			// Resolve app ID using a short-lived context
-			{
-				rctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-				defer cancel()
-				appID, err := resolveAppIDByNameUsingBoxUC(rctx, boxUC, appName)
-				if err != nil {
-					return err
-				}
 
-				_, err = boxUC.SCP(ctx, &boxuc.SCPInput{AppID: appID, SCPArgs: args})
-				if err != nil {
-					logger.Error(ctx, "SCP failed", "error", err)
-					return err
-				}
+			_, err = boxUC.SCP(ctx, &boxuc.SCPInput{AppID: appID, SCPArgs: args})
+			if err != nil {
+				logger.Error(ctx, "SCP failed", "error", err)
+				return err
 			}
 			return nil
 		},

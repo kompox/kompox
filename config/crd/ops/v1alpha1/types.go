@@ -12,6 +12,12 @@ const (
 
 	// AnnotationPath is the annotation key for specifying parent scope path.
 	AnnotationPath = Group + "/path"
+	// AnnotationDocPath is the annotation key for storing the source document file path.
+	// This is automatically set by the Loader to enable file-relative path resolution.
+	AnnotationDocPath = Group + "/doc-path"
+	// AnnotationDocIndex is the annotation key for storing the document index within the source file.
+	// This is automatically set by the Loader (1-based position in multi-document YAML files).
+	AnnotationDocIndex = Group + "/doc-index"
 )
 
 // Workspace represents a logical workspace.

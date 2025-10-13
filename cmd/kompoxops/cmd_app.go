@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/kompox/kompox/adapters/kube"
-	"github.com/kompox/kompox/domain/model"
+	"github.com/kompox/kompox/domain"
 	"github.com/kompox/kompox/internal/logging"
 	"github.com/kompox/kompox/internal/terminal"
 	"github.com/kompox/kompox/usecase/app"
@@ -24,6 +24,7 @@ import (
 )
 
 var flagAppName string
+var flagAppID string
 
 func newCmdApp() *cobra.Command {
 	cmd := &cobra.Command{
@@ -35,23 +36,69 @@ func newCmdApp() *cobra.Command {
 		RunE:               func(cmd *cobra.Command, args []string) error { return fmt.Errorf("invalid command") },
 	}
 	// Persistent flag shared across subcommands
-	cmd.PersistentFlags().StringVarP(&flagAppName, "app-name", "A", "", "App name (default: app.name in kompoxops.yml)")
+	cmd.PersistentFlags().StringVarP(&flagAppID, "app-id", "A", "", "App ID (FQN: ws/prv/cls/app)")
+	cmd.PersistentFlags().StringVar(&flagAppName, "app-name", "", "App name (backward compatibility, use --app-id)")
 	cmd.AddCommand(newCmdAppValidate(), newCmdAppDeploy(), newCmdAppDestroy(), newCmdAppStatus(), newCmdAppExec(), newCmdAppLogs())
 	return cmd
 }
 
-// getAppName resolves the app name from flag or config file. Positional args are no longer supported.
-func getAppName(_ *cobra.Command, args []string) (string, error) {
+// resolveAppID resolves the app ID from flags, config, or positional args.
+// Priority: --app-id flag > --app-name flag > CRD mode default (single app) > kompoxops.yml app.name
+// If the resolved value contains "/", it's treated as an FQN and returned as-is.
+// Otherwise, it's treated as a name and looked up via List().
+// Returns error if name matches multiple apps or no app is found.
+//
+// This function is shared across all commands that need app resolution.
+// It uses global variables flagAppID and flagAppName set by each command's persistent flags.
+func resolveAppID(ctx context.Context, appRepo domain.AppRepository, args []string) (string, error) {
 	if len(args) > 0 {
-		return "", fmt.Errorf("positional app name is not supported; use --app-name")
+		return "", fmt.Errorf("positional app name is not supported; use --app-id or --app-name")
 	}
-	if flagAppName != "" {
-		return flagAppName, nil
+
+	// Determine the identifier from flags/config
+	var idOrName string
+	// 1. Use --app-id flag if provided (highest priority)
+	if flagAppID != "" {
+		idOrName = flagAppID
+	} else if flagAppName != "" {
+		// 2. Use --app-name flag if provided
+		idOrName = flagAppName
+	} else if crdMode.enabled && crdMode.defaultAppID != "" {
+		// 3. In CRD mode with single app, use that app's FQN as default
+		idOrName = crdMode.defaultAppID
+	} else if configRoot != nil && configRoot.App.Name != "" {
+		// 4. In DB mode (kompoxops.yml), use app.name if available
+		idOrName = configRoot.App.Name
+	} else {
+		return "", fmt.Errorf("app not specified; use --app-id, --app-name, or set app.name in kompoxops.yml")
 	}
-	if configRoot != nil && len(configRoot.App.Name) > 0 {
-		return configRoot.App.Name, nil
+
+	// If it looks like an FQN (contains "/"), use directly as ID
+	if strings.Contains(idOrName, "/") {
+		return idOrName, nil
 	}
-	return "", fmt.Errorf("app name not specified; use --app-name or set app.name in kompoxops.yml")
+
+	// Otherwise, find app by name
+	apps, err := appRepo.List(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to list apps: %w", err)
+	}
+
+	var matches []string
+	for _, a := range apps {
+		if a != nil && a.Name == idOrName {
+			matches = append(matches, a.ID)
+		}
+	}
+
+	if len(matches) == 0 {
+		return "", fmt.Errorf("app %q not found", idOrName)
+	}
+	if len(matches) > 1 {
+		return "", fmt.Errorf("multiple apps found with name %q: %v (use --app-id to specify)", idOrName, matches)
+	}
+
+	return matches[0], nil
 }
 
 // normalizeYAMLDocs ensures the YAML document starts with "---" and ends with a newline.
@@ -87,38 +134,23 @@ func newCmdAppValidate() *cobra.Command {
 			defer cancel()
 			logger := logging.FromContext(ctx)
 
-			appName, err := getAppName(cmd, args)
+			appID, err := resolveAppID(ctx, appUC.Repos.App, args)
 			if err != nil {
 				return err
 			}
-			// Find app by name using new List Input/Output pattern
-			listOut, err := appUC.List(ctx, &app.ListInput{})
-			if err != nil {
-				return fmt.Errorf("failed to list apps: %w", err)
-			}
-			var target *string
-			for _, a := range listOut.Apps {
-				if a.Name == appName {
-					id := a.ID
-					target = &id
-					break
-				}
-			}
-			if target == nil {
-				return fmt.Errorf("app %s not found", appName)
-			}
-			out, err := appUC.Validate(ctx, &app.ValidateInput{AppID: *target})
+
+			out, err := appUC.Validate(ctx, &app.ValidateInput{AppID: appID})
 			if err != nil {
 				return fmt.Errorf("validation failed: %w", err)
 			}
 			if len(out.Errors) > 0 {
 				for _, e := range out.Errors {
-					logger.Error(ctx, e, "app", appName)
+					logger.Error(ctx, e, "app", appID)
 				}
 				return fmt.Errorf("validation failed (%d errors)", len(out.Errors))
 			}
 			for _, w := range out.Warnings {
-				logger.Warn(ctx, w, "app", appName)
+				logger.Warn(ctx, w, "app", appID)
 			}
 			if outComposePath != "" && out.Compose != "" {
 				yamlDocs := normalizeYAMLDocs(out.Compose)
@@ -187,32 +219,24 @@ func newCmdAppDeploy() *cobra.Command {
 			defer cancel()
 			logger := logging.FromContext(ctx)
 
-			appName, err := getAppName(cmd, args)
+			appID, err := resolveAppID(ctx, appUC.Repos.App, args)
 			if err != nil {
 				return err
 			}
-			// Resolve app by name
-			listOut, err := appUC.List(ctx, &app.ListInput{})
+
+			// Get app entity
+			getOut, err := appUC.Get(ctx, &app.GetInput{AppID: appID})
 			if err != nil {
-				return fmt.Errorf("failed to list apps: %w", err)
+				return fmt.Errorf("failed to get app: %w", err)
 			}
-			var target *model.App
-			for _, a := range listOut.Apps {
-				if a.Name == appName {
-					target = a
-					break
-				}
-			}
-			if target == nil {
-				return fmt.Errorf("app %s not found", appName)
-			}
+			target := getOut.App
 
 			if bootstrapDisks {
 				volUC, verr := buildVolumeUseCase(cmd)
 				if verr != nil {
 					return verr
 				}
-				logger.Info(ctx, "bootstrap disks before deploy", "app", appName)
+				logger.Info(ctx, "bootstrap disks before deploy", "app", target.Name)
 				if _, berr := volUC.DiskCreateBootstrap(ctx, &vuc.DiskCreateBootstrapInput{AppID: target.ID}); berr != nil {
 					return berr
 				}
@@ -228,7 +252,7 @@ func newCmdAppDeploy() *cobra.Command {
 				if derr != nil {
 					return fmt.Errorf("failed to build DNS use case: %w", derr)
 				}
-				logger.Info(ctx, "updating DNS records", "app", appName)
+				logger.Info(ctx, "updating DNS records", "app", target.Name)
 				_, derr = dnsUC.Deploy(ctx, &dns.DeployInput{
 					AppID:         target.ID,
 					ComponentName: "app",
@@ -272,25 +296,17 @@ func newCmdAppDestroy() *cobra.Command {
 			defer cancel()
 			logger := logging.FromContext(ctx)
 
-			appName, err := getAppName(cmd, args)
+			appID, err := resolveAppID(ctx, appUC.Repos.App, args)
 			if err != nil {
 				return err
 			}
-			// Find app by name
-			listOut, err := appUC.List(ctx, &app.ListInput{})
+
+			// Get app entity
+			getOut, err := appUC.Get(ctx, &app.GetInput{AppID: appID})
 			if err != nil {
-				return fmt.Errorf("failed to list apps: %w", err)
+				return fmt.Errorf("failed to get app: %w", err)
 			}
-			var target *model.App
-			for _, a := range listOut.Apps {
-				if a.Name == appName {
-					target = a
-					break
-				}
-			}
-			if target == nil {
-				return fmt.Errorf("app %s not found", appName)
-			}
+			target := getOut.App
 
 			// Destroy DNS records if requested (before destroying the app)
 			if updateDNS {
@@ -298,7 +314,7 @@ func newCmdAppDestroy() *cobra.Command {
 				if derr != nil {
 					return fmt.Errorf("failed to build DNS use case: %w", derr)
 				}
-				logger.Info(ctx, "destroying DNS records", "app", appName)
+				logger.Info(ctx, "destroying DNS records", "app", target.Name)
 				_, derr = dnsUC.Destroy(ctx, &dns.DestroyInput{
 					AppID:         target.ID,
 					ComponentName: "app",
@@ -336,28 +352,12 @@ func newCmdAppStatus() *cobra.Command {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
 			defer cancel()
 
-			appName, err := getAppName(cmd, args)
+			appID, err := resolveAppID(ctx, appUC.Repos.App, args)
 			if err != nil {
 				return err
 			}
 
-			// Find app by name
-			listOut, err := appUC.List(ctx, &app.ListInput{})
-			if err != nil {
-				return fmt.Errorf("failed to list apps: %w", err)
-			}
-			var targetID string
-			for _, a := range listOut.Apps {
-				if a.Name == appName {
-					targetID = a.ID
-					break
-				}
-			}
-			if targetID == "" {
-				return fmt.Errorf("app %s not found", appName)
-			}
-
-			st, err := appUC.Status(ctx, &app.StatusInput{AppID: targetID})
+			st, err := appUC.Status(ctx, &app.StatusInput{AppID: appID})
 			if err != nil {
 				return err
 			}
@@ -390,29 +390,12 @@ func newCmdAppExec() *cobra.Command {
 				return err
 			}
 			ctx := cmd.Context()
-			appName, err := getAppName(cmd, nil)
+
+			appID, err := resolveAppID(ctx, appUC.Repos.App, nil)
 			if err != nil {
 				return err
 			}
-			// Resolve app by name using a short-lived context
-			var appID string
-			{
-				rctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
-				defer cancel()
-				listOut, err := appUC.List(rctx, &app.ListInput{})
-				if err != nil {
-					return fmt.Errorf("failed to list apps: %w", err)
-				}
-				for _, a := range listOut.Apps {
-					if a.Name == appName {
-						appID = a.ID
-						break
-					}
-				}
-			}
-			if appID == "" {
-				return fmt.Errorf("app %s not found", appName)
-			}
+
 			if len(args) == 0 {
 				return fmt.Errorf("command is required after --")
 			}
@@ -446,29 +429,12 @@ func newCmdAppLogs() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			appName, err := getAppName(cmd, nil)
+
+			appID, err := resolveAppID(cmd.Context(), appUC.Repos.App, nil)
 			if err != nil {
 				return err
 			}
-			// Resolve app ID
-			var appID string
-			{
-				rctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
-				defer cancel()
-				listOut, err := appUC.List(rctx, &app.ListInput{})
-				if err != nil {
-					return fmt.Errorf("failed to list apps: %w", err)
-				}
-				for _, a := range listOut.Apps {
-					if a.Name == appName {
-						appID = a.ID
-						break
-					}
-				}
-			}
-			if appID == "" {
-				return fmt.Errorf("app %s not found", appName)
-			}
+
 			in := &app.LogsInput{AppID: appID, Container: container, Follow: follow}
 			if tail > 0 {
 				in.TailLines = &tail

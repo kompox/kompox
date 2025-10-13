@@ -1,0 +1,5 @@
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: ${SERVICE_NAME}
