@@ -4,6 +4,8 @@ Japanese: [README.ja.md](./README.ja.md)
 
 This directory contains Architecture Decision Records for Kompox. ADRs capture significant engineering decisions with their context, options, and consequences. They are concise and stable; detailed implementation plans live elsewhere (e.g., `_dev/tasks/`).
 
+Language policy: ADRs must always be written in English. Japanese documentation may exist elsewhere (e.g., `README.ja.md`), but ADR files (`K4x-ADR-###.md`) are English-only.
+
 ## Scope and purpose
 
 - Document decisions that affect public behavior, CLI UX, data contracts, provider/driver interfaces, or architecture boundaries
