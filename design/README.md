@@ -1,7 +1,7 @@
 ---
 id: README
 title: Kompox Design Document Index
-updated: 2025-10-13
+updated: 2025-10-15
 language: en
 ---
 
@@ -13,7 +13,7 @@ This directory holds the canonical design and planning documents for Kompox. v1 
 
 | ID | Title | Language | Version | Status | Last updated |
 |---|---|---|---|---|---|
-| [Kompox-CRD](./v1/Kompox-CRD.ja.md) | Kompox CRD-style configuration | ja | v1 | draft | 2025-10-13 |
+| [Kompox-CRD](./v1/Kompox-CRD.ja.md) | Kompox CRD-style configuration | ja | v1 | draft | 2025-10-15 |
 | [Kompox-Arch-Implementation](./v1/Kompox-Arch-Implementation.ja.md) | Kompox Implementation Architecture | ja | v1 | synced | 2025-10-12 |
 | [Kompox-KubeClient](./v1/Kompox-KubeClient.ja.md) | Kompox Kube Client ガイド | ja | v1 | out-of-sync | 2025-09-26 |
 | [Kompox-KubeConverter](./v1/Kompox-KubeConverter.ja.md) | Kompox Kube Converter ガイド | ja | v1 | synced | 2025-10-12 |
@@ -55,6 +55,7 @@ This directory holds the canonical design and planning documents for Kompox. v1 
 | [K4x-ADR-006](./adr/K4x-ADR-006.md) | Rename domain model Service to Workspace |  |  | accepted | - |
 | [K4x-ADR-007](./adr/K4x-ADR-007.md) | Introduce CRD-style configuration |  |  | accepted | - |
 | [K4x-ADR-008](./adr/K4x-ADR-008.md) | Introduce Box as a first-class ops kind |  |  | proposed | - |
+| [K4x-ADR-009](./adr/K4x-ADR-009.md) | Kompox Ops Manifest Schema |  |  | proposed | - |
 
 **Status definitions:**
 

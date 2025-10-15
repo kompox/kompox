@@ -1,7 +1,7 @@
 ---
 id: README
 title: Developer Tasks Index
-updated: 2025-10-13
+updated: 2025-10-15
 language: en
 ---
 
@@ -16,6 +16,7 @@ This index lists short, action-oriented developer tasks found in this folder. Ta
 
 | ID | Title | Status | Category | Owner | Updated | Language |
 |---|---|---|---|---|---|---|
+| [2025-10-15-kom](./2025-10-15-kom.ja.md) | KOM(Kompox Ops Manifest) 導入と適用 | draft |  | yaegashi | 2025-10-15 | ja |
 | [2025-10-13-crd-p2](./2025-10-13-crd-p2.ja.md) | CLI への CRD 取り込み統合 | done |  | yaegsahi | 2025-10-13 | ja |
 | [2025-10-13-crd-p1](./2025-10-13-crd-p1.ja.md) | CRD DTO とローダーの初期実装（ops.kompox.dev/v1alpha1） | done |  | yaegashi | 2025-10-13 | ja |
 | [2025-10-12-workspace](./2025-10-12-workspace.ja.md) | Domain Service → Workspace への改名 | completed |  |  | 2025-10-12 | ja |

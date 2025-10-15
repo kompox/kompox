@@ -3,7 +3,7 @@ id: Kompox-CRD
 title: Kompox CRD-style configuration
 version: v1
 status: draft
-updated: 2025-10-13
+updated: 2025-10-15
 language: ja
 ---
 
@@ -21,32 +21,32 @@ Kompox v1 CLI および v2 Operator で共通利用可能な Kubernetes CRD 互�
 基本方針:
 - Group: ops.kompox.dev / Version: v1alpha1
 - Kind: Workspace / Provider / Cluster / App / Box
-- インポートファイルは annotations["ops.kompox.dev/path"] により上位スコープを唯一の略記で指定
+- ポータブル YAML ファイル (KOM) では annotations["ops.kompox.dev/id"] に自身の正規 Resource ID(型付き・絶対パス)を指定
 - 参照整合に失敗した場合は DB を更新しない(オール・オア・ナッシング)
- 
 
-## Portable YAML format
 
-インポート対象 YAML は、各 Kind の親スコープを annotations の唯一キーで指定します。
+## Kompox Ops Manifest Schema
 
-- キー: `metadata.annotations["ops.kompox.dev/path"]`
-- 値の形式(スラッシュ区切り):
-  - Provider: `<ws>`
-  - Cluster: `<ws>/<prv>`
-  - App: `<ws>/<prv>/<cls>`
-  - Box: `<ws>/<prv>/<cls>/<app>`
-- Workspace は親参照を持たないため指定不要
+Kompox CRD のインポート・エクスポートができるポータブルな YAML ファイルを Kompox Ops Manifest (KOM) と呼びます。
 
-注記:
-- ディレクトリ配置や CLI フラグからの推測は行いません(本仕様では略記は path のみ)
-- すべての YAML ドキュメントは apiVersion/kind/metadata.name を必須とします
+KOM ではすべてのリソースの Kind で自身の正規 ID を annotations の唯一キーとして持ちます。
 
+- キー: `metadata.annotations["ops.kompox.dev/id"]`(Resource ID / FQN)
+- 値の形式: 型付き・先頭スラッシュ・短縮 kind を含む絶対パス
+  - 文法: `/ <kind> / <name> ( / <kind> / <name> )*`
+  - 短縮 kind: `ws|prv|cls|app|box|...`(将来 `ing` 等を追加可能)
+  - name は DNS-1123 label(小英数と `-`, 1..63 文字)
+- すべての Kind(Workspace を含む)で必須
+
+例(最小構成):
 
 ```yaml
 apiVersion: ops.kompox.dev/v1alpha1
 kind: Workspace
 metadata:
   name: <wsName>
+  annotations:
+    ops.kompox.dev/id: /ws/<wsName>
 spec: {}
 ```
 
@@ -56,7 +56,7 @@ kind: Provider
 metadata:
   name: <prvName>
   annotations:
-    ops.kompox.dev/path: <wsName>
+    ops.kompox.dev/id: /ws/<wsName>/prv/<prvName>
 spec: {}
 ```
 
@@ -66,7 +66,7 @@ kind: Cluster
 metadata:
   name: <clsName>
   annotations:
-    ops.kompox.dev/path: <wsName>/<prvName>
+    ops.kompox.dev/id: /ws/<wsName>/prv/<prvName>/cls/<clsName>
 spec: {}
 ```
 
@@ -76,7 +76,7 @@ kind: App
 metadata:
   name: <appName>
   annotations:
-    ops.kompox.dev/path: <wsName>/<prvName>/<clsName>
+    ops.kompox.dev/id: /ws/<wsName>/prv/<prvName>/cls/<clsName>/app/<appName>
 spec: {}
 ```
 
@@ -86,11 +86,17 @@ kind: Box
 metadata:
   name: <boxName>
   annotations:
-    ops.kompox.dev/path: <wsName>/<prvName>/<clsName>/<appName>
+    ops.kompox.dev/id: /ws/<wsName>/prv/<prvName>/cls/<clsName>/app/<appName>/box/<boxName>
 spec: {}
 ```
 
+注記:
+- ディレクトリ配置や CLI フラグからの推測は行いません(本仕様では ID のみを一次情報とする)
+- すべての YAML ドキュメントは `apiVersion`/`kind`/`metadata.name` を必須とします
+
 ## K8s CRD/NS internal representation
+
+このセクションの仕様は暫定的なものであり、将来の v2 Operator の要件に応じて変更される可能性があります。
 
 ```yaml
 apiVersion: ops.kompox.dev/v1alpha1
@@ -234,28 +240,31 @@ spec: {}
 ```
 
 ```
-wsHash = ShortHash("<wsName>")
-prvHash = ShortHash("<wsName>/<prvName>")
-clsHash = ShortHash("<wsName>/<prvName>/<clsName>")
-appHash = ShortHash("<wsName>/<prvName>/<clsName>/<appName>")
-boxHash = ShortHash("<wsName>/<prvName>/<clsName>/<appName>/<boxName>")
+# すべてのハッシュは Resource ID(ops.kompox.dev/id)の文字列から導出する
+wsHash  = ShortHash("/ws/<wsName>")
+prvHash = ShortHash("/ws/<wsName>/prv/<prvName>")
+clsHash = ShortHash("/ws/<wsName>/prv/<prvName>/cls/<clsName>")
+appHash = ShortHash("/ws/<wsName>/prv/<prvName>/cls/<clsName>/app/<appName>")
+boxHash = ShortHash("/ws/<wsName>/prv/<prvName>/cls/<clsName>/app/<appName>/box/<boxName>")
 ```
 
-## ID・FQN・ストア
+## Non-K8s リソース ID・永続化ストア
 
-- 定義(正規 ID): すべてのリソースの正規 ID は FQN(path) とします。
-  - WorkspaceID: `ws`
-  - ProviderID: `ws/prv`
-  - ClusterID: `ws/prv/cls`
-  - AppID: `ws/prv/cls/app`
-  - BoxID: `ws/prv/cls/app/box`
-- リポジトリ契約(保存/取得): adapter/store(inmem, rdb) は次を満たします。
-  - 主キー `ID` は FQN をそのまま保持する
-  - 親参照の外部キーは親の FQN を保持する
-  - Create は事前に設定された `ID` をそのまま保存する(空のときのみ採番)
-  - Get は `ID`(=FQN) をキーに単一取得する
-  - 重複 `ID` はエラーとする
-- 将来方針: リネーム後も同一 ID を維持する要件が生じた場合は「UUID(v4) 主キー + FQN UNIQUE」へ移行を検討します。
+- 定義(正規 ID): すべてのリソースの正規 ID は Resource ID(alias: FQN)とします。
+  - WorkspaceID: `/ws/<wsName>`
+  - ProviderID: `/ws/<wsName>/prv/<prvName>`
+  - ClusterID: `/ws/<wsName>/prv/<prvName>/cls/<clsName>`
+  - AppID: `/ws/<wsName>/prv/<prvName>/cls/<clsName>/app/<appName>`
+  - BoxID: `/ws/<wsName>/prv/<prvName>/cls/<clsName>/app/<appName>/box/<boxName>`
+- リポジトリ契約(保存/取得): adapter/store(inmem, rdb)は次を満たします。
+  - 主キー `ID` は Resource ID をそのまま保持する
+  - 親参照の外部キーは親リソースの Resource ID を保持する
+  - Create は `metadata.annotations["ops.kompox.dev/id"]` に与えられた ID をそのまま保存する(空や不一致はバリデーションエラー)
+  - Get は `ID`(= Resource ID)をキーに単一取得する
+  - 重複 `ID` は一意制約違反としてエラー
+  - 参照整合: 子の ID は親チェーンに整合しなければならない(例: Box の ID は `.../app/<appName>/box/<boxName>` を終端に持つ)
+- 将来方針: リネーム後も同一 ID を維持する要件が生じた場合は「UUID(v4) 主キー + Resource ID UNIQUE」を検討します。
+- 補足: K8s へ出力するラベルの `*-hash` は Resource ID を入力に短縮ハッシュを算出します(ラベル長制約対策)。
 
 ## ローダー(インポート)仕様
 
@@ -263,12 +272,12 @@ boxHash = ShortHash("<wsName>/<prvName>/<clsName>/<appName>/<boxName>")
 - 受理条件: `apiVersion=ops.kompox.dev/v1alpha1` かつ `kind ∈ {Workspace,Provider,Cluster,App,Box}`
 - 解析順: まず全ドキュメントを読み込み、次に検証/索引化を行う
   - 検証順序: Workspace → Provider → Cluster → App → Box
-  - `ops.kompox.dev/path` のセグメント数・親存在確認・同名衝突をチェック
+  - `ops.kompox.dev/id` の構文(kind/name 整合・先頭 `/`・短縮 kind)、親存在確認、同名衝突をチェック
   - いずれかの検証に失敗した場合はエラーを返し、DB は更新しない
-- 保存: 検証成功時のみ FQN をキーとして inmem/RDB に一括反映
+- 保存: 検証成功時のみ Resource ID(FQN)をキーとして inmem/RDB に一括反映
 - **ドキュメント追跡**:
   - `Document.Path`: ドキュメントの読み込み元ファイルパス
-  - `Document.Index`: マルチドキュメント YAML 内での位置（1-based）
+  - `Document.Index`: マルチドキュメント YAML 内での位置(1-based)
   - エラー報告: 検証エラーにファイルパスとドキュメント位置を含める
     - 例: `provider "ws1/prv1" validation error: parent "ws1" does not exist from /path/to/config.yaml (document 2)`
 
@@ -279,6 +288,7 @@ boxHash = ShortHash("<wsName>/<prvName>/<clsName>/<appName>/<boxName>")
   - 小文字英数とハイフンのみ
 - FQN 文字列の長さ制限は設けません(内部専用)。
 - K8s ラベル値は 63 文字制限のため、`ops.kompox.dev/*-hash` を併用します。
+  - `*-hash` の算出入力は Resource ID とします(例: `ops.kompox.dev/workspace-hash = ShortHash("/ws/<ws>")`)。
 - K8s リソース名(Namespace/Service 等)は 63 以内となるよう「切り詰め + 安定ハッシュ」を用いて生成します。
 
 ## CLI/UX 対応(要点)
@@ -288,7 +298,7 @@ boxHash = ShortHash("<wsName>/<prvName>/<clsName>/<appName>/<boxName>")
 - PaaS ユーザー向け:
   - kompoxapp.yml: App 相当(ops.kompox.dev/v1alpha1, kind: App)
   - kompoxbox.yml: Box 相当(ops.kompox.dev/v1alpha1, kind: Box) — 任意。存在すれば app に上書き適用
-- いずれも本仕様の `ops.kompox.dev/path` を付与した Portable YAML を取り込めます。
+- いずれも本仕様の KOM スキーマ（`ops.kompox.dev/id` を付与）に準拠したマニフェストを取り込めます。
 
 ### CLI 取り込み経路と優先度(kompoxops)
 

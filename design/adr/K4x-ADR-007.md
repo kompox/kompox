@@ -4,7 +4,7 @@ title: Introduce CRD-style configuration
 status: accepted
 date: 2025-10-13
 supersedes: []
-supersededBy: []
+supersededBy: [K4x-ADR-009]
 ---
 
 ## Context
