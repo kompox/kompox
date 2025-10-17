@@ -4,7 +4,7 @@ kind: App
 metadata:
   name: basic
   annotations:
-    ops.kompox.dev/path: ${SERVICE_NAME}/aks1/cluster1
+    ops.kompox.dev/id: /ws/${SERVICE_NAME}/prv/aks1/cls/cluster1/app/basic
 spec:
   compose: file:compose.yml
   ingress:

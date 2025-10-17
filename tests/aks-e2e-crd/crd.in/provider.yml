@@ -4,7 +4,7 @@ kind: Provider
 metadata:
   name: aks1
   annotations:
-    ops.kompox.dev/path: ${SERVICE_NAME}
+    ops.kompox.dev/id: /ws/${SERVICE_NAME}/prv/aks1
 spec:
   driver: aks
   settings:

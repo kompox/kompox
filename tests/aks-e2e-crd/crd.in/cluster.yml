@@ -4,7 +4,7 @@ kind: Cluster
 metadata:
   name: cluster1
   annotations:
-    ops.kompox.dev/path: ${SERVICE_NAME}/aks1
+    ops.kompox.dev/id: /ws/${SERVICE_NAME}/prv/aks1/cls/cluster1
 spec:
   existing: false
   ingress:
