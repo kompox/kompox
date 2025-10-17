@@ -3,6 +3,7 @@ id: K4x-ADR-005
 title: Support Compose configs/secrets and make bind volumes directory-only
 status: accepted
 date: 2025-10-10
+language: en
 supersedes: []
 supersededBy: []
 ---

@@ -3,6 +3,7 @@ id: K4x-ADR-009
 title: Kompox Ops Manifest Schema
 status: proposed
 date: 2025-10-15
+language: en
 supersedes: [K4x-ADR-007]
 supersededBy: []
 ---

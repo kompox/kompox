@@ -1,7 +1,7 @@
 ---
 id: README
 title: Kompox Design Document Index
-updated: 2025-10-15
+updated: 2025-10-17
 language: en
 ---
 
@@ -13,11 +13,11 @@ This directory holds the canonical design and planning documents for Kompox. v1 
 
 | ID | Title | Language | Version | Status | Last updated |
 |---|---|---|---|---|---|
-| [Kompox-CRD](./v1/Kompox-CRD.ja.md) | Kompox CRD-style configuration | ja | v1 | draft | 2025-10-15 |
+| [Kompox-CRD](./v1/Kompox-CRD.ja.md) | Kompox CRD-style configuration | ja | v1 | synced | 2025-10-15 |
 | [Kompox-Arch-Implementation](./v1/Kompox-Arch-Implementation.ja.md) | Kompox Implementation Architecture | ja | v1 | synced | 2025-10-12 |
 | [Kompox-KubeClient](./v1/Kompox-KubeClient.ja.md) | Kompox Kube Client ガイド | ja | v1 | out-of-sync | 2025-09-26 |
 | [Kompox-KubeConverter](./v1/Kompox-KubeConverter.ja.md) | Kompox Kube Converter ガイド | ja | v1 | synced | 2025-10-12 |
-| [Kompox-CLI](./v1/Kompox-CLI.ja.md) | Kompox PaaS CLI | ja | v1 | synced | 2025-10-13 |
+| [Kompox-CLI](./v1/Kompox-CLI.ja.md) | Kompox PaaS CLI | ja | v1 | synced | 2025-10-15 |
 | [Kompox-Resources](./v1/Kompox-Resources.ja.md) | Kompox PaaS Resources | ja | v1 | archived | 2025-10-12 |
 | [Kompox-ProviderDriver-AKS](./v1/Kompox-ProviderDriver-AKS.ja.md) | Kompox Provider Driver AKS ガイド | ja | v1 | out-of-sync | 2025-10-12 |
 | [Kompox-ProviderDriver](./v1/Kompox-ProviderDriver.ja.md) | Kompox Provider Driver ガイド | ja | v1 | synced | 2025-10-12 |
@@ -47,15 +47,15 @@ This directory holds the canonical design and planning documents for Kompox. v1 
 
 | ID | Title | Language | Version | Status | Last updated |
 |---|---|---|---|---|---|
-| [K4x-ADR-001](./adr/K4x-ADR-001.md) | Implement Kompox PaaS as a Kubernetes Operator | en |  | proposed | 2025-09-26 |
-| [K4x-ADR-002](./adr/K4x-ADR-002.md) | Unify snapshot restore into disk create | en |  | accepted | 2025-09-27 |
-| [K4x-ADR-003](./adr/K4x-ADR-003.md) | Unify Disk/Snapshot CLI flags and adopt opaque Source contract | en |  | accepted | 2025-09-28 |
-| [K4x-ADR-004](./adr/K4x-ADR-004.md) | Cluster ingress endpoint DNS auto-update |  |  | accepted | - |
-| [K4x-ADR-005](./adr/K4x-ADR-005.md) | Support Compose configs/secrets and make bind volumes directory-only |  |  | accepted | - |
-| [K4x-ADR-006](./adr/K4x-ADR-006.md) | Rename domain model Service to Workspace |  |  | accepted | - |
-| [K4x-ADR-007](./adr/K4x-ADR-007.md) | Introduce CRD-style configuration |  |  | accepted | - |
-| [K4x-ADR-008](./adr/K4x-ADR-008.md) | Introduce Box as a first-class ops kind |  |  | proposed | - |
-| [K4x-ADR-009](./adr/K4x-ADR-009.md) | Kompox Ops Manifest Schema |  |  | proposed | - |
+| [K4x-ADR-001](./adr/K4x-ADR-001.md) | Implement Kompox PaaS as a Kubernetes Operator | en |  | proposed | - |
+| [K4x-ADR-002](./adr/K4x-ADR-002.md) | Unify snapshot restore into disk create | en |  | accepted | - |
+| [K4x-ADR-003](./adr/K4x-ADR-003.md) | Unify Disk/Snapshot CLI flags and adopt opaque Source contract | en |  | accepted | - |
+| [K4x-ADR-004](./adr/K4x-ADR-004.md) | Cluster ingress endpoint DNS auto-update | en |  | accepted | - |
+| [K4x-ADR-005](./adr/K4x-ADR-005.md) | Support Compose configs/secrets and make bind volumes directory-only | en |  | accepted | - |
+| [K4x-ADR-006](./adr/K4x-ADR-006.md) | Rename domain model Service to Workspace | en |  | accepted | - |
+| [K4x-ADR-007](./adr/K4x-ADR-007.md) | Introduce CRD-style configuration | en |  | accepted | - |
+| [K4x-ADR-008](./adr/K4x-ADR-008.md) | Introduce Box as a first-class ops kind | en |  | proposed | - |
+| [K4x-ADR-009](./adr/K4x-ADR-009.md) | Kompox Ops Manifest Schema | en |  | proposed | - |
 
 **Status definitions:**
 
@@ -68,7 +68,7 @@ This directory holds the canonical design and planning documents for Kompox. v1 
 
 | ID | Title | Language | Version | Status | Last updated |
 |---|---|---|---|---|---|
-| [Kompox-Pub-CNDW2025](./pub/Kompox-Pub-CNDW2025.ja.md) | CloudNative Days Winter 2025 | ja |  | draft | 2025-09-26 |
+| [Kompox-Pub-CNDW2025](./pub/Kompox-Pub-CNDW2025.ja.md) | CloudNative Days Winter 2025 | ja |  | rejected | 2025-10-01 |
 | [Kompox-Pub-k8snovice38](./pub/Kompox-Pub-k8snovice38.ja.md) | Kubernetes Novice Tokyo #38 | ja |  | delivered | 2025-09-26 |
 
 **Status definitions:**

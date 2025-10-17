@@ -2,8 +2,10 @@
 id: K4x-ADR-001
 title: Implement Kompox PaaS as a Kubernetes Operator
 status: proposed
-updated: 2025-09-26
+date: 2025-09-26
 language: en
+supersedes: []
+supersededBy: []
 ---
 # K4x-ADR-001: Implement Kompox PaaS as a Kubernetes Operator
 

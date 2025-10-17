@@ -3,6 +3,7 @@ id: K4x-ADR-004
 title: Cluster ingress endpoint DNS auto-update
 status: accepted
 date: 2025-09-30
+language: en
 supersedes: []
 supersededBy: []
 ---

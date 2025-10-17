@@ -1,7 +1,7 @@
 ---
 id: README
 title: 開発者向けタスク索引
-updated: 2025-10-15
+updated: 2025-10-17
 language: ja
 ---
 

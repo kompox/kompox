@@ -3,6 +3,7 @@ id: K4x-ADR-007
 title: Introduce CRD-style configuration
 status: accepted
 date: 2025-10-13
+language: en
 supersedes: []
 supersededBy: [K4x-ADR-009]
 ---

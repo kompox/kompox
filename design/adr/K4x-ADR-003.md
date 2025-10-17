@@ -2,8 +2,10 @@
 id: K4x-ADR-003
 title: Unify Disk/Snapshot CLI flags and adopt opaque Source contract
 status: accepted
-updated: 2025-09-28
+date: 2025-09-28
 language: en
+supersedes: []
+supersededBy: []
 ---
 # K4x-ADR-003: Unify Disk/Snapshot CLI flags and adopt opaque Source contract
 
