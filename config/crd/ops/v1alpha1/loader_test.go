@@ -15,6 +15,8 @@ func TestLoader_LoadFile_SingleDocument(t *testing.T) {
 kind: Workspace
 metadata:
   name: ws1
+  annotations:
+    ops.kompox.dev/id: /ws/ws1
 spec:
   settings:
     foo: bar
@@ -42,8 +44,8 @@ spec:
 	if doc.Kind != "Workspace" {
 		t.Errorf("Document kind = %q, want %q", doc.Kind, "Workspace")
 	}
-	if doc.FQN != "ws1" {
-		t.Errorf("Document FQN = %q, want %q", doc.FQN, "ws1")
+	if doc.FQN != "/ws/ws1" {
+		t.Errorf("Document FQN = %q, want %q", doc.FQN, "/ws/ws1")
 	}
 
 	ws, ok := doc.Object.(*Workspace)
@@ -63,6 +65,8 @@ func TestLoader_LoadFile_MultiDocument(t *testing.T) {
 kind: Workspace
 metadata:
   name: ws1
+  annotations:
+    ops.kompox.dev/id: /ws/ws1
 spec: {}
 ---
 apiVersion: ops.kompox.dev/v1alpha1
@@ -70,7 +74,7 @@ kind: Provider
 metadata:
   name: prv1
   annotations:
-    ops.kompox.dev/path: ws1
+    ops.kompox.dev/id: /ws/ws1/prv/prv1
 spec:
   driver: aks
 `
@@ -97,16 +101,16 @@ spec:
 	if result.Documents[0].Kind != "Workspace" {
 		t.Errorf("Document 0 kind = %q, want Workspace", result.Documents[0].Kind)
 	}
-	if result.Documents[0].FQN != "ws1" {
-		t.Errorf("Document 0 FQN = %q, want ws1", result.Documents[0].FQN)
+	if result.Documents[0].FQN != "/ws/ws1" {
+		t.Errorf("Document 0 FQN = %q, want /ws/ws1", result.Documents[0].FQN)
 	}
 
 	// Check Provider
 	if result.Documents[1].Kind != "Provider" {
 		t.Errorf("Document 1 kind = %q, want Provider", result.Documents[1].Kind)
 	}
-	if result.Documents[1].FQN != "ws1/prv1" {
-		t.Errorf("Document 1 FQN = %q, want ws1/prv1", result.Documents[1].FQN)
+	if result.Documents[1].FQN != "/ws/ws1/prv/prv1" {
+		t.Errorf("Document 1 FQN = %q, want /ws/ws1/prv/prv1", result.Documents[1].FQN)
 	}
 }
 
@@ -119,6 +123,8 @@ func TestLoader_LoadDirectory(t *testing.T) {
 kind: Workspace
 metadata:
   name: ws1
+  annotations:
+    ops.kompox.dev/id: /ws/ws1
 spec: {}
 `
 	if err := os.WriteFile(ws1, []byte(wsContent), 0644); err != nil {
@@ -131,7 +137,7 @@ kind: Provider
 metadata:
   name: prv1
   annotations:
-    ops.kompox.dev/path: ws1
+    ops.kompox.dev/id: /ws/ws1/prv/prv1
 spec:
   driver: aks
 `
@@ -151,7 +157,7 @@ kind: Cluster
 metadata:
   name: cls1
   annotations:
-    ops.kompox.dev/path: ws1/prv1
+    ops.kompox.dev/id: /ws/ws1/prv/prv1/cls/cls1
 spec:
   existing: false
 `
@@ -242,7 +248,7 @@ kind: Cluster
 metadata:
   name: cls1
   annotations:
-    ops.kompox.dev/path: ws1
+    ops.kompox.dev/id: /ws/ws1
 spec: {}
 `
 
@@ -315,6 +321,8 @@ apiVersion: ops.kompox.dev/v1alpha1
 kind: Workspace
 metadata:
   name: ws1
+  annotations:
+    ops.kompox.dev/id: /ws/ws1
 spec: {}
 ---
 apiVersion: apps/v1
@@ -360,13 +368,15 @@ apiVersion: ops.kompox.dev/v1alpha1
 kind: Workspace
 metadata:
   name: test-ws
+  annotations:
+    ops.kompox.dev/id: /ws/test-ws
 ---
 apiVersion: ops.kompox.dev/v1alpha1
 kind: Provider
 metadata:
   name: test-provider
   annotations:
-    ops.kompox.dev/path: test-ws
+    ops.kompox.dev/id: /ws/test-ws/prv/test-provider
 spec:
   driver: aks
   settings:
@@ -382,7 +392,7 @@ kind: Cluster
 metadata:
   name: test-cluster
   annotations:
-    ops.kompox.dev/path: test-ws/test-provider
+    ops.kompox.dev/id: /ws/test-ws/prv/test-provider/cls/test-cluster
 spec:
   existing: false
   settings:
@@ -395,7 +405,7 @@ kind: App
 metadata:
   name: test-app
   annotations:
-    ops.kompox.dev/path: test-ws/test-provider/test-cluster
+    ops.kompox.dev/id: /ws/test-ws/prv/test-provider/cls/test-cluster/app/test-app
 spec:
   compose: "services: {}"
   resources:

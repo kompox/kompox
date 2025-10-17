@@ -58,6 +58,8 @@ apiVersion: ops.kompox.dev/v1alpha1
 kind: Workspace
 metadata:
   name: test-ws
+  annotations:
+    ops.kompox.dev/id: /ws/test-ws
 spec: {}
 ---
 apiVersion: ops.kompox.dev/v1alpha1
@@ -65,7 +67,7 @@ kind: Provider
 metadata:
   name: test-prv
   annotations:
-    ops.kompox.dev/path: test-ws
+    ops.kompox.dev/id: /ws/test-ws/prv/test-prv
 spec:
   driver: k3s
 ---
@@ -74,7 +76,7 @@ kind: Cluster
 metadata:
   name: test-cls
   annotations:
-    ops.kompox.dev/path: test-ws/test-prv
+    ops.kompox.dev/id: /ws/test-ws/prv/test-prv/cls/test-cls
 spec:
   existing: true
 ---
@@ -83,7 +85,7 @@ kind: App
 metadata:
   name: test-app
   annotations:
-    ops.kompox.dev/path: test-ws/test-prv/test-cls
+    ops.kompox.dev/id: /ws/test-ws/prv/test-prv/cls/test-cls/app/test-app
 spec: {}
 `
 		if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
@@ -121,6 +123,8 @@ apiVersion: ops.kompox.dev/v1alpha1
 kind: Workspace
 metadata:
   name: test-ws
+  annotations:
+    ops.kompox.dev/id: /ws/test-ws
 spec: {}
 ---
 apiVersion: ops.kompox.dev/v1alpha1
@@ -128,7 +132,7 @@ kind: Provider
 metadata:
   name: test-prv
   annotations:
-    ops.kompox.dev/path: test-ws
+    ops.kompox.dev/id: /ws/test-ws/prv/test-prv
 spec:
   driver: k3s
 ---
@@ -137,7 +141,7 @@ kind: Cluster
 metadata:
   name: test-cls
   annotations:
-    ops.kompox.dev/path: test-ws/test-prv
+    ops.kompox.dev/id: /ws/test-ws/prv/test-prv/cls/test-cls
 spec:
   existing: true
 ---
@@ -146,7 +150,7 @@ kind: App
 metadata:
   name: my-single-app
   annotations:
-    ops.kompox.dev/path: test-ws/test-prv/test-cls
+    ops.kompox.dev/id: /ws/test-ws/prv/test-prv/cls/test-cls/app/my-single-app
 spec: {}
 `
 		if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {

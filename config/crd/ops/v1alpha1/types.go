@@ -10,8 +10,11 @@ const (
 	// Version is the API version for Kompox CRDs.
 	Version = "v1alpha1"
 
-	// AnnotationPath is the annotation key for specifying parent scope path.
-	AnnotationPath = Group + "/path"
+	// AnnotationID is the annotation key for the canonical Resource ID.
+	// Format: / <kind> / <name> ( / <kind> / <name> )*
+	// Example: /ws/ws1/prv/prv1/cls/cls1/app/app1/box/api
+	// This is required for all Kinds including Workspace.
+	AnnotationID = Group + "/id"
 	// AnnotationDocPath is the annotation key for storing the source document file path.
 	// This is automatically set by the Loader to enable file-relative path resolution.
 	AnnotationDocPath = Group + "/doc-path"

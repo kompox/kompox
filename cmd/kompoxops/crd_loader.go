@@ -137,30 +137,26 @@ func initializeCRDMode(cmd *cobra.Command) error {
 				// Count App documents
 				appCount := 0
 				var appName string
-				var appParentPath string
+				var appResID string
 				for _, doc := range appResult.Documents {
 					if doc.Kind == "App" {
 						appCount++
 						if app, ok := doc.Object.(*crdv1.App); ok {
 							appName = app.ObjectMeta.Name
-							// Extract parent path (ws/prv/cls) from annotations
+							// Extract Resource ID from annotations
 							if app.ObjectMeta.Annotations != nil {
-								appParentPath = app.ObjectMeta.Annotations["ops.kompox.dev/path"]
+								appResID = app.ObjectMeta.Annotations["ops.kompox.dev/id"]
 							}
 						}
 					}
 				}
-				// If exactly one App, extract its FQN and cluster FQN from parent path
-				if appCount == 1 && appName != "" {
-					// Build App FQN (ws/prv/cls/app)
-					if appParentPath != "" && appName != "" {
-						if appFQN, err := crdv1.BuildFQN("App", appParentPath, appName); err == nil {
-							crdMode.defaultAppID = appFQN.String()
-						}
-					}
-					// Parent path IS the cluster FQN (ws/prv/cls)
-					if appParentPath != "" {
-						crdMode.defaultClusterID = appParentPath
+				// If exactly one App, extract its Resource ID and parent cluster ID
+				if appCount == 1 && appName != "" && appResID != "" {
+					// Parse the App Resource ID
+					if appFQN, _, err := crdv1.ParseResourceID(appResID); err == nil {
+						crdMode.defaultAppID = appFQN.String()
+						// Parent Resource ID is the cluster ID
+						crdMode.defaultClusterID = appFQN.ParentFQN().String()
 					}
 				}
 			}

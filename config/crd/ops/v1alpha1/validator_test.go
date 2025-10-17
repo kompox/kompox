@@ -6,11 +6,11 @@ import (
 
 func TestValidator_Validate_HappyPath(t *testing.T) {
 	documents := []Document{
-		{Kind: "Workspace", FQN: "ws1", Object: &Workspace{}},
-		{Kind: "Provider", FQN: "ws1/prv1", Object: &Provider{}},
-		{Kind: "Cluster", FQN: "ws1/prv1/cls1", Object: &Cluster{}},
-		{Kind: "App", FQN: "ws1/prv1/cls1/app1", Object: &App{}},
-		{Kind: "Box", FQN: "ws1/prv1/cls1/app1/box1", Object: &Box{}},
+		{Kind: "Workspace", FQN: "/ws/ws1", Object: &Workspace{}},
+		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}},
+		{Kind: "Cluster", FQN: "/ws/ws1/prv/prv1/cls/cls1", Object: &Cluster{}},
+		{Kind: "App", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1", Object: &App{}},
+		{Kind: "Box", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/box1", Object: &Box{}},
 	}
 
 	// validator removed
@@ -28,11 +28,11 @@ func TestValidator_Validate_HappyPath(t *testing.T) {
 func TestValidator_Validate_OutOfOrder(t *testing.T) {
 	// Documents in reverse topological order
 	documents := []Document{
-		{Kind: "Box", FQN: "ws1/prv1/cls1/app1/box1", Object: &Box{}},
-		{Kind: "App", FQN: "ws1/prv1/cls1/app1", Object: &App{}},
-		{Kind: "Cluster", FQN: "ws1/prv1/cls1", Object: &Cluster{}},
-		{Kind: "Provider", FQN: "ws1/prv1", Object: &Provider{}},
-		{Kind: "Workspace", FQN: "ws1", Object: &Workspace{}},
+		{Kind: "Box", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/box1", Object: &Box{}},
+		{Kind: "App", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1", Object: &App{}},
+		{Kind: "Cluster", FQN: "/ws/ws1/prv/prv1/cls/cls1", Object: &Cluster{}},
+		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}},
+		{Kind: "Workspace", FQN: "/ws/ws1", Object: &Workspace{}},
 	}
 
 	// validator removed
@@ -48,7 +48,7 @@ func TestValidator_Validate_OutOfOrder(t *testing.T) {
 	}
 
 	// Check that they are sorted correctly
-	expectedOrder := []string{"ws1", "ws1/prv1", "ws1/prv1/cls1", "ws1/prv1/cls1/app1", "ws1/prv1/cls1/app1/box1"}
+	expectedOrder := []string{"/ws/ws1", "/ws/ws1/prv/prv1", "/ws/ws1/prv/prv1/cls/cls1", "/ws/ws1/prv/prv1/cls/cls1/app/app1", "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/box1"}
 	for i, doc := range result.ValidDocuments {
 		if doc.FQN.String() != expectedOrder[i] {
 			t.Errorf("ValidDocuments[%d] FQN = %s, want %s", i, doc.FQN, expectedOrder[i])
@@ -58,8 +58,8 @@ func TestValidator_Validate_OutOfOrder(t *testing.T) {
 
 func TestValidator_Validate_MissingParent(t *testing.T) {
 	documents := []Document{
-		{Kind: "Workspace", FQN: "ws1", Object: &Workspace{}},
-		{Kind: "Cluster", FQN: "ws1/prv1/cls1", Object: &Cluster{}}, // Missing Provider ws1/prv1
+		{Kind: "Workspace", FQN: "/ws/ws1", Object: &Workspace{}},
+		{Kind: "Cluster", FQN: "/ws/ws1/prv/prv1/cls/cls1", Object: &Cluster{}}, // Missing Provider ws1/prv1
 	}
 
 	// validator removed
@@ -77,8 +77,8 @@ func TestValidator_Validate_MissingParent(t *testing.T) {
 	if err.Kind != "Cluster" {
 		t.Errorf("Error kind = %s, want Cluster", err.Kind)
 	}
-	if err.FQN != "ws1/prv1/cls1" {
-		t.Errorf("Error FQN = %s, want ws1/prv1/cls1", err.FQN)
+	if err.FQN != "/ws/ws1/prv/prv1/cls/cls1" {
+		t.Errorf("Error FQN = %s, want /ws/ws1/prv/prv1/cls/cls1", err.FQN)
 	}
 
 	// Only Workspace should be valid
@@ -89,9 +89,9 @@ func TestValidator_Validate_MissingParent(t *testing.T) {
 
 func TestValidator_Validate_DuplicateFQN(t *testing.T) {
 	documents := []Document{
-		{Kind: "Workspace", FQN: "ws1", Object: &Workspace{}},
-		{Kind: "Provider", FQN: "ws1/prv1", Object: &Provider{}},
-		{Kind: "Provider", FQN: "ws1/prv1", Object: &Provider{}}, // Duplicate
+		{Kind: "Workspace", FQN: "/ws/ws1", Object: &Workspace{}},
+		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}},
+		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}}, // Duplicate
 	}
 
 	// validator removed
@@ -109,8 +109,8 @@ func TestValidator_Validate_DuplicateFQN(t *testing.T) {
 	if err.Kind != "Provider" {
 		t.Errorf("Error kind = %s, want Provider", err.Kind)
 	}
-	if err.FQN != "ws1/prv1" {
-		t.Errorf("Error FQN = %s, want ws1/prv1", err.FQN)
+	if err.FQN != "/ws/ws1/prv/prv1" {
+		t.Errorf("Error FQN = %s, want /ws/ws1/prv/prv1", err.FQN)
 	}
 
 	// Only first Provider should be valid
@@ -121,10 +121,10 @@ func TestValidator_Validate_DuplicateFQN(t *testing.T) {
 
 func TestValidator_Validate_MultipleWorkspaces(t *testing.T) {
 	documents := []Document{
-		{Kind: "Workspace", FQN: "ws1", Object: &Workspace{}},
-		{Kind: "Workspace", FQN: "ws2", Object: &Workspace{}},
-		{Kind: "Provider", FQN: "ws1/prv1", Object: &Provider{}},
-		{Kind: "Provider", FQN: "ws2/prv1", Object: &Provider{}},
+		{Kind: "Workspace", FQN: "/ws/ws1", Object: &Workspace{}},
+		{Kind: "Workspace", FQN: "/ws/ws2", Object: &Workspace{}},
+		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}},
+		{Kind: "Provider", FQN: "/ws/ws2/prv/prv1", Object: &Provider{}},
 	}
 
 	// validator removed
@@ -141,14 +141,14 @@ func TestValidator_Validate_MultipleWorkspaces(t *testing.T) {
 
 func TestValidator_Validate_ComplexHierarchy(t *testing.T) {
 	documents := []Document{
-		{Kind: "Workspace", FQN: "ws1", Object: &Workspace{}},
-		{Kind: "Provider", FQN: "ws1/prv1", Object: &Provider{}},
-		{Kind: "Provider", FQN: "ws1/prv2", Object: &Provider{}},
-		{Kind: "Cluster", FQN: "ws1/prv1/cls1", Object: &Cluster{}},
-		{Kind: "Cluster", FQN: "ws1/prv2/cls1", Object: &Cluster{}},
-		{Kind: "App", FQN: "ws1/prv1/cls1/app1", Object: &App{}},
-		{Kind: "App", FQN: "ws1/prv1/cls1/app2", Object: &App{}},
-		{Kind: "Box", FQN: "ws1/prv1/cls1/app1/box1", Object: &Box{}},
+		{Kind: "Workspace", FQN: "/ws/ws1", Object: &Workspace{}},
+		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}},
+		{Kind: "Provider", FQN: "/ws/ws1/prv/prv2", Object: &Provider{}},
+		{Kind: "Cluster", FQN: "/ws/ws1/prv/prv1/cls/cls1", Object: &Cluster{}},
+		{Kind: "Cluster", FQN: "/ws/ws1/prv/prv2/cls/cls1", Object: &Cluster{}},
+		{Kind: "App", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1", Object: &App{}},
+		{Kind: "App", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app2", Object: &App{}},
+		{Kind: "Box", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/box1", Object: &Box{}},
 	}
 
 	// validator removed
@@ -165,10 +165,10 @@ func TestValidator_Validate_ComplexHierarchy(t *testing.T) {
 
 func TestValidator_Validate_MultipleErrors(t *testing.T) {
 	documents := []Document{
-		{Kind: "Workspace", FQN: "ws1", Object: &Workspace{}},
-		{Kind: "Provider", FQN: "ws1/prv1", Object: &Provider{}},
-		{Kind: "Provider", FQN: "ws1/prv1", Object: &Provider{}},      // Duplicate
-		{Kind: "Cluster", FQN: "ws1/prv2/cls1", Object: &Cluster{}},   // Missing parent ws1/prv2
+		{Kind: "Workspace", FQN: "/ws/ws1", Object: &Workspace{}},
+		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}},
+		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}},      // Duplicate
+		{Kind: "Cluster", FQN: "/ws/ws1/prv/prv2/cls/cls1", Object: &Cluster{}},   // Missing parent ws1/prv2
 		{Kind: "App", FQN: "ws1/prv3/cls1/app1", Object: &App{}},      // Missing parent ws1/prv3
 		{Kind: "Box", FQN: "ws1/prv1/cls2/app1/box1", Object: &Box{}}, // Missing parent chain
 	}
@@ -192,13 +192,13 @@ func TestValidator_Validate_MultipleErrors(t *testing.T) {
 
 func TestValidator_SortByTopology(t *testing.T) {
 	documents := []Document{
-		{Kind: "Box", FQN: "ws1/prv1/cls1/app1/box1", Object: &Box{}},
-		{Kind: "App", FQN: "ws1/prv1/cls1/app2", Object: &App{}},
-		{Kind: "Workspace", FQN: "ws2", Object: &Workspace{}},
-		{Kind: "Cluster", FQN: "ws1/prv1/cls1", Object: &Cluster{}},
-		{Kind: "Provider", FQN: "ws1/prv1", Object: &Provider{}},
-		{Kind: "Workspace", FQN: "ws1", Object: &Workspace{}},
-		{Kind: "App", FQN: "ws1/prv1/cls1/app1", Object: &App{}},
+		{Kind: "Box", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/box1", Object: &Box{}},
+		{Kind: "App", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app2", Object: &App{}},
+		{Kind: "Workspace", FQN: "/ws/ws2", Object: &Workspace{}},
+		{Kind: "Cluster", FQN: "/ws/ws1/prv/prv1/cls/cls1", Object: &Cluster{}},
+		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}},
+		{Kind: "Workspace", FQN: "/ws/ws1", Object: &Workspace{}},
+		{Kind: "App", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1", Object: &App{}},
 	}
 
 	sorted := sortByTopology(documents)
@@ -223,8 +223,8 @@ func TestValidator_SortByTopology(t *testing.T) {
 func TestValidator_Validate_KindSegmentMismatch(t *testing.T) {
 	// Provider with wrong number of segments
 	documents := []Document{
-		{Kind: "Workspace", FQN: "ws1", Object: &Workspace{}},
-		{Kind: "Provider", FQN: "ws1/prv1/extra", Object: &Provider{}}, // Provider should have 2 segments, not 3
+		{Kind: "Workspace", FQN: "/ws/ws1", Object: &Workspace{}},
+		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1/cls/extra", Object: &Provider{}}, // Provider should have 2 kind/name pairs, not 3
 	}
 
 	// validator removed
@@ -246,9 +246,9 @@ func TestValidator_Validate_KindSegmentMismatch(t *testing.T) {
 func TestValidator_Validate_ClusterSegmentMismatch(t *testing.T) {
 	// Cluster with wrong number of segments
 	documents := []Document{
-		{Kind: "Workspace", FQN: "ws1", Object: &Workspace{}},
-		{Kind: "Provider", FQN: "ws1/prv1", Object: &Provider{}},
-		{Kind: "Cluster", FQN: "ws1/prv1", Object: &Cluster{}}, // Cluster should have 3 segments, not 2
+		{Kind: "Workspace", FQN: "/ws/ws1", Object: &Workspace{}},
+		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}},
+		{Kind: "Cluster", FQN: "/ws/ws1/prv/prv1", Object: &Cluster{}}, // Cluster should have 3 kind/name pairs, not 2
 	}
 
 	// validator removed

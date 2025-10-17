@@ -28,6 +28,8 @@ func TestNewSink_HappyPath(t *testing.T) {
 kind: Workspace
 metadata:
   name: ws1
+  annotations:
+    ops.kompox.dev/id: /ws/ws1
 spec: {}
 `
 	if err := os.WriteFile(wsFile, []byte(wsContent), 0644); err != nil {
@@ -52,7 +54,7 @@ spec: {}
 		t.Errorf("Sink count = %d, want 1", sink.Count())
 	}
 
-	ws, ok := sink.GetWorkspace("ws1")
+	ws, ok := sink.GetWorkspace("/ws/ws1")
 	if !ok {
 		t.Fatal("GetWorkspace() returned false")
 	}
@@ -70,6 +72,8 @@ func TestNewSink_MultipleDocuments(t *testing.T) {
 kind: Workspace
 metadata:
   name: ws1
+  annotations:
+    ops.kompox.dev/id: /ws/ws1
 spec: {}
 `,
 		"provider.yaml": `apiVersion: ops.kompox.dev/v1alpha1
@@ -77,7 +81,7 @@ kind: Provider
 metadata:
   name: prv1
   annotations:
-    ops.kompox.dev/path: ws1
+    ops.kompox.dev/id: /ws/ws1/prv/prv1
 spec:
   driver: aks
 `,
@@ -86,7 +90,7 @@ kind: Cluster
 metadata:
   name: cls1
   annotations:
-    ops.kompox.dev/path: ws1/prv1
+    ops.kompox.dev/id: /ws/ws1/prv/prv1/cls/cls1
 spec:
   existing: false
 `,
@@ -112,7 +116,7 @@ spec:
 	}
 
 	// Verify workspace
-	ws, ok := sink.GetWorkspace("ws1")
+	ws, ok := sink.GetWorkspace("/ws/ws1")
 	if !ok {
 		t.Fatal("GetWorkspace() returned false")
 	}
@@ -121,7 +125,7 @@ spec:
 	}
 
 	// Verify provider
-	prv, ok := sink.GetProvider("ws1/prv1")
+	prv, ok := sink.GetProvider("/ws/ws1/prv/prv1")
 	if !ok {
 		t.Fatal("GetProvider() returned false")
 	}
@@ -130,7 +134,7 @@ spec:
 	}
 
 	// Verify cluster
-	cls, ok := sink.GetCluster("ws1/prv1/cls1")
+	cls, ok := sink.GetCluster("/ws/ws1/prv/prv1/cls/cls1")
 	if !ok {
 		t.Fatal("GetCluster() returned false")
 	}
@@ -149,7 +153,7 @@ kind: Provider
 metadata:
   name: prv1
   annotations:
-    ops.kompox.dev/path: ws1
+    ops.kompox.dev/id: /ws/ws1/prv/prv1
 spec:
   driver: aks
 `
@@ -173,12 +177,20 @@ func TestNewSink_DuplicateFQN(t *testing.T) {
 kind: Workspace
 metadata:
   name: ws1
+  annotations:
+    ops.kompox.dev/id: /ws/ws1
+  annotations:
+    ops.kompox.dev/id: /ws/ws1
 spec: {}
 ---
 apiVersion: ops.kompox.dev/v1alpha1
 kind: Workspace
 metadata:
   name: ws1
+  annotations:
+    ops.kompox.dev/id: /ws/ws1
+  annotations:
+    ops.kompox.dev/id: /ws/ws1
 spec: {}
 `
 	wsFile := filepath.Join(tmpDir, "workspaces.yaml")
@@ -203,12 +215,20 @@ func TestSink_ListMethods(t *testing.T) {
 kind: Workspace
 metadata:
   name: ws1
+  annotations:
+    ops.kompox.dev/id: /ws/ws1
+  annotations:
+    ops.kompox.dev/id: /ws/ws1
 spec: {}
 ---
 apiVersion: ops.kompox.dev/v1alpha1
 kind: Workspace
 metadata:
   name: ws2
+  annotations:
+    ops.kompox.dev/id: /ws/ws2
+  annotations:
+    ops.kompox.dev/id: /ws/ws2
 spec: {}
 ---
 apiVersion: ops.kompox.dev/v1alpha1
@@ -216,7 +236,7 @@ kind: Provider
 metadata:
   name: prv1
   annotations:
-    ops.kompox.dev/path: ws1
+    ops.kompox.dev/id: /ws/ws1/prv/prv1
 spec:
   driver: aks
 ---
@@ -225,7 +245,7 @@ kind: Cluster
 metadata:
   name: cls1
   annotations:
-    ops.kompox.dev/path: ws1/prv1
+    ops.kompox.dev/id: /ws/ws1/prv/prv1/cls/cls1
 spec:
   existing: false
 `,
@@ -284,6 +304,10 @@ func TestSink_GetMethods(t *testing.T) {
 kind: Workspace
 metadata:
   name: ws1
+  annotations:
+    ops.kompox.dev/id: /ws/ws1
+  annotations:
+    ops.kompox.dev/id: /ws/ws1
 spec: {}
 ---
 apiVersion: ops.kompox.dev/v1alpha1
@@ -291,7 +315,7 @@ kind: Provider
 metadata:
   name: prv1
   annotations:
-    ops.kompox.dev/path: ws1
+    ops.kompox.dev/id: /ws/ws1/prv/prv1
 spec:
   driver: aks
 `
@@ -308,7 +332,7 @@ spec:
 	}
 
 	// Test GetWorkspace (exists)
-	ws, ok := sink.GetWorkspace("ws1")
+	ws, ok := sink.GetWorkspace("/ws/ws1")
 	if !ok {
 		t.Error("GetWorkspace(ws1) returned false, want true")
 	}
@@ -317,13 +341,13 @@ spec:
 	}
 
 	// Test GetWorkspace (not exists)
-	_, ok = sink.GetWorkspace("nonexistent")
+	_, ok = sink.GetWorkspace("/ws/nonexistent")
 	if ok {
 		t.Error("GetWorkspace(nonexistent) returned true, want false")
 	}
 
 	// Test GetProvider (exists)
-	prv, ok := sink.GetProvider("ws1/prv1")
+	prv, ok := sink.GetProvider("/ws/ws1/prv/prv1")
 	if !ok {
 		t.Error("GetProvider(ws1/prv1) returned false, want true")
 	}
@@ -332,7 +356,7 @@ spec:
 	}
 
 	// Test GetProvider (not exists)
-	_, ok = sink.GetProvider("ws1/nonexistent")
+	_, ok = sink.GetProvider("/ws/ws1/prv/nonexistent")
 	if ok {
 		t.Error("GetProvider(ws1/nonexistent) returned true, want false")
 	}
@@ -347,6 +371,8 @@ func TestSink_Immutability(t *testing.T) {
 kind: Workspace
 metadata:
   name: ws1
+  annotations:
+    ops.kompox.dev/id: /ws/ws1
 spec: {}
 `
 	if err := os.WriteFile(wsFile, []byte(wsContent), 0644); err != nil {
@@ -366,7 +392,7 @@ spec: {}
 	}
 
 	// Try to get workspace and modify it (should not affect sink)
-	ws, ok := sink.GetWorkspace("ws1")
+	ws, ok := sink.GetWorkspace("/ws/ws1")
 	if !ok {
 		t.Fatal("GetWorkspace() returned false")
 	}
@@ -375,7 +401,7 @@ spec: {}
 	ws.Name = "modified"
 
 	// Verify sink is unchanged
-	ws2, _ := sink.GetWorkspace("ws1")
+	ws2, _ := sink.GetWorkspace("/ws/ws1")
 	if ws2.Name != originalName {
 		t.Errorf("Sink was mutated: name = %s, want %s", ws2.Name, originalName)
 	}
@@ -390,6 +416,8 @@ func TestNewSink_PathTracking(t *testing.T) {
 kind: Workspace
 metadata:
   name: ws1
+  annotations:
+    ops.kompox.dev/id: /ws/ws1
 spec: {}
 `
 	if err := os.WriteFile(wsFile, []byte(wsContent), 0644); err != nil {
@@ -426,6 +454,8 @@ func TestNewSink_MultipleSourceFiles(t *testing.T) {
 kind: Workspace
 metadata:
   name: ws1
+  annotations:
+    ops.kompox.dev/id: /ws/ws1
 spec: {}
 `,
 		"provider.yaml": `apiVersion: ops.kompox.dev/v1alpha1
@@ -433,7 +463,7 @@ kind: Provider
 metadata:
   name: prv1
   annotations:
-    ops.kompox.dev/path: ws1
+    ops.kompox.dev/id: /ws/ws1/prv/prv1
 spec:
   driver: aks
 `,
@@ -487,7 +517,7 @@ kind: Provider
 metadata:
   name: prv1
   annotations:
-    ops.kompox.dev/path: ws1
+    ops.kompox.dev/id: /ws/ws1/prv/prv1
 spec:
   driver: aks
 `
@@ -523,6 +553,8 @@ func TestNewSink_MultiDocumentIndex(t *testing.T) {
 kind: Workspace
 metadata:
   name: ws1
+  annotations:
+    ops.kompox.dev/id: /ws/ws1
 spec: {}
 ---
 apiVersion: ops.kompox.dev/v1alpha1
@@ -530,7 +562,7 @@ kind: Provider
 metadata:
   name: prv1
   annotations:
-    ops.kompox.dev/path: ws1
+    ops.kompox.dev/id: /ws/ws1/prv/prv1
 spec:
   driver: aks
 ---
@@ -539,7 +571,7 @@ kind: Cluster
 metadata:
   name: cls1
   annotations:
-    ops.kompox.dev/path: ws1/prv1
+    ops.kompox.dev/id: /ws/ws1/prv/prv1/cls/cls1
 spec: {}
 `
 	if err := os.WriteFile(multiDocFile, []byte(multiDocContent), 0644); err != nil {

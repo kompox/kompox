@@ -183,7 +183,7 @@ func (l *Loader) decodeDocument(decoder *k8syaml.YAMLOrJSONDecoder, path string,
 	return doc, nil
 }
 
-// parseKindDocument parses a document of a specific kind and builds its FQN.
+// parseKindDocument parses a document of a specific kind and builds its FQN from Resource ID.
 func (l *Loader) parseKindDocument(raw map[string]any, kind string, path string, docIndex int) (*Document, error) {
 	// Extract metadata
 	metadataRaw, ok := raw["metadata"].(map[string]any)
@@ -207,14 +207,8 @@ func (l *Loader) parseKindDocument(raw map[string]any, kind string, path string,
 		}
 	}
 
-	// Extract parent path from annotations
-	parentPath, err := ExtractParentPath(kind, annotations)
-	if err != nil {
-		return nil, err
-	}
-
-	// Build FQN
-	fqn, err := BuildFQN(kind, parentPath, name)
+	// Extract and validate Resource ID
+	fqn, err := ExtractResourceID(kind, name, annotations)
 	if err != nil {
 		return nil, err
 	}

@@ -12,28 +12,28 @@ func TestFQN_Segments(t *testing.T) {
 	}{
 		{
 			name: "workspace",
-			fqn:  "ws1",
-			want: []string{"ws1"},
+			fqn:  "/ws/ws1",
+			want: []string{"ws", "ws1"},
 		},
 		{
 			name: "provider",
-			fqn:  "ws1/prv1",
-			want: []string{"ws1", "prv1"},
+			fqn:  "/ws/ws1/prv/prv1",
+			want: []string{"ws", "ws1", "prv", "prv1"},
 		},
 		{
 			name: "cluster",
-			fqn:  "ws1/prv1/cls1",
-			want: []string{"ws1", "prv1", "cls1"},
+			fqn:  "/ws/ws1/prv/prv1/cls/cls1",
+			want: []string{"ws", "ws1", "prv", "prv1", "cls", "cls1"},
 		},
 		{
 			name: "app",
-			fqn:  "ws1/prv1/cls1/app1",
-			want: []string{"ws1", "prv1", "cls1", "app1"},
+			fqn:  "/ws/ws1/prv/prv1/cls/cls1/app/app1",
+			want: []string{"ws", "ws1", "prv", "prv1", "cls", "cls1", "app", "app1"},
 		},
 		{
 			name: "box",
-			fqn:  "ws1/prv1/cls1/app1/box1",
-			want: []string{"ws1", "prv1", "cls1", "app1", "box1"},
+			fqn:  "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/box1",
+			want: []string{"ws", "ws1", "prv", "prv1", "cls", "cls1", "app", "app1", "box", "box1"},
 		},
 		{
 			name: "empty",
@@ -66,28 +66,28 @@ func TestFQN_ParentFQN(t *testing.T) {
 	}{
 		{
 			name: "workspace has no parent",
-			fqn:  "ws1",
+			fqn:  "/ws/ws1",
 			want: "",
 		},
 		{
 			name: "provider parent is workspace",
-			fqn:  "ws1/prv1",
-			want: "ws1",
+			fqn:  "/ws/ws1/prv/prv1",
+			want: "/ws/ws1",
 		},
 		{
 			name: "cluster parent is provider",
-			fqn:  "ws1/prv1/cls1",
-			want: "ws1/prv1",
+			fqn:  "/ws/ws1/prv/prv1/cls/cls1",
+			want: "/ws/ws1/prv/prv1",
 		},
 		{
 			name: "app parent is cluster",
-			fqn:  "ws1/prv1/cls1/app1",
-			want: "ws1/prv1/cls1",
+			fqn:  "/ws/ws1/prv/prv1/cls/cls1/app/app1",
+			want: "/ws/ws1/prv/prv1/cls/cls1",
 		},
 		{
 			name: "box parent is app",
-			fqn:  "ws1/prv1/cls1/app1/box1",
-			want: "ws1/prv1/cls1/app1",
+			fqn:  "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/box1",
+			want: "/ws/ws1/prv/prv1/cls/cls1/app/app1",
 		},
 	}
 
@@ -100,258 +100,364 @@ func TestFQN_ParentFQN(t *testing.T) {
 	}
 }
 
-func TestValidateSegmentCount(t *testing.T) {
+func TestFQN_KindSegments(t *testing.T) {
 	tests := []struct {
-		name    string
-		kind    string
-		path    string
-		wantErr bool
+		name string
+		fqn  FQN
+		want [][2]string
+	}{
+		{
+			name: "workspace",
+			fqn:  "/ws/ws1",
+			want: [][2]string{{"ws", "ws1"}},
+		},
+		{
+			name: "provider",
+			fqn:  "/ws/ws1/prv/prv1",
+			want: [][2]string{{"ws", "ws1"}, {"prv", "prv1"}},
+		},
+		{
+			name: "cluster",
+			fqn:  "/ws/ws1/prv/prv1/cls/cls1",
+			want: [][2]string{{"ws", "ws1"}, {"prv", "prv1"}, {"cls", "cls1"}},
+		},
+		{
+			name: "empty",
+			fqn:  "",
+			want: nil,
+		},
+		{
+			name: "odd segments",
+			fqn:  "/ws/ws1/prv",
+			want: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.fqn.KindSegments()
+			if len(got) != len(tt.want) {
+				t.Errorf("KindSegments() = %v, want %v", got, tt.want)
+				return
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("KindSegments()[%d] = %v, want %v", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestParseResourceID(t *testing.T) {
+	tests := []struct {
+		name     string
+		id       string
+		wantFQN  FQN
+		wantKind string
+		wantErr  bool
+	}{
+		{
+			name:     "workspace",
+			id:       "/ws/ws1",
+			wantFQN:  "/ws/ws1",
+			wantKind: "Workspace",
+			wantErr:  false,
+		},
+		{
+			name:     "provider",
+			id:       "/ws/ws1/prv/prv1",
+			wantFQN:  "/ws/ws1/prv/prv1",
+			wantKind: "Provider",
+			wantErr:  false,
+		},
+		{
+			name:     "cluster",
+			id:       "/ws/ws1/prv/prv1/cls/cls1",
+			wantFQN:  "/ws/ws1/prv/prv1/cls/cls1",
+			wantKind: "Cluster",
+			wantErr:  false,
+		},
+		{
+			name:     "app",
+			id:       "/ws/ws1/prv/prv1/cls/cls1/app/app1",
+			wantFQN:  "/ws/ws1/prv/prv1/cls/cls1/app/app1",
+			wantKind: "App",
+			wantErr:  false,
+		},
+		{
+			name:     "box",
+			id:       "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/box1",
+			wantFQN:  "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/box1",
+			wantKind: "Box",
+			wantErr:  false,
+		},
+		{
+			name:     "missing leading slash",
+			id:       "ws/ws1",
+			wantFQN:  "",
+			wantKind: "",
+			wantErr:  true,
+		},
+		{
+			name:     "odd segments",
+			id:       "/ws/ws1/prv",
+			wantFQN:  "",
+			wantKind: "",
+			wantErr:  true,
+		},
+		{
+			name:     "unknown kind",
+			id:       "/foo/bar",
+			wantFQN:  "",
+			wantKind: "",
+			wantErr:  true,
+		},
+		{
+			name:     "invalid name uppercase",
+			id:       "/ws/WS1",
+			wantFQN:  "",
+			wantKind: "",
+			wantErr:  true,
+		},
+		{
+			name:     "invalid name with underscore",
+			id:       "/ws/ws_1",
+			wantFQN:  "",
+			wantKind: "",
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotFQN, gotKind, err := ParseResourceID(tt.id)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseResourceID() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotFQN != tt.wantFQN {
+				t.Errorf("ParseResourceID() FQN = %v, want %v", gotFQN, tt.wantFQN)
+			}
+			if gotKind != tt.wantKind {
+				t.Errorf("ParseResourceID() Kind = %v, want %v", gotKind, tt.wantKind)
+			}
+		})
+	}
+}
+
+func TestValidateResourceID(t *testing.T) {
+	tests := []struct {
+		name         string
+		id           string
+		expectedKind string
+		expectedName string
+		wantFQN      FQN
+		wantErr      bool
+	}{
+		{
+			name:         "workspace valid",
+			id:           "/ws/ws1",
+			expectedKind: "Workspace",
+			expectedName: "ws1",
+			wantFQN:      "/ws/ws1",
+			wantErr:      false,
+		},
+		{
+			name:         "provider valid",
+			id:           "/ws/ws1/prv/prv1",
+			expectedKind: "Provider",
+			expectedName: "prv1",
+			wantFQN:      "/ws/ws1/prv/prv1",
+			wantErr:      false,
+		},
+		{
+			name:         "kind mismatch",
+			id:           "/ws/ws1/prv/prv1",
+			expectedKind: "Cluster",
+			expectedName: "prv1",
+			wantFQN:      "",
+			wantErr:      true,
+		},
+		{
+			name:         "name mismatch",
+			id:           "/ws/ws1",
+			expectedKind: "Workspace",
+			expectedName: "ws2",
+			wantFQN:      "",
+			wantErr:      true,
+		},
+		{
+			name:         "provider with invalid parent chain",
+			id:           "/prv/prv1",
+			expectedKind: "Provider",
+			expectedName: "prv1",
+			wantFQN:      "",
+			wantErr:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotFQN, err := ValidateResourceID(tt.id, tt.expectedKind, tt.expectedName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateResourceID() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotFQN != tt.wantFQN {
+				t.Errorf("ValidateResourceID() = %v, want %v", gotFQN, tt.wantFQN)
+			}
+		})
+	}
+}
+
+func TestBuildResourceID(t *testing.T) {
+	tests := []struct {
+		name     string
+		parentID FQN
+		kind     string
+		objName  string
+		want     FQN
+		wantErr  bool
+	}{
+		{
+			name:     "workspace",
+			parentID: "",
+			kind:     "Workspace",
+			objName:  "ws1",
+			want:     "/ws/ws1",
+			wantErr:  false,
+		},
+		{
+			name:     "provider",
+			parentID: "/ws/ws1",
+			kind:     "Provider",
+			objName:  "prv1",
+			want:     "/ws/ws1/prv/prv1",
+			wantErr:  false,
+		},
+		{
+			name:     "cluster",
+			parentID: "/ws/ws1/prv/prv1",
+			kind:     "Cluster",
+			objName:  "cls1",
+			want:     "/ws/ws1/prv/prv1/cls/cls1",
+			wantErr:  false,
+		},
+		{
+			name:     "app",
+			parentID: "/ws/ws1/prv/prv1/cls/cls1",
+			kind:     "App",
+			objName:  "app1",
+			want:     "/ws/ws1/prv/prv1/cls/cls1/app/app1",
+			wantErr:  false,
+		},
+		{
+			name:     "box",
+			parentID: "/ws/ws1/prv/prv1/cls/cls1/app/app1",
+			kind:     "Box",
+			objName:  "box1",
+			want:     "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/box1",
+			wantErr:  false,
+		},
+		{
+			name:     "workspace with parent error",
+			parentID: "/ws/ws1",
+			kind:     "Workspace",
+			objName:  "ws2",
+			want:     "",
+			wantErr:  true,
+		},
+		{
+			name:     "provider without parent error",
+			parentID: "",
+			kind:     "Provider",
+			objName:  "prv1",
+			want:     "",
+			wantErr:  true,
+		},
+		{
+			name:     "invalid name uppercase",
+			parentID: "",
+			kind:     "Workspace",
+			objName:  "WS1",
+			want:     "",
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := BuildResourceID(tt.parentID, tt.kind, tt.objName)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("BuildResourceID() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("BuildResourceID() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestExtractResourceID(t *testing.T) {
+	tests := []struct {
+		name        string
+		kind        string
+		objName     string
+		annotations map[string]string
+		want        FQN
+		wantErr     bool
 	}{
 		{
 			name:    "workspace valid",
 			kind:    "Workspace",
-			path:    "ws1",
+			objName: "ws1",
+			annotations: map[string]string{
+				AnnotationID: "/ws/ws1",
+			},
+			want:    "/ws/ws1",
 			wantErr: false,
-		},
-		{
-			name:    "workspace too many segments",
-			kind:    "Workspace",
-			path:    "ws1/extra",
-			wantErr: true,
 		},
 		{
 			name:    "provider valid",
 			kind:    "Provider",
-			path:    "ws1/prv1",
-			wantErr: false,
-		},
-		{
-			name:    "provider too few segments",
-			kind:    "Provider",
-			path:    "ws1",
-			wantErr: true,
-		},
-		{
-			name:    "cluster valid",
-			kind:    "Cluster",
-			path:    "ws1/prv1/cls1",
-			wantErr: false,
-		},
-		{
-			name:    "app valid",
-			kind:    "App",
-			path:    "ws1/prv1/cls1/app1",
-			wantErr: false,
-		},
-		{
-			name:    "box valid",
-			kind:    "Box",
-			path:    "ws1/prv1/cls1/app1/box1",
-			wantErr: false,
-		},
-		{
-			name:    "unknown kind",
-			kind:    "Unknown",
-			path:    "ws1",
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateSegmentCount(tt.kind, tt.path)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateSegmentCount() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestValidateSegmentLabels(t *testing.T) {
-	tests := []struct {
-		name    string
-		path    string
-		wantErr bool
-	}{
-		{
-			name:    "valid lowercase",
-			path:    "ws1/prv1/cls1",
-			wantErr: false,
-		},
-		{
-			name:    "valid with hyphens",
-			path:    "ws-1/prv-1/cls-1",
-			wantErr: false,
-		},
-		{
-			name:    "invalid uppercase",
-			path:    "WS1/prv1/cls1",
-			wantErr: true,
-		},
-		{
-			name:    "invalid underscore",
-			path:    "ws_1/prv1/cls1",
-			wantErr: true,
-		},
-		{
-			name:    "invalid starts with hyphen",
-			path:    "-ws1/prv1/cls1",
-			wantErr: true,
-		},
-		{
-			name:    "invalid ends with hyphen",
-			path:    "ws1-/prv1/cls1",
-			wantErr: true,
-		},
-		{
-			name:    "invalid empty segment",
-			path:    "ws1//cls1",
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := ValidateSegmentLabels(tt.path)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ValidateSegmentLabels() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestBuildFQN(t *testing.T) {
-	tests := []struct {
-		name       string
-		kind       string
-		parentPath string
-		objName    string
-		want       FQN
-		wantErr    bool
-	}{
-		{
-			name:       "workspace",
-			kind:       "Workspace",
-			parentPath: "",
-			objName:    "ws1",
-			want:       "ws1",
-			wantErr:    false,
-		},
-		{
-			name:       "provider",
-			kind:       "Provider",
-			parentPath: "ws1",
-			objName:    "prv1",
-			want:       "ws1/prv1",
-			wantErr:    false,
-		},
-		{
-			name:       "cluster",
-			kind:       "Cluster",
-			parentPath: "ws1/prv1",
-			objName:    "cls1",
-			want:       "ws1/prv1/cls1",
-			wantErr:    false,
-		},
-		{
-			name:       "app",
-			kind:       "App",
-			parentPath: "ws1/prv1/cls1",
-			objName:    "app1",
-			want:       "ws1/prv1/cls1/app1",
-			wantErr:    false,
-		},
-		{
-			name:       "box",
-			kind:       "Box",
-			parentPath: "ws1/prv1/cls1/app1",
-			objName:    "box1",
-			want:       "ws1/prv1/cls1/app1/box1",
-			wantErr:    false,
-		},
-		{
-			name:       "provider without parent",
-			kind:       "Provider",
-			parentPath: "",
-			objName:    "prv1",
-			want:       "",
-			wantErr:    true,
-		},
-		{
-			name:       "invalid name uppercase",
-			kind:       "Workspace",
-			parentPath: "",
-			objName:    "WS1",
-			want:       "",
-			wantErr:    true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := BuildFQN(tt.kind, tt.parentPath, tt.objName)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("BuildFQN() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("BuildFQN() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestExtractParentPath(t *testing.T) {
-	tests := []struct {
-		name        string
-		kind        string
-		annotations map[string]string
-		want        string
-		wantErr     bool
-	}{
-		{
-			name:        "workspace has no parent",
-			kind:        "Workspace",
-			annotations: map[string]string{},
-			want:        "",
-			wantErr:     false,
-		},
-		{
-			name: "provider with path",
-			kind: "Provider",
+			objName: "prv1",
 			annotations: map[string]string{
-				AnnotationPath: "ws1",
+				AnnotationID: "/ws/ws1/prv/prv1",
 			},
-			want:    "ws1",
+			want:    "/ws/ws1/prv/prv1",
 			wantErr: false,
 		},
 		{
-			name:        "provider without path",
+			name:        "missing annotation",
 			kind:        "Provider",
+			objName:     "prv1",
 			annotations: map[string]string{},
 			want:        "",
 			wantErr:     true,
 		},
 		{
-			name: "cluster with path",
-			kind: "Cluster",
+			name:    "name mismatch",
+			kind:    "Workspace",
+			objName: "ws1",
 			annotations: map[string]string{
-				AnnotationPath: "ws1/prv1",
+				AnnotationID: "/ws/ws2",
 			},
-			want:    "ws1/prv1",
-			wantErr: false,
+			want:    "",
+			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ExtractParentPath(tt.kind, tt.annotations)
+			got, err := ExtractResourceID(tt.kind, tt.objName, tt.annotations)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ExtractParentPath() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ExtractResourceID() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("ExtractParentPath() = %v, want %v", got, tt.want)
+				t.Errorf("ExtractResourceID() = %v, want %v", got, tt.want)
 			}
 		})
 	}

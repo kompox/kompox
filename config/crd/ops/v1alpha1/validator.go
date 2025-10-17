@@ -48,8 +48,8 @@ func (r *ValidationResult) HasErrors() bool {
 
 // Validate validates documents in topological order.
 // It checks:
-//  1. Kind and FQN segment count consistency
-//  2. Duplicate FQNs within the document set
+//  1. Kind and Resource ID segment count consistency
+//  2. Duplicate Resource IDs within the document set
 //  3. Parent existence (except for Workspace)
 //
 // Returns ValidDocuments only if there are no errors.
@@ -68,26 +68,27 @@ func Validate(documents []Document) *ValidationResult {
 	validParents := make(map[FQN]bool)
 
 	for i, doc := range sorted {
-		// Check Kind and FQN segment count consistency
-		expectedSegments := kindOrder(doc.Kind)
-		actualSegments := len(doc.FQN.Segments())
-		if expectedSegments != 999 && expectedSegments != actualSegments {
+		// Check Kind and Resource ID segment count consistency
+		// The segment count is validated during parsing/FQN construction
+		pairs := doc.FQN.KindSegments()
+		expectedPairs := kindOrder(doc.Kind)
+		if expectedPairs != 999 && len(pairs) != expectedPairs {
 			result.Errors = append(result.Errors, &ValidationError{
 				FQN:     doc.FQN,
 				Kind:    doc.Kind,
-				Message: fmt.Sprintf("kind %s expects %d segments but FQN has %d", doc.Kind, expectedSegments, actualSegments),
+				Message: fmt.Sprintf("kind %s expects %d kind/name pairs but Resource ID has %d", doc.Kind, expectedPairs, len(pairs)),
 				Path:    doc.Path,
 				Index:   doc.Index,
 			})
 			continue
 		}
 
-		// Check for duplicate FQN in this batch
+		// Check for duplicate Resource ID in this batch
 		if prevIndex, exists := seenFQNs[doc.FQN]; exists {
 			result.Errors = append(result.Errors, &ValidationError{
 				FQN:     doc.FQN,
 				Kind:    doc.Kind,
-				Message: fmt.Sprintf("duplicate FQN, already defined at document %d", prevIndex),
+				Message: fmt.Sprintf("duplicate Resource ID, already defined at document %d", prevIndex),
 				Path:    doc.Path,
 				Index:   doc.Index,
 			})
@@ -120,7 +121,7 @@ func Validate(documents []Document) *ValidationResult {
 
 // sortByTopology sorts documents by topological order:
 // Workspace → Provider → Cluster → App → Box
-// Within each level, sort alphabetically by FQN for deterministic order.
+// Within each level, sort alphabetically by Resource ID for deterministic order.
 func sortByTopology(documents []Document) []Document {
 	// Create a copy to avoid modifying the original
 	sorted := make([]Document, len(documents))

@@ -107,6 +107,8 @@ func TestSink_ToModels(t *testing.T) {
 kind: Workspace
 metadata:
   name: empty-ws
+  annotations:
+    ops.kompox.dev/id: /ws/empty-ws
 `,
 			wantErr: false,
 			validate: func(t *testing.T, repos Repositories) {
@@ -125,13 +127,15 @@ metadata:
 kind: Workspace
 metadata:
   name: test-ws
+  annotations:
+    ops.kompox.dev/id: /ws/test-ws
 ---
 apiVersion: ops.kompox.dev/v1alpha1
 kind: Provider
 metadata:
   name: test-prv
   annotations:
-    ops.kompox.dev/path: "test-ws"
+    ops.kompox.dev/id: /ws/test-ws/prv/test-prv
 spec:
   driver: aks
   settings:
@@ -149,9 +153,9 @@ spec:
 				if providers[0].Driver != "aks" {
 					t.Errorf("expected driver 'aks', got %q", providers[0].Driver)
 				}
-				// Expect FQN format for WorkspaceID
-				if providers[0].WorkspaceID != "test-ws" {
-					t.Errorf("expected workspace ID 'test-ws', got %q", providers[0].WorkspaceID)
+				// Expect Resource ID format for WorkspaceID
+				if providers[0].WorkspaceID != "/ws/test-ws" {
+					t.Errorf("expected workspace ID '/ws/test-ws', got %q", providers[0].WorkspaceID)
 				}
 			},
 		},
@@ -161,13 +165,15 @@ spec:
 kind: Workspace
 metadata:
   name: my-ws
+  annotations:
+    ops.kompox.dev/id: /ws/my-ws
 ---
 apiVersion: ops.kompox.dev/v1alpha1
 kind: Provider
 metadata:
   name: my-prv
   annotations:
-    ops.kompox.dev/path: "my-ws"
+    ops.kompox.dev/id: /ws/my-ws/prv/my-prv
 spec:
   driver: k3s
 ---
@@ -176,7 +182,7 @@ kind: Cluster
 metadata:
   name: my-cls
   annotations:
-    ops.kompox.dev/path: "my-ws/my-prv"
+    ops.kompox.dev/id: /ws/my-ws/prv/my-prv/cls/my-cls
 spec:
   existing: true
   ingress:
@@ -191,7 +197,7 @@ kind: App
 metadata:
   name: my-app
   annotations:
-    ops.kompox.dev/path: "my-ws/my-prv/my-cls"
+    ops.kompox.dev/id: /ws/my-ws/prv/my-prv/cls/my-cls/app/my-app
 `,
 			wantErr: false,
 			validate: func(t *testing.T, repos Repositories) {
@@ -206,9 +212,9 @@ metadata:
 				if len(providers) != 1 {
 					t.Fatalf("expected 1 provider, got %d", len(providers))
 				}
-				// Expect FQN format for WorkspaceID (parent path)
-				if providers[0].WorkspaceID != "my-ws" {
-					t.Errorf("expected provider WorkspaceID 'my-ws', got %q", providers[0].WorkspaceID)
+				// Expect Resource ID format for WorkspaceID (parent path)
+				if providers[0].WorkspaceID != "/ws/my-ws" {
+					t.Errorf("expected provider WorkspaceID '/ws/my-ws', got %q", providers[0].WorkspaceID)
 				}
 
 				// Check cluster
@@ -216,9 +222,9 @@ metadata:
 				if len(clusters) != 1 {
 					t.Fatalf("expected 1 cluster, got %d", len(clusters))
 				}
-				// Expect FQN format for ProviderID (parent path)
-				if clusters[0].ProviderID != "my-ws/my-prv" {
-					t.Errorf("expected cluster ProviderID 'my-ws/my-prv', got %q", clusters[0].ProviderID)
+				// Expect Resource ID format for ProviderID (parent path)
+				if clusters[0].ProviderID != "/ws/my-ws/prv/my-prv" {
+					t.Errorf("expected cluster ProviderID '/ws/my-ws/prv/my-prv', got %q", clusters[0].ProviderID)
 				}
 				if clusters[0].Existing != true {
 					t.Errorf("expected cluster Existing=true, got %v", clusters[0].Existing)
@@ -235,9 +241,9 @@ metadata:
 				if len(apps) != 1 {
 					t.Fatalf("expected 1 app, got %d", len(apps))
 				}
-				// Expect FQN format for ClusterID (parent path)
-				if apps[0].ClusterID != "my-ws/my-prv/my-cls" {
-					t.Errorf("expected app ClusterID 'my-ws/my-prv/my-cls', got %q", apps[0].ClusterID)
+				// Expect Resource ID format for ClusterID (parent path)
+				if apps[0].ClusterID != "/ws/my-ws/prv/my-prv/cls/my-cls" {
+					t.Errorf("expected app ClusterID '/ws/my-ws/prv/my-prv/cls/my-cls', got %q", apps[0].ClusterID)
 				}
 			},
 		},
@@ -247,13 +253,15 @@ metadata:
 kind: Workspace
 metadata:
   name: cert-ws
+  annotations:
+    ops.kompox.dev/id: /ws/cert-ws
 ---
 apiVersion: ops.kompox.dev/v1alpha1
 kind: Provider
 metadata:
   name: cert-prv
   annotations:
-    ops.kompox.dev/path: "cert-ws"
+    ops.kompox.dev/id: /ws/cert-ws/prv/cert-prv
 spec:
   driver: aks
 ---
@@ -262,7 +270,7 @@ kind: Cluster
 metadata:
   name: cert-cls
   annotations:
-    ops.kompox.dev/path: "cert-ws/cert-prv"
+    ops.kompox.dev/id: /ws/cert-ws/prv/cert-prv/cls/cert-cls
 spec:
   ingress:
     namespace: ingress
@@ -297,7 +305,7 @@ kind: Provider
 metadata:
   name: orphan-prv
   annotations:
-    ops.kompox.dev/path: "nonexistent-ws"
+    ops.kompox.dev/id: /ws/nonexistent-ws/prv/orphan-prv
 spec:
   driver: aks
 `,
@@ -312,13 +320,15 @@ spec:
 kind: Workspace
 metadata:
   name: test-ws
+  annotations:
+    ops.kompox.dev/id: /ws/test-ws
 ---
 apiVersion: ops.kompox.dev/v1alpha1
 kind: Cluster
 metadata:
   name: orphan-cls
   annotations:
-    ops.kompox.dev/path: "test-ws/nonexistent-prv"
+    ops.kompox.dev/id: /ws/test-ws/prv/nonexistent-prv/cls/orphan-cls
 spec:
   existing: false
 `,
@@ -333,13 +343,15 @@ spec:
 kind: Workspace
 metadata:
   name: test-ws
+  annotations:
+    ops.kompox.dev/id: /ws/test-ws
 ---
 apiVersion: ops.kompox.dev/v1alpha1
 kind: Provider
 metadata:
   name: test-prv
   annotations:
-    ops.kompox.dev/path: "test-ws"
+    ops.kompox.dev/id: /ws/test-ws/prv/test-prv
 spec:
   driver: k3s
 ---
@@ -348,7 +360,7 @@ kind: App
 metadata:
   name: orphan-app
   annotations:
-    ops.kompox.dev/path: "test-ws/test-prv/nonexistent-cls"
+    ops.kompox.dev/id: /ws/test-ws/prv/test-prv/cls/nonexistent-cls/app/orphan-app
 `,
 			wantErr: true,
 			validate: func(t *testing.T, repos Repositories) {
@@ -361,13 +373,15 @@ metadata:
 kind: Workspace
 metadata:
   name: app-ws
+  annotations:
+    ops.kompox.dev/id: /ws/app-ws
 ---
 apiVersion: ops.kompox.dev/v1alpha1
 kind: Provider
 metadata:
   name: app-prv
   annotations:
-    ops.kompox.dev/path: "app-ws"
+    ops.kompox.dev/id: /ws/app-ws/prv/app-prv
 spec:
   driver: aks
 ---
@@ -376,14 +390,14 @@ kind: Cluster
 metadata:
   name: app-cls
   annotations:
-    ops.kompox.dev/path: "app-ws/app-prv"
+    ops.kompox.dev/id: /ws/app-ws/prv/app-prv/cls/app-cls
 ---
 apiVersion: ops.kompox.dev/v1alpha1
 kind: App
 metadata:
   name: full-app
   annotations:
-    ops.kompox.dev/path: "app-ws/app-prv/app-cls"
+    ops.kompox.dev/id: /ws/app-ws/prv/app-prv/cls/app-cls/app/full-app
 spec:
   compose: |
     services:
@@ -434,8 +448,8 @@ spec:
 				if app.Name != "full-app" {
 					t.Errorf("expected app name 'full-app', got %q", app.Name)
 				}
-				if app.ClusterID != "app-ws/app-prv/app-cls" {
-					t.Errorf("expected app ClusterID 'app-ws/app-prv/app-cls', got %q", app.ClusterID)
+				if app.ClusterID != "/ws/app-ws/prv/app-prv/cls/app-cls" {
+					t.Errorf("expected app ClusterID '/ws/app-ws/prv/app-prv/cls/app-cls', got %q", app.ClusterID)
 				}
 
 				// Validate compose
@@ -520,13 +534,15 @@ spec:
 kind: Workspace
 metadata:
   name: min-ws
+  annotations:
+    ops.kompox.dev/id: /ws/min-ws
 ---
 apiVersion: ops.kompox.dev/v1alpha1
 kind: Provider
 metadata:
   name: min-prv
   annotations:
-    ops.kompox.dev/path: "min-ws"
+    ops.kompox.dev/id: /ws/min-ws/prv/min-prv
 spec:
   driver: k3s
 ---
@@ -535,14 +551,14 @@ kind: Cluster
 metadata:
   name: min-cls
   annotations:
-    ops.kompox.dev/path: "min-ws/min-prv"
+    ops.kompox.dev/id: /ws/min-ws/prv/min-prv/cls/min-cls
 ---
 apiVersion: ops.kompox.dev/v1alpha1
 kind: App
 metadata:
   name: min-app
   annotations:
-    ops.kompox.dev/path: "min-ws/min-prv/min-cls"
+    ops.kompox.dev/id: /ws/min-ws/prv/min-prv/cls/min-cls/app/min-app
 spec:
   compose: "services:\n  web:\n    image: nginx\n"
 `,
@@ -595,13 +611,15 @@ spec:
 kind: Workspace
 metadata:
   name: ing-ws
+  annotations:
+    ops.kompox.dev/id: /ws/ing-ws
 ---
 apiVersion: ops.kompox.dev/v1alpha1
 kind: Provider
 metadata:
   name: ing-prv
   annotations:
-    ops.kompox.dev/path: "ing-ws"
+    ops.kompox.dev/id: /ws/ing-ws/prv/ing-prv
 spec:
   driver: aks
 ---
@@ -610,14 +628,14 @@ kind: Cluster
 metadata:
   name: ing-cls
   annotations:
-    ops.kompox.dev/path: "ing-ws/ing-prv"
+    ops.kompox.dev/id: /ws/ing-ws/prv/ing-prv/cls/ing-cls
 ---
 apiVersion: ops.kompox.dev/v1alpha1
 kind: App
 metadata:
   name: ing-app
   annotations:
-    ops.kompox.dev/path: "ing-ws/ing-prv/ing-cls"
+    ops.kompox.dev/id: /ws/ing-ws/prv/ing-prv/cls/ing-cls/app/ing-app
 spec:
   compose: "services: {}"
   ingress:
@@ -700,6 +718,8 @@ func TestSink_ToModels_RepositoryErrors(t *testing.T) {
 kind: Workspace
 metadata:
   name: error-ws
+  annotations:
+    ops.kompox.dev/id: /ws/error-ws
 `
 
 	tmpDir := t.TempDir()

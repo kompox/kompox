@@ -5,7 +5,7 @@ import (
 )
 
 // Sink provides an immutable in-memory index for CRD documents.
-// It uses FQN as the primary key for efficient lookups.
+// It uses Resource ID (FQN) as the primary key for efficient lookups.
 // Once created, the sink cannot be modified (immutable).
 type Sink struct {
 	workspaces map[FQN]*Workspace
@@ -62,7 +62,7 @@ func NewSink(documents []Document) (*Sink, error) {
 	return sink, nil
 }
 
-// GetWorkspace retrieves a copy of a Workspace by FQN.
+// GetWorkspace retrieves a copy of a Workspace by Resource ID.
 func (s *Sink) GetWorkspace(fqn FQN) (*Workspace, bool) {
 	ws, ok := s.workspaces[fqn]
 	if !ok {
@@ -72,7 +72,7 @@ func (s *Sink) GetWorkspace(fqn FQN) (*Workspace, bool) {
 	return &copy, true
 }
 
-// GetProvider retrieves a copy of a Provider by FQN.
+// GetProvider retrieves a copy of a Provider by Resource ID.
 func (s *Sink) GetProvider(fqn FQN) (*Provider, bool) {
 	prv, ok := s.providers[fqn]
 	if !ok {
@@ -82,7 +82,7 @@ func (s *Sink) GetProvider(fqn FQN) (*Provider, bool) {
 	return &copy, true
 }
 
-// GetCluster retrieves a copy of a Cluster by FQN.
+// GetCluster retrieves a copy of a Cluster by Resource ID.
 func (s *Sink) GetCluster(fqn FQN) (*Cluster, bool) {
 	cls, ok := s.clusters[fqn]
 	if !ok {
@@ -92,7 +92,7 @@ func (s *Sink) GetCluster(fqn FQN) (*Cluster, bool) {
 	return &copy, true
 }
 
-// GetApp retrieves a copy of an App by FQN.
+// GetApp retrieves a copy of an App by Resource ID.
 func (s *Sink) GetApp(fqn FQN) (*App, bool) {
 	app, ok := s.apps[fqn]
 	if !ok {
@@ -102,7 +102,7 @@ func (s *Sink) GetApp(fqn FQN) (*App, bool) {
 	return &copy, true
 }
 
-// GetBox retrieves a copy of a Box by FQN.
+// GetBox retrieves a copy of a Box by Resource ID.
 func (s *Sink) GetBox(fqn FQN) (*Box, bool) {
 	box, ok := s.boxes[fqn]
 	if !ok {

@@ -16,17 +16,17 @@ import (
 //
 // The conversion process:
 //  1. Iterates through CRD resources in the sink
-//  2. Builds FQN for each resource and sets it as the ID
-//  3. Sets parent FKs to parent FQN (no query needed since parent IDs are also FQNs)
+//  2. Extracts Resource ID from annotations
+//  3. Sets parent FKs to parent Resource ID
 //  4. Persists models to the provided repositories
 //
-// Returns an error if any resource fails to convert or if FQN construction fails.
+// Returns an error if any resource fails to convert or if Resource ID extraction fails.
 func (s *Sink) ToModels(ctx context.Context, repos Repositories) error {
 	// Create workspaces
 	for _, ws := range s.ListWorkspaces() {
-		fqn, err := BuildFQN("Workspace", "", ws.ObjectMeta.Name)
+		fqn, err := ExtractResourceID("Workspace", ws.ObjectMeta.Name, ws.ObjectMeta.Annotations)
 		if err != nil {
-			return fmt.Errorf("failed to build FQN for workspace %q: %w", ws.ObjectMeta.Name, err)
+			return fmt.Errorf("failed to extract Resource ID for workspace %q: %w", ws.ObjectMeta.Name, err)
 		}
 		workspace := &model.Workspace{
 			ID:   fqn.String(),
@@ -39,15 +39,14 @@ func (s *Sink) ToModels(ctx context.Context, repos Repositories) error {
 
 	// Create providers
 	for _, prv := range s.ListProviders() {
-		// Build FQN from annotation path and name
-		parentPath := prv.ObjectMeta.Annotations[AnnotationPath]
-		fqn, err := BuildFQN("Provider", parentPath, prv.ObjectMeta.Name)
+		// Extract Resource ID from annotation
+		fqn, err := ExtractResourceID("Provider", prv.ObjectMeta.Name, prv.ObjectMeta.Annotations)
 		if err != nil {
-			return fmt.Errorf("failed to build FQN for provider %q: %w", prv.ObjectMeta.Name, err)
+			return fmt.Errorf("failed to extract Resource ID for provider %q: %w", prv.ObjectMeta.Name, err)
 		}
 
-		// Parent workspace FQN is the parentPath itself
-		wsID := parentPath
+		// Parent workspace ID is the parent FQN
+		wsID := fqn.ParentFQN().String()
 
 		provider := &model.Provider{
 			ID:          fqn.String(),
@@ -63,14 +62,13 @@ func (s *Sink) ToModels(ctx context.Context, repos Repositories) error {
 
 	// Create clusters
 	for _, cls := range s.ListClusters() {
-		parentPath := cls.ObjectMeta.Annotations[AnnotationPath]
-		fqn, err := BuildFQN("Cluster", parentPath, cls.ObjectMeta.Name)
+		fqn, err := ExtractResourceID("Cluster", cls.ObjectMeta.Name, cls.ObjectMeta.Annotations)
 		if err != nil {
-			return fmt.Errorf("failed to build FQN for cluster %q: %w", cls.ObjectMeta.Name, err)
+			return fmt.Errorf("failed to extract Resource ID for cluster %q: %w", cls.ObjectMeta.Name, err)
 		}
 
-		// Parent provider FQN is the parentPath itself
-		prvID := parentPath
+		// Parent provider ID is the parent FQN
+		prvID := fqn.ParentFQN().String()
 
 		cluster := &model.Cluster{
 			ID:         fqn.String(),
@@ -106,14 +104,13 @@ func (s *Sink) ToModels(ctx context.Context, repos Repositories) error {
 
 	// Create apps
 	for _, app := range s.ListApps() {
-		parentPath := app.ObjectMeta.Annotations[AnnotationPath]
-		fqn, err := BuildFQN("App", parentPath, app.ObjectMeta.Name)
+		fqn, err := ExtractResourceID("App", app.ObjectMeta.Name, app.ObjectMeta.Annotations)
 		if err != nil {
-			return fmt.Errorf("failed to build FQN for app %q: %w", app.ObjectMeta.Name, err)
+			return fmt.Errorf("failed to extract Resource ID for app %q: %w", app.ObjectMeta.Name, err)
 		}
 
-		// Parent cluster FQN is the parentPath itself
-		clsID := parentPath
+		// Parent cluster ID is the parent FQN
+		clsID := fqn.ParentFQN().String()
 
 		// Get source file directory for relative path resolution
 		sourceFile := app.ObjectMeta.Annotations[AnnotationDocPath]
