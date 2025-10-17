@@ -38,9 +38,10 @@ kompoxops admin             管理ツール
 
 共通オプション
 
-- `--db-url <URL>` 永続化DBの接続URL。環境変数 KOMPOX_DB_URL で指定可能。
-- `--crd-path <PATH>` CRD YAML の取り込み対象（ファイルまたはディレクトリ）。複数回指定可能。環境変数 `KOMPOX_CRD_PATH=path1,path2` でも指定可能（カンマ区切り）。指定したパスが存在しない場合はエラー。
-- `--crd-app <PATH>` 既定アプリID/クラスタIDの推定に用いる CRD YAML（ファイルまたはディレクトリ）。デフォルトは `./kompoxapp.yml`。環境変数 `KOMPOX_CRD_APP` でも指定可能。指定したパスが存在しない場合は無視（エラーにはならない）。
+- `--kom-path <PATH>` KOM YAML の取り込み対象（ファイルまたはディレクトリ）。複数回指定可能。環境変数 `KOMPOX_KOM_PATH=path1,path2` でも指定可能（カンマ区切り）。指定したパスが存在しない場合はエラー。
+- `--kom-app <PATH>` 既定 App/Cluster の推定に用いる KOM YAML。デフォルトは `./kompoxapp.yml`。環境変数 `KOMPOX_KOM_APP` でも指定可能。指定したパスが存在しない場合は無視（エラーにはならない）。
+- `--db-url <URL>` 永続化DBの接続URL。環境変数 `KOMPOX_DB_URL` で指定可能。KOM モードが有効な場合は無視される。
+- レガシー `--crd-*` フラグと `KOMPOX_CRD_*` 環境変数はサポート対象外で、指定された場合はエラーで即時終了する（後方互換なし）。
 
 ### CLI 設定と読み込みモード
 
@@ -121,12 +122,13 @@ app:
       size: 64Gi
 ```
 
-(2) CRD モード（ops.kompox.dev/v1alpha1 / --crd-path, --crd-app）
 
-- `--crd-path PATH`（複数指定可）または環境変数 `KOMPOX_CRD_PATH=path1,path2` で指定したファイル/ディレクトリから、CRD スタイルの YAML（.yml/.yaml、再帰・マルチドキュメント対応）を取り込む。
-- `--crd-app PATH`（既定: `./kompoxapp.yml`）または環境変数 `KOMPOX_CRD_APP` が存在する場合は取り込み対象に追加する（未存在は無視）。
-- 取り込み・検証に成功すると CRD モードが有効となり、このセッションでは `--db-url`/`KOMPOX_DB_URL` は無視される。
-- `--crd-app` で読み込んだ範囲に App（Kind: App）が「ちょうど 1 件」ある場合:
+(2) KOM モード（ops.kompox.dev/v1alpha1 / --kom-path, --kom-app）
+
+- `--kom-path PATH`（複数指定可）または環境変数 `KOMPOX_KOM_PATH=path1,path2` で指定したファイル/ディレクトリから、KOM スタイルの YAML（.yml/.yaml、再帰・マルチドキュメント対応）を取り込む。
+- `--kom-app PATH`（既定: `./kompoxapp.yml`）または環境変数 `KOMPOX_KOM_APP` が存在する場合は取り込み対象に追加する（未存在は無視）。
+- 取り込み・検証に成功すると KOM モードが有効となり、このセッションでは `--db-url`/`KOMPOX_DB_URL` は無視される。
+- `--kom-app` で読み込んだ範囲に App（Kind: App）が「ちょうど 1 件」ある場合:
   - `--app-id` 未指定時のデフォルトとしてその App の Resource ID を採用する。
   - その App が参照する Cluster が一意に決まる場合、`--cluster-id` 未指定時のデフォルトとしてその Cluster の Resource ID を採用する。
 - Resource ID は各リソースの内部 ID であり、KOM (Kompox Ops Manifest) で定義された型付きパス形式を持つ:
@@ -134,12 +136,17 @@ app:
   - Provider: `/ws/<ws>/prv/<prv>`
   - Cluster: `/ws/<ws>/prv/<prv>/cls/<cls>`
   - App: `/ws/<ws>/prv/<prv>/cls/<cls>/app/<app>`
-- CRD スタイルの仕様（Resource ID/参照整合/オール・オア・ナッシング等）の詳細は [Kompox-CRD.ja.md] を参照する。
+- KOM スタイルの仕様（Resource ID/参照整合/オール・オア・ナッシング等）の詳細は [Kompox-KOM.ja.md] を参照する。
+
+KOM 読み込み経路の優先順位:
+
+- `--kom-path` > `KOMPOX_KOM_PATH` > `Defaults.spec.komPath` > なし
+- `--kom-app` は存在すれば読み込み対象に追加（デフォルト `./kompoxapp.yml`、未存在は無視）
 
 優先度と既定（まとめ）
-- CRD 入力（`--crd-path` と、存在する `--crd-app`）が 1 件以上読み込まれ検証に成功 → CRD モードで動作し、`--db-url`/`KOMPOX_DB_URL` は無視。
-- CRD 入力が無い/読み込めない → 既定どおり `--db-url` を使用（未指定時は `file:kompoxops.yml`）。
-- 既定 ID は、CRD モードでは「`--crd-app` 由来で App がちょうど 1 件」のときのみ自動推定 (App Resource ID → `--app-id`、参照する Cluster Resource ID → `--cluster-id`)。単一ファイルモードでは kompoxops.yml の `app.name`/`cluster.name` が既定。
+- KOM 入力（`--kom-path` と、存在する `--kom-app`）が 1 件以上読み込まれ検証に成功 → KOM モードで動作し、`--db-url`/`KOMPOX_DB_URL` は無視。
+- KOM 入力が無い/読み込めない → 既定どおり `--db-url` を使用（未指定時は `file:kompoxops.yml`）。
+- 既定 ID は、KOM モードでは「`--kom-app` 由来で App がちょうど 1 件」のときのみ自動推定 (App Resource ID → `--app-id`、参照する Cluster Resource ID → `--cluster-id`)。単一ファイルモードでは kompoxops.yml の `app.name`/`cluster.name` が既定。
 
 注意
 - CRD 取り込みは全ドキュメント収集後に整合検証を行い、いずれかが不整合なら反映しない（オール・オア・ナッシング）。
@@ -160,7 +167,7 @@ kompoxops cluster kubeconfig --cluster-id <clusterID>        kubectl 用 kubecon
 
 共通オプション
 
-- `--cluster-id | -C` クラスタ ID (Resource ID: `/ws/<ws>/prv/<prv>/cls/<cls>`) を指定。CRD モードでは App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `cluster.name` が既定。
+- `--cluster-id | -C` クラスタ ID (Resource ID: `/ws/<ws>/prv/<prv>/cls/<cls>`) を指定。KOM モードでは `--kom-app` 範囲に App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `cluster.name` が既定。
 - `--cluster-name` クラスタ名を指定（後方互換）。複数のクラスタが同名の場合はエラー。
 
 優先度: `--cluster-id` > `--cluster-name` > CRD デフォルト (Resource ID) > 単一ファイルモード (`cluster.name`)
@@ -274,10 +281,10 @@ kompoxops app exec     --app-id <appID> -- <command> [args...]
 
 共通オプション
 
-- `--app-id | -A` アプリ ID (Resource ID: `/ws/<ws>/prv/<prv>/cls/<cls>/app/<app>`) を指定。CRD モードでは `--crd-app` 範囲に App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
+- `--app-id | -A` アプリ ID (Resource ID: `/ws/<ws>/prv/<prv>/cls/<cls>/app/<app>`) を指定。KOM モードでは `--kom-app` 範囲に App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
 - `--app-name` アプリ名を指定（後方互換）。複数のアプリが同名の場合はエラー。
 
-優先度: `--app-id` > `--app-name` > CRD デフォルト (Resource ID) > 単一ファイルモード (`app.name`)
+優先度: `--app-id` > `--app-name` > KOM デフォルト (Resource ID) > 単一ファイルモード (`app.name`)
 
 validate コマンドは app.compose の内容を検証し Kompose により K8s マニフェストに変換する。
 YAML 構文エラーや制約違反が検出された場合はエラーを返す。
@@ -423,11 +430,11 @@ kompoxops secret pull delete --app-id <appID>
 
 共通オプション
 
-- `--app-id | -A` アプリ ID (Resource ID: `/ws/<ws>/prv/<prv>/cls/<cls>/app/<app>`) を指定。CRD モードでは App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
+- `--app-id | -A` アプリ ID (Resource ID: `/ws/<ws>/prv/<prv>/cls/<cls>/app/<app>`) を指定。KOM モードでは `--kom-app` 範囲に App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
 - `--app-name` アプリ名を指定（後方互換）。複数のアプリが同名の場合はエラー。
 - `--component | -C` コンポーネント名を指定 (デフォルト: `app`)
 
-優先度: `--app-id` > `--app-name` > CRD デフォルト (Resource ID) > 単一ファイルモード (`app.name`)
+優先度: `--app-id` > `--app-name` > KOM デフォルト (Resource ID) > 単一ファイルモード (`app.name`)
 
 #### kompoxops secret env
 
@@ -548,13 +555,13 @@ kompoxops dns destroy --app-id <appID>    DNS レコードの削除
 
 共通オプション
 
-- `--app-id | -A` アプリ ID (Resource ID: `/ws/<ws>/prv/<prv>/cls/<cls>/app/<app>`) を指定。CRD モードでは App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
+- `--app-id | -A` アプリ ID (Resource ID: `/ws/<ws>/prv/<prv>/cls/<cls>/app/<app>`) を指定。KOM モードでは `--kom-app` 範囲に App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
 - `--app-name` アプリ名を指定(後方互換)。複数のアプリが同名の場合はエラー。
 - `--component | -C` コンポーネント名を指定 (デフォルト: `app`)
 - `--strict` DNS 書き込み失敗時にエラーで終了 (デフォルトは警告のみで継続)
 - `--dry-run` 実際の変更を行わず、計画のみを表示
 
-優先度: `--app-id` > `--app-name` > CRD デフォルト (Resource ID) > 単一ファイルモード (`app.name`)
+優先度: `--app-id` > `--app-name` > KOM デフォルト (Resource ID) > 単一ファイルモード (`app.name`)
 
 仕様
 
@@ -628,12 +635,12 @@ kompoxops disk delete --app-id <appID> --vol-name <volName> -N <name>          �
 
 共通オプション
 
-- `--app-id | -A` アプリ ID (Resource ID: `/ws/<ws>/prv/<prv>/cls/<cls>/app/<app>`) を指定。CRD モードでは App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
+- `--app-id | -A` アプリ ID (Resource ID: `/ws/<ws>/prv/<prv>/cls/<cls>/app/<app>`) を指定。KOM モードでは `--kom-app` 範囲に App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
 - `--app-name` アプリ名を指定（後方互換）。複数のアプリが同名の場合はエラー。
 - `--vol-name | -V` ボリューム名を指定
 - `--name | -N` 操作対象ディスク名。`--disk-name` は同義のロングエイリアス。list/create では省略可、assign/delete では必須。
 
-優先度: `--app-id` > `--app-name` > CRD デフォルト (Resource ID) > 単一ファイルモード (`app.name`)
+優先度: `--app-id` > `--app-name` > KOM デフォルト (Resource ID) > 単一ファイルモード (`app.name`)
 
 create 専用オプション
 
@@ -744,12 +751,12 @@ kompoxops snapshot delete  --app-id <appID> --vol-name <volName> -N <name>      
 
 共通オプション
 
-- `--app-id | -A` アプリ ID (Resource ID: `/ws/<ws>/prv/<prv>/cls/<cls>/app/<app>`) を指定。CRD モードでは App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
+- `--app-id | -A` アプリ ID (Resource ID: `/ws/<ws>/prv/<prv>/cls/<cls>/app/<app>`) を指定。KOM モードでは `--kom-app` 範囲に App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
 - `--app-name` アプリ名を指定（後方互換）。複数のアプリが同名の場合はエラー。
 - `--vol-name | -V` ボリューム名を指定
 - `--name | -N` スナップショット名。`--snap-name` は同義。create では任意、delete では必須。最大 24 文字。
 
-優先度: `--app-id` > `--app-name` > CRD デフォルト (Resource ID) > 単一ファイルモード (`app.name`)
+優先度: `--app-id` > `--app-name` > KOM デフォルト (Resource ID) > 単一ファイルモード (`app.name`)
 
 
 create 追加オプション
@@ -813,10 +820,10 @@ kompoxops box rsync   --app-id <appID> -- <rsync args...>                       
 
 共通オプション
 
-- `--app-id | -A` アプリ ID (Resource ID: `/ws/<ws>/prv/<prv>/cls/<cls>/app/<app>`) を指定。CRD モードでは App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
+- `--app-id | -A` アプリ ID (Resource ID: `/ws/<ws>/prv/<prv>/cls/<cls>/app/<app>`) を指定。KOM モードでは `--kom-app` 範囲に App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
 - `--app-name` アプリ名を指定（後方互換）。複数のアプリが同名の場合はエラー。
 
-優先度: `--app-id` > `--app-name` > CRD デフォルト (Resource ID) > 単一ファイルモード (`app.name`)
+優先度: `--app-id` > `--app-name` > KOM デフォルト (Resource ID) > 単一ファイルモード (`app.name`)
 
 仕様
 
@@ -1084,50 +1091,4 @@ kompoxops admin workspace update ws-a -f ws-a.yml
 kompoxops admin workspace delete ws-a
 ```
 
-## 実装状況
-
-### CRD 統合 (2025-10-13 実装完了)
-
-K4x-ADR-007 Phase 2 の実装により、以下の機能が利用可能になりました：
-
-**CRD モードの有効化**:
-- `--crd-path` / `--crd-app` フラグと対応する環境変数 (`KOMPOX_CRD_PATH`, `KOMPOX_CRD_APP`)
-- マルチドキュメント YAML のサポート、再帰的なディレクトリスキャン
-- オール・オア・ナッシング検証（全ドキュメント収集後に整合性チェック）
-- CRD モード有効時の `--db-url` 無視
-
-**Resource ID ベース ID システム**:
-- すべてのリソース (Workspace/Provider/Cluster/App) に Resource ID を ID として付与
-- Resource ID 形式 (KOM): Workspace=`/ws/<ws>`, Provider=`/ws/<ws>/prv/<prv>`, Cluster=`/ws/<ws>/prv/<prv>/cls/<cls>`, App=`/ws/<ws>/prv/<prv>/cls/<cls>/app/<app>`
-- 親子関係も Resource ID で直接参照（name ベースの曖昧解決を不要化）
-
-**CLI フラグの追加と優先度**:
-- `--app-id` / `--cluster-id` フラグを追加（Resource ID を直接指定）
-- `--app-name` / `--cluster-name` は後方互換のため維持（複数一致時はエラー）
-- 優先度: ID フラグ > Name フラグ > CRD デフォルト (Resource ID) > 単一ファイルモード (name)
-- CRD モードでの自動既定値設定:
-  - `--crd-app` 範囲に App が 1 件のみ → その Resource ID を `--app-id` の既定値に
-  - その App が参照する Cluster が一意 → その Resource ID を `--cluster-id` の既定値に
-
-**リソース解決の統一**:
-- 全コマンドで共有の `resolveAppID()` および `resolveClusterID()` 関数を使用
-- UseCase ではなく `domain.Repository` を直接受け取る設計（効率化）
-- Name 指定時の複数一致はエラー、候補一覧を表示
-- 合計 33 コマンドを更新（app: 6, cluster: 7, box: 7, disk: 4, snapshot: 3, dns: 2, secret: 4）
-
-**App spec フィールドの変換**:
-- `config/crd/ops/v1alpha1/sink_tomodels.go` で App の全 spec フィールドを変換:
-  - Compose（文字列）
-  - Ingress（CertResolver + Rules 配列）
-  - Volumes（Name + Size + Options 配列）
-  - Deployment（Pool + Zone）
-  - Resources（マップ）
-  - Settings（マップ）
-- 包括的なユニットテスト追加（10 テストケース、すべてパス）
-
-**コード整理**:
-- `repos_builder.go` を 3 ファイルに分割（main / CRD / DB）
-- Name 系ヘルパー関数を削除し、直接フィールドアクセスに統一
-- 不要なタイムアウトコンテキストを削除（box コマンド）
-
-[Kompox-CRD.ja.md]: ./Kompox-CRD.ja.md
+[Kompox-KOM.ja.md]: ./Kompox-KOM.ja.md

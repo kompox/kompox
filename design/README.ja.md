@@ -13,8 +13,9 @@ language: ja
 
 | ID | Title | Language | Version | Status | Last updated |
 |---|---|---|---|---|---|
-| [Kompox-CRD](./v1/Kompox-CRD.ja.md) | Kompox CRD-style configuration | ja | v1 | synced | 2025-10-15 |
+| [Kompox-CRD](./v1/Kompox-CRD.ja.md) | Kompox CRD-style configuration | ja | v1 | archived | 2025-10-17 |
 | [Kompox-Arch-Implementation](./v1/Kompox-Arch-Implementation.ja.md) | Kompox Implementation Architecture | ja | v1 | synced | 2025-10-12 |
+| [Kompox-KOM](./v1/Kompox-KOM.ja.md) | Kompox KOM configuration | ja | v1 | synced | 2025-10-15 |
 | [Kompox-KubeClient](./v1/Kompox-KubeClient.ja.md) | Kompox Kube Client ガイド | ja | v1 | out-of-sync | 2025-09-26 |
 | [Kompox-KubeConverter](./v1/Kompox-KubeConverter.ja.md) | Kompox Kube Converter ガイド | ja | v1 | synced | 2025-10-12 |
 | [Kompox-CLI](./v1/Kompox-CLI.ja.md) | Kompox PaaS CLI | ja | v1 | synced | 2025-10-15 |
@@ -56,6 +57,8 @@ language: ja
 | [K4x-ADR-007](./adr/K4x-ADR-007.md) | Introduce CRD-style configuration | en |  | accepted | - |
 | [K4x-ADR-008](./adr/K4x-ADR-008.md) | Introduce Box as a first-class ops kind | en |  | proposed | - |
 | [K4x-ADR-009](./adr/K4x-ADR-009.md) | Kompox Ops Manifest Schema | en |  | proposed | - |
+| [K4x-ADR-010](./adr/K4x-ADR-010.md) | Rename CRD to KOM | en |  | accepted | - |
+| [K4x-ADR-011](./adr/K4x-ADR-011.md) | Introduce Defaults pseudo-resource for KOM ingestion | en |  | accepted | - |
 
 **ステータスの意味:**
 
