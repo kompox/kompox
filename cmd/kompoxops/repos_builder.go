@@ -16,14 +16,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// buildRepos creates repositories based on db-url or CRD mode.
-// If CRD mode is enabled, it uses the CRD sink instead of db-url.
+// buildRepos creates repositories based on db-url or KOM mode.
+// If KOM mode is enabled, it uses the KOM sink instead of db-url.
 func buildRepos(cmd *cobra.Command) (*domain.Repositories, error) {
-	// If CRD mode is enabled, use CRD sink
-	if crdMode.enabled && crdMode.sink != nil {
+	// If KOM mode is enabled, use KOM sink
+	if komMode.enabled && komMode.sink != nil {
 		ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
 		defer cancel()
-		return buildReposFromCRD(ctx, crdMode.sink)
+		return buildReposFromKOM(ctx, komMode.sink)
 	}
 
 	// Otherwise, use db-url

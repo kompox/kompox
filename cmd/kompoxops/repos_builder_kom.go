@@ -4,24 +4,24 @@ import (
 	"context"
 
 	"github.com/kompox/kompox/adapters/store/inmem"
-	crdv1 "github.com/kompox/kompox/config/crd/ops/v1alpha1"
+	komv1 "github.com/kompox/kompox/config/crd/ops/v1alpha1"
 	"github.com/kompox/kompox/domain"
 )
 
-// buildReposFromCRD creates repositories from CRD sink.
-func buildReposFromCRD(ctx context.Context, sink *crdv1.Sink) (*domain.Repositories, error) {
-	// Create inmem store
+// buildReposFromKOM creates repositories from KOM sink.
+func buildReposFromKOM(ctx context.Context, sink *komv1.Sink) (*domain.Repositories, error) {
+	// Create in-memory store (domain repositories)
 	store := inmem.NewStore()
 
 	// Prepare repositories for conversion
-	repos := crdv1.Repositories{
+	repos := komv1.Repositories{
 		Workspace: store.WorkspaceRepository,
 		Provider:  store.ProviderRepository,
 		Cluster:   store.ClusterRepository,
 		App:       store.AppRepository,
 	}
 
-	// Convert CRD sink to domain models
+	// Convert KOM sink to domain models
 	if err := sink.ToModels(ctx, repos); err != nil {
 		return nil, err
 	}

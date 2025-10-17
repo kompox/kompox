@@ -32,17 +32,17 @@ func newRootCmd() *cobra.Command {
 	}
 	cmd.PersistentFlags().String("db-url", defaultDB, "Database URL (env KOMPOX_DB_URL) (file:/path/to/kompoxops.yml | sqlite:/path/to.db | postgres:// | mysql://)")
 
-	// Add CRD flags
-	cmd.PersistentFlags().StringArray("crd-path", nil, "CRD YAML paths (files or directories, can be repeated) (env KOMPOX_CRD_PATH, comma-separated)")
-	cmd.PersistentFlags().String("crd-app", "./kompoxapp.yml", "CRD YAML for app inference (env KOMPOX_CRD_APP)")
+	// Add KOM flags
+	cmd.PersistentFlags().StringArray("kom-path", nil, "KOM YAML paths (files or directories, can be repeated) (env KOMPOX_KOM_PATH, comma-separated)")
+	cmd.PersistentFlags().String("kom-app", "./kompoxapp.yml", "KOM YAML for app inference (env KOMPOX_KOM_APP)")
 
 	cmd.PersistentFlags().String("log-format", "human", "Log format (human|text|json) (env KOMPOX_LOG_FORMAT)")
 	cmd.PersistentFlags().String("log-level", "info", "Log level (debug|info|warn|error) (env KOMPOX_LOG_LEVEL)")
 
 	cmd.PersistentPreRunE = func(c *cobra.Command, _ []string) error {
-		// Initialize CRD mode first (before logging setup)
-		if err := initializeCRDMode(c); err != nil {
-			return fmt.Errorf("CRD initialization failed: %w", err)
+		// Initialize KOM mode first (before logging setup). This also handles legacy env fail-fast.
+		if err := initializeKOMMode(c); err != nil {
+			return fmt.Errorf("KOM initialization failed: %w", err)
 		}
 
 		format, _ := c.Flags().GetString("log-format")

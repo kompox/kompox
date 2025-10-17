@@ -48,7 +48,7 @@ func newCmdCluster() *cobra.Command {
 }
 
 // resolveClusterID resolves a cluster identifier to a Cluster ID (FQN).
-// Priority: --cluster-id flag > --cluster-name flag > CRD mode default > kompoxops.yml default > positional arg
+// Priority: --cluster-id flag > --cluster-name flag > KOM mode default > kompoxops.yml default > positional arg
 // If the identifier contains "/", it's treated as an FQN and returned as-is.
 // Otherwise, it's treated as a name and looked up via List().
 // Returns error if name matches multiple clusters or no cluster is found.
@@ -59,8 +59,8 @@ func resolveClusterID(ctx context.Context, clusterRepo domain.ClusterRepository,
 		idOrName = flagClusterID
 	} else if flagClusterName != "" {
 		idOrName = flagClusterName
-	} else if crdMode.enabled && crdMode.defaultClusterID != "" {
-		idOrName = crdMode.defaultClusterID
+	} else if komMode.enabled && komMode.defaultClusterID != "" {
+		idOrName = komMode.defaultClusterID
 	} else if configRoot != nil && configRoot.Cluster.Name != "" {
 		idOrName = configRoot.Cluster.Name
 	} else if len(args) > 0 {

@@ -9,46 +9,46 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func TestInitializeCRDMode(t *testing.T) {
-	// Save and restore original crdMode
-	originalMode := crdMode
-	defer func() { crdMode = originalMode }()
+func TestInitializeKOMMode(t *testing.T) {
+	// Save and restore original komMode
+	originalMode := komMode
+	defer func() { komMode = originalMode }()
 
-	t.Run("no CRD inputs", func(t *testing.T) {
-		crdMode = crdModeContext{enabled: false}
+	t.Run("no KOM inputs", func(t *testing.T) {
+		komMode = komModeContext{enabled: false}
 
 		cmd := &cobra.Command{}
-		cmd.PersistentFlags().StringArray("crd-path", nil, "")
-		cmd.PersistentFlags().String("crd-app", "./kompoxapp.yml", "")
+		cmd.PersistentFlags().StringArray("kom-path", nil, "")
+		cmd.PersistentFlags().String("kom-app", "./kompoxapp.yml", "")
 
-		err := initializeCRDMode(cmd)
+		err := initializeKOMMode(cmd)
 		if err != nil {
-			t.Errorf("initializeCRDMode() unexpected error: %v", err)
+			t.Errorf("initializeKOMMode() unexpected error: %v", err)
 		}
-		if crdMode.enabled {
-			t.Errorf("CRD mode should not be enabled when no inputs provided")
+		if komMode.enabled {
+			t.Errorf("KOM mode should not be enabled when no inputs provided")
 		}
 	})
 
-	t.Run("crd-path does not exist", func(t *testing.T) {
-		crdMode = crdModeContext{enabled: false}
+	t.Run("kom-path does not exist", func(t *testing.T) {
+		komMode = komModeContext{enabled: false}
 
 		cmd := &cobra.Command{}
-		cmd.PersistentFlags().StringArray("crd-path", nil, "")
-		cmd.PersistentFlags().String("crd-app", "./kompoxapp.yml", "")
+		cmd.PersistentFlags().StringArray("kom-path", nil, "")
+		cmd.PersistentFlags().String("kom-app", "./kompoxapp.yml", "")
 
-		args := []string{"--crd-path=/nonexistent/path.yml"}
+		args := []string{"--kom-path=/nonexistent/path.yml"}
 		cmd.SetArgs(args)
 		cmd.ParseFlags(args)
 
-		err := initializeCRDMode(cmd)
+		err := initializeKOMMode(cmd)
 		if err == nil {
-			t.Errorf("initializeCRDMode() should error on nonexistent crd-path")
+			t.Errorf("initializeKOMMode() should error on nonexistent kom-path")
 		}
 	})
 
-	t.Run("load valid CRD file", func(t *testing.T) {
-		crdMode = crdModeContext{enabled: false}
+	t.Run("load valid KOM file", func(t *testing.T) {
+		komMode = komModeContext{enabled: false}
 
 		// Create test file
 		tmpDir := t.TempDir()
@@ -93,27 +93,27 @@ spec: {}
 		}
 
 		cmd := &cobra.Command{}
-		cmd.PersistentFlags().StringArray("crd-path", nil, "")
-		cmd.PersistentFlags().String("crd-app", "./kompoxapp.yml", "")
+		cmd.PersistentFlags().StringArray("kom-path", nil, "")
+		cmd.PersistentFlags().String("kom-app", "./kompoxapp.yml", "")
 
-		args := []string{"--crd-path=" + testFile}
+		args := []string{"--kom-path=" + testFile}
 		cmd.SetArgs(args)
 		cmd.ParseFlags(args)
 
-		err := initializeCRDMode(cmd)
+		err := initializeKOMMode(cmd)
 		if err != nil {
-			t.Errorf("initializeCRDMode() unexpected error: %v", err)
+			t.Errorf("initializeKOMMode() unexpected error: %v", err)
 		}
-		if !crdMode.enabled {
-			t.Errorf("CRD mode should be enabled after successful load")
+		if !komMode.enabled {
+			t.Errorf("KOM mode should be enabled after successful load")
 		}
-		if crdMode.sink == nil {
-			t.Errorf("CRD sink should not be nil after successful load")
+		if komMode.sink == nil {
+			t.Errorf("KOM sink should not be nil after successful load")
 		}
 	})
 
 	t.Run("infer default app name from single app", func(t *testing.T) {
-		crdMode = crdModeContext{enabled: false}
+		komMode = komModeContext{enabled: false}
 
 		// Create test file with single app
 		tmpDir := t.TempDir()
@@ -158,26 +158,26 @@ spec: {}
 		}
 
 		cmd := &cobra.Command{}
-		cmd.PersistentFlags().StringArray("crd-path", nil, "")
-		cmd.PersistentFlags().String("crd-app", testFile, "")
+		cmd.PersistentFlags().StringArray("kom-path", nil, "")
+		cmd.PersistentFlags().String("kom-app", testFile, "")
 
-		args := []string{"--crd-app=" + testFile}
+		args := []string{"--kom-app=" + testFile}
 		cmd.SetArgs(args)
 		cmd.ParseFlags(args)
 
-		err := initializeCRDMode(cmd)
+		err := initializeKOMMode(cmd)
 		if err != nil {
-			t.Errorf("initializeCRDMode() unexpected error: %v", err)
+			t.Errorf("initializeKOMMode() unexpected error: %v", err)
 		}
-		if !crdMode.enabled {
-			t.Errorf("CRD mode should be enabled after successful load")
+		if !komMode.enabled {
+			t.Errorf("KOM mode should be enabled after successful load")
 		}
-		if crdMode.defaultAppID == "" {
+		if komMode.defaultAppID == "" {
 			t.Errorf("defaultAppID should be set for single app")
 		}
 		// Verify the App FQN contains the app name
-		if !strings.Contains(crdMode.defaultAppID, "my-single-app") {
-			t.Errorf("defaultAppID = %q, should contain %q", crdMode.defaultAppID, "my-single-app")
+		if !strings.Contains(komMode.defaultAppID, "my-single-app") {
+			t.Errorf("defaultAppID = %q, should contain %q", komMode.defaultAppID, "my-single-app")
 		}
 	})
 }

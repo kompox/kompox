@@ -43,7 +43,7 @@ func newCmdApp() *cobra.Command {
 }
 
 // resolveAppID resolves the app ID from flags, config, or positional args.
-// Priority: --app-id flag > --app-name flag > CRD mode default (single app) > kompoxops.yml app.name
+// Priority: --app-id flag > --app-name flag > KOM mode default (single app) > kompoxops.yml app.name
 // If the resolved value contains "/", it's treated as an FQN and returned as-is.
 // Otherwise, it's treated as a name and looked up via List().
 // Returns error if name matches multiple apps or no app is found.
@@ -63,9 +63,9 @@ func resolveAppID(ctx context.Context, appRepo domain.AppRepository, args []stri
 	} else if flagAppName != "" {
 		// 2. Use --app-name flag if provided
 		idOrName = flagAppName
-	} else if crdMode.enabled && crdMode.defaultAppID != "" {
-		// 3. In CRD mode with single app, use that app's FQN as default
-		idOrName = crdMode.defaultAppID
+	} else if komMode.enabled && komMode.defaultAppID != "" {
+		// 3. In KOM mode with single app, use that app's FQN as default
+		idOrName = komMode.defaultAppID
 	} else if configRoot != nil && configRoot.App.Name != "" {
 		// 4. In DB mode (kompoxops.yml), use app.name if available
 		idOrName = configRoot.App.Name
