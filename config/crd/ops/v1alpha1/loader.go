@@ -196,6 +196,23 @@ func (l *Loader) parseKindDocument(raw map[string]any, kind string, path string,
 		return nil, fmt.Errorf("missing or invalid metadata.name")
 	}
 
+	// Special case: Defaults does not have a Resource ID
+	if kind == "Defaults" {
+		var defaults Defaults
+		if err := mapToStruct(raw, &defaults); err != nil {
+			return nil, fmt.Errorf("parsing Defaults: %w", err)
+		}
+		setDocumentAnnotations(&defaults.ObjectMeta, path, docIndex)
+		// Defaults has no FQN; use empty string
+		return &Document{
+			Kind:   kind,
+			FQN:    "",
+			Object: &defaults,
+			Path:   path,
+			Index:  docIndex,
+		}, nil
+	}
+
 	// Extract annotations
 	var annotations map[string]string
 	if annotationsRaw, ok := metadataRaw["annotations"].(map[string]any); ok {

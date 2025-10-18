@@ -46,6 +46,29 @@ type WorkspaceStatus struct {
 	OpsNamespace string `json:"opsNamespace,omitzero"`
 }
 
+// Defaults declares default configuration for loading KOM and resolving the default App.
+// This is a non-persistent, loader-only resource type.
+// At most one Defaults document is allowed per kompoxapp.yml.
+// +kubebuilder:object:root=true
+type Defaults struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitzero"`
+
+	Spec DefaultsSpec `json:"spec,omitzero"`
+}
+
+// DefaultsSpec defines the desired state of Defaults.
+type DefaultsSpec struct {
+	// KOMPath specifies local file/directory paths to load KOM documents from.
+	// Paths must be local only (no URLs). Wildcards are not supported.
+	// Directories are recursively searched for YAML files.
+	// Relative paths are resolved relative to the directory containing kompoxapp.yml.
+	KOMPath []string `json:"komPath,omitzero"`
+
+	// AppID specifies the default App resource ID (FQN) to use when --app-id is not provided.
+	AppID string `json:"appId,omitzero"`
+}
+
 // Provider represents an infrastructure provider (e.g., AKS, k3s).
 // +kubebuilder:object:root=true
 // +kubebuilder:resource:scope=Namespaced
