@@ -696,8 +696,8 @@ spec:
 				App:       &mockAppRepo{},
 			}
 
-			// Execute ToModels
-			err = sink.ToModels(context.Background(), repos)
+			// Execute ToModels (empty kompoxAppFilePath for tests)
+			err = sink.ToModels(context.Background(), repos, "")
 
 			// Check error expectation
 			if (err != nil) != tt.wantErr {
@@ -747,7 +747,7 @@ metadata:
 			App:       &mockAppRepo{},
 		}
 
-		err := sink.ToModels(context.Background(), repos)
+		err := sink.ToModels(context.Background(), repos, "")
 		if err == nil {
 			t.Error("expected error when workspace creation fails")
 		}

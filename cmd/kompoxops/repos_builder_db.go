@@ -69,7 +69,7 @@ func buildReposFromDB(cmd *cobra.Command) (*domain.Repositories, error) {
 		ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
 		defer cancel()
 
-		if err := store.LoadFromConfig(ctx, cfg); err != nil {
+		if err := store.LoadFromConfig(ctx, cfg, filePath); err != nil {
 			return nil, fmt.Errorf("failed to load config into store: %w", err)
 		}
 

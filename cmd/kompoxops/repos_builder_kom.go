@@ -9,7 +9,8 @@ import (
 )
 
 // buildReposFromKOM creates repositories from KOM sink.
-func buildReposFromKOM(ctx context.Context, sink *komv1.Sink) (*domain.Repositories, error) {
+// kompoxAppFilePath is the absolute path of the Kompox app file (kompoxapp.yml).
+func buildReposFromKOM(ctx context.Context, sink *komv1.Sink, kompoxAppFilePath string) (*domain.Repositories, error) {
 	// Create in-memory store (domain repositories)
 	store := inmem.NewStore()
 
@@ -22,7 +23,7 @@ func buildReposFromKOM(ctx context.Context, sink *komv1.Sink) (*domain.Repositor
 	}
 
 	// Convert KOM sink to domain models
-	if err := sink.ToModels(ctx, repos); err != nil {
+	if err := sink.ToModels(ctx, repos, kompoxAppFilePath); err != nil {
 		return nil, err
 	}
 

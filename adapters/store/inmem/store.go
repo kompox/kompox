@@ -27,9 +27,10 @@ func NewStore() *Store {
 }
 
 // LoadFromConfig loads a kompoxops.yml configuration into the memory store.
-func (s *Store) LoadFromConfig(ctx context.Context, cfg *kompoxopscfg.Root) error {
+// configFilePath is the absolute path to the kompoxops configuration file.
+func (s *Store) LoadFromConfig(ctx context.Context, cfg *kompoxopscfg.Root, configFilePath string) error {
 	// Convert configuration to domain models
-	workspace, provider, cluster, app, err := cfg.ToModels()
+	workspace, provider, cluster, app, err := cfg.ToModels(configFilePath)
 	if err != nil {
 		return err
 	}
@@ -62,7 +63,7 @@ func (s *Store) LoadFromFile(ctx context.Context, path string) error {
 	if err != nil {
 		return err
 	}
-	return s.LoadFromConfig(ctx, cfg)
+	return s.LoadFromConfig(ctx, cfg, path)
 }
 
 // Compile-time assertions

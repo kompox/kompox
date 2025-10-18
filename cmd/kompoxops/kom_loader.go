@@ -205,10 +205,11 @@ type komScanStats struct {
 
 // komModeContext holds state for KOM mode.
 type komModeContext struct {
-	enabled          bool
-	sink             *komv1.Sink
-	defaultAppID     string // FQN of the default app
-	defaultClusterID string // FQN of the default cluster
+	enabled           bool
+	sink              *komv1.Sink
+	defaultAppID      string // FQN of the default app
+	defaultClusterID  string // FQN of the default cluster
+	kompoxAppFilePath string // Absolute path to the Kompox app file (kompoxapp.yml)
 }
 
 // Global KOM mode context (set during initialization).
@@ -483,6 +484,7 @@ func initializeKOMMode(cmd *cobra.Command) error {
 	// KOM mode is now active
 	komMode.enabled = true
 	komMode.sink = sink
+	komMode.kompoxAppFilePath = komAppAbsPath
 
 	// Determine default App ID
 	// Priority: --app-id > Defaults.spec.appId > single App in kompoxapp.yml

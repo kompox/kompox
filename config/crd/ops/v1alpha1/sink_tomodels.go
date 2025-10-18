@@ -3,9 +3,7 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/kompox/kompox/domain/model"
 )
@@ -20,8 +18,12 @@ import (
 //  3. Sets parent FKs to parent Resource ID
 //  4. Persists models to the provided repositories
 //
+// kompoxAppFilePath is the absolute path of the Kompox app file (e.g., kompoxapp.yml).
+// Apps defined in this file have RefBase set to "file://<dir>/"; apps from external KOM
+// sources have RefBase set to "" (disallowing local references).
+//
 // Returns an error if any resource fails to convert or if Resource ID extraction fails.
-func (s *Sink) ToModels(ctx context.Context, repos Repositories) error {
+func (s *Sink) ToModels(ctx context.Context, repos Repositories, kompoxAppFilePath string) error {
 	// Create workspaces
 	for _, ws := range s.ListWorkspaces() {
 		fqn, err := ExtractResourceID("Workspace", ws.ObjectMeta.Name, ws.ObjectMeta.Annotations)
@@ -112,21 +114,23 @@ func (s *Sink) ToModels(ctx context.Context, repos Repositories) error {
 		// Parent cluster ID is the parent FQN
 		clsID := fqn.ParentFQN().String()
 
-		// Get source file directory for relative path resolution
+		// Determine RefBase based on app origin
+		// Apps from kompoxapp.yml get file:// RefBase; external KOM apps get empty RefBase
 		sourceFile := app.ObjectMeta.Annotations[AnnotationDocPath]
-		baseDir := filepath.Dir(sourceFile)
-
-		// Process compose field (load file content if needed)
-		compose, err := processCompose(app.Spec.Compose, baseDir)
-		if err != nil {
-			return fmt.Errorf("failed to process compose for app %q: %w", app.ObjectMeta.Name, err)
+		refBase := ""
+		if kompoxAppFilePath != "" && sourceFile == kompoxAppFilePath {
+			// App is from the Kompox app file; allow local references
+			baseDir := filepath.Dir(sourceFile)
+			refBase = "file://" + baseDir + "/"
 		}
+		// else: external KOM origin, RefBase remains empty (disallow local references)
 
 		domainApp := &model.App{
 			ID:        fqn.String(),
 			Name:      app.ObjectMeta.Name,
 			ClusterID: clsID,
-			Compose:   compose,
+			Compose:   app.Spec.Compose, // Keep as-is (no file: expansion)
+			RefBase:   refBase,
 			Resources: app.Spec.Resources,
 			Settings:  app.Spec.Settings,
 		}
@@ -208,34 +212,4 @@ type ClusterRepository interface {
 type AppRepository interface {
 	Create(ctx context.Context, app *model.App) error
 	List(ctx context.Context) ([]*model.App, error)
-}
-
-// processCompose processes the compose field, loading file content if needed.
-// If the compose string has a "file:" prefix, it reads the file relative to baseDir.
-// Returns the processed compose content (either inline or file content).
-func processCompose(compose string, baseDir string) (string, error) {
-	if compose == "" {
-		return "", nil
-	}
-
-	if !strings.HasPrefix(compose, "file:") {
-		// Inline compose, return as-is
-		return compose, nil
-	}
-
-	// Extract file path (remove "file:" prefix)
-	filePath := strings.TrimPrefix(compose, "file:")
-
-	// Resolve relative paths based on baseDir
-	if !filepath.IsAbs(filePath) {
-		filePath = filepath.Join(baseDir, filePath)
-	}
-
-	// Read file content
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return "", fmt.Errorf("reading compose file %q: %w", filePath, err)
-	}
-
-	return string(content), nil
 }

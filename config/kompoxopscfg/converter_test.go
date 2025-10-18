@@ -151,7 +151,7 @@ func TestRoot_ToModels(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			workspace, provider, cluster, app, err := tt.root.ToModels()
+			workspace, provider, cluster, app, err := tt.root.ToModels("")
 			if err != nil {
 				t.Fatalf("ToModels() error = %v", err)
 			}

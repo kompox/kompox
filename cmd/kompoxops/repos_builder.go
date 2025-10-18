@@ -23,7 +23,7 @@ func buildRepos(cmd *cobra.Command) (*domain.Repositories, error) {
 	if komMode.enabled && komMode.sink != nil {
 		ctx, cancel := context.WithTimeout(cmd.Context(), 30*time.Second)
 		defer cancel()
-		return buildReposFromKOM(ctx, komMode.sink)
+		return buildReposFromKOM(ctx, komMode.sink, komMode.kompoxAppFilePath)
 	}
 
 	// Otherwise, use db-url

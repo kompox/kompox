@@ -3,8 +3,7 @@ package kompoxopscfg
 import (
 	"crypto/rand"
 	"fmt"
-	"os"
-	"strings"
+	"path/filepath"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -15,7 +14,9 @@ import (
 
 // ToModels converts the configuration to domain models with proper references.
 // Returns models in the order: workspace, provider, cluster, app
-func (r *Root) ToModels() (*model.Workspace, *model.Provider, *model.Cluster, *model.App, error) {
+// configFilePath is the absolute path to the kompoxops configuration file.
+// Apps loaded from this file have RefBase set to "file://<dir>/".
+func (r *Root) ToModels(configFilePath string) (*model.Workspace, *model.Provider, *model.Cluster, *model.App, error) {
 	if err := r.Validate(); err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("invalid configuration: %w", err)
 	}
@@ -74,10 +75,18 @@ func (r *Root) ToModels() (*model.Workspace, *model.Provider, *model.Cluster, *m
 		UpdatedAt:  now,
 	}
 
-	// Handle compose content based on prefix
-	composeContent, err := processCompose(r.App.Compose)
+	// Handle compose content: convert to string without file: expansion
+	composeContent, err := composeToString(r.App.Compose)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("failed to process compose: %w", err)
+	}
+
+	// Set RefBase based on config file location
+	// kompoxops config file apps are considered local origin
+	refBase := ""
+	if configFilePath != "" {
+		baseDir := filepath.Dir(configFilePath)
+		refBase = "file://" + baseDir + "/"
 	}
 
 	// Create App (references Cluster)
@@ -86,6 +95,7 @@ func (r *Root) ToModels() (*model.Workspace, *model.Provider, *model.Cluster, *m
 		Name:       r.App.Name,
 		ClusterID:  clusterID,
 		Compose:    composeContent,
+		RefBase:    refBase,
 		Ingress:    toModelAppIngress(r.App.Ingress),
 		Volumes:    toModelVolumes(r.App.Volumes),
 		Deployment: toModelAppDeployment(r.App.Deployment),
@@ -107,20 +117,16 @@ func generateID() (string, error) {
 	return fmt.Sprintf("%x", bytes), nil
 }
 
-// processCompose handles compose content based on the type and prefix
-func processCompose(compose any) (string, error) {
+// composeToString converts the compose field to a string representation.
+// - If compose is a string, return it as-is (including "file:" prefixes).
+// - Otherwise, marshal to YAML.
+func composeToString(compose any) (string, error) {
 	if compose == nil {
 		return "", fmt.Errorf("compose value is nil")
 	}
 
 	// Check if compose is a string
 	if str, ok := compose.(string); ok {
-		if strings.HasPrefix(str, "file:") {
-			// Extract file path by removing "file:" prefix
-			filePath := strings.TrimPrefix(str, "file:")
-			return readComposeFile(filePath)
-		}
-		// Return the string as-is for non-file: prefixes
 		return str, nil
 	}
 
@@ -131,20 +137,6 @@ func processCompose(compose any) (string, error) {
 	}
 
 	return string(yamlBytes), nil
-}
-
-// readComposeFile reads the compose file and returns its content
-func readComposeFile(path string) (string, error) {
-	if path == "" {
-		return "", fmt.Errorf("compose file path is empty")
-	}
-
-	content, err := os.ReadFile(path)
-	if err != nil {
-		return "", fmt.Errorf("failed to read compose file: %w", err)
-	}
-
-	return string(content), nil
 }
 
 // toModelIngress converts config slice to domain slice.

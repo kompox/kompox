@@ -18,6 +18,14 @@ type App struct {
 	Settings   map[string]string
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
+
+	// RefBase defines the base reference for resolving relative file/URL paths in Compose.
+	// - "" (empty): external references are prohibited (external KOM origin)
+	// - "file:///abs/dir/": local references allowed, relative paths resolved from this directory (Kompox app file origin)
+	// - "http(s)://.../": relative URLs allowed, local references prohibited (URL origin)
+	// Validation occurs at kompoxops app command execution time, not at KOM load time.
+	// See: K4x-ADR-012
+	RefBase string
 }
 
 // AppIngress defines ingress-wide settings and rules for an app.
