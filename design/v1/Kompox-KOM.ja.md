@@ -3,7 +3,7 @@ id: Kompox-KOM
 title: Kompox KOM configuration
 version: v1
 status: synced
-updated: 2025-10-15
+updated: 2025-10-19
 language: ja
 ---
 
@@ -11,22 +11,13 @@ language: ja
 
 ## 概要
 
-本ドキュメントは、Kompox v1 CLI および将来の v2 Operator で利用するポータブルな設定ファイル形式「Kompox Ops Manifest (KOM)」を定義します。KOM は Kubernetes CRD と互換な構造(apiVersion/kind/metadata/spec)を持ちますが、K8s の CRD そのものではありません。
+本ドキュメントは、Kompox v1 CLI および将来の v2 Operator で利用するポータブルな設定ファイル形式「Kompox Ops Manifest (KOM)」を定義する。
 
-Kompox では、リソース定義を記述したポータブルな YAML ドキュメントを **Kompox Ops Manifest (KOM)** と呼びます。KOM は以下の特徴を持ちます:
+KOM は Kubernetes CRD と互換な構造(apiVersion/kind/metadata/spec)を持つが、K8s の CRD そのものではない。すべてのリソース (Workspace/Provider/Cluster/App/Box) が階層的な型付きパス形式の Resource ID (例: `/ws/<ws>/prv/<prv>/cls/<cls>`) を持ち、ファイル間の参照整合性を検証してオール・オア・ナッシング方式でインポートする。
 
-- CRD 互換の構造 (apiVersion/kind/metadata/spec)
-- すべてのリソース (Workspace/Provider/Cluster/App/Box) が Resource ID を持つ
-- Resource ID は階層的な型付きパス形式 (例: `/ws/<ws>/prv/<prv>/cls/<cls>`)
-- ファイル間の参照整合性を検証し、オール・オア・ナッシング方式でインポート
-
-本ドキュメントでは、KOM の構文、Resource ID の形式、ローダーの動作、CLI との連携方法、および将来の Operator 対応について説明します。
+本ドキュメントは KOM の構文とスキーマ、Resource ID の形式、ローダーが要求する制約、将来の Operator 対応を記述する。
 
 ## Kompox Ops Manifest Schema
-
-Kompox KOM のインポート・エクスポートに使用できるポータブルな YAML ドキュメントを Kompox Ops Manifest (KOM) と呼びます。
-
-KOM の場所と名前は Resource ID で一意に識別されます。 Resource ID は Fully Qualified Name (FQN) とも呼ばれますが、本ドキュメントでは Resource ID を使用します。
 
 KOM のフィールド:
 
@@ -35,17 +26,17 @@ KOM のフィールド:
 | `apiVersion` | `ops.kompox.dev/v1alpha1` | true |
 | `kind` | リソースの種類 | true |
 | `metadata.name` | リソースの名前 | true |
-| `metadata.annotations["ops.kompox.dev/id"]` | Resource ID (FQN) | true |
-| `metadata.annotations["ops.kompox.dev/doc-path"]` | YAMLファイルパス | false |
-| `metadata.annotations["ops.kompox.dev/doc-index"]` | YAMLドキュメントインデックス (1-based) | false |
+| `metadata.annotations["ops.kompox.dev/id"]` | Resource ID (別名: FQN) | true |
+| `metadata.annotations["ops.kompox.dev/doc-path"]` | ファイルパス (ローダーが設定) | false |
+| `metadata.annotations["ops.kompox.dev/doc-index"]` | 1-basedインデックス (ローダーが設定) | false |
 | `spec` | Kind 固有の情報 | true |
 
-Resource ID の仕様:
+Resource ID (別名: FQN) の仕様:
 
 - 形式: スラッシュ区切りで短縮 kind と name を交互に並べた階層パス
 - 文法: `/<sk>/<name>(/<sk>/<name>)*`
   - sk は短縮 kind (下表参照)
-  - name は DNS-1123 label(小英数と `-`, 1..63 文字)
+  - name は DNS-1123 label 準拠 (最短1文字、最長63文字、正規表現: `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`)
 
 kind と Resource ID の例:
 
@@ -58,7 +49,7 @@ kind と Resource ID の例:
 | Box | `box` | App | `/ws/myWorkspace/prv/azure1/cls/prod-cluster/app/app1/box/web` |
 | Ingress (将来) | `ing` | Cluster | `/ws/myWorkspace/prv/azure1/cls/prod-cluster/ing/traefik` |
 
-KOM のバリデーション:
+バリデーション:
 
 - 必須のフィールドに有効な値が存在すること
 - Resource ID が正しい形式であること(先頭 `/`、短縮 kind/name の交互、`/<sk>/<name>(/<sk>/<name>)*`)
@@ -114,9 +105,96 @@ metadata:
 spec: {}
 ```
 
-## K8s CRD/NS internal representation
+## Defaults (非永続リソース)
 
-このセクションの仕様は暫定的なものであり、将来の v2 Operator の要件に応じて変更される可能性があります。
+- `Defaults` は Kompox アプリファイルからの読み込みに限って解釈される、KOM ローダー専用の特殊な Kind である。
+- Kompox アプリファイルは CLI で既定のエントリポイントとなる設定ファイル `kompoxapp.yml` を指す。
+
+### 仕様
+
+スキーマ定義(型と構造):
+
+```yaml
+apiVersion: ops.kompox.dev/v1alpha1   # 定数
+kind: Defaults                        # 定数
+metadata:
+  name: string?                       # 任意(省略可)
+spec:
+  komPath: string[]?                  # 追加で読み込む KOM のパス配列(任意)
+  appId: string?                      # 既定 App の Resource ID/FQN (任意)
+```
+
+- 記述位置: Kompox アプリファイル(kompoxapp.yml)内のみ。出現は最大1件。
+- 識別: Resource ID を持たない(FQN なし)。
+- メタデータ: metadata.name は任意。省略可。
+- 永続性: Kubernetes に適用しない。永続化しない。
+- 設定項目:
+  - spec.komPath: 追加で読み込む KOM のファイルまたはディレクトリの配列。
+  - spec.appId: 既定の App の Resource ID。明示指定がない場合の既定値として利用する。
+
+### 例
+
+```yaml
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Defaults
+spec:
+  komPath:
+    - ./kom                      # A: 同一プロジェクト配下のディレクトリ
+    - ../shared                  # B: 兄弟ディレクトリ配下の共有フォルダ
+    - ../shared/workspace.yml    # C: 単一ファイル(Workspace)
+    - ../shared/provider.yml     # C: 単一ファイル(Provider)
+    - /repo/acme/ops/shared      # D: 絶対パス (baseRoot 配下に限る)
+    - ./kom-linked               # E: シンボリックリンク(解決後が baseRoot 内)
+  appId: /ws/myWorkspace/prv/azure1/cls/prod-cluster/app/app1
+```
+
+### spec.komPath
+
+- 型: string[]
+- 目的: Kompox アプリファイルを起点に、追加の KOM 入力元を宣言する。
+- 入力要件:
+  - ローカルパスのみ許可(URL不可)。
+  - 相対/絶対の両方を許可。相対パスは Kompox アプリファイルのディレクトリを基準に解決。
+  - 親ディレクトリ参照 ../ を許可。
+  - 解決手順: path.Clean と EvalSymlinks を行い実パスを得る。
+  - baseRoot 制約:
+    - baseRoot は Kompox アプリファイルの祖先で最初に見つかる .git または .kompoxroot を含むディレクトリ。
+    - いずれも見つからない場合は Kompox アプリファイルの親ディレクトリを baseRoot とする。
+    - 解決済み実パスは baseRoot 配下にあること。
+  - ディレクトリは再帰的に走査し、.yml/.yaml のみを対象とする。
+  - 無視パス: .git/ .github/ node_modules/ vendor/ .direnv/ .venv/ dist/ build/
+  - グロブ/ワイルドカードは不可。
+  - 去重と循環防止: 正規化済み実パスで重複を除外する。
+  - 実装上の上限: 最大ファイル数 5000、1ファイル最大 2MiB、合計 32MiB、最大深さ 10。
+- エラー条件:
+  - パスが存在しない。
+  - 解決済み実パスが baseRoot の外側。
+  - 対象拡張子が .yml/.yaml 以外。
+  - 実装上限の超過。
+
+### spec.appId
+
+- 型: string (Resource ID)
+- 目的: 既定の App を指す Resource ID を宣言する。
+- 要件:
+  - Resource ID の構文に合致すること。
+  - 読み込み済みの KOM に一致する App が存在すること。
+  - 明示的な指定がある場合は既定より優先される。優先順位の詳細は [Kompox-CLI.ja.md] を参照。
+
+## K8s 永続化仕様
+
+KOM を Kubernetes リソースとして永続化する場合の CRD および Namespace への変換の暫定仕様:
+
+- `metadata.labels` フィールド
+  - `app.kubernetes.io/managed-by: kompox` を設定する
+  - `ops.kompox.dev/<kind>-hash` に Resource ID から算出したハッシュを設定する
+- `metadata.annotations` フィールド
+  - `ops.kompox.dev/id` に Resource ID を保持する
+- `status.opsNamespace` フィールド (コントローラーが自動設定)
+  - 配下のリソースを格納する Namespace 名を設定する
+  - Namespace 名は `k4x-<sk>-<hash>-<name>` の形式として先頭 63 文字で切り捨てる
+
+変換例 (読み込み用の K8s manifest とは異なる):
 
 ```yaml
 apiVersion: ops.kompox.dev/v1alpha1
@@ -128,6 +206,8 @@ metadata:
     app.kubernetes.io/managed-by: kompox
     ops.kompox.dev/workspace: <wsName>
     ops.kompox.dev/workspace-hash: <wsHash>
+  annotations:
+    ops.kompox.dev/id: /ws/<wsName>
 status:
   opsNamespace: k4x-ws-<wsHash>-<wsName>
 spec: {}
@@ -140,6 +220,8 @@ metadata:
     app.kubernetes.io/managed-by: kompox
     ops.kompox.dev/workspace: <wsName>
     ops.kompox.dev/workspace-hash: <wsHash>
+  annotations:
+    ops.kompox.dev/id: /ws/<wsName>
 ```
 
 ```yaml
@@ -154,6 +236,8 @@ metadata:
     ops.kompox.dev/provider: <prvName>
     ops.kompox.dev/workspace-hash: <wsHash>
     ops.kompox.dev/provider-hash: <prvHash>
+  annotations:
+    ops.kompox.dev/id: /ws/<wsName>/prv/<prvName>
 status:
   opsNamespace: k4x-prv-<prvHash>-<prvName>
 spec: {}
@@ -168,6 +252,8 @@ metadata:
     ops.kompox.dev/provider: <prvName>
     ops.kompox.dev/workspace-hash: <wsHash>
     ops.kompox.dev/provider-hash: <prvHash>
+  annotations:
+    ops.kompox.dev/id: /ws/<wsName>/prv/<prvName>
 ```
 
 ```yaml
@@ -184,6 +270,8 @@ metadata:
     ops.kompox.dev/workspace-hash: <wsHash>
     ops.kompox.dev/provider-hash: <prvHash>
     ops.kompox.dev/cluster-hash: <clsHash>
+  annotations:
+    ops.kompox.dev/id: /ws/<wsName>/prv/<prvName>/cls/<clsName>
 status:
   opsNamespace: k4x-cls-<clsHash>-<clsName>
 spec: {}
@@ -200,6 +288,8 @@ metadata:
     ops.kompox.dev/workspace-hash: <wsHash>
     ops.kompox.dev/provider-hash: <prvHash>
     ops.kompox.dev/cluster-hash: <clsHash>
+  annotations:
+    ops.kompox.dev/id: /ws/<wsName>/prv/<prvName>/cls/<clsName>
 ```
 
 ```yaml
@@ -218,6 +308,8 @@ metadata:
     ops.kompox.dev/provider-hash: <prvHash>
     ops.kompox.dev/cluster-hash: <clsHash>
     ops.kompox.dev/app-hash: <appHash>
+  annotations:
+    ops.kompox.dev/id: /ws/<wsName>/prv/<prvName>/cls/<clsName>/app/<appName>
 status:
   opsNamespace: k4x-app-<appHash>-<appName>
 spec: {}
@@ -236,6 +328,8 @@ metadata:
     ops.kompox.dev/provider-hash: <prvHash>
     ops.kompox.dev/cluster-hash: <clsHash>
     ops.kompox.dev/app-hash: <appHash>
+  annotations:
+    ops.kompox.dev/id: /ws/<wsName>/prv/<prvName>/cls/<clsName>/app/<appName>
 ```
 
 ```yaml
@@ -256,11 +350,14 @@ metadata:
     ops.kompox.dev/cluster-hash: <clsHash>
     ops.kompox.dev/app-hash: <appHash>
     ops.kompox.dev/box-hash: <boxHash>
+  annotations:
+    ops.kompox.dev/id: /ws/<wsName>/prv/<prvName>/cls/<clsName>/app/<appName>/box/<boxName>
 spec: {}
 ```
 
+すべてのハッシュは Resource ID の文字列から導出する。 `ShortHash` は internal/naming パッケージの短縮ハッシュ関数を指す。
+
 ```
-# すべてのハッシュは Resource ID(ops.kompox.dev/id)の文字列から導出する
 wsHash  = ShortHash("/ws/<wsName>")
 prvHash = ShortHash("/ws/<wsName>/prv/<prvName>")
 clsHash = ShortHash("/ws/<wsName>/prv/<prvName>/cls/<clsName>")
@@ -268,164 +365,60 @@ appHash = ShortHash("/ws/<wsName>/prv/<prvName>/cls/<clsName>/app/<appName>")
 boxHash = ShortHash("/ws/<wsName>/prv/<prvName>/cls/<clsName>/app/<appName>/box/<boxName>")
 ```
 
-## Non-K8s リソース ID・永続化ストア
+## 非 K8s 永続化仕様
 
-- 定義(正規 ID): すべてのリソースの正規 ID は Resource ID とします。
+KOM を Kubernetes ではないストア (RDB など) で永続化する場合の仕様:
+
+- 定義(正規 ID): すべてのリソースの正規 ID は Resource ID とする。
   - WorkspaceID: `/ws/<wsName>`
   - ProviderID: `/ws/<wsName>/prv/<prvName>`
   - ClusterID: `/ws/<wsName>/prv/<prvName>/cls/<clsName>`
   - AppID: `/ws/<wsName>/prv/<prvName>/cls/<clsName>/app/<appName>`
   - BoxID: `/ws/<wsName>/prv/<prvName>/cls/<clsName>/app/<appName>/box/<boxName>`
-- リポジトリ契約(保存/取得): adapter/store(inmem, rdb)は次を満たします。
+- リポジトリ契約(保存/取得): adapter/store(inmem, rdb)は次を満たす。
   - 主キー `ID` は Resource ID をそのまま保持する
   - 親参照の外部キーは親リソースの Resource ID を保持する
   - Create は `metadata.annotations["ops.kompox.dev/id"]` に与えられた ID をそのまま保存する(空や不一致はバリデーションエラー)
   - Get は `ID`(= Resource ID)をキーに単一取得する
   - 重複 `ID` は一意制約違反としてエラー
   - 参照整合: 子の ID は親チェーンに整合しなければならない(例: Box の ID は `.../app/<appName>/box/<boxName>` を終端に持つ)
-- 将来方針: リネーム後も同一 ID を維持する要件が生じた場合は「UUID(v4) 主キー + Resource ID UNIQUE」を検討します。
-- 補足: K8s へ出力するラベルの `*-hash` は Resource ID を入力に短縮ハッシュを算出します(ラベル長制約対策)。
+- 将来方針: リネーム後も同一 ID を維持する要件が生じた場合は「UUID(v4) 主キー + Resource ID UNIQUE」を検討する。
+- 補足: K8s へ出力するラベルの `*-hash` は Resource ID を入力に短縮ハッシュを算出する(ラベル長制約対策)。
 
 ## ローダー(インポート)仕様
 
-- 入力: ファイル/ディレクトリを受け取り、拡張子 .yml/.yaml を再帰的に走査する。マルチドキュメントのYAMLファイルに対応する。入力はローカルのみを対象とし、ワイルドカードは非対応。
-- 受理条件: `apiVersion=ops.kompox.dev/v1alpha1` かつ `kind ∈ {Workspace,Provider,Cluster,App,Box}`
-- 解析順: まず全ドキュメントを読み込み、次に検証/索引化を行う
-  - 検証順序: Workspace → Provider → Cluster → App → Box
-  - `ops.kompox.dev/id` の構文(kind/name 整合・先頭 `/`・短縮 kind)、親存在確認、同名衝突をチェック
-  - いずれかの検証に失敗した場合はエラーを返し、DB は更新しない
-- 保存: 検証成功時のみ Resource ID をキーとして inmem/RDB に一括反映
-- **ドキュメント追跡**:
-  - `Document.Path`: ドキュメントの読み込み元ファイルパス
-  - `Document.Index`: マルチドキュメント YAML 内での位置(1-based)
-  - エラー報告: 検証エラーにファイルパスとドキュメント位置を含める
+- 前処理:
+  - CLI フラグ・環境変数・Kompox アプリファイル (kompoxapp.yml) を読み込む
+  - Defaults リソースを読み込み検証する
+  - 入力のファイル・ディレクトリパスリストを決定する
+- 入力処理:
+  - ローカルファイルシステムのみを対象とする
+  - ファイル・ディレクトリのパスを受け取り、拡張子 .yml/.yaml のファイルを再帰的に走査する
+  - ワイルドカードのパスは対応しない
+  - 各ファイルから 1 つ以上の YAML ドキュメントを読み込む (マルチドキュメント対応)
+  - ドキュメントごとに次の情報を追加する
+    - `metadata.annotations["ops.kompox.dev/doc-path"]` ドキュメントの読み込み元ファイルパス
+    - `metadata.annotations["ops.kompox.dev/doc-index"]` マルチドキュメント YAML 内での位置(1-based)
+  - 検証エラー報告などでは `doc-path` と `doc-index` の情報を付与する
     - 例: `provider "/ws/ws1/prv/prv1" validation error: parent "/ws/ws1" does not exist from /path/to/config.yaml (document 2)`
-
-追加検証(Defaults 関連):
-
-- `--kom-app` で指定したファイルに直接含まれない App がローカルファイル参照(`file:` や相対 hostPath など)を含む場合はエラーとします。
-
-## 命名制約
-
-- 各セグメント(ws/prv/cls/app/box)は DNS-1123 label に準拠し 1..63 文字
-  - 正規表現: `^[a-z0-9]([-a-z0-9]*[a-z0-9])?$`
-  - 小文字英数とハイフンのみ
-- Resource ID 文字列の長さ制限は設けません(内部専用)。
-- K8s ラベル値は 63 文字制限のため、`ops.kompox.dev/*-hash` を併用します。
-  - `*-hash` の算出入力は Resource ID とします(例: `ops.kompox.dev/workspace-hash = ShortHash("/ws/<ws>")`)。
-- K8s リソース名(Namespace/Service 等)は 63 以内となるよう「切り詰め + 安定ハッシュ」を用いて生成します。
-
-## CLI 対応(kompoxops)
-
-### 概要
-
-Kompox v1 CLI (`kompoxops`) は、本仕様の KOM (Kompox Ops Manifest) を直接読み込んで動作します。
-
-主なコマンド:
-
-- `kompoxops app`: `kompoxapp.yml` を基点に、既定 componentName=app の Box をデプロイ/破棄
-- `kompoxops box`: `-a/--app`, `-c/--component` 等のフラグにより任意の Box をデプロイ/破棄
-
-PaaS ユーザー向けの簡易ファイル:
-
-- `kompoxapp.yml`: App 相当(`ops.kompox.dev/v1alpha1`, `kind: App`)
-- `kompoxbox.yml`: Box 相当(任意。存在すれば app に上書き適用)
-
-いずれも KOM スキーマ(`ops.kompox.dev/id`)に準拠したマニフェストとして取り込めます。
-
-### KOM モード
-
-CLI は、KOM を読み込む「KOM モード」と、従来の `--db-url` による永続化モードの二通りの動作モードを持ちます。
-
-KOM モード有効化条件:
-
-- `--kom-path` または `--kom-app`(存在時)で指定されたファイルが1件以上読み込まれ、検証に成功した場合
-- KOM モードが有効な場合、`--db-url` および `KOMPOX_DB_URL` は無視されます(KOM が唯一のソース・オブ・トゥルース)
-
-いずれの KOM 入力も存在しない場合は、従来通り `--db-url`(既定値: `file:kompoxops.yml`)を利用します。
-
-### Defaults 疑似リソース
-
-`kompoxapp.yml` に、KOM ロード対象とデフォルト選択を宣言する疑似リソース `Defaults` を記述できます。`Defaults` はローダー/CLI 専用であり、保存の対象にはなりません。
-
-例:
-
-```yaml
-apiVersion: ops.kompox.dev/v1alpha1
-kind: Defaults
-spec:
-  komPath:
-    - file.yml                    # 同一ディレクトリの相対ファイル
-    - ./path/to/dir               # ローカル相対ディレクトリ(再帰、YAMLのみ)
-    - /path/to/absolute.yml       # ローカル絶対ファイル
-  appId: /ws/<ws>/prv/<prv>/cls/<cls>/app/<app>
-```
-
-規則:
-
-- `komPath`: ローカルファイルシステムのみ。ワイルドカード不可(`* ? [` は使用不可)。ディレクトリは再帰的に走査(YAML のみ)。相対パスは `kompoxapp.yml` の配置ディレクトリ基準。
-- `appId`: デフォルト App の Resource ID を指定(後述の優先順位に従う)。
-- 文書の出現順序は重要ではありません。全ドキュメントを集約後にトポロジカルソートと検証を行います。
-
-ローカルファイルシステム参照の制約:
-
-- `kompoxapp.yml` に直接含まれる App のみ `file:compose.yml` や `./data:/data` 等のローカル参照を許可。
-- `komPath` で読み込まれた App はローカル参照を禁止(検証エラー)。
-
-### フラグと優先順位
-
-#### KOM 読み込み経路
-
-KOM 読み込みパスの優先順位:
-
-- `--kom-path PATH`(複数指定可)
-  - 指定されたファイル/ディレクトリから `.yml`/`.yaml` を再帰的に読み込み(マルチドキュメント対応)。
-  - 環境変数 `KOMPOX_KOM_PATH=path1,path2` でも指定可能(カンマ区切り)。
-  - 指定したパスが存在しない場合はエラー(CLI は直ちに終了)。
-- `--kom-app PATH`(デフォルト: `./kompoxapp.yml`)
-  - PATH が存在する場合のみ読み込み対象に含める。存在しない場合は無視(エラーにしない)。
-  - 環境変数 `KOMPOX_KOM_APP` でも指定可能。
-
-読み込みパス優先順位: `--kom-path` > `KOMPOX_KOM_PATH` > `Defaults.spec.komPath` > なし
-
-フラグと環境変数の両方が与えられた場合、フラグが優先されます。
-
-#### App/Cluster の自動選定
-
-既定 App の優先順位:
-
-1. `--app-id` フラグ
-2. `Defaults.spec.appId`
-3. `--kom-app` で指定したファイルに直接含まれる App がちょうど1件ならその Resource ID
-4. 上記いずれも該当しない場合は指定必須
-
-App が決まった場合、その App が参照する Cluster が一意に決まるなら `--cluster-id` の既定として採用します。
-
-### リソース指定フラグ
-
-Resource ID による指定(推奨):
-
-- `--app-id, -A`: App の Resource ID を指定 `/ws/<ws>/prv/<prv>/cls/<cls>/app/<app>`
-- `--cluster-id, -C`: Cluster の Resource ID を指定 `/ws/<ws>/prv/<prv>/cls/<cls>`
-
-互換フラグ(非推奨表示):
-
-- `--app-name`, `--cluster-name`: 単名/部分指定を受け付けますが、複数一致時は即エラー(曖昧解決しない)。
-
-既定/自動設定:
-
-- 既定は ID フラグ(`--app-id`/`--cluster-id`)に対してのみ行います。name フラグの既定は行いません。
-
-### 検証とエラー報告
-
-- 全ドキュメントを収集後に整合検証を行い、エラーがあれば DB へは反映しない(オール・オア・ナッシング)。
-- エラーには読み込み元のファイルパスとマルチドキュメント内のドキュメント番号(1-based)を含めます。
-  - 例: `provider "/ws/ws1/prv/prv1" validation error: parent "/ws/ws1" does not exist from /path/to/config.yaml (document 2)`
-
-## 将来: オペレーター/クラスタ保管
-
-- 本仕様の G/V/K と K8s 内部表現(ラベル/NS命名)により、Operator は `ops.kompox.dev/*` を直接 Watch 可能。
-- クラスタ保管モードでは、同一 YAML を CRD に apply して GitOps ツールで管理することも選択肢です。
+- 検証:
+  - 全ドキュメントを読み込む
+  - 階層の浅い順にソートする (Workspace → Provider → Cluster → App → Box)
+  - 全ドキュメントについて検証:
+    - `apiVersion` が `ops.kompox.dev/v1alpha1` であること
+    - `kind` が有効なリソース種別であること
+    - `ops.kompox.dev/id` (Resource ID) の形式が正しく一意であること
+    - `kind`・`ops.kompox.dev/id`・`metadata.name` に矛盾がないこと
+  - ローカルファイルシステム参照の検証:
+    - Kompox アプリファイル (kompoxapp.yml) ではないドキュメントからのローカルファイルシステム参照がないこと ([Kompox-CLI.ja.md] 参照)
+  - 既存のリソースを含む検証:
+    - 一意制約: 同一 Resource ID の重複がないこと
+    - 参照整合性: すべての親リソースが存在すること
+  - Defaults 検証:
+    - spec.appId が指定する App リソースが存在すること
+- 保存・変換:
+  - K8s 永続化の場合は K8s Manifest に変換して適用する
+  - 非 K8s 永続化の場合は Resource ID をキーとして一括保存する
 
 ## References
 

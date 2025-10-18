@@ -3,7 +3,7 @@ id: Kompox-CLI
 title: Kompox PaaS CLI
 version: v1
 status: synced
-updated: 2025-10-15
+updated: 2025-10-19
 language: ja
 ---
 
@@ -43,114 +43,103 @@ kompoxops admin             管理ツール
 - `--db-url <URL>` 永続化DBの接続URL。環境変数 `KOMPOX_DB_URL` で指定可能。KOM モードが有効な場合は無視される。
 - レガシー `--crd-*` フラグと `KOMPOX_CRD_*` 環境変数はサポート対象外で、指定された場合はエラーで即時終了する（後方互換なし）。
 
-### CLI 設定と読み込みモード
+### CLI 設定モード
 
-kompoxops は以下の 2 系統の設定入力をサポートする。
+kompoxops は 2 つの設定入力モードをサポートする。
 
-(1) 単一ファイルモード（kompoxops.yml / db-url=file:）
+#### (1) 単一ファイルモード (廃止予定)
 
-- `--db-url file:kompoxops.yml`（または環境変数 `KOMPOX_DB_URL=file:...`）を指定すると単一の YAML から設定を読み込む。
-- YAML には `workspace`/`provider`/`cluster`/`app` がそれぞれ 1 件ずつ含む。
-- 読み込まれた内容はインメモリ DB に投入され、`app → cluster → provider → workspace` の依存が自動設定される。
+単一の YAML ファイルから Workspace/Provider/Cluster/App を読み込むレガシーモード。
 
-単一ファイルモードの例（kompoxops.yml）:
+**起動条件**
 
-```yaml
-version: v1
-workspace:
-  name: ops
-provider:
-  name: aks1
-  driver: aks
-  settings:
-    AZURE_AUTH_METHOD: azure_cli
-    AZURE_SUBSCRIPTION_ID: 34809bd3-31b4-4331-9376-49a32a9616f2
-    AZURE_LOCATION: japaneast
-cluster:
-  name: cluster1
-  existing: false
-  ingress:
-    controller: traefik
-    namespace: traefik
-    domain: ops.kompox.dev
-  settings:
-    AZURE_RESOURCE_GROUP_NAME: rg-cluster1
-app:
-  name: app1
-  compose:
-    services:
-      app:
-        image: ghcr.io/kompox/app
-        environment:
-          TZ: Asia/Tokyo
-        ports:
-          - "8080:80"
-          - "8081:8080"
-        volumes:
-          - ./data/app:/data
-        x-kompox:
-          resources:
-            cpu: 100m
-            memory: 256Mi
-          limits:
-            cpu: 200m
-            memory: 512Mi
-      postgres:
-        image: postgres
-        environment:
-          POSTGRES_PASSWORD: secret
-        volumes:
-          - db/data:/var/lib/postgresql/data
-        x-kompox:
-          resources:
-            cpu: 100m
-            memory: 256Mi
-          limits:
-            cpu: 200m
-            memory: 512Mi
-  ingress:
-    - name: main
-      port: 8080
-      hosts: [www.custom.kompox.dev]
-    - name: admin
-      port: 8081
-      hosts: [admin.custom.kompox.dev]
-  volumes:
-    - name: default
-      size: 32Gi
-    - name: db
-      size: 64Gi
-```
+- `--db-url file:kompoxops.yml` または環境変数 `KOMPOX_DB_URL=file:...` を指定
+- KOM 関連の入力(`--kom-path`/`--kom-app`)が存在しない
 
+**ファイル形式**
 
-(2) KOM モード（ops.kompox.dev/v1alpha1 / --kom-path, --kom-app）
+- YAML には `workspace`/`provider`/`cluster`/`app` をそれぞれ 1 件ずつ含む
+- 読み込まれた内容はインメモリ DB に投入され、依存関係は自動設定される
 
-- `--kom-path PATH`（複数指定可）または環境変数 `KOMPOX_KOM_PATH=path1,path2` で指定したファイル/ディレクトリから、KOM スタイルの YAML（.yml/.yaml、再帰・マルチドキュメント対応）を取り込む。
-- `--kom-app PATH`（既定: `./kompoxapp.yml`）または環境変数 `KOMPOX_KOM_APP` が存在する場合は取り込み対象に追加する（未存在は無視）。
-- 取り込み・検証に成功すると KOM モードが有効となり、このセッションでは `--db-url`/`KOMPOX_DB_URL` は無視される。
-- `--kom-app` で読み込んだ範囲に App（Kind: App）が「ちょうど 1 件」ある場合:
-  - `--app-id` 未指定時のデフォルトとしてその App の Resource ID を採用する。
-  - その App が参照する Cluster が一意に決まる場合、`--cluster-id` 未指定時のデフォルトとしてその Cluster の Resource ID を採用する。
-- Resource ID は各リソースの内部 ID であり、KOM (Kompox Ops Manifest) で定義された型付きパス形式を持つ:
-  - Workspace: `/ws/<ws>`
-  - Provider: `/ws/<ws>/prv/<prv>`
-  - Cluster: `/ws/<ws>/prv/<prv>/cls/<cls>`
-  - App: `/ws/<ws>/prv/<prv>/cls/<cls>/app/<app>`
-- KOM スタイルの仕様（Resource ID/参照整合/オール・オア・ナッシング等）の詳細は [Kompox-KOM.ja.md] を参照する。
+**既定 ID の決定**
 
-KOM 読み込み経路の優先順位:
+- `--app-id` 未指定時: `app.name` を使用
+- `--cluster-id` 未指定時: `cluster.name` を使用
 
-- `--kom-path` > `KOMPOX_KOM_PATH` > `Defaults.spec.komPath` > なし
-- `--kom-app` は存在すれば読み込み対象に追加（デフォルト `./kompoxapp.yml`、未存在は無視）
+**注意事項**
 
-優先度と既定（まとめ）
-- KOM 入力（`--kom-path` と、存在する `--kom-app`）が 1 件以上読み込まれ検証に成功 → KOM モードで動作し、`--db-url`/`KOMPOX_DB_URL` は無視。
-- KOM 入力が無い/読み込めない → 既定どおり `--db-url` を使用（未指定時は `file:kompoxops.yml`）。
-- 既定 ID は、KOM モードでは「`--kom-app` 由来で App がちょうど 1 件」のときのみ自動推定 (App Resource ID → `--app-id`、参照する Cluster Resource ID → `--cluster-id`)。単一ファイルモードでは kompoxops.yml の `app.name`/`cluster.name` が既定。
+- このモードは廃止予定であり、新規利用は推奨しない
+- KOM モードへの移行を推奨する
 
-注意
-- CRD 取り込みは全ドキュメント収集後に整合検証を行い、いずれかが不整合なら反映しない（オール・オア・ナッシング）。
-- エラーには読み込み元ファイルパスとマルチドキュメント内のインデックス（1-based）を含める。
+#### (2) KOM モード
+
+kompoxops が起動時に読み込む Kompox アプリファイル (`kompoxapp.yml`) を起点に KOM (Kompox Ops Manifest) リソース群を読み込むモード。KOM の仕様は [Kompox-KOM.ja.md] を参照。
+
+**起動条件**
+
+- `--kom-path` または `KOMPOX_KOM_PATH` で KOM ファイル/ディレクトリを指定
+- `--kom-app` または `KOMPOX_KOM_APP` で Kompox アプリファイルを指定 (既定: `./kompoxapp.yml`、存在しない場合は無視)
+
+**Defaults リソース**
+
+Kompox アプリファイルには Defaults リソースを 1 件だけ含められる。`spec.komPath` で追加の読み込み元を、`spec.appId` で既定 App を宣言できる。仕様の詳細は [Kompox-KOM.ja.md] を参照。このドキュメントでは CLI における読み込み順と既定 ID の決定のみを説明する。
+
+**KOM の読み込み**
+
+読み込み順序:
+1. `--kom-path` で指定されたパス (複数指定可、ファイルまたはディレクトリ)
+2. `KOMPOX_KOM_PATH` で指定されたパス (カンマ区切り、`--kom-path` 未指定時)
+3. Defaults リソースの `spec.komPath` で指定されたパス (`--kom-path`/`KOMPOX_KOM_PATH` 両方未指定時)
+4. Kompox アプリファイルに含まれる KOM リソース
+
+ルール:
+- ディレクトリは再帰的に `.yml`/`.yaml` ファイルをスキャンする
+- マルチドキュメント YAML に対応する
+- すべてのドキュメントを収集後に整合検証を行う (オール・オア・ナッシング)
+- 検証に失敗した場合、すべてのドキュメントを破棄する
+- `--kom-path` で指定したパスが存在しない場合はエラー
+- `--kom-app` で指定したパスが存在しない場合は無視する (エラーにならない)
+
+**既定 ID の決定**
+
+既定 App ID の決定 (以下の優先順位):
+1. `--app-id` フラグ
+2. Defaults リソースの `spec.appId`
+3. Kompox アプリファイルに App が 1 件のみの場合、その App の Resource ID
+4. なし (明示的に指定が必要)
+
+既定 Cluster ID の決定:
+- App が決定された場合、その App が参照する Cluster の Resource ID
+
+**ローカルFS参照の制約**
+
+セキュリティと可搬性のため、以下の制約が適用される:
+
+- Kompox アプリファイルに直接含まれる App のみ、ローカルファイルシステム参照を使用できる
+  - Compose 参照: `file:compose.yml` のようなローカル Compose ファイル参照
+  - ボリューム: `./data:/data` や `/host/path:/container` の bind マウント
+  - Compose configs: `configs:<name>:file=./path/to/file` 等のローカルファイル参照
+  - Compose secrets: `secrets:<name>:file=./path/to/secret` 等のローカルファイル参照
+  - env_file: `env_file: ./app.env` のようなローカル .env 参照
+- 外部 KOM ファイル (`Defaults.spec.komPath` で読み込まれたファイル) に定義された App は、ローカルFS参照を使用できない
+- 違反が検出された場合はエラーになる
+
+推奨:
+- 外部 KOM 由来の App で設定値やシークレットを配布する場合は、Kubernetes の ConfigMap/Secret を用いるか、`kompoxops secret env|pull` 等の CLI を利用して配布する。
+- リポジトリ共有を前提としないローカルファイルの直接参照は、Kompox アプリファイル直下の App に限定する。
+
+**モード決定の優先順位**
+
+1. KOM 関連の入力 (`--kom-path`/`KOMPOX_KOM_PATH`/存在する `--kom-app`) がある場合: KOM モード
+2. 上記がなく `--db-url` または `KOMPOX_DB_URL` が指定されている場合: 単一ファイルモードまたはデータベースモード
+3. どちらもない場合: デフォルトの `--db-url file:kompoxops.yml` を使用
+
+KOM モードが有効な場合、`--db-url`/`KOMPOX_DB_URL` は無視される。
+
+**エラー処理**
+
+- 読み込み元ファイルパスとマルチドキュメント内のインデックス (1-based) を含める
+- 整合性エラーの場合、すべてのドキュメントを破棄する
 
 ### kompoxops cluster
 

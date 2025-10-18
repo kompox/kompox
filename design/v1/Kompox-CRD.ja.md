@@ -3,7 +3,7 @@ id: Kompox-CRD
 title: Kompox CRD-style configuration
 version: v1
 status: archived
-updated: 2025-10-17
+updated: 2025-10-18
 language: ja
 ---
 

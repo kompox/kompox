@@ -75,12 +75,12 @@ supersededBy: []
 
 - [K4x-ADR-007]
 - [K4x-ADR-009]
-- [Kompox-CRD.ja.md]
+- [Kompox-KOM.ja.md]
 - [Kompox-KubeConverter.ja.md]
 - [_dev/tasks/2025-10-17-defaults.ja.md]
 
 [K4x-ADR-007]: ./K4x-ADR-007.md
 [K4x-ADR-009]: ./K4x-ADR-009.md
-[Kompox-CRD.ja.md]: ../v1/Kompox-CRD.ja.md
+[Kompox-KOM.ja.md]: ../v1/Kompox-KOM.ja.md
 [Kompox-KubeConverter.ja.md]: ../v1/Kompox-KubeConverter.ja.md
 [_dev/tasks/2025-10-17-defaults.ja.md]: ../../_dev/tasks/2025-10-17-defaults.ja.md
