@@ -99,6 +99,7 @@ Kompox アプリファイルには Defaults リソースを 1 件だけ含めら
 - 検証に失敗した場合、すべてのドキュメントを破棄する
 - `--kom-path` で指定したパスが存在しない場合はエラー
 - `--kom-app` で指定したパスが存在しない場合は無視する (エラーにならない)
+- ローカルファイルシステム参照のポリシー違反(後述)は読み込み時ではなく CLI の変換/実行フェーズで検証される。
 
 **既定 ID の決定**
 
@@ -111,9 +112,9 @@ Kompox アプリファイルには Defaults リソースを 1 件だけ含めら
 既定 Cluster ID の決定:
 - App が決定された場合、その App が参照する Cluster の Resource ID
 
-**ローカルFS参照の制約**
+**ローカルファイルシステム参照ポリシー**
 
-セキュリティと可搬性のため、以下の制約が適用される:
+セキュリティと可搬性のため、以下のポリシーが適用される:
 
 - Kompox アプリファイルに直接含まれる App のみ、ローカルファイルシステム参照を使用できる
   - Compose 参照: `file:compose.yml` のようなローカル Compose ファイル参照
@@ -121,20 +122,22 @@ Kompox アプリファイルには Defaults リソースを 1 件だけ含めら
   - Compose configs: `configs:<name>:file=./path/to/file` 等のローカルファイル参照
   - Compose secrets: `secrets:<name>:file=./path/to/secret` 等のローカルファイル参照
   - env_file: `env_file: ./app.env` のようなローカル .env 参照
-- 外部 KOM ファイル (`Defaults.spec.komPath` で読み込まれたファイル) に定義された App は、ローカルFS参照を使用できない
-- 違反が検出された場合はエラーになる
+- 外部 KOM ファイル (`Defaults.spec.komPath` で読み込まれたファイル) に定義された App は、ローカルファイルシステム参照を使用できない
 
-推奨:
-- 外部 KOM 由来の App で設定値やシークレットを配布する場合は、Kubernetes の ConfigMap/Secret を用いるか、`kompoxops secret env|pull` 等の CLI を利用して配布する。
-- リポジトリ共有を前提としないローカルファイルの直接参照は、Kompox アプリファイル直下の App に限定する。
+これらは CLI の変換/実行フェーズで検証される。ポリシー違反の KOM を読み込んでも直ちにはエラーにならない。
 
-**モード決定の優先順位**
+**モード決定のフロー**
 
-1. KOM 関連の入力 (`--kom-path`/`KOMPOX_KOM_PATH`/存在する `--kom-app`) がある場合: KOM モード
-2. 上記がなく `--db-url` または `KOMPOX_DB_URL` が指定されている場合: 単一ファイルモードまたはデータベースモード
-3. どちらもない場合: デフォルトの `--db-url file:kompoxops.yml` を使用
+次の順で判定する:
 
-KOM モードが有効な場合、`--db-url`/`KOMPOX_DB_URL` は無視される。
+- KOM 入力がある場合: KOM モード
+  - `--kom-path` または `KOMPOX_KOM_PATH` が指定されている
+  - または `--kom-app` または `KOMPOX_KOM_APP` が指定され、そのファイルが存在する
+- 上記が無く、`--db-url` または `KOMPOX_DB_URL` が指定されている場合:
+  - 値が `file:` で始まる場合: 単一ファイルモード
+  - それ以外: データベースモード
+- いずれも無い場合:
+  - 既定の `--db-url file:kompoxops.yml` を用いて単一ファイルモード
 
 **エラー処理**
 
@@ -283,7 +286,7 @@ YAML 構文エラーや制約違反が検出された場合はエラーを返す
 
 #### kompoxops app validate
 
-Compose の検証と K8s マニフェスト生成を行います。`--out-compose`/`--out-manifest` でファイル出力可能です。
+Compose の検証と K8s マニフェスト生成を行います。`--out-compose`/`--out-manifest` でファイル出力可能です。ローカルファイルシステム参照ポリシーもこの段階で検証されます(KOM 読み込み時には検証しません)。
 
 #### kompoxops app deploy
 

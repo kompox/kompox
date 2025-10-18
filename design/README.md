@@ -59,6 +59,7 @@ This directory holds the canonical design and planning documents for Kompox. v1 
 | [K4x-ADR-009](./adr/K4x-ADR-009.md) | Kompox Ops Manifest Schema | en |  | proposed | - |
 | [K4x-ADR-010](./adr/K4x-ADR-010.md) | Rename CRD to KOM | en |  | accepted | - |
 | [K4x-ADR-011](./adr/K4x-ADR-011.md) | Introduce Defaults pseudo-resource for KOM ingestion | en |  | accepted | - |
+| [K4x-ADR-012](./adr/K4x-ADR-012.md) | Introduce App.RefBase for external references |  |  | accepted | - |
 
 **Status definitions:**
 

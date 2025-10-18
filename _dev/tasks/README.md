@@ -16,6 +16,7 @@ This index lists short, action-oriented developer tasks found in this folder. Ta
 
 | ID | Title | Status | Category | Owner | Updated | Language |
 |---|---|---|---|---|---|---|
+| [2025-10-18-refbase](./2025-10-18-refbase.ja.md) | App.RefBase の導入と参照解決の一元化 | active |  | yaegashi | 2025-10-18 | ja |
 | [2025-10-17-defaults](./2025-10-17-defaults.ja.md) | KOM 命名統一(CRD→KOM)と Defaults 実装 | done |  | yaegashi | 2025-10-17 | ja |
 | [2025-10-15-kom](./2025-10-15-kom.ja.md) | KOM(Kompox Ops Manifest) 導入と適用 | done |  | yaegashi | 2025-10-15 | ja |
 | [2025-10-13-crd-p2](./2025-10-13-crd-p2.ja.md) | CLI への CRD 取り込み統合 | done |  | yaegsahi | 2025-10-13 | ja |

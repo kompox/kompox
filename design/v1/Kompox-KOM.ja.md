@@ -399,6 +399,7 @@ KOM を Kubernetes ではないストア (RDB など) で永続化する場合�
   - ドキュメントごとに次の情報を追加する
     - `metadata.annotations["ops.kompox.dev/doc-path"]` ドキュメントの読み込み元ファイルパス
     - `metadata.annotations["ops.kompox.dev/doc-index"]` マルチドキュメント YAML 内での位置(1-based)
+  - ローカルファイルシステム参照ポリシーはここでは適用せず、CLI の変換/実行フェーズ(例: app validate/deploy/destroy 等)で検証する(KOM 読み込みはポリシー違反を含んでいても通過する)。
   - 検証エラー報告などでは `doc-path` と `doc-index` の情報を付与する
     - 例: `provider "/ws/ws1/prv/prv1" validation error: parent "/ws/ws1" does not exist from /path/to/config.yaml (document 2)`
 - 検証:
@@ -409,8 +410,6 @@ KOM を Kubernetes ではないストア (RDB など) で永続化する場合�
     - `kind` が有効なリソース種別であること
     - `ops.kompox.dev/id` (Resource ID) の形式が正しく一意であること
     - `kind`・`ops.kompox.dev/id`・`metadata.name` に矛盾がないこと
-  - ローカルファイルシステム参照の検証:
-    - Kompox アプリファイル (kompoxapp.yml) ではないドキュメントからのローカルファイルシステム参照がないこと ([Kompox-CLI.ja.md] 参照)
   - 既存のリソースを含む検証:
     - 一意制約: 同一 Resource ID の重複がないこと
     - 参照整合性: すべての親リソースが存在すること
