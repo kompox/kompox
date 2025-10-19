@@ -118,10 +118,15 @@ func (s *Sink) ToModels(ctx context.Context, repos Repositories, kompoxAppFilePa
 		// Apps from kompoxapp.yml get file:// RefBase; external KOM apps get empty RefBase
 		sourceFile := app.ObjectMeta.Annotations[AnnotationDocPath]
 		refBase := ""
-		if kompoxAppFilePath != "" && sourceFile == kompoxAppFilePath {
-			// App is from the Kompox app file; allow local references
-			baseDir := filepath.Dir(sourceFile)
-			refBase = "file://" + baseDir + "/"
+		if kompoxAppFilePath != "" && sourceFile != "" {
+			// Normalize both paths to absolute for comparison
+			absSourceFile, err1 := filepath.Abs(sourceFile)
+			absKompoxAppFilePath, err2 := filepath.Abs(kompoxAppFilePath)
+			if err1 == nil && err2 == nil && absSourceFile == absKompoxAppFilePath {
+				// App is from the Kompox app file; allow local references
+				baseDir := filepath.Dir(absSourceFile)
+				refBase = "file://" + baseDir + "/"
+			}
 		}
 		// else: external KOM origin, RefBase remains empty (disallow local references)
 
