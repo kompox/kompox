@@ -1,15 +1,37 @@
-version: v1
-workspace:
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Defaults
+metadata:
+  name: defaults
+spec: {}
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
   name: ${SERVICE_NAME}
-provider:
+  annotations:
+    ops.kompox.dev/id: /ws/${SERVICE_NAME}
+spec: {}
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
   name: aks1
+  annotations:
+    ops.kompox.dev/id: /ws/${SERVICE_NAME}/prv/aks1
+spec:
   driver: aks
   settings:
     AZURE_AUTH_METHOD: azure_cli
     AZURE_SUBSCRIPTION_ID: ${AZURE_SUBSCRIPTION_ID}
     AZURE_LOCATION: ${AZURE_LOCATION}
-cluster:
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
   name: cluster1
+  annotations:
+    ops.kompox.dev/id: /ws/${SERVICE_NAME}/prv/aks1/cls/cluster1
+spec:
   existing: false
   ingress:
     certEmail: yaegashi@live.jp
@@ -32,19 +54,34 @@ cluster:
     AZURE_AKS_USER_VM_PRIORITY: ${AZURE_AKS_USER_VM_PRIORITY}
     AZURE_AKS_USER_VM_ZONES: ${AZURE_AKS_USER_VM_ZONES}
     AZURE_AKS_DNS_ZONE_RESOURCE_IDS: ${AZURE_AKS_DNS_ZONE_RESOURCE_IDS}
-app:
-  name: gitea
-  compose: file:compose.yml
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: app1
+  annotations:
+    ops.kompox.dev/id: /ws/${SERVICE_NAME}/prv/aks1/cls/cluster1/app/app1
+spec:
+  compose:
+    services:
+      whoami:
+        image: traefik/woami
+        ports:
+          - 8080:80
   ingress:
     certResolver: staging
     rules:
       - name: main
-        port: 3000
-        hosts: [gitea.custom.exp.kompox.dev]
+        port: 8080
+        hosts: [whoami.custom.exp.kompox.dev]
   deployment:
     zone: "1"
   volumes:
-    - name: default
+    - name: vol1
+      size: 10Gi
+      options:
+        sku: Premium_LRS
+    - name: vol2
       size: 10Gi
       options:
         sku: PremiumV2_LRS

@@ -3,7 +3,7 @@ SHELL := /usr/bin/env bash
 
 TEST_NAME := $(notdir $(patsubst %/,%,$(CURDIR)))
 TEST_ENV_FILES := test.env test-seed.env $(if $(wildcard test-local.env), test-local.env)
-TEST_DEPENDENCIES := kompoxops kompoxops.yml $(TEST_ENV_FILES)
+TEST_DEPENDENCIES := kompoxops kompoxapp.yml $(TEST_ENV_FILES)
 
 define TEST_ENV_SCRIPT
 set -a; \
@@ -45,7 +45,7 @@ kompoxops:
 	$(MAKE) -C $(TOPDIR) cmd
 	cp $(TOPDIR)/kompoxops .
 
-kompoxops.yml: kompoxops.yml.in $(TEST_ENV_FILES)
+kompoxapp.yml: kompoxapp.yml.in $(TEST_ENV_FILES)
 	@$(TEST_ENV_SCRIPT) && echo "Creating $@ from $<" && envsubst < $< > $@
 
 setup: $(TEST_DEPENDENCIES)
@@ -59,4 +59,4 @@ teardown:
 
 clean:
 	@$(call TEST_RUN_SCRIPT,./test-clean.sh)
-	rm -rf kompoxops kompoxops.yml
+	rm -rf kompoxops kompoxapp.yml

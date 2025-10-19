@@ -2,6 +2,6 @@
 
 set -euo pipefail
 
-./kompoxops dns destroy
+./kompoxops dns destroy || true
 
 ./kompoxops cluster deprovision

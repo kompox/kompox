@@ -93,7 +93,7 @@ retry_capture() {
 	done
 }
 
-cat kompoxops.yml
+cat kompoxapp.yml
 
 run ./kompoxops version
 

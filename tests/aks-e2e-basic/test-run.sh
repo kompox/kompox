@@ -2,7 +2,7 @@
 
 set -xeuo pipefail
 
-cat kompoxops.yml
+cat kompoxapp.yml
 
 ./kompoxops version
 

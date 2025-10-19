@@ -1,15 +1,37 @@
-version: v1
-workspace:
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Defaults
+metadata:
+  name: defaults
+spec: {}
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
   name: ${SERVICE_NAME}
-provider:
+  annotations:
+    ops.kompox.dev/id: /ws/${SERVICE_NAME}
+spec: {}
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
   name: aks1
+  annotations:
+    ops.kompox.dev/id: /ws/${SERVICE_NAME}/prv/aks1
+spec:
   driver: aks
   settings:
     AZURE_AUTH_METHOD: azure_cli
     AZURE_SUBSCRIPTION_ID: ${AZURE_SUBSCRIPTION_ID}
     AZURE_LOCATION: ${AZURE_LOCATION}
-cluster:
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
   name: cluster1
+  annotations:
+    ops.kompox.dev/id: /ws/${SERVICE_NAME}/prv/aks1/cls/cluster1
+spec:
   existing: false
   ingress:
     certEmail: yaegashi@live.jp
@@ -32,8 +54,14 @@ cluster:
     AZURE_AKS_USER_VM_PRIORITY: ${AZURE_AKS_USER_VM_PRIORITY}
     AZURE_AKS_USER_VM_ZONES: ${AZURE_AKS_USER_VM_ZONES}
     AZURE_AKS_DNS_ZONE_RESOURCE_IDS: ${AZURE_AKS_DNS_ZONE_RESOURCE_IDS}
-app:
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
   name: gitlab
+  annotations:
+    ops.kompox.dev/id: /ws/${SERVICE_NAME}/prv/aks1/cls/cluster1/app/gitlab
+spec:
   compose: file:compose.yml
   ingress:
     certResolver: staging
