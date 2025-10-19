@@ -6,7 +6,63 @@ import (
 	"path/filepath"
 
 	"github.com/kompox/kompox/domain/model"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
+
+// Repositories defines the repository interfaces needed for converting CRD to domain models.
+type Repositories struct {
+	Workspace WorkspaceRepository
+	Provider  ProviderRepository
+	Cluster   ClusterRepository
+	App       AppRepository
+}
+
+// WorkspaceRepository defines operations for workspace persistence.
+type WorkspaceRepository interface {
+	Create(ctx context.Context, ws *model.Workspace) error
+	List(ctx context.Context) ([]*model.Workspace, error)
+}
+
+// ProviderRepository defines operations for provider persistence.
+type ProviderRepository interface {
+	Create(ctx context.Context, prv *model.Provider) error
+	List(ctx context.Context) ([]*model.Provider, error)
+}
+
+// ClusterRepository defines operations for cluster persistence.
+type ClusterRepository interface {
+	Create(ctx context.Context, cls *model.Cluster) error
+	List(ctx context.Context) ([]*model.Cluster, error)
+}
+
+// AppRepository defines operations for app persistence.
+type AppRepository interface {
+	Create(ctx context.Context, app *model.App) error
+	List(ctx context.Context) ([]*model.App, error)
+}
+
+// parseVolumeSize parses volume size from either int64 (bytes) or string (e.g., "10Gi").
+func parseVolumeSize(size any) (int64, error) {
+	switch v := size.(type) {
+	case int64:
+		return v, nil
+	case int:
+		return int64(v), nil
+	case float64:
+		return int64(v), nil
+	case string:
+		q, err := resource.ParseQuantity(v)
+		if err != nil {
+			return 0, fmt.Errorf("invalid quantity string %q: %w", v, err)
+		}
+		sizeBytes, ok := q.AsInt64()
+		if !ok {
+			return 0, fmt.Errorf("quantity %q is too large for int64", v)
+		}
+		return sizeBytes, nil
+	}
+	return 0, fmt.Errorf("unsupported type %T (expected int64, int, float64, or string)", size)
+}
 
 // ToModels converts the CRD Sink to domain models and populates the provided repositories.
 // This method is analogous to kompoxopscfg.Root.ToModels() but for CRD sources.
@@ -162,9 +218,13 @@ func (s *Sink) ToModels(ctx context.Context, repos Repositories, kompoxAppFilePa
 		if len(app.Spec.Volumes) > 0 {
 			volumes := make([]model.AppVolume, 0, len(app.Spec.Volumes))
 			for _, v := range app.Spec.Volumes {
+				sizeBytes, err := parseVolumeSize(v.Size)
+				if err != nil {
+					return fmt.Errorf("invalid volume size for volume %q: %w", v.Name, err)
+				}
 				volumes = append(volumes, model.AppVolume{
 					Name:    v.Name,
-					Size:    v.Size,
+					Size:    sizeBytes,
 					Options: v.Options,
 				})
 			}
@@ -185,36 +245,4 @@ func (s *Sink) ToModels(ctx context.Context, repos Repositories, kompoxAppFilePa
 	}
 
 	return nil
-}
-
-// Repositories defines the repository interfaces needed for converting CRD to domain models.
-type Repositories struct {
-	Workspace WorkspaceRepository
-	Provider  ProviderRepository
-	Cluster   ClusterRepository
-	App       AppRepository
-}
-
-// WorkspaceRepository defines operations for workspace persistence.
-type WorkspaceRepository interface {
-	Create(ctx context.Context, ws *model.Workspace) error
-	List(ctx context.Context) ([]*model.Workspace, error)
-}
-
-// ProviderRepository defines operations for provider persistence.
-type ProviderRepository interface {
-	Create(ctx context.Context, prv *model.Provider) error
-	List(ctx context.Context) ([]*model.Provider, error)
-}
-
-// ClusterRepository defines operations for cluster persistence.
-type ClusterRepository interface {
-	Create(ctx context.Context, cls *model.Cluster) error
-	List(ctx context.Context) ([]*model.Cluster, error)
-}
-
-// AppRepository defines operations for app persistence.
-type AppRepository interface {
-	Create(ctx context.Context, app *model.App) error
-	List(ctx context.Context) ([]*model.App, error)
 }

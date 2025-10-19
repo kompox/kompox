@@ -196,8 +196,8 @@ type AppIngressRule struct {
 type AppVolumeSpec struct {
 	// Name is the volume identifier.
 	Name string `json:"name"`
-	// Size is the volume size in bytes.
-	Size int64 `json:"size,omitzero"`
+	// Size is the volume size (int64 for bytes, or string like "10Gi").
+	Size any `json:"size,omitzero"`
 	// Options are provider-specific volume options (e.g., SKU, IOPS).
 	Options map[string]any `json:"options,omitzero"`
 }

@@ -753,3 +753,74 @@ metadata:
 		}
 	})
 }
+
+func TestParseVolumeSize(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   any
+		want    int64
+		wantErr bool
+	}{
+		{
+			name:    "int64 bytes",
+			input:   int64(10737418240),
+			want:    10737418240,
+			wantErr: false,
+		},
+		{
+			name:    "int bytes",
+			input:   1024,
+			want:    1024,
+			wantErr: false,
+		},
+		{
+			name:    "float64 bytes",
+			input:   1024.0,
+			want:    1024,
+			wantErr: false,
+		},
+		{
+			name:    "string Gi",
+			input:   "10Gi",
+			want:    10737418240,
+			wantErr: false,
+		},
+		{
+			name:    "string Mi",
+			input:   "500Mi",
+			want:    524288000,
+			wantErr: false,
+		},
+		{
+			name:    "string bytes",
+			input:   "1024",
+			want:    1024,
+			wantErr: false,
+		},
+		{
+			name:    "invalid string",
+			input:   "invalid",
+			want:    0,
+			wantErr: true,
+		},
+		{
+			name:    "unsupported type",
+			input:   true,
+			want:    0,
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := parseVolumeSize(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parseVolumeSize() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("parseVolumeSize() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
