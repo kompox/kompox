@@ -99,6 +99,7 @@ services:
 			app := &model.App{
 				Name:    "testapp",
 				Compose: tt.compose,
+				RefBase: "file://" + tmpDir + "/",
 				Volumes: tt.appVolumes,
 			}
 

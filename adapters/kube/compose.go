@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,13 +23,82 @@ const (
 	maxConfigSecretNameLength = 63
 )
 
-// NewComposeProject loads a compose project from raw YAML string (single file only, includes disabled).
-func NewComposeProject(ctx context.Context, composeContent string) (*types.Project, error) {
+// NewComposeProject loads a compose project with RefBase-aware validation and resolution.
+// RefBase controls external reference policy:
+//   - "" (empty): external references are prohibited
+//   - "file:///abs/dir/": local file references allowed, relative paths resolved from this directory
+//   - "http(s)://.../": (reserved for future use, currently no effect)
+//
+// composeContent may be:
+//   - inline YAML text (most common)
+//   - "file:<path>" to load from file (requires RefBase with file:// scheme)
+//
+// Returns the loaded project and the working directory for subsequent file resolutions.
+func NewComposeProject(ctx context.Context, composeContent, refBase string) (*types.Project, string, error) {
 	logger := logging.FromContext(ctx)
 
+	// Validate and parse refBase: must be empty string, or a valid URL with scheme
+	var parsedBase *url.URL
+	if refBase != "" {
+		var err error
+		parsedBase, err = url.Parse(refBase)
+		if err != nil {
+			return nil, "", fmt.Errorf("invalid RefBase %q: %w", refBase, err)
+		}
+		if parsedBase.Scheme == "" {
+			return nil, "", fmt.Errorf("invalid RefBase %q: must have a scheme (file://, http://, https://)", refBase)
+		}
+		// Accept file://, http://, https:// schemes
+		if parsedBase.Scheme != "file" && parsedBase.Scheme != "http" && parsedBase.Scheme != "https" {
+			return nil, "", fmt.Errorf("invalid RefBase %q: unsupported scheme %q", refBase, parsedBase.Scheme)
+		}
+	}
+
+	// Resolve compose content based on prefix and RefBase
+	var content []byte
+	var workingDir string // Actual directory for returning (used by converter for file resolution)
+	var err error
+
+	if strings.HasPrefix(composeContent, "file:") {
+		// File reference: requires file:// RefBase and relative path only
+		if parsedBase == nil || parsedBase.Scheme != "file" {
+			return nil, "", fmt.Errorf("file: reference not allowed (RefBase: %q)", refBase)
+		}
+		relPath := strings.TrimPrefix(composeContent, "file:")
+
+		// Reject absolute paths
+		if filepath.IsAbs(relPath) {
+			return nil, "", fmt.Errorf("file: reference must be relative path (got absolute path: %q)", relPath)
+		}
+
+		// Reject parent directory references
+		if strings.Contains(relPath, "..") {
+			return nil, "", fmt.Errorf("file: reference must not contain parent directory (..) references: %q", relPath)
+		}
+
+		baseDir := parsedBase.Path
+		filePath := filepath.Join(baseDir, relPath)
+		content, err = os.ReadFile(filePath)
+		if err != nil {
+			return nil, "", fmt.Errorf("reading compose file %q: %w", filePath, err)
+		}
+		workingDir = filepath.Dir(filePath)
+
+	} else {
+		// Inline compose content
+		content = []byte(composeContent)
+		// Working directory depends on RefBase
+		if parsedBase != nil && parsedBase.Scheme == "file" {
+			workingDir = parsedBase.Path
+		}
+		// Otherwise workingDir remains empty (no local file access)
+	}
+
+	// Always use "." for compose-go WorkingDir to prevent it from resolving relative paths
+	// We handle path resolution explicitly in Kompox using the workingDir return value
 	cdm := types.ConfigDetails{
 		WorkingDir:  ".",
-		ConfigFiles: []types.ConfigFile{{Filename: "app.compose", Content: []byte(composeContent)}},
+		ConfigFiles: []types.ConfigFile{{Filename: "app.compose", Content: content}},
 		Environment: map[string]string{},
 	}
 	model, err := loader.LoadModelWithContext(ctx, cdm, func(o *loader.Options) {
@@ -36,16 +106,16 @@ func NewComposeProject(ctx context.Context, composeContent string) (*types.Proje
 		o.SkipInclude = true
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to load compose model: %w", err)
+		return nil, "", fmt.Errorf("failed to load compose model: %w", err)
 	}
 	if _, ok := model["version"]; ok {
 		logger.Warn(ctx, "compose: `version` is obsolete")
 	}
 	var proj *types.Project
 	if err := loader.Transform(model, &proj); err != nil {
-		return nil, fmt.Errorf("failed to transform compose model to project: %w", err)
+		return nil, "", fmt.Errorf("failed to transform compose model to project: %w", err)
 	}
-	return proj, nil
+	return proj, workingDir, nil
 }
 
 // validateConfigSecretName validates a config/secret name as a DNS-1123 label.
@@ -63,10 +133,17 @@ func validateConfigSecretName(name string) error {
 }
 
 // readFileContent reads a file and validates its size and encoding for ConfigMap/Secret.
+// Requires RefBase with file:// scheme for local file access.
 // For ConfigMap (isConfig=true): enforces UTF-8 without BOM and no NUL bytes, size ≤ 1 MiB.
 // For Secret (isConfig=false): any binary content is allowed, size ≤ 1 MiB.
 // Returns content bytes and a flag indicating if content is valid UTF-8 without NUL (suitable for data vs binaryData).
-func readFileContent(baseDir, relPath string, isConfig bool) ([]byte, bool, error) {
+func readFileContent(baseDir, relPath string, isConfig bool, refBase string) ([]byte, bool, error) {
+	// Validate RefBase allows file access
+	parsedBase, err := url.Parse(refBase)
+	if err != nil || parsedBase.Scheme != "file" {
+		return nil, false, fmt.Errorf("local file reference not allowed (RefBase: %q): %s", refBase, relPath)
+	}
+
 	if strings.HasPrefix(relPath, "/") {
 		return nil, false, fmt.Errorf("absolute path not allowed: %s", relPath)
 	}
@@ -109,12 +186,13 @@ func readFileContent(baseDir, relPath string, isConfig bool) ([]byte, bool, erro
 }
 
 // resolveConfigOrSecretFile resolves a config/secret definition to file path and content.
+// Requires RefBase with file:// scheme for file references.
 // Supports: file, content (inline), name (passthrough), external (treated as name passthrough).
 // For file: reads from baseDir and validates.
 // For content: uses inline content directly.
 // For name/external: returns empty content (caller must handle as external reference).
 // Returns: file basename (key), content bytes, isValidUTF8Text flag, error.
-func resolveConfigOrSecretFile(baseDir, defName string, def types.FileObjectConfig, isConfig bool) (string, []byte, bool, error) {
+func resolveConfigOrSecretFile(baseDir, defName string, def types.FileObjectConfig, isConfig bool, refBase string) (string, []byte, bool, error) {
 	// External or name-only: passthrough (no content)
 	if def.External || (def.Name != "" && def.File == "" && def.Content == "") {
 		return defName, nil, false, nil
@@ -140,7 +218,7 @@ func resolveConfigOrSecretFile(baseDir, defName string, def types.FileObjectConf
 	if def.File == "" {
 		return "", nil, false, fmt.Errorf("config/secret %q must specify file, content, or name/external", defName)
 	}
-	content, isValidUTF8Text, err := readFileContent(baseDir, def.File, isConfig)
+	content, isValidUTF8Text, err := readFileContent(baseDir, def.File, isConfig, refBase)
 	if err != nil {
 		return "", nil, false, fmt.Errorf("config/secret %q: %w", defName, err)
 	}

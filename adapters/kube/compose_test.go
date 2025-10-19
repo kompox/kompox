@@ -39,7 +39,7 @@ services:
         target: /mnt/struct/sub
 `
 
-	proj, err := NewComposeProject(ctx, compose)
+	proj, _, err := NewComposeProject(ctx, compose, "")
 	if err != nil {
 		t.Fatalf("NewComposeProject error: %v", err)
 	}
@@ -99,7 +99,7 @@ services:
     image: busybox:1.36
     env_file: c.json
 `
-	proj, err := NewComposeProject(ctx, compose)
+	proj, _, err := NewComposeProject(ctx, compose, "")
 	if err != nil {
 		t.Fatalf("NewComposeProject error: %v", err)
 	}
@@ -149,7 +149,7 @@ services:
     image: busybox:1.36
     env_file: only.env
 `
-	proj, err := NewComposeProject(ctx, compose)
+	proj, _, err := NewComposeProject(ctx, compose, "")
 	if err != nil {
 		t.Fatalf("NewComposeProject error: %v", err)
 	}
@@ -173,7 +173,7 @@ services:
   svc:
     image: busybox:1.36
 `
-	proj, err := NewComposeProject(ctx, compose)
+	proj, _, err := NewComposeProject(ctx, compose, "")
 	if err != nil {
 		t.Fatalf("NewComposeProject error: %v", err)
 	}

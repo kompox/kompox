@@ -117,12 +117,12 @@ Kompox アプリファイルには Defaults リソースを 1 件だけ含めら
 セキュリティと可搬性のため、以下のポリシーが適用される:
 
 - Kompox アプリファイルに直接含まれる App のみ、ローカルファイルシステム参照を使用できる
-  - Compose 参照: `file:compose.yml` のようなローカル Compose ファイル参照
+  - Compose 参照: `file:relative/path/to/compose.yml` 形式の外部 Compose ファイル参照 (相対パスのみ: 絶対パス・親ディレクトリ参照・http/https URL 不可)
   - ボリューム: `./data:/data` や `/host/path:/container` の bind マウント
   - Compose configs: `configs:<name>:file=./path/to/file` 等のローカルファイル参照
   - Compose secrets: `secrets:<name>:file=./path/to/secret` 等のローカルファイル参照
   - env_file: `env_file: ./app.env` のようなローカル .env 参照
-- 外部 KOM ファイル (`Defaults.spec.komPath` で読み込まれたファイル) に定義された App は、ローカルファイルシステム参照を使用できない
+- 外部 KOM ファイル (Defaults リソースの `spec.komPath` で読み込まれたファイル) に定義された App は、ローカルファイルシステム参照を使用できない
 
 これらは CLI の変換/実行フェーズで検証される。ポリシー違反の KOM を読み込んでも直ちにはエラーにならない。
 

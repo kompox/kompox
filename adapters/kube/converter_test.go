@@ -3,6 +3,7 @@ package kube
 import (
 	"context"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 	"testing"
@@ -95,6 +96,7 @@ func TestNewConverterNilInputs(t *testing.T) {
 // TestConverterConvert tests the Convert phase
 func TestConverterConvert(t *testing.T) {
 	ctx := context.Background()
+	cwd, _ := os.Getwd()
 
 	tests := []struct {
 		name         string
@@ -318,6 +320,7 @@ services:
 			app := &model.App{
 				Name:    "testapp",
 				Compose: tt.compose,
+				RefBase: "file://" + cwd + "/",
 				Volumes: tt.appVolumes,
 				Ingress: tt.appIngress,
 			}
@@ -363,12 +366,14 @@ services:
       - cache:/tmp/cache
 `
 
+	cwd, _ := os.Getwd()
 	svc := &model.Workspace{Name: "testsvc"}
 	prv := &model.Provider{Name: "testprv", Driver: "test"}
 	cls := &model.Cluster{Name: "testcls"}
 	app := &model.App{
 		Name:    "testapp",
 		Compose: compose,
+		RefBase: "file://" + cwd + "/",
 		Volumes: []model.AppVolume{
 			{Name: "data", Size: 1024},
 			{Name: "cache", Size: 512},
@@ -545,12 +550,14 @@ services:
       ENV_VAR: test_value
 `
 
+	cwd, _ := os.Getwd()
 	svc := &model.Workspace{Name: "testsvc"}
 	prv := &model.Provider{Name: "testprv", Driver: "test"}
 	cls := &model.Cluster{Name: "testcls"}
 	app := &model.App{
 		Name:    "testapp",
 		Compose: compose,
+		RefBase: "file://" + cwd + "/",
 		Volumes: []model.AppVolume{{Name: "data", Size: 1024}},
 		Ingress: model.AppIngress{
 			Rules: []model.AppIngressRule{
@@ -805,12 +812,14 @@ services:
       PORT: "3000"
 `
 
+	cwd, _ := os.Getwd()
 	svc := &model.Workspace{Name: "myservice"}
 	prv := &model.Provider{Name: "myprovider", Driver: "test"}
 	cls := &model.Cluster{Name: "mycluster", Ingress: &model.ClusterIngress{Domain: "ops.kompox.dev"}}
 	app := &model.App{
 		Name:    "fullapp",
 		Compose: compose,
+		RefBase: "file://" + cwd + "/",
 		Volumes: []model.AppVolume{
 			{Name: "default", Size: 2048},
 			{Name: "logs", Size: 1024},
@@ -1067,6 +1076,7 @@ services:
 
 // TestDeploymentNodeSelector tests the nodeSelector functionality from app.deployment spec
 func TestDeploymentNodeSelector(t *testing.T) {
+	cwd, _ := os.Getwd()
 	svc := &model.Workspace{Name: "ops"}
 	prv := &model.Provider{Name: "aks1", Driver: "aks"}
 	cls := &model.Cluster{Name: "cluster1"}
@@ -1075,6 +1085,7 @@ func TestDeploymentNodeSelector(t *testing.T) {
 	app1 := &model.App{
 		Name:    "app1",
 		Compose: `services: {app: {image: "test"}}`,
+		RefBase: "file://" + cwd + "/",
 	}
 	c1 := NewConverter(svc, prv, cls, app1, "app")
 	warnings, err := c1.Convert(context.Background())
@@ -1116,6 +1127,7 @@ func TestDeploymentNodeSelector(t *testing.T) {
 	app2 := &model.App{
 		Name:    "app2",
 		Compose: `services: {app: {image: "test"}}`,
+		RefBase: "file://" + cwd + "/",
 		Deployment: model.AppDeployment{
 			Pool: "system",
 			Zone: "japaneast-1",
@@ -1158,6 +1170,7 @@ func TestDeploymentNodeSelector(t *testing.T) {
 	app3 := &model.App{
 		Name:    "app3",
 		Compose: `services: {app: {image: "test"}}`,
+		RefBase: "file://" + cwd + "/",
 		Deployment: model.AppDeployment{
 			Zone: "westus2-2",
 		},
@@ -1201,6 +1214,7 @@ func TestDeploymentNodeSelector(t *testing.T) {
 // TestHeadlessServicesGeneration validates generation details and pruning metadata.
 func TestHeadlessServicesGeneration(t *testing.T) {
 	ctx := context.Background()
+	cwd, _ := os.Getwd()
 	compose := `
 services:
   api:
@@ -1211,7 +1225,7 @@ services:
 	svc := &model.Workspace{Name: "svc"}
 	prv := &model.Provider{Name: "prv", Driver: "test"}
 	cls := &model.Cluster{Name: "cls"}
-	app := &model.App{Name: "demo", Compose: compose}
+	app := &model.App{Name: "demo", Compose: compose, RefBase: "file://" + cwd + "/"}
 	c := NewConverter(svc, prv, cls, app, "app")
 	if _, err := c.Convert(ctx); err != nil {
 		t.Fatalf("convert failed: %v", err)
@@ -1256,11 +1270,12 @@ services:
 // TestZeroHeadlessServices ensures metadata still present when no compose services defined.
 func TestZeroHeadlessServices(t *testing.T) {
 	ctx := context.Background()
+	cwd, _ := os.Getwd()
 	compose := `services: {}`
 	svc := &model.Workspace{Name: "svc"}
 	prv := &model.Provider{Name: "prv", Driver: "test"}
 	cls := &model.Cluster{Name: "cls"}
-	app := &model.App{Name: "empty", Compose: compose}
+	app := &model.App{Name: "empty", Compose: compose, RefBase: "file://" + cwd + "/"}
 	c := NewConverter(svc, prv, cls, app, "app")
 	if _, err := c.Convert(ctx); err != nil {
 		t.Fatalf("convert failed: %v", err)

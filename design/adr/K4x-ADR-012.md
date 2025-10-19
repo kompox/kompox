@@ -22,7 +22,7 @@ supersededBy: []
   - Semantics:
     - `""` (empty): external references are not allowed for this App.
     - `file:///abs/dir/`: allow and resolve local file references relative to this directory.
-    - `http(s)://host/path/`: allow and resolve relative URLs against this base URL. Local filesystem references remain disallowed.
+    - `http(s)://host/path/`: reserved for future URL-based KOM origins.
 - Validation timing and user-facing behavior:
   - Loading KOM documents (KOM mode initialization) succeeds even if an App would later violate external reference policies. No validation error is emitted at load time.
   - Validation is performed during conversion/execution paths (e.g., kube Converter invoked by `kompoxops app ...` commands). At this point, origin-based policy (via `App.RefBase`) is enforced and violations are reported to the user as command errors.

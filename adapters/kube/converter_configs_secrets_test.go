@@ -107,9 +107,11 @@ func TestConvert_ConfigDefaultTarget(t *testing.T) {
 
 	compose := "configs:\n  myconfig:\n    file: " + cfgFile + "\n\nservices:\n  web:\n    image: nginx\n    configs:\n      - myconfig\n"
 
+	cwd, _ := os.Getwd()
 	app := &model.App{
 		Name:    "testapp",
 		Compose: compose,
+		RefBase: "file://" + cwd + "/",
 		Volumes: []model.AppVolume{{Name: "data", Size: 1}},
 	}
 
@@ -151,9 +153,11 @@ func TestConvert_SecretDefaultTarget(t *testing.T) {
 
 	compose := "secrets:\n  mysecret:\n    file: " + secFile + "\n\nservices:\n  web:\n    image: nginx\n    secrets:\n      - mysecret\n"
 
+	cwd, _ := os.Getwd()
 	app := &model.App{
 		Name:    "testapp",
 		Compose: compose,
+		RefBase: "file://" + cwd + "/",
 		Volumes: []model.AppVolume{{Name: "data", Size: 1}},
 	}
 
@@ -199,9 +203,11 @@ func TestConvert_ConfigSecretExplicitTarget(t *testing.T) {
 
 	compose := "configs:\n  myconfig:\n    file: " + cfgFile + "\n\nsecrets:\n  mysecret:\n    file: " + secFile + "\n\nservices:\n  web:\n    image: nginx\n    configs:\n      - source: myconfig\n        target: /etc/app/config.conf\n    secrets:\n      - source: mysecret\n        target: /etc/app/secret.key\n"
 
+	cwd, _ := os.Getwd()
 	app := &model.App{
 		Name:    "testapp",
 		Compose: compose,
+		RefBase: "file://" + cwd + "/",
 		Volumes: []model.AppVolume{{Name: "data", Size: 1}},
 	}
 

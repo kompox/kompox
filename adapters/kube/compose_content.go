@@ -223,7 +223,16 @@ func rejectControl(s string) error {
 }
 
 // mergeEnvFiles returns merged map in order (later overrides earlier); also list of overridden keys (for potential warnings).
-func mergeEnvFiles(baseDir string, envFiles []types.EnvFile) (map[string]string, map[string]string, error) {
+// Requires RefBase with file:// scheme for local file access.
+func mergeEnvFiles(baseDir string, envFiles []types.EnvFile, refBase string) (map[string]string, map[string]string, error) {
+	// Validate RefBase allows file access
+	if !strings.HasPrefix(refBase, "file://") {
+		if len(envFiles) > 0 {
+			return nil, nil, fmt.Errorf("env_file not allowed (RefBase: %q)", refBase)
+		}
+		return map[string]string{}, map[string]string{}, nil
+	}
+
 	merged := map[string]string{}
 	overrides := map[string]string{} // key -> previous value
 	for _, ef := range envFiles {

@@ -23,12 +23,13 @@ func TestEnvFileSingleService(t *testing.T) {
 	svc := &model.Workspace{Name: "svc"}
 	prv := &model.Provider{Name: "prv", Driver: "test"}
 	cls := &model.Cluster{Name: "cls"}
-	app := &model.App{Name: "demo", Compose: compose}
-	c := NewConverter(svc, prv, cls, app, "app")
 
 	// Create temporary env files under current working dir (the converter passes baseDir '.')
 	// We write them into a temp dir and chdir temporarily.
 	tmp := t.TempDir()
+	app := &model.App{Name: "demo", Compose: compose, RefBase: "file://" + tmp + "/"}
+	c := NewConverter(svc, prv, cls, app, "app")
+
 	oldWd, _ := os.Getwd()
 	defer os.Chdir(oldWd)
 	if err := os.Chdir(tmp); err != nil {
@@ -112,10 +113,11 @@ func TestEnvFileMultipleServices(t *testing.T) {
 	svc := &model.Workspace{Name: "svc"}
 	prv := &model.Provider{Name: "prv", Driver: "test"}
 	cls := &model.Cluster{Name: "cls"}
-	app := &model.App{Name: "demo2", Compose: compose}
-	c := NewConverter(svc, prv, cls, app, "app")
 
 	tmp := t.TempDir()
+	app := &model.App{Name: "demo2", Compose: compose, RefBase: "file://" + tmp + "/"}
+	c := NewConverter(svc, prv, cls, app, "app")
+
 	oldWd, _ := os.Getwd()
 	defer os.Chdir(oldWd)
 	if err := os.Chdir(tmp); err != nil {

@@ -42,6 +42,9 @@ type Converter struct {
 	// Normalized compose project
 	Project *types.Project
 
+	// Working directory for file resolution (from RefBase)
+	WorkingDir string
+
 	// Stable identifiers
 	HashSP string // service/provider
 	HashID string // service/provider/app (cluster independent)
@@ -265,10 +268,12 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		return nil, fmt.Errorf("converter requires svc/prv/cls/app")
 	}
 
-	proj, err := NewComposeProject(ctx, c.App.Compose)
+	// Use RefBase-aware compose loading
+	proj, workingDir, err := NewComposeProject(ctx, c.App.Compose, c.App.RefBase)
 	if err != nil {
 		return nil, fmt.Errorf("compose project failed: %w", err)
 	}
+	c.WorkingDir = workingDir
 
 	// Hashes, namespace name and labels are precomputed by NewConverter.
 	// Keep local aliases for readability.
@@ -287,7 +292,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		if len(s.EnvFiles) == 0 {
 			continue
 		}
-		kv, _, err := mergeEnvFiles(".", s.EnvFiles)
+		kv, _, err := mergeEnvFiles(c.WorkingDir, s.EnvFiles, c.App.RefBase)
 		if err != nil {
 			return nil, fmt.Errorf("env_file for service %s: %w", s.Name, err)
 		}
@@ -317,7 +322,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		if err := validateConfigSecretName(name); err != nil {
 			return nil, fmt.Errorf("config name validation: %w", err)
 		}
-		key, content, isValidUTF8Text, err := resolveConfigOrSecretFile(".", name, types.FileObjectConfig(cfg), true)
+		key, content, isValidUTF8Text, err := resolveConfigOrSecretFile(c.WorkingDir, name, types.FileObjectConfig(cfg), true, c.App.RefBase)
 		if err != nil {
 			return nil, fmt.Errorf("resolve config %q: %w", name, err)
 		}
@@ -347,7 +352,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		if err := validateConfigSecretName(name); err != nil {
 			return nil, fmt.Errorf("secret name validation: %w", err)
 		}
-		key, content, _, err := resolveConfigOrSecretFile(".", name, types.FileObjectConfig(sec), false)
+		key, content, _, err := resolveConfigOrSecretFile(c.WorkingDir, name, types.FileObjectConfig(sec), false, c.App.RefBase)
 		if err != nil {
 			return nil, fmt.Errorf("resolve secret %q: %w", name, err)
 		}
@@ -442,6 +447,10 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 			var subPath string
 			switch v.Type {
 			case "bind":
+				// Bind mounts require RefBase with file:// scheme
+				if !strings.HasPrefix(c.App.RefBase, "file://") {
+					return nil, fmt.Errorf("bind volume not allowed (RefBase: %q): %s", c.App.RefBase, v.Source)
+				}
 				if strings.HasPrefix(v.Source, "/") {
 					return nil, fmt.Errorf("absolute bind volume not supported: %s", v.Source)
 				}

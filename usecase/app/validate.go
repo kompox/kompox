@@ -48,7 +48,7 @@ func (u *UseCase) Validate(ctx context.Context, in *ValidateInput) (*ValidateOut
 		return out, fmt.Errorf("app not found: %s", in.AppID)
 	}
 
-	pro, err := kube.NewComposeProject(ctx, app.Compose)
+	pro, _, err := kube.NewComposeProject(ctx, app.Compose, app.RefBase)
 	if err != nil {
 		// Treat compose parsing failures as validation errors, not transport errors.
 		out.Errors = append(out.Errors, fmt.Sprintf("compose validation failed: %v", err))
