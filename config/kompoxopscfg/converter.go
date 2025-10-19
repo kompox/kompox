@@ -85,7 +85,11 @@ func (r *Root) ToModels(configFilePath string) (*model.Workspace, *model.Provide
 	// kompoxops config file apps are considered local origin
 	refBase := ""
 	if configFilePath != "" {
-		baseDir := filepath.Dir(configFilePath)
+		absPath, err := filepath.Abs(configFilePath)
+		if err != nil {
+			return nil, nil, nil, nil, fmt.Errorf("failed to get absolute path of config file: %w", err)
+		}
+		baseDir := filepath.Dir(absPath)
 		refBase = "file://" + baseDir + "/"
 	}
 
