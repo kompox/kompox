@@ -60,3 +60,42 @@ gen-index:
 	go run ./design/gen -design-dir design -lang ja
 	go run ./_dev/tasks/gen -tasks-dir _dev/tasks -lang en
 	go run ./_dev/tasks/gen -tasks-dir _dev/tasks -lang ja
+
+.PHONY: docs-setup docs-serve docs-build docs-deploy-edge docs-deploy-version
+
+docs-setup:
+	@if command -v uv >/dev/null 2>&1; then \
+		echo "Using uv to create venv and install docs deps"; \
+		# Clear any broken venv and recreate deterministically; \
+		uv venv --clear .venv || (rm -rf .venv && uv venv .venv); \
+		. .venv/bin/activate; \
+		uv pip install -r docs/_mkdocs/requirements.txt; \
+	else \
+		echo "uv not found, falling back to python3 venv + pip"; \
+		python3 -m venv .venv || (echo "python3-venv is required (e.g., apt install python3.12-venv)" && exit 1); \
+		. .venv/bin/activate; \
+		pip install -r docs/_mkdocs/requirements.txt; \
+	fi
+
+# Use venv binaries if present
+MKDOCS_CMD := $(if $(wildcard .venv/bin/mkdocs),.venv/bin/mkdocs,mkdocs)
+MIKE_CMD   := $(if $(wildcard .venv/bin/mike),.venv/bin/mike,mike)
+
+docs-serve:
+	$(MKDOCS_CMD) serve -a 0.0.0.0:8000
+
+docs-build:
+	$(MKDOCS_CMD) build
+
+docs-deploy-edge:
+	$(MIKE_CMD) deploy --push --update-aliases edge
+
+# usage: make docs-deploy-version VERSION=0.3
+docs-deploy-version:
+	@[ -n "$$VERSION" ] || (echo "VERSION is required. e.g., make docs-deploy-version VERSION=0.3" && exit 1)
+	$(MIKE_CMD) deploy --push --update-aliases v$(VERSION) latest
+	$(MIKE_CMD) set-default --push latest
+
+.PHONY: docs-clean-venv
+docs-clean-venv:
+	rm -rf .venv

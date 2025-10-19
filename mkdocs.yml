@@ -1,0 +1,45 @@
+site_name: Kompox Docs
+site_url: https://docs.kompox.dev/
+repo_name: kompox/kompox
+repo_url: https://github.com/kompox/kompox
+edit_uri: edit/main/
+
+# Exclude non-doc files (build-time helpers) from the site output
+exclude_docs: _*/**
+
+theme:
+  name: material
+  language: en
+  features:
+    - navigation.tabs
+    - content.code.copy
+    - content.action.edit
+
+plugins:
+  - search
+  - i18n:
+      docs_structure: suffix
+      reconfigure_material: true
+      force_default_in_subdirectory: true
+      languages:
+        - locale: en
+          name: English
+          build: true
+          default: true
+          link: /en/
+        - locale: ja
+          name: 日本語
+          build: true
+          link: /ja/
+  - git-revision-date-localized:
+      fallback_to_build_date: true
+
+extra:
+  version:
+    provider: mike
+
+nav:
+  - Home: index.md
+
+hooks:
+  - docs/_mkdocs/hooks/root_index.py
