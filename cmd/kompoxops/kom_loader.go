@@ -448,39 +448,6 @@ func initializeKOMMode(cmd *cobra.Command) error {
 		}
 	}
 
-	for _, doc := range allDocuments {
-		if doc.Kind == "App" {
-			app, ok := doc.Object.(*komv1.App)
-			if !ok {
-				continue
-			}
-
-			// Check if this App uses local FS references
-			if komv1.HasLocalFSReference(app) {
-				// Get the document path
-				docPath := ""
-				if app.ObjectMeta.Annotations != nil {
-					docPath = app.ObjectMeta.Annotations[komv1.AnnotationDocPath]
-				}
-
-				// Resolve to absolute path
-				var docAbsPath string
-				if docPath != "" {
-					if abs, err := filepath.Abs(docPath); err == nil {
-						docAbsPath = abs
-					}
-				}
-
-				// Check if this App is from kompoxapp.yml
-				isFromKomApp := (komAppAbsPath != "" && docAbsPath == komAppAbsPath)
-
-				if !isFromKomApp {
-					return fmt.Errorf("App %q uses local filesystem references but is not defined in kompoxapp.yml (defined in %q)", doc.FQN, docPath)
-				}
-			}
-		}
-	}
-
 	// KOM mode is now active
 	komMode.enabled = true
 	komMode.sink = sink
