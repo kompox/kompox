@@ -2,9 +2,9 @@
 apiVersion: ops.kompox.dev/v1alpha1
 kind: App
 metadata:
-  name: basic
+  name: kom1
   annotations:
-    ops.kompox.dev/id: /ws/${SERVICE_NAME}/prv/aks1/cls/cluster1/app/basic
+    ops.kompox.dev/id: /ws/${SERVICE_NAME}/prv/aks1/cls/cluster1/app/kom1
 spec:
   compose: file:compose.yml
   ingress:
@@ -13,6 +13,6 @@ spec:
       - name: main
         port: 8080
         hosts:
-          - whoami.custom.exp.kompox.dev
+          - kom1.custom.exp.kompox.dev
   deployment:
     zone: "1"

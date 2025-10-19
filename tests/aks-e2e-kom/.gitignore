@@ -1,7 +1,7 @@
 /kompoxops
 /kompoxops.yml
-/kompoxapp.yml
-/crd
+/kompoxapp*.yml
+/kom
 /kubeconfig
 /ssh
 /test-seed.env

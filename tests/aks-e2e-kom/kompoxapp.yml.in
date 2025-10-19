@@ -1,0 +1,26 @@
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Defaults
+metadata:
+  name: defaults
+spec:
+  komPath:
+    - kom
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: kom0
+  annotations:
+    ops.kompox.dev/id: /ws/${SERVICE_NAME}/prv/aks1/cls/cluster1/app/kom0
+spec:
+  compose: file:compose.yml
+  ingress:
+    certResolver: staging
+    rules:
+      - name: main
+        port: 8080
+        hosts:
+          - kom0.custom.exp.kompox.dev
+  deployment:
+    zone: "1"

@@ -1,0 +1,9 @@
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Defaults
+metadata:
+  name: defaults
+spec:
+  komPath:
+    - kom
+  appId: /ws/${SERVICE_NAME}/prv/aks1/cls/cluster1/app/kom2

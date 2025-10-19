@@ -1,8 +1,8 @@
 services:
-  app:
+  whoami:
     image: traefik/whoami
     env_file:
-      - app-env-base.env
+      - compose-whoami.env
     environment:
       TZ: Asia/Tokyo
     ports:

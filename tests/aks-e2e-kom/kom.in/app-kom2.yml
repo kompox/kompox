@@ -1,0 +1,23 @@
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: kom2
+  annotations:
+    ops.kompox.dev/id: /ws/${SERVICE_NAME}/prv/aks1/cls/cluster1/app/kom2
+spec:
+  compose: |
+    services:
+      whoami:
+        image: traefik/whoami
+        ports:
+          - 8080:80
+  ingress:
+    certResolver: staging
+    rules:
+      - name: main
+        port: 8080
+        hosts:
+          - kom2.custom.exp.kompox.dev
+  deployment:
+    zone: "1"
