@@ -1,26 +1,15 @@
 from pathlib import Path
 from mkdocs.config.defaults import MkDocsConfig
 
-
 def on_post_build(config: MkDocsConfig) -> None:
     """MkDocs native hook: called after the site is built.
-    Generate /index.html that redirects to the default language path so that
-    `mkdocs serve` でもルートで言語トップに遷移できる。
-    """
-    create_root_index(config)
-
-
-def create_root_index(config: MkDocsConfig) -> None:
-    """Generate a root index.html that redirects to the default language.
-
-    This runs on on_post_build so it works for both `mkdocs build` and `mkdocs serve`.
-    It uses i18n plugin configuration to determine the default language link if available;
-    otherwise falls back to ./en/.
+    Generate /index.html that redirects to the default language path.
+    Works for both `mkdocs build` and `mkdocs serve`.
     """
     site_dir = Path(config.site_dir)
     site_dir.mkdir(parents=True, exist_ok=True)
 
-    # Try to read i18n plugin config to find default language link
+    # Determine default language link from i18n config, fall back to ./en/
     default_link = "./en/"
     try:
         i18n = config.plugins.get("i18n")
@@ -34,6 +23,7 @@ def create_root_index(config: MkDocsConfig) -> None:
                         default_link = link if link.startswith("./") else f".{link}"
                     break
     except Exception:
+        # best-effort
         pass
 
     content = f"""<!doctype html>
