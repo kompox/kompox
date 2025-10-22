@@ -28,9 +28,9 @@ builds:
         goarch: arm64
     ldflags:
       - -s -w
-      - -X github.com/kompox/kompox/cmd/kompoxops.version={{.Version}}
-      - -X github.com/kompox/kompox/cmd/kompoxops.commit={{.Commit}}
-      - -X github.com/kompox/kompox/cmd/kompoxops.date={{.Date}}
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
 
 archives:
   - id: kompoxops
