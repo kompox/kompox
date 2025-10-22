@@ -33,6 +33,7 @@ plugins:
           link: /ja/
   - git-revision-date-localized:
       fallback_to_build_date: true
+      exclude: [_*/**]
 
 extra:
   version:
