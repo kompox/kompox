@@ -22,6 +22,12 @@ func (u *UseCase) Uninstall(ctx context.Context, in *UninstallInput) (*Uninstall
 	if err != nil {
 		return nil, err
 	}
+
+	// Check protection policy (ignore Force flag as per ADR-013)
+	if err := c.CheckInstallationProtection("uninstall", false); err != nil {
+		return nil, err
+	}
+
 	var opts []model.ClusterUninstallOption
 	if in.Force {
 		opts = append(opts, model.WithClusterUninstallForce())

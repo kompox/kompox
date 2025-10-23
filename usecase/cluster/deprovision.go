@@ -22,6 +22,12 @@ func (u *UseCase) Deprovision(ctx context.Context, in *DeprovisionInput) (*Depro
 	if err != nil {
 		return nil, err
 	}
+
+	// Check protection policy (ignore Force flag as per ADR-013)
+	if err := c.CheckProvisioningProtection("deprovision"); err != nil {
+		return nil, err
+	}
+
 	var opts []model.ClusterDeprovisionOption
 	if in.Force {
 		opts = append(opts, model.WithClusterDeprovisionForce())

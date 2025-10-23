@@ -11,10 +11,29 @@ type Cluster struct {
 	ProviderID string // references Provider
 	Existing   bool
 	Ingress    *ClusterIngress
+	Protection *ClusterProtection
 	Settings   map[string]string
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }
+
+// ClusterProtection defines resource protection policies for cluster operations.
+type ClusterProtection struct {
+	Provisioning ClusterProtectionLevel
+	Installation ClusterProtectionLevel
+}
+
+// ClusterProtectionLevel represents the level of protection for cluster operations.
+type ClusterProtectionLevel string
+
+const (
+	// ProtectionNone means no restriction (default).
+	ProtectionNone ClusterProtectionLevel = "none"
+	// ProtectionCannotDelete blocks destructive operations (deprovision/uninstall).
+	ProtectionCannotDelete ClusterProtectionLevel = "cannotDelete"
+	// ProtectionReadOnly blocks destructive and mutating operations (immutable).
+	ProtectionReadOnly ClusterProtectionLevel = "readOnly"
+)
 
 // ClusterIngress defines cluster-level ingress configuration.
 type ClusterIngress struct {

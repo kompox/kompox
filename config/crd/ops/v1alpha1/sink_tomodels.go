@@ -155,6 +155,20 @@ func (s *Sink) ToModels(ctx context.Context, repos Repositories, kompoxAppFilePa
 				cluster.Ingress.Certificates = certs
 			}
 		}
+		if cls.Spec.Protection != nil {
+			provisioning := model.ProtectionNone
+			if cls.Spec.Protection.Provisioning != "" {
+				provisioning = model.ClusterProtectionLevel(cls.Spec.Protection.Provisioning)
+			}
+			installation := model.ProtectionNone
+			if cls.Spec.Protection.Installation != "" {
+				installation = model.ClusterProtectionLevel(cls.Spec.Protection.Installation)
+			}
+			cluster.Protection = &model.ClusterProtection{
+				Provisioning: provisioning,
+				Installation: installation,
+			}
+		}
 		if err := repos.Cluster.Create(ctx, cluster); err != nil {
 			return fmt.Errorf("failed to create cluster %q: %w", cls.ObjectMeta.Name, err)
 		}

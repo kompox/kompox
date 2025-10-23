@@ -49,18 +49,18 @@ language: ja
 
 ## 計画 (チェックリスト)
 
-- [ ] Step 1: CRD と Domain の拡張
-  - [ ] CRD 型 (`config/crd/ops/...`) に `spec.protection` を追加し、enum と default を定義
-  - [ ] Domain model (`domain/model/...`) に対応する型と値を追加
-  - [ ] 既存 YAML/JSON の後方互換 (default `none`) を確認
-- [ ] Step 2: UseCase のガード実装
-  - [ ] `usecase/cluster/deprovision.go` で `provisioning` に基づくブロックを実装
-  - [ ] uninstall/更新系の UseCase (例: `usecase/cluster/install.go` など) で `installation` に基づくブロックを実装
-  - [ ] 初回作成は許可するための既存判定 (status と provider 存在確認のいずれか) を導入
-  - [ ] エラーメッセージの統一
-- [ ] Step 3: CLI 早期ガード
-  - [ ] `cmd/kompoxops/cmd_cluster.go` の deprovision/uninstall に早期チェックを追加
-  - [ ] CLI ヘルプ/メッセージの最小更新
+- [x] Step 1: CRD と Domain の拡張
+  - [x] CRD 型 (`config/crd/ops/...`) に `spec.protection` を追加し、enum と default を定義
+  - [x] Domain model (`domain/model/...`) に対応する型と値を追加
+  - [x] 既存 YAML/JSON の後方互換 (default `none`) を確認
+- [x] Step 2: UseCase のガード実装
+  - [x] `usecase/cluster/deprovision.go` で `provisioning` に基づくブロックを実装
+  - [x] uninstall/更新系の UseCase (例: `usecase/cluster/install.go` など) で `installation` に基づくブロックを実装
+  - [x] 初回作成は許可するための既存判定 (status と provider 存在確認のいずれか) を導入
+  - [x] エラーメッセージの統一
+- [x] Step 3: CLI 早期ガード
+  - [x] `cmd/kompoxops/cmd_cluster.go` の deprovision/uninstall に早期チェックを追加
+  - [x] CLI ヘルプ/メッセージの最小更新
 
 ## テスト
 
@@ -89,6 +89,13 @@ language: ja
 ## 進捗
 
 - 2025-10-23: タスク起票 (仕様確定と範囲の明確化)。
+- 2025-10-23: Step 1-3 実装完了。
+  - CRD と Domain に `spec.protection.provisioning` と `spec.protection.installation` を追加
+  - 値: `none` (default), `cannotDelete`, `readOnly`
+  - UseCase に保護ガードを実装 (`CheckProvisioningProtection`, `CheckInstallationProtection`)
+  - CLI に早期ガードを追加 (deprovision, uninstall)
+  - 初回作成時は保護をバイパスする判定を実装
+  - ユニットテスト追加、全テスト通過
 
 ## 参考
 

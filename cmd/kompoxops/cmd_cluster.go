@@ -231,6 +231,11 @@ func newCmdClusterDeprovision() *cobra.Command {
 				return nil
 			}
 
+			// Early guard: check protection policy
+			if err := cluster.CheckProvisioningProtection("deprovision"); err != nil {
+				return err
+			}
+
 			logger.Info(ctx, "deprovision start", "cluster", cluster.Name)
 
 			// Deprovision the cluster via usecase
@@ -320,6 +325,11 @@ func newCmdClusterUninstall() *cobra.Command {
 				return fmt.Errorf("failed to get cluster: %w", err)
 			}
 			cluster := getOut.Cluster
+
+			// Early guard: check protection policy
+			if err := cluster.CheckInstallationProtection("uninstall", false); err != nil {
+				return err
+			}
 
 			logger.Info(ctx, "uninstall start", "cluster", cluster.Name)
 

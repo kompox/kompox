@@ -111,8 +111,24 @@ type ClusterSpec struct {
 	Existing bool `json:"existing,omitzero"`
 	// Ingress defines cluster-level ingress configuration.
 	Ingress *ClusterIngressSpec `json:"ingress,omitzero"`
+	// Protection defines lifecycle operation guards.
+	Protection *ClusterProtectionSpec `json:"protection,omitzero"`
 	// Settings stores cluster-level configuration.
 	Settings map[string]string `json:"settings,omitzero"`
+}
+
+// ClusterProtectionSpec defines resource protection policies for cluster operations.
+type ClusterProtectionSpec struct {
+	// Provisioning controls cloud/infrastructure lifecycle operations (provision/deprovision).
+	// Allowed values: "none" (default), "cannotDelete", "readOnly".
+	// +kubebuilder:validation:Enum=none;cannotDelete;readOnly
+	// +kubebuilder:default=none
+	Provisioning string `json:"provisioning,omitzero"`
+	// Installation controls in-cluster lifecycle operations (install/uninstall/updates).
+	// Allowed values: "none" (default), "cannotDelete", "readOnly".
+	// +kubebuilder:validation:Enum=none;cannotDelete;readOnly
+	// +kubebuilder:default=none
+	Installation string `json:"installation,omitzero"`
 }
 
 // ClusterIngressSpec defines cluster-level ingress configuration.
