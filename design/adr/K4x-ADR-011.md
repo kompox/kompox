@@ -7,6 +7,7 @@ language: en
 supersedes: []
 supersededBy: []
 ---
+# K4x-ADR-011: Introduce Defaults pseudo-resource for KOM ingestion
 
 ## Context
 

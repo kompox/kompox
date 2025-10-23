@@ -7,6 +7,7 @@ language: en
 supersedes: []
 supersededBy: [K4x-ADR-009]
 ---
+# K4x-ADR-007: Introduce CRD-style configuration
 
 ## Context
 

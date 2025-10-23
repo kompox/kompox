@@ -3,9 +3,11 @@ id: K4x-ADR-013
 title: Resource protection policy for Cluster operations
 status: accepted
 date: 2025-10-23
+language: en
 supersedes: []
 supersededBy: []
 ---
+# K4x-ADR-013: Resource protection policy for Cluster operations
 
 ## Context
 

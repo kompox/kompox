@@ -7,6 +7,7 @@ language: en
 supersedes: []
 supersededBy: []
 ---
+# K4x-ADR-006: Rename domain model Service to Workspace
 
 ## Context
 

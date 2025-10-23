@@ -7,6 +7,7 @@ language: en
 supersedes: []
 supersededBy: []
 ---
+# K4x-ADR-005: Support Compose configs/secrets and make bind volumes directory-only
 
 ## Context
 

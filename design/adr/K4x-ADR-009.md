@@ -7,6 +7,7 @@ language: en
 supersedes: [K4x-ADR-007]
 supersededBy: []
 ---
+# K4x-ADR-009: Kompox Ops Manifest Schema
 
 ## Context
 

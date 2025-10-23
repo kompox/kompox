@@ -7,6 +7,7 @@ language: en
 supersedes: []
 supersededBy: []
 ---
+# K4x-ADR-004: Cluster ingress endpoint DNS auto-update
 
 ## Context
 

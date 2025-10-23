@@ -7,6 +7,7 @@ language: en
 supersedes: []
 supersededBy: []
 ---
+# K4x-ADR-010: Rename CRD to KOM
 
 ## Context
 
