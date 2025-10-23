@@ -60,6 +60,7 @@ language: ja
 | [K4x-ADR-010](./adr/K4x-ADR-010.md) | Rename CRD to KOM | en |  | accepted | - |
 | [K4x-ADR-011](./adr/K4x-ADR-011.md) | Introduce Defaults pseudo-resource for KOM ingestion | en |  | accepted | - |
 | [K4x-ADR-012](./adr/K4x-ADR-012.md) | Introduce App.RefBase for external references |  |  | accepted | - |
+| [K4x-ADR-013](./adr/K4x-ADR-013.md) | Resource protection policy for Cluster operations |  |  | accepted | - |
 
 **ステータスの意味:**
 
