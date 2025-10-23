@@ -164,6 +164,11 @@ const (
       - `tests/aks-e2e-redmine/kompoxapp.yml.in`
       - `tests/aks-e2e-kom/kom.in/cluster.yml`
     - E2Eテストで作成されるクラスタが初回作成後に保護されることを確認可能に
+  - ADR [K4x-ADR-013] へのフィードバック完了:
+    - 操作タイプ抽象化 (`ClusterOperationType`) の追加
+    - 保護強制マトリックスの追加
+    - バリデーションとエラーメッセージング標準の追加
+    - タスクファイルへの参照を追加
 
 
 
@@ -172,9 +177,7 @@ const (
 - [K4x-ADR-013]
 - [Kompox-CRD.ja.md]
 - [Kompox-Arch-Implementation.ja.md]
-- [2025-10-23-aks-cr.ja.md]
 
 [K4x-ADR-013]: ../../design/adr/K4x-ADR-013.md
 [Kompox-CRD.ja.md]: ../../design/v1/Kompox-CRD.ja.md
 [Kompox-Arch-Implementation.ja.md]: ../../design/v1/Kompox-Arch-Implementation.ja.md
-[2025-10-23-aks-cr.ja.md]: ./2025-10-23-aks-cr.ja.md

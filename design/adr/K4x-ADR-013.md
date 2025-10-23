@@ -25,8 +25,22 @@ supersededBy: []
   - `none`: no restriction
   - `cannotDelete`: block destructive operations (e.g., deprovision/uninstall)
   - `readOnly`: block destructive and mutating operations (treat as immutable)
+- Operation type abstraction:
+  - Define `ClusterOperationType` enum to represent operation semantics:
+    - `OpCreate`: initial creation (first-time provision or install)
+    - `OpUpdate`: re-execution or mutation (provision/install on existing resources)
+    - `OpDelete`: destructive removal (deprovision or uninstall)
+  - Protection checks use operation type for clarity and type safety
+- Protection enforcement matrix:
+
+  | Protection Level | OpCreate | OpUpdate | OpDelete |
+  |-----------------|----------|----------|----------|
+  | `none`          | ✅ Allow | ✅ Allow | ✅ Allow |
+  | `cannotDelete`  | ✅ Allow | ✅ Allow | ❌ Block |
+  | `readOnly`      | ✅ Allow | ❌ Block | ❌ Block |
+
 - Enforcement model (defense-in-depth):
-  - UseCase: hard block regardless of CLI flags (e.g., ignore `--force`), returning a clear error message indicating the scope/value and how to unlock (set to `none`).
+  - UseCase: hard block regardless of CLI flags (e.g., ignore `--force`), returning a clear error message indicating the scope/value and how to unblock (set to `none` or `cannotDelete` depending on operation).
   - CLI: early guard to prevent obvious mistakes and provide fast feedback; messages mirror UseCase wording.
   - Finalizer: when either scope is `cannotDelete` or `readOnly`, do not remove the finalizer so that CR deletion is effectively blocked at the API server level.
   - Providers: drivers may synchronize the policy with native protections. For Azure AKS: map `cannotDelete` → `CanNotDelete` lock, `readOnly` → `ReadOnly` lock; `none` removes Kompox-managed locks. This mapping is optional but recommended.
@@ -34,10 +48,17 @@ supersededBy: []
   - First-time creation is not blocked by `readOnly`. Protection values govern post-creation behavior.
   - Provisioning scope: if Kompox determines that no managed infrastructure exists yet (e.g., the target resource ID does not exist), initial `provision` proceeds; after success, the chosen protection (and provider locks if enabled) is enforced for subsequent operations.
   - Installation scope: if Kompox determines there has been no prior installation, initial `install` proceeds; after success, subsequent installs/upgrades/uninstalls are governed by the protection value.
-  - Implementation may detect “first-time” via Kompox status fields and/or provider existence checks; drivers should reconcile locks immediately after successful creation.
+  - Implementation may detect "first-time" via Kompox status fields and/or provider existence checks; drivers should reconcile locks immediately after successful creation.
+- Validation:
+  - CRD validation uses Kubebuilder `+kubebuilder:validation:Enum` annotations to restrict values to `none`, `cannotDelete`, `readOnly`
+  - CRD-to-Domain conversion validates protection values and returns error for invalid values
+- Error messaging:
+  - Error messages use "unblock" terminology (not "unlock") for clarity
+  - For `readOnly` update blocks: suggest "set to 'none' or 'cannotDelete' to unblock"
+  - For `cannotDelete`/`readOnly` delete blocks: suggest "set to 'none' to unblock"
 - Defaults and UX:
   - Default is `none` for both scopes (backward compatible).
-  - To perform destructive or mutating operations when protected, users must explicitly edit the Cluster to set the relevant scope to `none` before re-running the command.
+  - To perform destructive or mutating operations when protected, users must explicitly edit the Cluster to set the relevant scope to `none` (or `cannotDelete` for updates) before re-running the command.
 
 ## Alternatives Considered
 
@@ -69,32 +90,36 @@ supersededBy: []
 - Step 1: Extend CRD and domain model
   - Add `spec.protection.provisioning|installation` with enum values `none|cannotDelete|readOnly`, default `none`.
   - Map to the domain model and ensure serialization/validation.
+  - Define `ClusterOperationType` enum (`OpCreate`, `OpUpdate`, `OpDelete`) for operation semantics.
+  - Implement unified protection check functions: `CheckProvisioningProtection(opType)` and `CheckInstallationProtection(opType)`.
+  - Add CRD-to-Domain validation for invalid protection values.
 - Step 2: Enforce in UseCases
   - Deprovision path consults `provisioning`; uninstall/installation/update paths consult `installation`.
-  - Standardize error messages and ignore `--force` when protected.
+  - Standardize error messages using "unblock" terminology and ignore `--force` when protected.
+  - Implement first-time detection to allow initial creation with `readOnly`.
+  - Add comprehensive unit tests for all protection scenarios.
 - Step 3: Add CLI early guards
   - Mirror UseCase logic for fast feedback and consistent wording.
+  - Add early checks to `deprovision` and `uninstall` commands.
 - Step 4: Finalizer behavior
   - Keep finalizer when either scope is `cannotDelete` or `readOnly` to prevent CR deletion.
 - Step 5 (optional, provider-specific): Azure mapping
   - Reconcile Azure Management Locks: `cannotDelete` ↔ `CanNotDelete`, `readOnly` ↔ `ReadOnly`, `none` ↔ remove Kompox-managed lock.
   - Ensure idempotent lock creation/update/removal.
 - Step 6: Documentation, tests, and index
-  - Update CRD/spec docs and CLI help; add unit/E2E tests for guarded operations.
+  - Update CRD/spec docs and CLI help; add E2E tests for guarded operations.
   - Regenerate documentation indices (e.g., `make gen-index`).
 
 ## References
 
 - [K4x-ADR-012]
-- [Kompox-Spec-Draft.ja.md]
 - [Kompox-CRD.ja.md]
 - [Kompox-Arch-Implementation.ja.md]
-- [2025-10-23-aks-cr.ja.md]
+- [2025-10-23-protection.ja.md]
 - [Azure-Management-Locks]
 
 [K4x-ADR-012]: ./K4x-ADR-012.md
-[Kompox-Spec-Draft.ja.md]: ../v1/Kompox-Spec-Draft.ja.md
 [Kompox-CRD.ja.md]: ../v1/Kompox-CRD.ja.md
 [Kompox-Arch-Implementation.ja.md]: ../v1/Kompox-Arch-Implementation.ja.md
-[2025-10-23-aks-cr.ja.md]: ../../_dev/tasks/2025-10-23-aks-cr.ja.md
+[2025-10-23-protection.ja.md]: ../../_dev/tasks/2025-10-23-protection.ja.md
 [Azure-Management-Locks]: https://learn.microsoft.com/azure/azure-resource-manager/management/lock-resources

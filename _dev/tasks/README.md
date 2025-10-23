@@ -17,7 +17,7 @@ This index lists short, action-oriented developer tasks found in this folder. Ta
 | ID | Title | Status | Category | Owner | Updated | Language |
 |---|---|---|---|---|---|---|
 | [2025-10-23-aks-cr](./2025-10-23-aks-cr.ja.md) | AKS Driver - ACR 権限付与対応 | done |  | yaegashi | 2025-10-23 | ja |
-| [2025-10-23-protection](./2025-10-23-protection.ja.md) | リソース保護ポリシー導入 Step 1-3 | active |  |  | 2025-10-23 | ja |
+| [2025-10-23-protection](./2025-10-23-protection.ja.md) | リソース保護ポリシー導入 Step 1-3 | done |  |  | 2025-10-23 | ja |
 | [2025-10-18-refbase](./2025-10-18-refbase.ja.md) | App.RefBase の導入と参照解決の一元化 | done |  | yaegashi | 2025-10-19 | ja |
 | [2025-10-17-defaults](./2025-10-17-defaults.ja.md) | KOM 命名統一(CRD→KOM)と Defaults 実装 | done |  | yaegashi | 2025-10-17 | ja |
 | [2025-10-15-kom](./2025-10-15-kom.ja.md) | KOM(Kompox Ops Manifest) 導入と適用 | done |  | yaegashi | 2025-10-15 | ja |
