@@ -23,15 +23,17 @@ func (u *UseCase) Install(ctx context.Context, in *InstallInput) (*InstallOutput
 		return nil, err
 	}
 
-	// Check protection policy only if this is not a first-time installation
+	// Check protection policy
 	// First-time install is detected by checking if installation is not yet done
 	status, statusErr := u.ClusterPort.Status(ctx, c)
 	isFirstTime := statusErr != nil || status == nil || !status.Installed
-	if !isFirstTime {
-		// Protection check for updates (treat install as an update if already installed)
-		if err := c.CheckInstallationProtection("install", true); err != nil {
-			return nil, err
-		}
+
+	opType := model.OpUpdate
+	if isFirstTime {
+		opType = model.OpCreate
+	}
+	if err := c.CheckInstallationProtection(opType); err != nil {
+		return nil, err
 	}
 
 	var opts []model.ClusterInstallOption

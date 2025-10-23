@@ -7,46 +7,70 @@ import (
 
 func TestCluster_CheckProvisioningProtection(t *testing.T) {
 	tests := []struct {
-		name      string
-		cluster   *Cluster
-		operation string
-		wantErr   bool
+		name    string
+		cluster *Cluster
+		opType  ClusterOperationType
+		wantErr bool
 	}{
 		{
-			name:      "nil protection allows operation",
-			cluster:   &Cluster{Protection: nil},
-			operation: "deprovision",
-			wantErr:   false,
+			name:    "nil protection allows all operations",
+			cluster: &Cluster{Protection: nil},
+			opType:  OpDelete,
+			wantErr: false,
 		},
 		{
-			name:      "none allows operation",
-			cluster:   &Cluster{Protection: &ClusterProtection{Provisioning: ProtectionNone}},
-			operation: "deprovision",
-			wantErr:   false,
+			name:    "none allows all operations",
+			cluster: &Cluster{Protection: &ClusterProtection{Provisioning: ProtectionNone}},
+			opType:  OpDelete,
+			wantErr: false,
 		},
 		{
-			name:      "empty string allows operation",
-			cluster:   &Cluster{Protection: &ClusterProtection{Provisioning: ""}},
-			operation: "deprovision",
-			wantErr:   false,
+			name:    "empty string allows all operations",
+			cluster: &Cluster{Protection: &ClusterProtection{Provisioning: ""}},
+			opType:  OpDelete,
+			wantErr: false,
 		},
 		{
-			name:      "cannotDelete blocks deprovision",
-			cluster:   &Cluster{Protection: &ClusterProtection{Provisioning: ProtectionCannotDelete}},
-			operation: "deprovision",
-			wantErr:   true,
+			name:    "cannotDelete blocks delete",
+			cluster: &Cluster{Protection: &ClusterProtection{Provisioning: ProtectionCannotDelete}},
+			opType:  OpDelete,
+			wantErr: true,
 		},
 		{
-			name:      "readOnly blocks deprovision",
-			cluster:   &Cluster{Protection: &ClusterProtection{Provisioning: ProtectionReadOnly}},
-			operation: "deprovision",
-			wantErr:   true,
+			name:    "cannotDelete allows update",
+			cluster: &Cluster{Protection: &ClusterProtection{Provisioning: ProtectionCannotDelete}},
+			opType:  OpUpdate,
+			wantErr: false,
+		},
+		{
+			name:    "cannotDelete allows create",
+			cluster: &Cluster{Protection: &ClusterProtection{Provisioning: ProtectionCannotDelete}},
+			opType:  OpCreate,
+			wantErr: false,
+		},
+		{
+			name:    "readOnly blocks delete",
+			cluster: &Cluster{Protection: &ClusterProtection{Provisioning: ProtectionReadOnly}},
+			opType:  OpDelete,
+			wantErr: true,
+		},
+		{
+			name:    "readOnly blocks update",
+			cluster: &Cluster{Protection: &ClusterProtection{Provisioning: ProtectionReadOnly}},
+			opType:  OpUpdate,
+			wantErr: true,
+		},
+		{
+			name:    "readOnly allows create",
+			cluster: &Cluster{Protection: &ClusterProtection{Provisioning: ProtectionReadOnly}},
+			opType:  OpCreate,
+			wantErr: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.cluster.CheckProvisioningProtection(tt.operation)
+			err := tt.cluster.CheckProvisioningProtection(tt.opType)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CheckProvisioningProtection() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -59,59 +83,64 @@ func TestCluster_CheckProvisioningProtection(t *testing.T) {
 
 func TestCluster_CheckInstallationProtection(t *testing.T) {
 	tests := []struct {
-		name      string
-		cluster   *Cluster
-		operation string
-		isUpdate  bool
-		wantErr   bool
+		name    string
+		cluster *Cluster
+		opType  ClusterOperationType
+		wantErr bool
 	}{
 		{
-			name:      "nil protection allows operation",
-			cluster:   &Cluster{Protection: nil},
-			operation: "uninstall",
-			isUpdate:  false,
-			wantErr:   false,
+			name:    "nil protection allows all operations",
+			cluster: &Cluster{Protection: nil},
+			opType:  OpDelete,
+			wantErr: false,
 		},
 		{
-			name:      "none allows operation",
-			cluster:   &Cluster{Protection: &ClusterProtection{Installation: ProtectionNone}},
-			operation: "uninstall",
-			isUpdate:  false,
-			wantErr:   false,
+			name:    "none allows all operations",
+			cluster: &Cluster{Protection: &ClusterProtection{Installation: ProtectionNone}},
+			opType:  OpDelete,
+			wantErr: false,
 		},
 		{
-			name:      "cannotDelete blocks uninstall",
-			cluster:   &Cluster{Protection: &ClusterProtection{Installation: ProtectionCannotDelete}},
-			operation: "uninstall",
-			isUpdate:  false,
-			wantErr:   true,
+			name:    "cannotDelete blocks delete",
+			cluster: &Cluster{Protection: &ClusterProtection{Installation: ProtectionCannotDelete}},
+			opType:  OpDelete,
+			wantErr: true,
 		},
 		{
-			name:      "cannotDelete allows update",
-			cluster:   &Cluster{Protection: &ClusterProtection{Installation: ProtectionCannotDelete}},
-			operation: "install",
-			isUpdate:  true,
-			wantErr:   false,
+			name:    "cannotDelete allows update",
+			cluster: &Cluster{Protection: &ClusterProtection{Installation: ProtectionCannotDelete}},
+			opType:  OpUpdate,
+			wantErr: false,
 		},
 		{
-			name:      "readOnly blocks uninstall",
-			cluster:   &Cluster{Protection: &ClusterProtection{Installation: ProtectionReadOnly}},
-			operation: "uninstall",
-			isUpdate:  false,
-			wantErr:   true,
+			name:    "cannotDelete allows create",
+			cluster: &Cluster{Protection: &ClusterProtection{Installation: ProtectionCannotDelete}},
+			opType:  OpCreate,
+			wantErr: false,
 		},
 		{
-			name:      "readOnly blocks update",
-			cluster:   &Cluster{Protection: &ClusterProtection{Installation: ProtectionReadOnly}},
-			operation: "install",
-			isUpdate:  true,
-			wantErr:   true,
+			name:    "readOnly blocks delete",
+			cluster: &Cluster{Protection: &ClusterProtection{Installation: ProtectionReadOnly}},
+			opType:  OpDelete,
+			wantErr: true,
+		},
+		{
+			name:    "readOnly blocks update",
+			cluster: &Cluster{Protection: &ClusterProtection{Installation: ProtectionReadOnly}},
+			opType:  OpUpdate,
+			wantErr: true,
+		},
+		{
+			name:    "readOnly allows create",
+			cluster: &Cluster{Protection: &ClusterProtection{Installation: ProtectionReadOnly}},
+			opType:  OpCreate,
+			wantErr: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.cluster.CheckInstallationProtection(tt.operation, tt.isUpdate)
+			err := tt.cluster.CheckInstallationProtection(tt.opType)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("CheckInstallationProtection() error = %v, wantErr %v", err, tt.wantErr)
 			}

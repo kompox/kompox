@@ -232,7 +232,7 @@ func newCmdClusterDeprovision() *cobra.Command {
 			}
 
 			// Early guard: check protection policy
-			if err := cluster.CheckProvisioningProtection("deprovision"); err != nil {
+			if err := cluster.CheckProvisioningProtection(model.OpDelete); err != nil {
 				return err
 			}
 
@@ -327,7 +327,7 @@ func newCmdClusterUninstall() *cobra.Command {
 			cluster := getOut.Cluster
 
 			// Early guard: check protection policy
-			if err := cluster.CheckInstallationProtection("uninstall", false); err != nil {
+			if err := cluster.CheckInstallationProtection(model.OpDelete); err != nil {
 				return err
 			}
 

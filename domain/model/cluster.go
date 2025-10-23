@@ -35,6 +35,18 @@ const (
 	ProtectionReadOnly ClusterProtectionLevel = "readOnly"
 )
 
+// ClusterOperationType represents the type of cluster operation.
+type ClusterOperationType string
+
+const (
+	// OpCreate represents initial creation (provision/install for the first time).
+	OpCreate ClusterOperationType = "create"
+	// OpUpdate represents mutating operations (re-provision/re-install/update).
+	OpUpdate ClusterOperationType = "update"
+	// OpDelete represents destructive operations (deprovision/uninstall).
+	OpDelete ClusterOperationType = "delete"
+)
+
 // ClusterIngress defines cluster-level ingress configuration.
 type ClusterIngress struct {
 	Namespace      string

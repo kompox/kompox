@@ -24,7 +24,7 @@ func (u *UseCase) Deprovision(ctx context.Context, in *DeprovisionInput) (*Depro
 	}
 
 	// Check protection policy (ignore Force flag as per ADR-013)
-	if err := c.CheckProvisioningProtection("deprovision"); err != nil {
+	if err := c.CheckProvisioningProtection(model.OpDelete); err != nil {
 		return nil, err
 	}
 

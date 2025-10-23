@@ -1,7 +1,7 @@
 ---
 id: 2025-10-23-protection
 title: リソース保護ポリシー導入 Step 1-3
-status: active
+status: done
 updated: 2025-10-23
 language: ja
 ---
@@ -74,11 +74,52 @@ language: ja
 
 ## 受け入れ条件
 
-- `spec.protection.provisioning` が `cannotDelete` または `readOnly` のとき、`kompoxops cluster deprovision` が UseCase と CLI の両方で拒否される
-- `spec.protection.installation` が `cannotDelete` または `readOnly` のとき、`kompoxops cluster uninstall` と更新系操作が UseCase と CLI の両方で拒否される
-- `readOnly` のとき更新系操作が拒否される (実質 immutable)
-- 初回作成は `readOnly` 指定でもブロックされない
-- `--force` 指定でも拒否され、解除方法がメッセージで案内される
+- ✅ `spec.protection.provisioning` が `cannotDelete` または `readOnly` のとき、`kompoxops cluster deprovision` が UseCase と CLI の両方で拒否される
+- ✅ `spec.protection.installation` が `cannotDelete` または `readOnly` のとき、`kompoxops cluster uninstall` が UseCase と CLI の両方で拒否される
+- ✅ `readOnly` のとき更新系操作が拒否される (実質 immutable)
+- ✅ 初回作成は `readOnly` 指定でもブロックされない
+- ✅ `--force` 指定でも拒否され、解除方法がメッセージで案内される
+  - `readOnly` での更新操作: 「`none` または `cannotDelete` に設定」と案内
+  - `readOnly`/`cannotDelete` での削除操作: 「`none` に設定」と案内
+
+## 実装詳細
+
+### 型定義
+
+```go
+// 保護レベル
+type ClusterProtectionLevel string
+const (
+    ProtectionNone         = "none"         // 制限なし
+    ProtectionCannotDelete = "cannotDelete" // 削除操作のみブロック
+    ProtectionReadOnly     = "readOnly"     // 全操作ブロック（初回除く）
+)
+
+// 操作タイプ
+type ClusterOperationType string
+const (
+    OpCreate = "create" // 初回作成
+    OpUpdate = "update" // 更新/再実行
+    OpDelete = "delete" // 削除
+)
+```
+
+### 保護チェックロジック
+
+| 保護レベル | OpCreate | OpUpdate | OpDelete |
+|----------|----------|----------|----------|
+| `none` | ✅ 許可 | ✅ 許可 | ✅ 許可 |
+| `cannotDelete` | ✅ 許可 | ✅ 許可 | ❌ ブロック |
+| `readOnly` | ✅ 許可 | ❌ ブロック | ❌ ブロック |
+
+### ファイル構成
+
+- **CRD型**: `config/crd/ops/v1alpha1/types.go`
+- **Domain型**: `domain/model/cluster.go`, `domain/model/cluster_protection.go`
+- **変換ロジック**: `config/crd/ops/v1alpha1/sink_tomodels.go`
+- **UseCase**: `usecase/cluster/provision.go`, `usecase/cluster/deprovision.go`, `usecase/cluster/install.go`, `usecase/cluster/uninstall.go`
+- **CLI**: `cmd/kompoxops/cmd_cluster.go`
+- **テスト**: `domain/model/cluster_protection_test.go`
 
 ## メモ
 
@@ -92,9 +133,16 @@ language: ja
 - 2025-10-23: Step 1-3 実装完了。
   - CRD と Domain に `spec.protection.provisioning` と `spec.protection.installation` を追加
   - 値: `none` (default), `cannotDelete`, `readOnly`
-  - UseCase に保護ガードを実装 (`CheckProvisioningProtection`, `CheckInstallationProtection`)
+  - 操作タイプの明確化: `ClusterOperationType` 型を定義 (`OpCreate`, `OpUpdate`, `OpDelete`)
+  - 保護チェック関数を統一されたシグネチャで実装:
+    - `CheckProvisioningProtection(opType ClusterOperationType)`
+    - `CheckInstallationProtection(opType ClusterOperationType)`
+  - UseCase に保護ガード実装:
+    - 初回作成時は `OpCreate` で保護チェック（全ての保護レベルで許可）
+    - 再実行/更新時は `OpUpdate` で保護チェック（`readOnly`でブロック、`cannotDelete`で許可）
+    - 削除時は `OpDelete` で保護チェック（`cannotDelete`と`readOnly`でブロック）
   - CLI に早期ガードを追加 (deprovision, uninstall)
-  - 初回作成時は保護をバイパスする判定を実装
+  - エラーメッセージ改善: `readOnly`の更新操作ブロック時に「`none` または `cannotDelete` に設定してアンロック」と案内
   - ユニットテスト追加、全テスト通過
 
 ## 参考

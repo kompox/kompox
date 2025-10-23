@@ -24,7 +24,7 @@ func (u *UseCase) Uninstall(ctx context.Context, in *UninstallInput) (*Uninstall
 	}
 
 	// Check protection policy (ignore Force flag as per ADR-013)
-	if err := c.CheckInstallationProtection("uninstall", false); err != nil {
+	if err := c.CheckInstallationProtection(model.OpDelete); err != nil {
 		return nil, err
 	}
 

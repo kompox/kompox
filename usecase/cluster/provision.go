@@ -23,15 +23,17 @@ func (u *UseCase) Provision(ctx context.Context, in *ProvisionInput) (*Provision
 		return nil, err
 	}
 
-	// Check protection policy only if this is not a first-time provision
+	// Check protection policy
 	// First-time provision is detected by checking if provisioning is not yet done
 	status, statusErr := u.ClusterPort.Status(ctx, c)
 	isFirstTime := statusErr != nil || status == nil || !status.Provisioned
-	if !isFirstTime {
-		// Protection check for re-provision (treat provision as an update if already provisioned)
-		if err := c.CheckProvisioningProtection("provision"); err != nil {
-			return nil, err
-		}
+
+	opType := model.OpUpdate
+	if isFirstTime {
+		opType = model.OpCreate
+	}
+	if err := c.CheckProvisioningProtection(opType); err != nil {
+		return nil, err
 	}
 
 	var opts []model.ClusterProvisionOption
