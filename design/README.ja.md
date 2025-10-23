@@ -1,7 +1,7 @@
 ---
 id: README
 title: Kompox 設計ドキュメント目次
-updated: 2025-10-19
+updated: 2025-10-23
 language: ja
 ---
 
