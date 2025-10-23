@@ -153,6 +153,18 @@ const (
     - 保護チェックの全パターン (17 ケース) をカバー
     - 無効な保護値のバリデーションテスト (2 ケース)
     - 全テスト通過
+  - E2E テストファイルへの保護設定追加:
+    - 全7つのE2EテストディレクトリのCluster定義に `protection.provisioning: readOnly` と `protection.installation: readOnly` を追加
+    - 対象ファイル:
+      - `tests/aks-e2e-basic/kompoxapp.yml.in`
+      - `tests/aks-e2e-volume/kompoxapp.yml.in`
+      - `tests/aks-e2e-gitea/kompoxapp.yml.in`
+      - `tests/aks-e2e-gitlab/kompoxapp.yml.in`
+      - `tests/aks-e2e-easyauth/kompoxapp.yml.in`
+      - `tests/aks-e2e-redmine/kompoxapp.yml.in`
+      - `tests/aks-e2e-kom/kom.in/cluster.yml`
+    - E2Eテストで作成されるクラスタが初回作成後に保護されることを確認可能に
+
 
 
 ## 参考
