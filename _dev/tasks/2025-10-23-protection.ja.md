@@ -142,8 +142,18 @@ const (
     - 再実行/更新時は `OpUpdate` で保護チェック（`readOnly`でブロック、`cannotDelete`で許可）
     - 削除時は `OpDelete` で保護チェック（`cannotDelete`と`readOnly`でブロック）
   - CLI に早期ガードを追加 (deprovision, uninstall)
-  - エラーメッセージ改善: `readOnly`の更新操作ブロック時に「`none` または `cannotDelete` に設定してアンロック」と案内
-  - ユニットテスト追加、全テスト通過
+  - エラーメッセージ改善:
+    - "unlock" → "unblock" に統一
+    - `readOnly`の更新操作ブロック時に「`none` または `cannotDelete` に設定してアンブロック」と案内
+    - 削除操作ブロック時に「`none` に設定してアンブロック」と案内
+  - CRD-to-Domain 変換時に無効な保護値をバリデーション:
+    - `isValidProtectionLevel` ヘルパー関数を実装
+    - `provisioning` と `installation` の値を検証し、不正な値でエラーを返す
+  - ユニットテスト追加:
+    - 保護チェックの全パターン (17 ケース) をカバー
+    - 無効な保護値のバリデーションテスト (2 ケース)
+    - 全テスト通過
+
 
 ## 参考
 

@@ -9,6 +9,16 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
+// isValidProtectionLevel checks if a protection level value is valid.
+func isValidProtectionLevel(level model.ClusterProtectionLevel) bool {
+	switch level {
+	case model.ProtectionNone, model.ProtectionCannotDelete, model.ProtectionReadOnly:
+		return true
+	default:
+		return false
+	}
+}
+
 // Repositories defines the repository interfaces needed for converting CRD to domain models.
 type Repositories struct {
 	Workspace WorkspaceRepository
@@ -159,10 +169,16 @@ func (s *Sink) ToModels(ctx context.Context, repos Repositories, kompoxAppFilePa
 			provisioning := model.ProtectionNone
 			if cls.Spec.Protection.Provisioning != "" {
 				provisioning = model.ClusterProtectionLevel(cls.Spec.Protection.Provisioning)
+				if !isValidProtectionLevel(provisioning) {
+					return fmt.Errorf("invalid protection.provisioning value %q for cluster %q: must be one of: none, cannotDelete, readOnly", cls.Spec.Protection.Provisioning, cls.ObjectMeta.Name)
+				}
 			}
 			installation := model.ProtectionNone
 			if cls.Spec.Protection.Installation != "" {
 				installation = model.ClusterProtectionLevel(cls.Spec.Protection.Installation)
+				if !isValidProtectionLevel(installation) {
+					return fmt.Errorf("invalid protection.installation value %q for cluster %q: must be one of: none, cannotDelete, readOnly", cls.Spec.Protection.Installation, cls.ObjectMeta.Name)
+				}
 			}
 			cluster.Protection = &model.ClusterProtection{
 				Provisioning: provisioning,

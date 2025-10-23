@@ -299,6 +299,72 @@ spec:
 			},
 		},
 		{
+			name: "cluster with invalid protection.provisioning value",
+			yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: invalid-ws
+  annotations:
+    ops.kompox.dev/id: /ws/invalid-ws
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: invalid-prv
+  annotations:
+    ops.kompox.dev/id: /ws/invalid-ws/prv/invalid-prv
+spec:
+  driver: aks
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: invalid-cls
+  annotations:
+    ops.kompox.dev/id: /ws/invalid-ws/prv/invalid-prv/cls/invalid-cls
+spec:
+  protection:
+    provisioning: invalidValue
+`,
+			wantErr: true,
+			validate: func(t *testing.T, repos Repositories) {
+				// This test verifies that ToModels catches the validation error
+			},
+		},
+		{
+			name: "cluster with invalid protection.installation value",
+			yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: invalid-ws2
+  annotations:
+    ops.kompox.dev/id: /ws/invalid-ws2
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: invalid-prv2
+  annotations:
+    ops.kompox.dev/id: /ws/invalid-ws2/prv/invalid-prv2
+spec:
+  driver: aks
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: invalid-cls2
+  annotations:
+    ops.kompox.dev/id: /ws/invalid-ws2/prv/invalid-prv2/cls/invalid-cls2
+spec:
+  protection:
+    installation: xxx
+`,
+			wantErr: true,
+			validate: func(t *testing.T, repos Repositories) {
+				// This test verifies that ToModels catches the validation error
+			},
+		},
+		{
 			name: "missing parent workspace - should fail at NewSink validation",
 			yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
 kind: Provider
