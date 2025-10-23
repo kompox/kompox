@@ -23,6 +23,9 @@ const (
 
 	// Key Vault Secrets User - Read secret contents
 	roleDefIDKeyVaultSecretsUser = "4633458b-17de-408a-b874-0445c86b69e6"
+
+	// AcrPull - Pull images from Azure Container Registry
+	roleDefIDAcrPull = "7f951dda-4ed3-4680-a7ca-43fe172d538d"
 )
 
 // azureRoleDefinitionID builds the full role definition ID for the subscription scope.

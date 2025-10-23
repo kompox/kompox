@@ -208,7 +208,20 @@ func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster, _ .
 		log.Warn(ctx, "AKS principal ID not available, skipping DNS zone role assignments")
 	}
 
-	// Step 5: Install Traefik via Helm (idempotent)
+	// Step 5: Assign AcrPull role for configured ACR resources (best-effort)
+	// This allows AKS kubelet managed identity to pull images from Azure Container Registry.
+	if aksPrincipalID != "" {
+		registries, err := d.collectAzureContainerRegistryIDs(cluster)
+		if err != nil {
+			log.Warn(ctx, "failed to collect ACR resource IDs for role assignment (best-effort)", "error", err.Error())
+		} else if len(registries) > 0 {
+			d.ensureAzureContainerRegistryRoles(ctx, aksPrincipalID, registries)
+		}
+	} else {
+		log.Warn(ctx, "AKS principal ID not available, skipping ACR role assignments")
+	}
+
+	// Step 6: Install Traefik via Helm (idempotent)
 	// Mount SecretProviderClass volumes created in ensureSecretProviderClassFromKeyVault.
 	// For multiple Key Vaults, mount one CSI volume per SPC with distinct mount paths.
 	mutator := func(ctx context.Context, _ *model.Cluster, _ string, values kube.HelmValues) {
