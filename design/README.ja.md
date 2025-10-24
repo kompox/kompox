@@ -1,7 +1,7 @@
 ---
 id: README
 title: Kompox 設計ドキュメント目次
-updated: 2025-10-23
+updated: 2025-10-24
 language: ja
 ---
 
@@ -59,8 +59,9 @@ language: ja
 | [K4x-ADR-009](./adr/K4x-ADR-009.md) | Kompox Ops Manifest Schema | en |  | proposed | - |
 | [K4x-ADR-010](./adr/K4x-ADR-010.md) | Rename CRD to KOM | en |  | accepted | - |
 | [K4x-ADR-011](./adr/K4x-ADR-011.md) | Introduce Defaults pseudo-resource for KOM ingestion | en |  | accepted | - |
-| [K4x-ADR-012](./adr/K4x-ADR-012.md) | Introduce App.RefBase for external references |  |  | accepted | - |
-| [K4x-ADR-013](./adr/K4x-ADR-013.md) | Resource protection policy for Cluster operations |  |  | accepted | - |
+| [K4x-ADR-012](./adr/K4x-ADR-012.md) | Introduce App.RefBase for external references | en |  | accepted | - |
+| [K4x-ADR-013](./adr/K4x-ADR-013.md) | Resource protection policy for Cluster operations | en |  | accepted | - |
+| [K4x-ADR-014](./adr/K4x-ADR-014.md) | Introduce Volume Types | en |  | proposed | - |
 
 **ステータスの意味:**
 
