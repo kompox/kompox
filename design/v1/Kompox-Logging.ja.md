@@ -3,7 +3,7 @@ id: Kompox-Logging
 title: Kompox ロギング仕様
 version: v1
 status: draft
-updated: 2025-10-24
+updated: 2025-10-26
 language: ja
 ---
 
@@ -14,7 +14,7 @@ language: ja
 Kompox プロジェクトにおけるログ出力の標準仕様を定義する。
 
 - Go 標準の `log/slog` パッケージによる構造化ログを使用
-- 2 種類のログパターン (Span / Step) を使い分け
+- 3 種類のログパターン (Event / Span / Step) を使い分け
 - human / json 両方のフォーマットをサポート
 - 標準実装パターン
   - Named return value `(err error)` と `defer func() { cleanup(err) }()` の活用
@@ -72,117 +72,160 @@ YYYY/MM/DD HH:MM:SS LEVEL MSG key1=val1 key2=val2 ...
 
 ## ログパターン
 
-### Span パターン
+構造化ログの `msg` 属性に統一されたメッセージシンボル文字列を設定する。このシンボルにより、 Event (アプリイベント)、Span (長時間操作)、Step (短時間操作) を区別し、grep などでの検索を容易にする。
+
+### msg 属性の形式
+
+`msg` 属性の値は以下のいずれかの形式をとる:
+
+| 形式 | 意味 | 用途 |
+|------|------|------|
+| `<msgSym>` | Event (任意の記録) | アプリケーションイベントの記録 |
+| `<msgSym>/S` | Span 開始 | 長時間操作の開始 |
+| `<msgSym>/EOK` | Span 終了 (成功) | 長時間操作の成功終了 |
+| `<msgSym>/EFAIL` | Span 終了 (失敗) | 長時間操作の失敗終了 |
+| `<msgSym>/s` | Step 開始 | 短時間操作の開始 |
+| `<msgSym>/eok` | Step 終了 (成功) | 短時間操作の成功終了 (省略推奨) |
+| `<msgSym>/efail` | Step 終了 (失敗) | 短時間操作の失敗終了 |
+
+`<msgSym>` 構文規則
+
+- **使用禁止文字**: 半角スペース (` `) とスラッシュ (`/`)
+- **階層の区切り**: コロン (`:`) を使用
+- **任意の文章**: `msg` には定型シンボルのみを設定し、任意の文章は `desc` 属性に記録する
+
+各サフィックスの詳細とログレベル、必須属性、省略可否:
+
+| サフィックス | 意味 | レベル | 必須属性 | 備考 |
+|------------|------|--------|---------|---------|
+| (なし) | Event 記録 | 任意 | - ||
+| `/S` | Span 開始 | `DEBUG` / `INFO` | `runId` 等 ||
+| `/EOK` | Span 成功終了 | `DEBUG` / `INFO` | `err=""`, `elapsed` ||
+| `/EFAIL` | Span 失敗終了 | `DEBUG` / `INFO` | `err`, `elapsed` ||
+| `/s` | Step 開始 | `DEBUG` / `INFO` | - ||
+| `/eok` | Step 成功終了 | `DEBUG` / `INFO` | `err` | 省略推奨 |
+| `/efail` | Step 失敗終了 | `DEBUG` / `INFO` | `err` ||
+
+### ログレベルの使い分け
+
+#### Event ログパターン
+
+- **使用可能なレベル**: `DEBUG` / `INFO` / `WARN` / `ERROR`
+- Event はアプリケーションタスク視点の重要度を判断する
+- 例:
+  - `INFO`: 正常な進行状況
+  - `WARN`: ユーザーに注意を促すべき状況 (タスクは継続可能)
+  - `ERROR`: タスクが失敗した
+
+#### Span および Step ログパターン
+
+- **使用可能なレベル**: `DEBUG` または `INFO` のみ
+- Span および Step は操作の機械的なトレースであり、アプリケーションタスク視点の判断を含まない
+- `/EFAIL` や `/efail` でも `DEBUG` または `INFO` を使用する
+  - 冪等性の観点から API エラーの握りつぶしなどは頻繁に発生する。リソース重複作成や非存在削除などの「失敗」をすべて `WARN` や `ERROR` でログ出力するとノイズになる
+  - アプリケーションタスク視点での「重要度」の提示は Event パターンで行う
+
+### Event ログパターン
+
+サフィックスなしの `<msgSym>` は Event ログパターンとしてアプリケーションイベントの記録に使用。
+Span や Step の中間記録、状態遷移、サマリー情報、判断結果などに適している。
+文字種制限のない任意の文章を記録する場合は `desc` 属性を使用する。
+
+#### 出力例
+
+```
+2025/10/24 09:51:11 INFO UC:app.destroy:DeletingSelector ns=basic selector=app=basic
+2025/10/24 09:51:12 INFO UC:app.destroy:DeletingNamespace ns=basic
+2025/10/24 09:51:14 INFO UC:app.destroy:Completed ns=basic deleted=10 nsDeleted=1
+```
+
+### Span ログパターン
 
 長時間実行される操作や、開始・終了を明示的に記録したい操作に使用。
 
 #### 属性
 
-msg 属性には定型のメッセージシンボル文字列を設定する
-
-- 開始: `[<prefix>:]<operation>:START`
-- 成功終了: `[<prefix>:]<operation>:END:OK`
-- 失敗終了: `[<prefix>:]<operation>:END:FAILED`
-
-その他の属性
-
-- 開始:
-  - `level`: `INFO`
-  - `desc` (任意) 操作の詳細説明
-  - `runId` `cmd` `resourceId` などのトレース属性
-- 終了:
-  - `level`:
-    - 成功 `INFO`
-    - 失敗 `WARN` または `ERROR`
-  - `err` メッセージエラー文字列
-  - `elapsed` 経過秒数
-  - `desc` (任意) 結果の詳細説明
-  - トレース属性は開始時と一致させる
-
-err 属性
-
-- 成功時: `err=""` (空文字列)
-- 失敗時: エラーメッセージの最初の32文字 (32文字超の場合は `...` を付与)
-
-elapsed 属性
-
-- 開始から終了までの経過時間(秒)を float で設定する
-- 例: `8.54`, `120.3`
+- **開始** (`/S`):
+  - `level`: `DEBUG` または `INFO`
+  - `runId`, `cmd`, `resourceId` などのトレース属性
+- **成功終了** (`/EOK`):
+  - `level`: `DEBUG` または `INFO`
+  - `err`: `""` (空文字列)
+  - `elapsed`: 開始からの経過秒数 (float64、例: `8.54`)
+  - トレース属性は開始時と一致
+- **失敗終了** (`/EFAIL`):
+  - `level`: `DEBUG` または `INFO`
+  - `err`: エラーメッセージの最初の32文字 (超過時は `...` を付与)
+  - `elapsed`: 開始からの経過秒数
+  - トレース属性は開始時と一致
 
 #### 出力例
 
-human フォーマット:
+単純な出力例:
 ```
-2025/10/24 09:51:05 INFO CMD:cluster.install:START runId=0t4mrd528u3s resourceId=/ws/w1/prv/p1/cls/c1
-2025/10/24 09:51:40 INFO CMD:cluster.install:END:OK runId=0t4mrd528u3s resourceId=/ws/w1/prv/p1/cls/c1 err="" elapsed=34.67
-```
-
-json フォーマット:
-```json
-{"time":"2025-10-24T09:51:05Z","level":"INFO","msg":"CMD:cluster.install:START","runId":"0t4mrd528u3s","resourceId":"/ws/w1/prv/p1/cls/c1"}
-{"time":"2025-10-24T09:51:40Z","level":"INFO","msg":"CMD:cluster.install:END:OK","runId":"0t4mrd528u3s","resourceId":"/ws/w1/prv/p1/cls/c1","err":"","elapsed":34.67}
+2025/10/24 09:51:05 INFO CMD:cluster.install/S runId=0t4mrd528u3s resourceId=/ws/w1/prv/p1/cls/c1
+2025/10/24 09:51:40 INFO CMD:cluster.install/EOK runId=0t4mrd528u3s resourceId=/ws/w1/prv/p1/cls/c1 err="" elapsed=34.67
 ```
 
 ネストした出力例 (トレース属性の継承):
 ```
-2025/10/24 09:51:05 INFO CMD:app.deploy:START runId=0t4mrd528u3s cmd=app.deploy resourceId=/ws/w1/prv/p1/cls/c1/app/a1
-2025/10/24 09:51:06 INFO AKS:ClusterProvision:START runId=0t4mrd528u3s cmd=app.deploy resourceId=/ws/w1/prv/p1/cls/c1/app/a1
-2025/10/24 09:51:18 WARN AKS:ClusterProvision:END:FAILED runId=0t4mrd528u3s cmd=app.deploy resourceId=/ws/w1/prv/p1/cls/c1/app/a1 err="resource group not found: rg-foo" elapsed=12.34
-2025/10/24 09:51:19 WARN CMD:app.deploy:END:FAILED runId=0t4mrd528u3s cmd=app.deploy resourceId=/ws/w1/prv/p1/cls/c1/app/a1 err="AKS operation failed: resourc..." elapsed=14.2
+2025/10/24 09:51:05 INFO CMD:app.deploy/S runId=0t4mrd528u3s cmd=app.deploy resourceId=/ws/w1/prv/p1/cls/c1/app/a1
+2025/10/24 09:51:06 INFO AKS:ClusterProvision/S runId=0t4mrd528u3s cmd=app.deploy resourceId=/ws/w1/prv/p1/cls/c1/app/a1
+2025/10/24 09:51:18 INFO AKS:ClusterProvision/EFAIL runId=0t4mrd528u3s cmd=app.deploy resourceId=/ws/w1/prv/p1/cls/c1/app/a1 err="resource group not found: rg-foo" elapsed=12.34
+2025/10/24 09:51:19 INFO CMD:app.deploy/EFAIL runId=0t4mrd528u3s cmd=app.deploy resourceId=/ws/w1/prv/p1/cls/c1/app/a1 err="AKS operation failed: resourc..." elapsed=14.2
+2025/10/24 09:51:19 ERROR CMD:app.deploy:Failed runId=0t4mrd528u3s cmd=app.deploy resourceId=/ws/w1/prv/p1/cls/c1/app/a1 err="FAILED: AKS operation failed: resource group not found: rg-foo"
 ```
 
-### Step パターン
+注: すべての Span (`/S`, `/EOK`, `/EFAIL`) は `INFO` レベルで機械的に記録される。Span の `/EFAIL` では `err` を32文字で省略する。アプリケーションとしての失敗判断は最後の Event ログ (`CMD:app.deploy:Failed`) で `ERROR` レベルで出力され、Span から返されたエラーメッセージを省略なしで `err` 属性に記録する (プレフィックス `FAILED:` を付与)。
+
+### Step ログパターン
 
 短時間の操作や、成功が通常パスで失敗のみ注目すべき操作に使用。
 
+開始・成功終了・失敗終了の 3 種類があり、単独でも組み合わせても使用可能。
+
 #### 属性
 
-msg 属性には定型のメッセージシンボル文字列を設定する
+- **開始** (`/s`):
+  - 出力タイミング: **操作実行前**
+  - `level`: `DEBUG` または `INFO`
+  - `runId`, `cmd`, `resourceId` などのトレース属性
+- **成功終了** (`/eok`):
+  - 出力タイミング: **操作実行後**
+  - `level`: `DEBUG` または `INFO`
+  - `err`: `""` (空文字列)
+  - 先行の開始ログ `/s` が存在する場合はトレース属性を一致させる
+- **失敗終了** (`/efail`):
+  - 出力タイミング: **操作実行後**
+  - `level`: `DEBUG` または `INFO`
+  - `err`: エラーメッセージの最初の32文字 (超過時は `...` を付与)
+  - 先行の開始ログ `/s` が存在する場合はトレース属性を一致させる
 
-- 開始: `[<prefix>:]<operation>`
-- 成功終了: ログ出力なし
-- 失敗終了: `[<prefix>:]<operation>:FAILED`
+#### ログ出力パターン
 
-その他の属性
-
-- 開始:
-  - `level`: `INFO`
-  - `desc` (任意) 操作の詳細説明
-  - `runId` `cmd` `resourceId` などのトレース属性
-- 失敗終了:
-  - `level`: `WARN` または `ERROR`
-  - `err` メッセージエラー文字列
-  - `desc` (任意) 結果の詳細説明
-  - トレース属性は開始時と一致させる
-
-err 属性
-
-- 失敗時: エラーメッセージの最初の32文字 (32文字超の場合は `...` を付与)
+| 操作結果 | ログ出力 | 説明 |
+|-|-|-|
+| 成功 | `/s` | 開始のみ出力 (`/efail` が続かなければ成功) |
+| 成功 | `/s` →  `/eok` | 開始と成功終了を出力 (非推奨) |
+| 成功 | `/eok` | 成功終了のみ出力 |
+| 失敗 | `/s` → `/efail` | 開始と失敗終了を出力 |
+| 失敗 | `/efail` | 失敗終了のみ出力 |
 
 #### 出力例
 
-human フォーマット:
 ```
-2025/10/24 09:51:11 INFO APPLY kind=Namespace name=k4x-4p4y0a-basic-e126hy
-2025/10/24 09:51:12 INFO APPLY kind=ServiceAccount name=traefik namespace=ingress-k4x-4p4y0a
-2025/10/24 09:51:13 INFO APPLY kind=Secret name=db-creds namespace=k4x-app
-2025/10/24 09:51:13 WARN APPLY:FAILED kind=Secret name=db-creds namespace=k4x-app err="already exists"
-2025/10/24 09:51:14 INFO ROLE keyVault=kv-prod principalId=abc123
-
+2025/10/24 09:51:11 INFO KubeClient:Apply/s ns=k4x-app kind=Namespace name=k4x-4p4y0a-basic-e126hy
+2025/10/24 09:51:12 INFO KubeClient:Apply/s ns=ingress-k4x-4p4y0a kind=ServiceAccount name=traefik
+2025/10/24 09:51:13 INFO KubeClient:Apply/s ns=k4x-app kind=Secret name=db-creds
+2025/10/24 09:51:13 INFO KubeClient:Apply/efail ns=k4x-app kind=Secret name=db-creds err="already exists"
+2025/10/24 09:51:14 INFO AKS:RoleKV/s principalId=abc123 scope=/subscriptions/.../secrets/cert1
 ```
 
-json フォーマット:
-```json
-{"time":"2025-10-24T09:51:11Z","level":"INFO","msg":"APPLY","kind":"Namespace","name":"k4x-4p4y0a-basic-e126hy"}
-{"time":"2025-10-24T09:51:12Z","level":"INFO","msg":"APPLY","kind":"ServiceAccount","name":"traefik","namespace":"ingress-k4x-4p4y0a"}
-{"time":"2025-10-24T09:51:13Z","level":"INFO","msg":"APPLY","kind":"Secret","name":"db-creds","namespace":"k4x-app"}
-{"time":"2025-10-24T09:51:13Z","level":"WARN","msg":"APPLY:FAILED","kind":"Secret","name":"db-creds","namespace":"k4x-app","err":"already exists"}
-{"time":"2025-10-24T09:51:14Z","level":"INFO","msg":"ROLE","keyVault":"kv-prod","principalId":"abc123"}
-```
+注: `KubeClient:Apply/efail` は `INFO` レベル。リソースの重複作成は冪等性の観点で正常なパス。
 
 ## 実装例
 
-### Span パターン: withCmdRunLogger
+### Span ログパターン: withCmdRunLogger
 
 [cmd/kompoxops/logging.go] の `withCmdRunLogger` 関数は Span パターンを実装している。
 
@@ -269,12 +312,12 @@ func withCmdRunLogger(ctx context.Context, operation, resourceID string) (contex
 
 ## 参考
 
-- [2025-10-24-log.ja.md] - 実装タスク
+- [2025-10-24-logging.ja.md] - 実装タスク
 - [cmd/kompoxops/logging.go] - コマンドレイヤー実装
 - [adapters/drivers/provider/aks/logging.go] - ドライバーレイヤー実装
 - [internal/logging] - ロギングパッケージ
 
-[2025-10-24-log.ja.md]: ../../_dev/tasks/2025-10-24-log.ja.md
+[2025-10-24-logging.ja.md]: ../../_dev/tasks/2025-10-24-logging.ja.md
 [cmd/kompoxops/logging.go]: ../../cmd/kompoxops/logging.go
 [adapters/drivers/provider/aks/logging.go]: ../../adapters/drivers/provider/aks/logging.go
 [internal/logging]: ../../internal/logging

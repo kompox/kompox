@@ -1,7 +1,7 @@
 ---
 id: README
 title: Kompox Design Document Index
-updated: 2025-10-24
+updated: 2025-10-26
 language: en
 ---
 
@@ -22,6 +22,7 @@ This directory holds the canonical design and planning documents for Kompox. v1 
 | [Kompox-Resources](./v1/Kompox-Resources.ja.md) | Kompox PaaS Resources | ja | v1 | archived | 2025-10-12 |
 | [Kompox-ProviderDriver-AKS](./v1/Kompox-ProviderDriver-AKS.ja.md) | Kompox Provider Driver AKS ガイド | ja | v1 | out-of-sync | 2025-10-12 |
 | [Kompox-ProviderDriver](./v1/Kompox-ProviderDriver.ja.md) | Kompox Provider Driver ガイド | ja | v1 | synced | 2025-10-12 |
+| [Kompox-Logging](./v1/Kompox-Logging.ja.md) | Kompox ロギング仕様 | ja | v1 | draft | 2025-10-26 |
 | [Kompox-Spec-Draft](./v1/Kompox-Spec-Draft.ja.md) | Kompox 仕様ドラフト | ja | v1 | archived | 2025-10-12 |
 
 **Status definitions:**

@@ -1,7 +1,7 @@
 ---
 id: README
 title: 開発者向けタスク索引
-updated: 2025-10-24
+updated: 2025-10-26
 language: ja
 ---
 
@@ -16,7 +16,7 @@ language: ja
 
 | ID | タイトル | ステータス | カテゴリ | 担当 | 更新日 | 言語 |
 |---|---|---|---|---|---|---|
-| [2025-10-24-log](./2025-10-24-log.ja.md) | kompoxops ログ標準化（runId ヘッダ/フッタ + cmd/resourceId + ctx 付帯） | active |  |  | 2025-10-24 | ja |
+| [2025-10-24-log](./2025-10-24-logging.ja.md) | kompoxops ログ標準化（Event/Span/Step パターン適用） | active |  |  | 2025-10-26 | ja |
 | [2025-10-23-aks-cr](./2025-10-23-aks-cr.ja.md) | AKS Driver - ACR 権限付与対応 | done |  | yaegashi | 2025-10-23 | ja |
 | [2025-10-23-protection](./2025-10-23-protection.ja.md) | リソース保護ポリシー導入 Step 1-3 | done |  |  | 2025-10-23 | ja |
 | [2025-10-18-refbase](./2025-10-18-refbase.ja.md) | App.RefBase の導入と参照解決の一元化 | done |  | yaegashi | 2025-10-19 | ja |
