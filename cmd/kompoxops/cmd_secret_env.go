@@ -38,7 +38,7 @@ func newCmdSecretEnvSet() *cobra.Command {
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			secUC, err := buildSecretUseCase(cmd)
 			if err != nil {
 				return err
@@ -54,12 +54,17 @@ func newCmdSecretEnvSet() *cobra.Command {
 			if service == "" {
 				return fmt.Errorf("--service is required")
 			}
+			if component == "" { // default
+				component = "app"
+			}
+
+			resourceID := appID + "/component:" + component + "/service:" + service
+			ctx, cleanup := withCmdRunLogger(ctx, "secret.env.set", resourceID)
+			defer func() { cleanup(err) }()
+
 			data, rerr := os.ReadFile(filePath)
 			if rerr != nil {
 				return fmt.Errorf("read file: %w", rerr)
-			}
-			if component == "" { // default
-				component = "app"
 			}
 			in := &secret.EnvInput{AppID: appID, Operation: secret.EnvOpSet, ComponentName: component, ContainerName: service, FilePath: filePath, FileContent: data, DryRun: dryRun}
 			out, err := secUC.Env(ctx, in)
@@ -90,7 +95,7 @@ func newCmdSecretEnvDelete() *cobra.Command {
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			secUC, err := buildSecretUseCase(cmd)
 			if err != nil {
 				return err
@@ -109,6 +114,11 @@ func newCmdSecretEnvDelete() *cobra.Command {
 			if component == "" {
 				component = "app"
 			}
+
+			resourceID := appID + "/component:" + component + "/service:" + service
+			ctx, cleanup := withCmdRunLogger(ctx, "secret.env.delete", resourceID)
+			defer func() { cleanup(err) }()
+
 			in := &secret.EnvInput{AppID: appID, Operation: secret.EnvOpDelete, ComponentName: component, ContainerName: service, DryRun: dryRun}
 			out, err := secUC.Env(ctx, in)
 			if err != nil {

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kompox/kompox/internal/logging"
 	vuc "github.com/kompox/kompox/usecase/volume"
 	"github.com/spf13/cobra"
 )
@@ -57,14 +56,13 @@ func newCmdSnapshotList() *cobra.Command {
 }
 
 func newCmdSnapshotCreate() *cobra.Command {
-	cmd := &cobra.Command{Use: "create", Short: "Create snapshot", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+	cmd := &cobra.Command{Use: "create", Short: "Create snapshot", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) (err error) {
 		u, err := buildVolumeUseCase(cmd)
 		if err != nil {
 			return err
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Minute)
 		defer cancel()
-		logger := logging.FromContext(ctx)
 
 		volName, _ := cmd.Flags().GetString("vol-name")
 		if volName == "" {
@@ -78,12 +76,10 @@ func newCmdSnapshotCreate() *cobra.Command {
 			return err
 		}
 
-		// Get app for logging
-		app, err := u.Repos.App.Get(ctx, appID)
-		if err != nil {
-			return fmt.Errorf("failed to get app: %w", err)
-		}
-		logger.Info(ctx, "create snapshot", "app", app.Name, "volume", volName, "source", source, "name", snapshotName)
+		resourceID := appID + "/vol:" + volName + "/snapshot:" + snapshotName
+		ctx, cleanup := withCmdRunLogger(ctx, "snapshot.create", resourceID)
+		defer func() { cleanup(err) }()
+
 		out, err := u.SnapshotCreate(ctx, &vuc.SnapshotCreateInput{AppID: appID, VolumeName: volName, SnapshotName: snapshotName, Source: source})
 		if err != nil {
 			return err
@@ -97,14 +93,13 @@ func newCmdSnapshotCreate() *cobra.Command {
 }
 
 func newCmdSnapshotDelete() *cobra.Command {
-	cmd := &cobra.Command{Use: "delete", Short: "Delete snapshot", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+	cmd := &cobra.Command{Use: "delete", Short: "Delete snapshot", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) (err error) {
 		u, err := buildVolumeUseCase(cmd)
 		if err != nil {
 			return err
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Minute)
 		defer cancel()
-		logger := logging.FromContext(ctx)
 
 		volName, _ := cmd.Flags().GetString("vol-name")
 		if volName == "" {
@@ -120,12 +115,10 @@ func newCmdSnapshotDelete() *cobra.Command {
 			return err
 		}
 
-		// Get app for logging
-		app, err := u.Repos.App.Get(ctx, appID)
-		if err != nil {
-			return fmt.Errorf("failed to get app: %w", err)
-		}
-		logger.Info(ctx, "delete snapshot", "app", app.Name, "volume", volName, "snapshot", snapName)
+		resourceID := appID + "/vol:" + volName + "/snapshot:" + snapName
+		ctx, cleanup := withCmdRunLogger(ctx, "snapshot.delete", resourceID)
+		defer func() { cleanup(err) }()
+
 		if _, err := u.SnapshotDelete(ctx, &vuc.SnapshotDeleteInput{AppID: appID, VolumeName: volName, SnapshotName: snapName}); err != nil {
 			return err
 		}

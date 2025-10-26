@@ -37,7 +37,7 @@ func newCmdSecretPullSet() *cobra.Command {
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			secUC, err := buildSecretUseCase(cmd)
 			if err != nil {
 				return err
@@ -50,12 +50,17 @@ func newCmdSecretPullSet() *cobra.Command {
 				return err
 			}
 
+			if component == "" {
+				component = "app"
+			}
+
+			resourceID := appID + "/component:" + component
+			ctx, cleanup := withCmdRunLogger(ctx, "secret.pull.set", resourceID)
+			defer func() { cleanup(err) }()
+
 			data, rerr := os.ReadFile(filePath)
 			if rerr != nil {
 				return fmt.Errorf("read file: %w", rerr)
-			}
-			if component == "" {
-				component = "app"
 			}
 			in := &secret.PullInput{AppID: appID, Operation: secret.PullOpSet, ComponentName: component, FilePath: filePath, FileContent: data, DryRun: dryRun}
 			out, err := secUC.Pull(ctx, in)
@@ -84,7 +89,7 @@ func newCmdSecretPullDelete() *cobra.Command {
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			secUC, err := buildSecretUseCase(cmd)
 			if err != nil {
 				return err
@@ -99,6 +104,11 @@ func newCmdSecretPullDelete() *cobra.Command {
 			if component == "" {
 				component = "app"
 			}
+
+			resourceID := appID + "/component:" + component
+			ctx, cleanup := withCmdRunLogger(ctx, "secret.pull.delete", resourceID)
+			defer func() { cleanup(err) }()
+
 			in := &secret.PullInput{AppID: appID, Operation: secret.PullOpDelete, ComponentName: component, DryRun: dryRun}
 			out, err := secUC.Pull(ctx, in)
 			if err != nil {

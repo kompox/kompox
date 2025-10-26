@@ -57,14 +57,13 @@ func newCmdDiskList() *cobra.Command {
 }
 
 func newCmdDiskCreate() *cobra.Command {
-	cmd := &cobra.Command{Use: "create", Short: "Create volume instance", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+	cmd := &cobra.Command{Use: "create", Short: "Create volume instance", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) (err error) {
 		u, err := buildVolumeUseCase(cmd)
 		if err != nil {
 			return err
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Minute)
 		defer cancel()
-		logger := logging.FromContext(ctx)
 
 		volName, _ := cmd.Flags().GetString("vol-name")
 		bootstrap, _ := cmd.Flags().GetBool("bootstrap")
@@ -84,11 +83,16 @@ func newCmdDiskCreate() *cobra.Command {
 			return err
 		}
 
-		// Get app for logging
-		app, err := u.Repos.App.Get(ctx, appID)
-		if err != nil {
-			return fmt.Errorf("failed to get app: %w", err)
+		// Build resourceId
+		var resourceID string
+		if bootstrap {
+			resourceID = appID + "/disk:*"
+		} else {
+			resourceID = appID + "/vol:" + volName + "/disk:" + diskName
 		}
+
+		ctx, cleanup := withCmdRunLogger(ctx, "disk.create", resourceID)
+		defer func() { cleanup(err) }()
 
 		// Parse zone, options, and source flags
 		zone, _ := cmd.Flags().GetString("zone")
@@ -102,7 +106,6 @@ func newCmdDiskCreate() *cobra.Command {
 		}
 
 		if bootstrap {
-			logger.Info(ctx, "bootstrap volume disks start", "app", app.Name)
 			bout, err := u.DiskCreateBootstrap(ctx, &vuc.DiskCreateBootstrapInput{AppID: appID, Zone: zone, Options: options})
 			if err != nil {
 				return err
@@ -120,7 +123,6 @@ func newCmdDiskCreate() *cobra.Command {
 		}
 
 		input := &vuc.DiskCreateInput{AppID: appID, VolumeName: volName, DiskName: diskName, Zone: zone, Options: options, Source: source}
-		logger.Info(ctx, "create volume instance start", "app", app.Name, "volume", volName, "name", diskName, "source", source)
 		out, err := u.DiskCreate(ctx, input)
 		if err != nil {
 			return err
@@ -175,14 +177,13 @@ func newCmdDiskAssign() *cobra.Command {
 }
 
 func newCmdDiskDelete() *cobra.Command {
-	cmd := &cobra.Command{Use: "delete", Short: "Delete volume instance", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) error {
+	cmd := &cobra.Command{Use: "delete", Short: "Delete volume instance", Args: cobra.NoArgs, RunE: func(cmd *cobra.Command, _ []string) (err error) {
 		u, err := buildVolumeUseCase(cmd)
 		if err != nil {
 			return err
 		}
 		ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Minute)
 		defer cancel()
-		logger := logging.FromContext(ctx)
 
 		volName, _ := cmd.Flags().GetString("vol-name")
 		if volName == "" {
@@ -198,12 +199,10 @@ func newCmdDiskDelete() *cobra.Command {
 			return err
 		}
 
-		// Get app for logging
-		app, err := u.Repos.App.Get(ctx, appID)
-		if err != nil {
-			return fmt.Errorf("failed to get app: %w", err)
-		}
-		logger.Info(ctx, "delete volume disk", "app", app.Name, "volume", volName, "disk", diskName)
+		resourceID := appID + "/vol:" + volName + "/disk:" + diskName
+		ctx, cleanup := withCmdRunLogger(ctx, "disk.delete", resourceID)
+		defer func() { cleanup(err) }()
+
 		if _, err := u.DiskDelete(ctx, &vuc.DiskDeleteInput{AppID: appID, VolumeName: volName, DiskName: diskName}); err != nil {
 			return err
 		}

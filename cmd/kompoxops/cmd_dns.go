@@ -38,7 +38,7 @@ func newCmdDNSDeploy() *cobra.Command {
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			dnsUC, err := buildDNSUseCase(cmd)
 			if err != nil {
 				return err
@@ -46,24 +46,21 @@ func newCmdDNSDeploy() *cobra.Command {
 
 			ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Minute)
 			defer cancel()
-			logger := logging.FromContext(ctx)
 
 			appID, err := resolveAppID(ctx, dnsUC.Repos.App, args)
 			if err != nil {
 				return err
 			}
 
-			// Get app for logging
-			app, err := dnsUC.Repos.App.Get(ctx, appID)
-			if err != nil {
-				return fmt.Errorf("failed to get app: %w", err)
-			}
-
 			if component == "" {
 				component = "app"
 			}
 
-			logger.Info(ctx, "dns deploy start", "app", app.Name, "component", component, "strict", strict, "dry_run", dryRun)
+			resourceID := appID + "/component:" + component
+			ctx, cleanup := withCmdRunLogger(ctx, "dns.deploy", resourceID)
+			defer func() { cleanup(err) }()
+
+			logger := logging.FromContext(ctx)
 
 			out, err := dnsUC.Deploy(ctx, &dns.DeployInput{
 				AppID:         appID,
@@ -76,11 +73,6 @@ func newCmdDNSDeploy() *cobra.Command {
 			}
 
 			// Output results
-			if len(out.Applied) == 0 {
-				logger.Info(ctx, "no DNS records to apply")
-				return nil
-			}
-
 			for _, r := range out.Applied {
 				switch r.Action {
 				case "planned":
@@ -94,7 +86,6 @@ func newCmdDNSDeploy() *cobra.Command {
 				}
 			}
 
-			logger.Info(ctx, "dns deploy complete")
 			return nil
 		},
 	}
@@ -118,7 +109,7 @@ func newCmdDNSDestroy() *cobra.Command {
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			dnsUC, err := buildDNSUseCase(cmd)
 			if err != nil {
 				return err
@@ -126,24 +117,21 @@ func newCmdDNSDestroy() *cobra.Command {
 
 			ctx, cancel := context.WithTimeout(cmd.Context(), 5*time.Minute)
 			defer cancel()
-			logger := logging.FromContext(ctx)
 
 			appID, err := resolveAppID(ctx, dnsUC.Repos.App, args)
 			if err != nil {
 				return err
 			}
 
-			// Get app for logging
-			app, err := dnsUC.Repos.App.Get(ctx, appID)
-			if err != nil {
-				return fmt.Errorf("failed to get app: %w", err)
-			}
-
 			if component == "" {
 				component = "app"
 			}
 
-			logger.Info(ctx, "dns destroy start", "app", app.Name, "component", component, "strict", strict, "dry_run", dryRun)
+			resourceID := appID + "/component:" + component
+			ctx, cleanup := withCmdRunLogger(ctx, "dns.destroy", resourceID)
+			defer func() { cleanup(err) }()
+
+			logger := logging.FromContext(ctx)
 
 			out, err := dnsUC.Destroy(ctx, &dns.DestroyInput{
 				AppID:         appID,
@@ -156,11 +144,6 @@ func newCmdDNSDestroy() *cobra.Command {
 			}
 
 			// Output results
-			if len(out.Deleted) == 0 {
-				logger.Info(ctx, "no DNS records to delete")
-				return nil
-			}
-
 			for _, r := range out.Deleted {
 				switch r.Action {
 				case "planned":
@@ -174,7 +157,6 @@ func newCmdDNSDestroy() *cobra.Command {
 				}
 			}
 
-			logger.Info(ctx, "dns destroy complete")
 			return nil
 		},
 	}

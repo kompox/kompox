@@ -210,19 +210,24 @@ func newCmdAppDeploy() *cobra.Command {
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			appUC, err := buildAppUseCase(cmd)
 			if err != nil {
 				return err
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
 			defer cancel()
-			logger := logging.FromContext(ctx)
 
 			appID, err := resolveAppID(ctx, appUC.Repos.App, args)
 			if err != nil {
 				return err
 			}
+
+			// Emit header log and attach context
+			ctx, cleanup := withCmdRunLogger(ctx, "app.deploy", appID)
+			defer func() { cleanup(err) }()
+
+			logger := logging.FromContext(ctx)
 
 			// Get app entity
 			getOut, err := appUC.Get(ctx, &app.GetInput{AppID: appID})
@@ -236,7 +241,7 @@ func newCmdAppDeploy() *cobra.Command {
 				if verr != nil {
 					return verr
 				}
-				logger.Info(ctx, "bootstrap disks before deploy", "app", target.Name)
+				logger.Info(ctx, "bootstrap disks before deploy")
 				if _, berr := volUC.DiskCreateBootstrap(ctx, &vuc.DiskCreateBootstrapInput{AppID: target.ID}); berr != nil {
 					return berr
 				}
@@ -252,7 +257,7 @@ func newCmdAppDeploy() *cobra.Command {
 				if derr != nil {
 					return fmt.Errorf("failed to build DNS use case: %w", derr)
 				}
-				logger.Info(ctx, "updating DNS records", "app", target.Name)
+				logger.Info(ctx, "updating DNS records")
 				_, derr = dnsUC.Deploy(ctx, &dns.DeployInput{
 					AppID:         target.ID,
 					ComponentName: "app",
@@ -287,19 +292,24 @@ func newCmdAppDestroy() *cobra.Command {
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			appUC, err := buildAppUseCase(cmd)
 			if err != nil {
 				return err
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
 			defer cancel()
-			logger := logging.FromContext(ctx)
 
 			appID, err := resolveAppID(ctx, appUC.Repos.App, args)
 			if err != nil {
 				return err
 			}
+
+			// Emit header log and attach context
+			ctx, cleanup := withCmdRunLogger(ctx, "app.destroy", appID)
+			defer func() { cleanup(err) }()
+
+			logger := logging.FromContext(ctx)
 
 			// Get app entity
 			getOut, err := appUC.Get(ctx, &app.GetInput{AppID: appID})
@@ -314,7 +324,7 @@ func newCmdAppDestroy() *cobra.Command {
 				if derr != nil {
 					return fmt.Errorf("failed to build DNS use case: %w", derr)
 				}
-				logger.Info(ctx, "destroying DNS records", "app", target.Name)
+				logger.Info(ctx, "destroying DNS records")
 				_, derr = dnsUC.Destroy(ctx, &dns.DestroyInput{
 					AppID:         target.ID,
 					ComponentName: "app",

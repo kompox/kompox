@@ -45,7 +45,7 @@ func newCmdBoxDeploy() *cobra.Command {
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			boxUC, err := buildBoxUseCase(cmd)
 			if err != nil {
 				return err
@@ -53,12 +53,15 @@ func newCmdBoxDeploy() *cobra.Command {
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
 			defer cancel()
 
-			logger := logging.FromContext(ctx)
-
 			appID, err := resolveAppID(ctx, boxUC.Repos.App, args)
 			if err != nil {
 				return err
 			}
+
+			ctx, cleanup := withCmdRunLogger(ctx, "box.deploy", appID)
+			defer func() { cleanup(err) }()
+
+			logger := logging.FromContext(ctx)
 
 			// Determine and read SSH public key file
 			if sshPubkeyFile == "" {
@@ -129,7 +132,7 @@ func newCmdBoxDestroy() *cobra.Command {
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			boxUC, err := buildBoxUseCase(cmd)
 			if err != nil {
 				return err
@@ -141,6 +144,10 @@ func newCmdBoxDestroy() *cobra.Command {
 			if err != nil {
 				return err
 			}
+
+			ctx, cleanup := withCmdRunLogger(ctx, "box.destroy", appID)
+			defer func() { cleanup(err) }()
+
 			if _, err := boxUC.Destroy(ctx, &boxuc.DestroyInput{AppID: appID}); err != nil {
 				return err
 			}

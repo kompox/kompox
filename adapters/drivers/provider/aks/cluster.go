@@ -25,11 +25,12 @@ func (d *driver) kubeClient(ctx context.Context, cluster *model.Cluster) (*kube.
 }
 
 // ClusterProvision provisions an AKS cluster according to the cluster specification.
-func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster, opts ...model.ClusterProvisionOption) error {
+func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster, opts ...model.ClusterProvisionOption) (err error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
 
-	log := logging.FromContext(ctx)
+	ctx, cleanup := d.withMethodLogger(ctx, "ClusterProvision")
+	defer func() { cleanup(err) }()
 
 	// Derive resource group name
 	rgName, err := d.clusterResourceGroupName(cluster)
@@ -38,12 +39,6 @@ func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster, o
 	}
 
 	tags := d.clusterResourceTags(cluster.Name)
-
-	log.Info(ctx, "aks cluster provision begin",
-		"subscription", d.AzureSubscriptionId,
-		"resource_group", rgName,
-		"tags", tagsForLog(tags),
-	)
 
 	// Resolve options
 	var o model.ClusterProvisionOptions
@@ -57,19 +52,16 @@ func (d *driver) ClusterProvision(ctx context.Context, cluster *model.Cluster, o
 		return err
 	}
 
-	log.Info(ctx, "aks cluster provision succeeded",
-		"subscription", d.AzureSubscriptionId,
-		"resource_group", rgName,
-	)
 	return nil
 }
 
 // ClusterDeprovision deprovisions an AKS cluster by deleting the entire resource group.
-func (d *driver) ClusterDeprovision(ctx context.Context, cluster *model.Cluster, _ ...model.ClusterDeprovisionOption) error {
+func (d *driver) ClusterDeprovision(ctx context.Context, cluster *model.Cluster, _ ...model.ClusterDeprovisionOption) (err error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Minute)
 	defer cancel()
 
-	log := logging.FromContext(ctx)
+	ctx, cleanup := d.withMethodLogger(ctx, "ClusterDeprovision")
+	defer func() { cleanup(err) }()
 
 	resourceGroupName, err := d.clusterResourceGroupName(cluster)
 	if err != nil || resourceGroupName == "" {
@@ -79,22 +71,10 @@ func (d *driver) ClusterDeprovision(ctx context.Context, cluster *model.Cluster,
 	// First, delete the subscription-scoped deployment if it exists (idempotent, best-effort)
 	d.ensureAzureDeploymentDeleted(ctx, cluster)
 
-	log.Info(ctx, "aks cluster deprovision begin",
-		"resource_group", resourceGroupName,
-		"cluster", cluster.Name,
-		"provider", d.ProviderName(),
-	)
-
 	// Delete the entire resource group via shared helper (handles KV detection & purge)
 	if err := d.ensureAzureResourceGroupDeleted(ctx, resourceGroupName); err != nil {
 		return err
 	}
-
-	log.Info(ctx, "aks cluster deprovision succeeded",
-		"resource_group", resourceGroupName,
-		"cluster", cluster.Name,
-		"provider", d.ProviderName(),
-	)
 
 	return nil
 }
@@ -128,12 +108,14 @@ func (d *driver) ClusterStatus(ctx context.Context, cluster *model.Cluster) (*mo
 }
 
 // ClusterInstall installs in-cluster resources (Ingress Controller, etc.) for AKS cluster.
-func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster, _ ...model.ClusterInstallOption) error {
+func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster, _ ...model.ClusterInstallOption) (err error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
+	ctx, cleanup := d.withMethodLogger(ctx, "ClusterInstall")
+	defer func() { cleanup(err) }()
+
 	log := logging.FromContext(ctx)
-	log.Info(ctx, "aks cluster install begin", "cluster", cluster.Name, "provider", d.ProviderName())
 
 	// Build kube client from provider-managed kubeconfig
 	kc, err := d.kubeClient(ctx, cluster)
@@ -291,17 +273,16 @@ func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster, _ .
 		}
 	}
 
-	log.Info(ctx, "aks cluster install succeeded", "cluster", cluster.Name, "provider", d.ProviderName())
 	return nil
 }
 
 // ClusterUninstall uninstalls in-cluster resources (Ingress Controller, etc.) from AKS cluster.
-func (d *driver) ClusterUninstall(ctx context.Context, cluster *model.Cluster, _ ...model.ClusterUninstallOption) error {
+func (d *driver) ClusterUninstall(ctx context.Context, cluster *model.Cluster, _ ...model.ClusterUninstallOption) (err error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
-	log := logging.FromContext(ctx)
-	log.Info(ctx, "aks cluster uninstall begin", "cluster", cluster.Name, "provider", d.ProviderName())
+	ctx, cleanup := d.withMethodLogger(ctx, "ClusterUninstall")
+	defer func() { cleanup(err) }()
 
 	// Build kube client from provider-managed kubeconfig
 	kc, err := d.kubeClient(ctx, cluster)
@@ -319,7 +300,6 @@ func (d *driver) ClusterUninstall(ctx context.Context, cluster *model.Cluster, _
 		return err
 	}
 
-	log.Info(ctx, "aks cluster uninstall succeeded", "cluster", cluster.Name, "provider", d.ProviderName())
 	return nil
 }
 

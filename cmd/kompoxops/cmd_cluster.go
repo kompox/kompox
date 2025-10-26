@@ -157,7 +157,7 @@ func newCmdClusterProvision() *cobra.Command {
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			clusterUC, err := buildClusterUseCase(cmd)
 			if err != nil {
 				return err
@@ -165,12 +165,17 @@ func newCmdClusterProvision() *cobra.Command {
 
 			ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Minute)
 			defer cancel()
-			logger := logging.FromContext(ctx)
 
 			clusterID, err := resolveClusterID(ctx, clusterUC.Repos.Cluster, args)
 			if err != nil {
 				return err
 			}
+
+			// Emit header log and attach context
+			ctx, cleanup := withCmdRunLogger(ctx, "cluster.provision", clusterID)
+			defer func() { cleanup(err) }()
+
+			logger := logging.FromContext(ctx)
 
 			getOut, err := clusterUC.Get(ctx, &uc.GetInput{ClusterID: clusterID})
 			if err != nil {
@@ -178,18 +183,15 @@ func newCmdClusterProvision() *cobra.Command {
 			}
 			cluster := getOut.Cluster
 			if cluster.Existing && !force {
-				logger.Info(ctx, "cluster marked as existing, skipping provision", "cluster", cluster.Name)
+				logger.Info(ctx, "cluster marked as existing, skipping provision")
 				return nil
 			}
-
-			logger.Info(ctx, "provision start", "cluster", cluster.Name)
 
 			// Provision the cluster via usecase
 			if _, err := clusterUC.Provision(ctx, &uc.ProvisionInput{ClusterID: cluster.ID, Force: force}); err != nil {
 				return fmt.Errorf("failed to provision cluster %s: %w", cluster.Name, err)
 			}
 
-			logger.Info(ctx, "provision success", "cluster", cluster.Name)
 			return nil
 		},
 	}
@@ -206,7 +208,7 @@ func newCmdClusterDeprovision() *cobra.Command {
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			clusterUC, err := buildClusterUseCase(cmd)
 			if err != nil {
 				return err
@@ -214,12 +216,17 @@ func newCmdClusterDeprovision() *cobra.Command {
 
 			ctx, cancel := context.WithTimeout(cmd.Context(), 60*time.Minute)
 			defer cancel()
-			logger := logging.FromContext(ctx)
 
 			clusterID, err := resolveClusterID(ctx, clusterUC.Repos.Cluster, args)
 			if err != nil {
 				return err
 			}
+
+			// Emit header log and attach context
+			ctx, cleanup := withCmdRunLogger(ctx, "cluster.deprovision", clusterID)
+			defer func() { cleanup(err) }()
+
+			logger := logging.FromContext(ctx)
 
 			getOut, err := clusterUC.Get(ctx, &uc.GetInput{ClusterID: clusterID})
 			if err != nil {
@@ -227,7 +234,7 @@ func newCmdClusterDeprovision() *cobra.Command {
 			}
 			cluster := getOut.Cluster
 			if cluster.Existing && !force {
-				logger.Info(ctx, "cluster marked as existing, skipping deprovision", "cluster", cluster.Name)
+				logger.Info(ctx, "cluster marked as existing, skipping deprovision")
 				return nil
 			}
 
@@ -236,14 +243,11 @@ func newCmdClusterDeprovision() *cobra.Command {
 				return err
 			}
 
-			logger.Info(ctx, "deprovision start", "cluster", cluster.Name)
-
 			// Deprovision the cluster via usecase
 			if _, err := clusterUC.Deprovision(ctx, &uc.DeprovisionInput{ClusterID: cluster.ID, Force: force}); err != nil {
 				return fmt.Errorf("failed to deprovision cluster %s: %w", cluster.Name, err)
 			}
 
-			logger.Info(ctx, "deprovision success", "cluster", cluster.Name)
 			return nil
 		},
 	}
@@ -260,7 +264,7 @@ func newCmdClusterInstall() *cobra.Command {
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			clusterUC, err := buildClusterUseCase(cmd)
 			if err != nil {
 				return err
@@ -268,12 +272,15 @@ func newCmdClusterInstall() *cobra.Command {
 
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
 			defer cancel()
-			logger := logging.FromContext(ctx)
 
 			clusterID, err := resolveClusterID(ctx, clusterUC.Repos.Cluster, args)
 			if err != nil {
 				return err
 			}
+
+			// Emit header log and attach context
+			ctx, cleanup := withCmdRunLogger(ctx, "cluster.install", clusterID)
+			defer func() { cleanup(err) }()
 
 			getOut, err := clusterUC.Get(ctx, &uc.GetInput{ClusterID: clusterID})
 			if err != nil {
@@ -281,14 +288,11 @@ func newCmdClusterInstall() *cobra.Command {
 			}
 			cluster := getOut.Cluster
 
-			logger.Info(ctx, "install start", "cluster", cluster.Name)
-
 			// Install cluster resources via usecase
 			if _, err := clusterUC.Install(ctx, &uc.InstallInput{ClusterID: cluster.ID, Force: force}); err != nil {
 				return fmt.Errorf("failed to install cluster resources for %s: %w", cluster.Name, err)
 			}
 
-			logger.Info(ctx, "install success", "cluster", cluster.Name)
 			return nil
 		},
 	}
@@ -305,7 +309,7 @@ func newCmdClusterUninstall() *cobra.Command {
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			clusterUC, err := buildClusterUseCase(cmd)
 			if err != nil {
 				return err
@@ -313,12 +317,15 @@ func newCmdClusterUninstall() *cobra.Command {
 
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
 			defer cancel()
-			logger := logging.FromContext(ctx)
 
 			clusterID, err := resolveClusterID(ctx, clusterUC.Repos.Cluster, args)
 			if err != nil {
 				return err
 			}
+
+			// Emit header log and attach context
+			ctx, cleanup := withCmdRunLogger(ctx, "cluster.uninstall", clusterID)
+			defer func() { cleanup(err) }()
 
 			getOut, err := clusterUC.Get(ctx, &uc.GetInput{ClusterID: clusterID})
 			if err != nil {
@@ -331,14 +338,11 @@ func newCmdClusterUninstall() *cobra.Command {
 				return err
 			}
 
-			logger.Info(ctx, "uninstall start", "cluster", cluster.Name)
-
 			// Uninstall cluster resources via usecase
 			if _, err := clusterUC.Uninstall(ctx, &uc.UninstallInput{ClusterID: cluster.ID, Force: force}); err != nil {
 				return fmt.Errorf("failed to uninstall cluster resources for %s: %w", cluster.Name, err)
 			}
 
-			logger.Info(ctx, "uninstall success", "cluster", cluster.Name)
 			return nil
 		},
 	}
