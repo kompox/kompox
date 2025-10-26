@@ -79,8 +79,6 @@ func (d *driver) collectAzureContainerRegistryIDs(cluster *model.Cluster) ([]*az
 // ensureAzureContainerRegistryRoles assigns AcrPull role to the given principal for all specified ACR resources.
 // This is a best-effort operation: failures are logged as warnings and do not block cluster installation.
 func (d *driver) ensureAzureContainerRegistryRoles(ctx context.Context, principalID string, registries []*azureContainerRegistryInfo) {
-	log := logging.FromContext(ctx)
-
 	if len(registries) == 0 {
 		return
 	}
@@ -90,19 +88,10 @@ func (d *driver) ensureAzureContainerRegistryRoles(ctx context.Context, principa
 
 	for _, reg := range registries {
 		// Assign AcrPull role at registry scope (best-effort)
+		logger := logging.FromContext(ctx).With("principalId", principalID, "scope", reg.ResourceID)
+		logger.Info(ctx, "AKS:RoleCR")
 		if err := d.ensureAzureRole(ctx, reg.ResourceID, principalID, roleDefID); err != nil {
-			log.Warn(ctx, "failed to assign AcrPull role to AKS principal (best-effort, continuing)",
-				"registry", reg.Name,
-				"registry_resource_id", reg.ResourceID,
-				"principal_id", principalID,
-				"error", err.Error(),
-			)
-		} else {
-			log.Info(ctx, "assigned AcrPull role to AKS principal",
-				"registry", reg.Name,
-				"registry_resource_id", reg.ResourceID,
-				"principal_id", principalID,
-			)
+			logger.Warn(ctx, "AKS:RoleCR:FAILED", "err", err)
 		}
 	}
 }

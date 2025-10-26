@@ -74,43 +74,27 @@ func (d *driver) ensureAzureRoleKeyVaultSecret(ctx context.Context, cluster *mod
 	errorCount := 0
 
 	for _, secret := range secrets {
+		logger := logging.FromContext(ctx).With("certName", secret.certName, "kvName", secret.kvName)
+		logger.Info(ctx, "AKS:EnsureKV")
 		keyVaultResourceID, exists := keyVaultResourceIDs[secret.kvName]
 		if !exists {
 			errorCount++
-			log.Warn(ctx, "Key Vault resource ID not found, skipping role assignment",
-				"key_vault", secret.kvName,
-				"cert_name", secret.certName)
+			logger.Warn(ctx, "AKS:EnsureKV:FAILED", "err", "key vault resource not found")
 			continue
 		}
 
 		// Create scope for the specific secret: <key_vault_resource_id>/secrets/<secret_name>
 		secretScope := fmt.Sprintf("%s/secrets/%s", keyVaultResourceID, secret.objectName)
 
+		logger = logging.FromContext(ctx).With("principalId", principalID, "scope", secretScope)
+		logger.Info(ctx, "AKS:RoleKV")
 		if err := d.ensureAzureRole(ctx, secretScope, principalID, roleDefinitionID); err != nil {
 			errorCount++
-			log.Warn(ctx, "failed to assign Key Vault Secrets User role",
-				"key_vault", secret.kvName,
-				"secret_name", secret.objectName,
-				"cert_name", secret.certName,
-				"scope", secretScope,
-				"principal_id", principalID,
-				"error", err)
-			// Continue with other secrets
+			logger.Warn(ctx, "AKS:RoleKV:FAILED", "err", err)
 		} else {
 			successCount++
-			log.Info(ctx, "successfully assigned Key Vault Secrets User role",
-				"key_vault", secret.kvName,
-				"secret_name", secret.objectName,
-				"cert_name", secret.certName,
-				"principal_id", principalID)
 		}
 	}
-
-	// Log summary
-	log.Info(ctx, "Key Vault role assignment summary",
-		"success_count", successCount,
-		"error_count", errorCount,
-		"total_count", len(secrets))
 
 	// Return error if any role assignments failed
 	if errorCount > 0 {

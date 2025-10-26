@@ -24,15 +24,17 @@ func azureShorterErrorString(err error) string {
 
 // ensureAzureResourceGroupCreated ensures RG exists for Create path only.
 func (d *driver) ensureAzureResourceGroupCreated(ctx context.Context, rg string, tags map[string]*string, principalID string) error {
-	log := logging.FromContext(ctx)
 	// Ensure RG exists
 	groupsClient, err := armresources.NewResourceGroupsClient(d.AzureSubscriptionId, d.TokenCredential, nil)
 	if err != nil {
 		return err
 	}
-	log.Info(ctx, "ensuring resource group", "subscription", d.AzureSubscriptionId, "location", d.AzureLocation, "resource_group", rg, "tags", tagsForLog(tags))
+
+	logger := logging.FromContext(ctx).With("subscription", d.AzureSubscriptionId, "location", d.AzureLocation, "name", rg, "tags", tagsForLog(tags))
+	logger.Info(ctx, "AKS:EnsureRG")
 	groupRes, err := groupsClient.CreateOrUpdate(ctx, rg, armresources.ResourceGroup{Location: to.Ptr(d.AzureLocation), Tags: tags}, nil)
 	if err != nil {
+		logger.Warn(ctx, "AKS:EnsureRG:FAILED", "err", err)
 		return err
 	}
 	// Ensure AKS principal has Contributor on this RG (idempotent)
@@ -44,8 +46,11 @@ func (d *driver) ensureAzureResourceGroupCreated(ctx context.Context, rg string,
 	// Create assignment with deterministic GUID name derived from (principalID, roleDefinitionID)
 	scope := *groupRes.ID
 	roleDefinitionID := d.azureRoleDefinitionID(roleDefIDContributor)
-	log.Info(ctx, "ensuring role assignment", "scope", scope, "principal_id", principalID, "role_id", roleDefIDContributor)
+
+	logger = logging.FromContext(ctx).With("principalId", principalID, "scope", scope)
+	logger.Info(ctx, "AKS:RoleRG")
 	if err := d.ensureAzureRole(ctx, scope, principalID, roleDefinitionID); err != nil {
+		logger.Warn(ctx, "AKS:RoleRG:FAILED", "err", err)
 		return err
 	}
 	return nil

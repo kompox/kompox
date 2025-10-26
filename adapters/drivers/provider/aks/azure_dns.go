@@ -292,17 +292,10 @@ func (d *driver) ensureAzureDNSZoneRoles(ctx context.Context, principalID string
 	roleDefID := d.azureRoleDefinitionID(roleDefIDDNSZoneContributor)
 
 	for _, zone := range zones {
+		logger := logging.FromContext(ctx).With("principalId", principalID, "scope", zone.ResourceID)
+		logger.Info(ctx, "AKS:RoleDNS")
 		if err := d.ensureAzureRole(ctx, zone.ResourceID, principalID, roleDefID); err != nil {
-			log.Warn(ctx, "failed to assign DNS Zone Contributor role",
-				"dns_zone_name", zone.Name,
-				"dns_zone_resource_id", zone.ResourceID,
-				"principal_id", principalID,
-				"error", err)
-		} else {
-			log.Info(ctx, "successfully assigned DNS Zone Contributor role",
-				"dns_zone_name", zone.Name,
-				"dns_zone_resource_id", zone.ResourceID,
-				"principal_id", principalID)
+			logger.Warn(ctx, "AKS:RoleDNS:FAILED", "err", err)
 		}
 	}
 }
