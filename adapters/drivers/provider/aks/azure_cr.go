@@ -89,9 +89,10 @@ func (d *driver) ensureAzureContainerRegistryRoles(ctx context.Context, principa
 	for _, reg := range registries {
 		// Assign AcrPull role at registry scope (best-effort)
 		logger := logging.FromContext(ctx).With("principalId", principalID, "scope", reg.ResourceID)
-		logger.Info(ctx, "AKS:RoleCR")
 		if err := d.ensureAzureRole(ctx, reg.ResourceID, principalID, roleDefID); err != nil {
-			logger.Warn(ctx, "AKS:RoleCR:FAILED", "err", err)
+			logger.Info(ctx, "AKS:RoleCR/efail", "err", err)
+		} else {
+			logger.Info(ctx, "AKS:RoleCR/eok")
 		}
 	}
 }

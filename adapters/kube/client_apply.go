@@ -38,10 +38,23 @@ func (o *ApplyOptions) defaults() {
 }
 
 // ApplyObjects performs server-side apply for a slice of typed runtime.Objects.
-func (c *Client) ApplyObjects(ctx context.Context, objs []runtime.Object, opts *ApplyOptions) error {
+func (c *Client) ApplyObjects(ctx context.Context, objs []runtime.Object, opts *ApplyOptions) (err error) {
 	if c == nil || c.RESTConfig == nil {
 		return fmt.Errorf("kube client is not initialized")
 	}
+
+	logger := logging.FromContext(ctx)
+	msgSym := "KubeClient:ApplyObjects"
+	logger.Info(ctx, msgSym+"/s")
+	count := 0
+	defer func() {
+		if err == nil {
+			logger.Info(ctx, msgSym+"/eok", "applied", count)
+		} else {
+			logger.Info(ctx, msgSym+"/efail", "applied", count, "err", err)
+		}
+	}()
+
 	if opts == nil {
 		opts = &ApplyOptions{}
 	}
@@ -69,15 +82,29 @@ func (c *Client) ApplyObjects(ctx context.Context, objs []runtime.Object, opts *
 		if err := c.applyUnstructured(ctx, u, m, opts, dy, mapper); err != nil {
 			return err
 		}
+		count++
 	}
 	return nil
 }
 
 // ApplyYAML performs server-side apply for a multi-document YAML/JSON byte stream.
-func (c *Client) ApplyYAML(ctx context.Context, data []byte, opts *ApplyOptions) error {
+func (c *Client) ApplyYAML(ctx context.Context, data []byte, opts *ApplyOptions) (err error) {
 	if c == nil || c.RESTConfig == nil {
 		return fmt.Errorf("kube client is not initialized")
 	}
+
+	logger := logging.FromContext(ctx)
+	msgSym := "KubeClient:ApplyYAML"
+	logger.Info(ctx, msgSym+"/s")
+	count := 0
+	defer func() {
+		if err == nil {
+			logger.Info(ctx, msgSym+"/eok", "applied", count)
+		} else {
+			logger.Info(ctx, msgSym+"/efail", "applied", count, "err", err)
+		}
+	}()
+
 	if opts == nil {
 		opts = &ApplyOptions{}
 	}
@@ -109,6 +136,7 @@ func (c *Client) ApplyYAML(ctx context.Context, data []byte, opts *ApplyOptions)
 		if err := c.applyUnstructured(ctx, u, raw, opts, dy, mapper); err != nil {
 			return err
 		}
+		count++
 	}
 	return nil
 }
@@ -143,10 +171,12 @@ func (c *Client) applyUnstructured(ctx context.Context, u *unstructured.Unstruct
 	ri := resourceInterfaceFor(dy, mapping.Resource, u.GetNamespace())
 	force := opts.ForceConflicts
 
-	logging.FromContext(ctx).Info(ctx, "applying", "kind", u.GetKind(), "name", u.GetName(), "namespace", u.GetNamespace(), "force", force)
+	logger := logging.FromContext(ctx).With("ns", u.GetNamespace(), "kind", u.GetKind(), "name", u.GetName())
 	if _, err := ri.Patch(ctx, u.GetName(), types.ApplyPatchType, body, metav1.PatchOptions{FieldManager: opts.FieldManager, Force: &force}); err != nil {
+		logger.Error(ctx, "KubeClient:Apply/efail", "err", err)
 		return fmt.Errorf("apply %s %s: %w", u.GetKind(), u.GetName(), err)
 	}
+	logger.Info(ctx, "KubeClient:Apply/eok")
 	return nil
 }
 

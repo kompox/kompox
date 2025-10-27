@@ -24,6 +24,10 @@ func (c *Client) InstallIngressTraefik(ctx context.Context, cluster *model.Clust
 	if c == nil || c.RESTConfig == nil {
 		return fmt.Errorf("kube client is not initialized")
 	}
+
+	logger := logging.FromContext(ctx)
+	msgSym := "KubeClient:InstallIngressTraefik"
+
 	kubeBytes := c.Kubeconfig()
 	if len(kubeBytes) == 0 {
 		return fmt.Errorf("kubeconfig is required for Helm operations")
@@ -191,10 +195,10 @@ func (c *Client) InstallIngressTraefik(ctx context.Context, cluster *model.Clust
 
 	// Debug log output
 	if b, err := yaml.Marshal(cmData); err == nil {
-		logging.FromContext(ctx).Debugf(ctx, "traefik config files (yaml):\n%s", string(b))
+		logger.Debugf(ctx, msgSym+":ConfigMapData\n%s", string(b))
 	}
 	if b, err := yaml.Marshal(values); err == nil {
-		logging.FromContext(ctx).Debugf(ctx, "traefik helm values (yaml):\n%s", string(b))
+		logger.Debugf(ctx, msgSym+":HelmValues\n%s", string(b))
 	}
 
 	// Apply ConfigMap
@@ -212,10 +216,14 @@ func (c *Client) InstallIngressTraefik(ctx context.Context, cluster *model.Clust
 	up.Atomic = true
 	up.Wait = true
 	up.Timeout = 5 * time.Minute
+	upLogger := logger.With("ns", ns, "release", TraefikReleaseName)
+	upLogger.Info(ctx, msgSym+":Upgrade/s")
 	_, err = up.Run(TraefikReleaseName, ch, values)
 	if err == nil {
+		upLogger.Info(ctx, msgSym+":Upgrade/eok")
 		return nil
 	}
+	upLogger.Info(ctx, msgSym+":Upgrade/efail", "err", err)
 	if !stdErrors.Is(err, helmdriver.ErrNoDeployedReleases) {
 		return fmt.Errorf("helm upgrade traefik: %w", err)
 	}
@@ -227,12 +235,15 @@ func (c *Client) InstallIngressTraefik(ctx context.Context, cluster *model.Clust
 	in.Atomic = true
 	in.Wait = true
 	in.Timeout = 5 * time.Minute
+	inLogger := logger.With("ns", ns, "release", TraefikReleaseName)
+	inLogger.Info(ctx, msgSym+":Install/s")
 	_, err = in.Run(ch, values)
-	if err != nil {
-		return fmt.Errorf("helm install traefik: %w", err)
+	if err == nil {
+		inLogger.Info(ctx, msgSym+":Install/eok")
+		return nil
 	}
-
-	return nil
+	inLogger.Info(ctx, msgSym+":Install/efail", "err", err)
+	return fmt.Errorf("helm install traefik: %w", err)
 }
 
 // UninstallIngressTraefik removes the Traefik release. Best-effort and idempotent.
@@ -240,6 +251,10 @@ func (c *Client) UninstallIngressTraefik(ctx context.Context, cluster *model.Clu
 	if c == nil || c.RESTConfig == nil {
 		return fmt.Errorf("kube client is not initialized")
 	}
+
+	logger := logging.FromContext(ctx)
+	msgSym := "KubeClient:InstallIngressTraefik"
+
 	kubeBytes := c.Kubeconfig()
 	if len(kubeBytes) == 0 {
 		return fmt.Errorf("kubeconfig is required for Helm operations")
@@ -260,11 +275,15 @@ func (c *Client) UninstallIngressTraefik(ctx context.Context, cluster *model.Clu
 		return fmt.Errorf("init helm configuration: %w", err)
 	}
 	un := action.NewUninstall(cfg)
+	unLogger := logger.With("ns", ns, "release", TraefikReleaseName)
+	unLogger.Info(ctx, msgSym+":Uninstall/s")
 	if _, err := un.Run(TraefikReleaseName); err != nil {
+		unLogger.Info(ctx, msgSym+":Uninstall/efail", "err", err)
 		if stdErrors.Is(err, helmdriver.ErrReleaseNotFound) {
 			return nil
 		}
 		return fmt.Errorf("helm uninstall traefik: %w", err)
 	}
+	unLogger.Info(ctx, msgSym+":Uninstall/eok")
 	return nil
 }

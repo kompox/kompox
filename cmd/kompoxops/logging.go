@@ -9,8 +9,8 @@ import (
 )
 
 // withCmdRunLogger implements the Span pattern for CLI command logging.
-// It emits a START log line and returns a context with logger attributes attached,
-// plus a cleanup function to emit the END:OK or END:FAILED log line.
+// It emits a start log line and returns a context with logger attributes attached,
+// plus a cleanup function to emit the success or failure log line.
 //
 // Usage:
 //
@@ -18,9 +18,11 @@ import (
 //	defer func() { cleanup(err) }()
 //
 // Log message format:
-// - START:  CMD:<operation>:START (with runId, resourceId in logger attributes)
-// - END:    CMD:<operation>:END:OK or CMD:<operation>:END:FAILED (with err, elapsed in logger attributes)
+// - Start:   CMD:<operation>/S (with runId, resourceId in logger attributes)
+// - Success: CMD:<operation>/EOK (with err, elapsed in logger attributes)
+// - Failure: CMD:<operation>/EFAIL (with err, elapsed in logger attributes)
 //
+// All logs use INFO level (mechanical recording).
 // See design/v1/Kompox-Logging.ja.md for the full Span pattern specification.
 func withCmdRunLogger(ctx context.Context, operation, resourceID string) (context.Context, func(err error)) {
 	runID, err := naming.NewCompactID()
@@ -35,17 +37,17 @@ func withCmdRunLogger(ctx context.Context, operation, resourceID string) (contex
 	logger := logging.FromContext(ctx).With("runId", runID, "resourceId", resourceID)
 	ctx = logging.WithLogger(ctx, logger)
 
-	// Emit header line
-	logger.Info(ctx, "CMD:"+operation+":START")
+	// Emit start log line
+	logger.Info(ctx, "CMD:"+operation+"/S")
 
 	cleanup := func(err error) {
 		elapsed := time.Since(startAt).Seconds()
 		var msg, errStr string
 		if err == nil {
-			msg = "CMD:" + operation + ":END:OK"
+			msg = "CMD:" + operation + "/EOK"
 			errStr = ""
 		} else {
-			msg = "CMD:" + operation + ":END:FAILED"
+			msg = "CMD:" + operation + "/EFAIL"
 			errMsg := err.Error()
 			if len(errMsg) > 32 {
 				errStr = errMsg[:32] + "..."
@@ -54,11 +56,8 @@ func withCmdRunLogger(ctx context.Context, operation, resourceID string) (contex
 			}
 		}
 
-		if err == nil {
-			logger.Info(ctx, msg, "err", errStr, "elapsed", elapsed)
-		} else {
-			logger.Warn(ctx, msg, "err", errStr, "elapsed", elapsed)
-		}
+		// Always use INFO level for Span pattern (mechanical recording)
+		logger.Info(ctx, msg, "err", errStr, "elapsed", elapsed)
 	}
 
 	return ctx, cleanup

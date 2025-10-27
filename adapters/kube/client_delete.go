@@ -56,7 +56,6 @@ func (c *Client) DeleteByLabelSelector(ctx context.Context, namespace string, ta
 
 	var deleted int
 	var errs []error
-	logger := logging.FromContext(ctx)
 
 	for _, t := range targets {
 		var list *unstructured.UnstructuredList
@@ -89,9 +88,11 @@ func (c *Client) DeleteByLabelSelector(ctx context.Context, namespace string, ta
 			if t.Namespaced {
 				ns = namespace
 			}
-			logger.Info(ctx, "deleting", "kind", kind, "name", name, "namespace", ns)
+			msgSym := "KubeClient:Delete"
+			logger := logging.FromContext(ctx).With("ns", ns, "kind", kind, "name", name)
 			if t.Namespaced {
 				if err := dy.Resource(t.GVR).Namespace(namespace).Delete(ctx, name, delOpts); err != nil {
+					logger.Info(ctx, msgSym+"/efail", "err", err)
 					errs = append(errs, fmt.Errorf("delete %s %s/%s failed: %w", t.GVR.Resource, namespace, name, err))
 					if !opts.IgnoreErrors {
 						return deleted, errors.Join(errs...)
@@ -100,6 +101,7 @@ func (c *Client) DeleteByLabelSelector(ctx context.Context, namespace string, ta
 				}
 			} else {
 				if err := dy.Resource(t.GVR).Delete(ctx, name, delOpts); err != nil {
+					logger.Info(ctx, msgSym+"/efail", "err", err)
 					errs = append(errs, fmt.Errorf("delete %s %s failed: %w", t.GVR.Resource, name, err))
 					if !opts.IgnoreErrors {
 						return deleted, errors.Join(errs...)
@@ -107,6 +109,7 @@ func (c *Client) DeleteByLabelSelector(ctx context.Context, namespace string, ta
 					continue
 				}
 			}
+			logger.Info(ctx, msgSym+"/eok")
 			deleted++
 		}
 	}

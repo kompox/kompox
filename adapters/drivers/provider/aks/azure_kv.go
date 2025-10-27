@@ -75,24 +75,24 @@ func (d *driver) ensureAzureRoleKeyVaultSecret(ctx context.Context, cluster *mod
 
 	for _, secret := range secrets {
 		logger := logging.FromContext(ctx).With("certName", secret.certName, "kvName", secret.kvName)
-		logger.Info(ctx, "AKS:EnsureKV")
 		keyVaultResourceID, exists := keyVaultResourceIDs[secret.kvName]
 		if !exists {
 			errorCount++
-			logger.Warn(ctx, "AKS:EnsureKV:FAILED", "err", "key vault resource not found")
+			logger.Info(ctx, "AKS:EnsureKV/efail", "err", "key vault resource not found")
 			continue
 		}
+		logger.Info(ctx, "AKS:EnsureKV/eok")
 
 		// Create scope for the specific secret: <key_vault_resource_id>/secrets/<secret_name>
 		secretScope := fmt.Sprintf("%s/secrets/%s", keyVaultResourceID, secret.objectName)
 
 		logger = logging.FromContext(ctx).With("principalId", principalID, "scope", secretScope)
-		logger.Info(ctx, "AKS:RoleKV")
 		if err := d.ensureAzureRole(ctx, secretScope, principalID, roleDefinitionID); err != nil {
 			errorCount++
-			logger.Warn(ctx, "AKS:RoleKV:FAILED", "err", err)
+			logger.Info(ctx, "AKS:RoleKV/efail", "err", err)
 		} else {
 			successCount++
+			logger.Info(ctx, "AKS:RoleKV/eok")
 		}
 	}
 

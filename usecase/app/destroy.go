@@ -34,7 +34,9 @@ func (u *UseCase) Destroy(ctx context.Context, in *DestroyInput) (*DestroyOutput
 	if in == nil || in.AppID == "" {
 		return nil, fmt.Errorf("DestroyInput.AppID is required")
 	}
+
 	logger := logging.FromContext(ctx)
+	msgSym := "UC:app.destroy"
 
 	// Resolve app and related resources.
 	appObj, err := u.Repos.App.Get(ctx, in.AppID)
@@ -80,19 +82,22 @@ func (u *UseCase) Destroy(ctx context.Context, in *DestroyInput) (*DestroyOutput
 		return nil, fmt.Errorf("failed to create kube client: %w", err)
 	}
 
-	logger.Info(ctx, "deleting resources", "namespace", nsName, "selector", labelSelector)
+	delLogger := logger.With("ns", nsName, "selector", labelSelector)
+	delLogger.Info(ctx, msgSym+":DeleteSelector/s")
 	deletedCount, _ := kcli.DeleteByLabelSelector(ctx, nsName, kube.DefaultAppDeleteTargets(), labelSelector, &kube.DeleteBySelectorOptions{
 		Propagation:  metav1.DeletePropagationBackground,
 		IgnoreErrors: true,
 	})
+	delLogger.Info(ctx, msgSym+":DeleteSelector/eok", "count", deletedCount)
 
 	if in.DeleteNamespace {
-		logger.Info(ctx, "deleting namespace", "namespace", nsName)
+		delNSLogger := logger.With("ns", nsName)
 		if err := kcli.DeleteNamespace(ctx, nsName); err != nil {
+			delNSLogger.Info(ctx, msgSym+":DeleteNamespace/efail", "err", err)
 			return nil, fmt.Errorf("delete namespace %s failed: %w", nsName, err)
 		}
+		delNSLogger.Info(ctx, msgSym+":DeleteNamespace/eok", "err", "")
 	}
 
-	logger.Info(ctx, "destroy completed", "app", appObj.Name, "namespace", nsName, "deleted", deletedCount, "deleteNamespace", in.DeleteNamespace)
 	return &DestroyOutput{DeletedCount: deletedCount, Namespace: nsName, LabelSelector: labelSelector}, nil
 }

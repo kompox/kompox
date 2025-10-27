@@ -293,9 +293,10 @@ func (d *driver) ensureAzureDNSZoneRoles(ctx context.Context, principalID string
 
 	for _, zone := range zones {
 		logger := logging.FromContext(ctx).With("principalId", principalID, "scope", zone.ResourceID)
-		logger.Info(ctx, "AKS:RoleDNS")
 		if err := d.ensureAzureRole(ctx, zone.ResourceID, principalID, roleDefID); err != nil {
-			logger.Warn(ctx, "AKS:RoleDNS:FAILED", "err", err)
+			logger.Info(ctx, "AKS:RoleDNS/efail", "err", err)
+		} else {
+			logger.Info(ctx, "AKS:RoleDNS/eok")
 		}
 	}
 }

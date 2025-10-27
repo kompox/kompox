@@ -31,12 +31,12 @@ func (d *driver) ensureAzureResourceGroupCreated(ctx context.Context, rg string,
 	}
 
 	logger := logging.FromContext(ctx).With("subscription", d.AzureSubscriptionId, "location", d.AzureLocation, "name", rg, "tags", tagsForLog(tags))
-	logger.Info(ctx, "AKS:EnsureRG")
 	groupRes, err := groupsClient.CreateOrUpdate(ctx, rg, armresources.ResourceGroup{Location: to.Ptr(d.AzureLocation), Tags: tags}, nil)
 	if err != nil {
-		logger.Warn(ctx, "AKS:EnsureRG:FAILED", "err", err)
+		logger.Info(ctx, "AKS:EnsureRG/efail", "err", err)
 		return err
 	}
+	logger.Info(ctx, "AKS:EnsureRG/eok")
 	// Ensure AKS principal has Contributor on this RG (idempotent)
 	principalID = strings.TrimSpace(principalID)
 	if principalID == "" {
@@ -48,11 +48,11 @@ func (d *driver) ensureAzureResourceGroupCreated(ctx context.Context, rg string,
 	roleDefinitionID := d.azureRoleDefinitionID(roleDefIDContributor)
 
 	logger = logging.FromContext(ctx).With("principalId", principalID, "scope", scope)
-	logger.Info(ctx, "AKS:RoleRG")
 	if err := d.ensureAzureRole(ctx, scope, principalID, roleDefinitionID); err != nil {
-		logger.Warn(ctx, "AKS:RoleRG:FAILED", "err", err)
+		logger.Info(ctx, "AKS:RoleRG/efail", "err", err)
 		return err
 	}
+	logger.Info(ctx, "AKS:RoleRG/eok")
 	return nil
 }
 

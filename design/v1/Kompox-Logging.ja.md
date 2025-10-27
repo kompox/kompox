@@ -2,8 +2,8 @@
 id: Kompox-Logging
 title: Kompox ロギング仕様
 version: v1
-status: draft
-updated: 2025-10-26
+status: synced
+updated: 2025-10-27
 language: ja
 ---
 
@@ -85,7 +85,7 @@ YYYY/MM/DD HH:MM:SS LEVEL MSG key1=val1 key2=val2 ...
 | `<msgSym>/EOK` | Span 終了 (成功) | 長時間操作の成功終了 |
 | `<msgSym>/EFAIL` | Span 終了 (失敗) | 長時間操作の失敗終了 |
 | `<msgSym>/s` | Step 開始 | 短時間操作の開始 |
-| `<msgSym>/eok` | Step 終了 (成功) | 短時間操作の成功終了 (省略推奨) |
+| `<msgSym>/eok` | Step 終了 (成功) | 短時間操作の成功終了 |
 | `<msgSym>/efail` | Step 終了 (失敗) | 短時間操作の失敗終了 |
 
 `<msgSym>` 構文規則
@@ -99,12 +99,12 @@ YYYY/MM/DD HH:MM:SS LEVEL MSG key1=val1 key2=val2 ...
 | サフィックス | 意味 | レベル | 必須属性 | 備考 |
 |------------|------|--------|---------|---------|
 | (なし) | Event 記録 | 任意 | - ||
-| `/S` | Span 開始 | `DEBUG` / `INFO` | `runId` 等 ||
-| `/EOK` | Span 成功終了 | `DEBUG` / `INFO` | `err=""`, `elapsed` ||
-| `/EFAIL` | Span 失敗終了 | `DEBUG` / `INFO` | `err`, `elapsed` ||
+| `/S` | Span 開始 | `DEBUG` / `INFO` | - ||
+| `/EOK` | Span 成功終了 | `DEBUG` / `INFO` | `elapsed` | 先行 `/S` が必要 |
+| `/EFAIL` | Span 失敗終了 | `DEBUG` / `INFO` | `err`, `elapsed` | 先行 `/S` が必要 |
 | `/s` | Step 開始 | `DEBUG` / `INFO` | - ||
-| `/eok` | Step 成功終了 | `DEBUG` / `INFO` | `err` | 省略推奨 |
-| `/efail` | Step 失敗終了 | `DEBUG` / `INFO` | `err` ||
+| `/eok` | Step 成功終了 | `DEBUG` / `INFO` | - | 先行 `/s` が不要 |
+| `/efail` | Step 失敗終了 | `DEBUG` / `INFO` | `err` | 先行 `/s` が不要 |
 
 ### ログレベルの使い分け
 
@@ -150,7 +150,7 @@ Span や Step の中間記録、状態遷移、サマリー情報、判断結果
   - `runId`, `cmd`, `resourceId` などのトレース属性
 - **成功終了** (`/EOK`):
   - `level`: `DEBUG` または `INFO`
-  - `err`: `""` (空文字列)
+  - `err`: `""` (空文字列、省略可能)
   - `elapsed`: 開始からの経過秒数 (float64、例: `8.54`)
   - トレース属性は開始時と一致
 - **失敗終了** (`/EFAIL`):
@@ -193,7 +193,7 @@ Span や Step の中間記録、状態遷移、サマリー情報、判断結果
 - **成功終了** (`/eok`):
   - 出力タイミング: **操作実行後**
   - `level`: `DEBUG` または `INFO`
-  - `err`: `""` (空文字列)
+  - `err`: `""` (空文字列、省略可能)
   - 先行の開始ログ `/s` が存在する場合はトレース属性を一致させる
 - **失敗終了** (`/efail`):
   - 出力タイミング: **操作実行後**
@@ -205,8 +205,8 @@ Span や Step の中間記録、状態遷移、サマリー情報、判断結果
 
 | 操作結果 | ログ出力 | 説明 |
 |-|-|-|
-| 成功 | `/s` | 開始のみ出力 (`/efail` が続かなければ成功) |
-| 成功 | `/s` →  `/eok` | 開始と成功終了を出力 (非推奨) |
+| 成功 | `/s` | 開始のみ出力 (`/efail` やエラー終了が続かなければ成功とみなす) |
+| 成功 | `/s` →  `/eok` | 開始と成功終了を出力 |
 | 成功 | `/eok` | 成功終了のみ出力 |
 | 失敗 | `/s` → `/efail` | 開始と失敗終了を出力 |
 | 失敗 | `/efail` | 失敗終了のみ出力 |
@@ -231,8 +231,8 @@ Span や Step の中間記録、状態遷移、サマリー情報、判断結果
 
 ```go
 // withCmdRunLogger implements the Span pattern for CLI command logging.
-// It emits a START log line and returns a context with logger attributes attached,
-// plus a cleanup function to emit the END:OK or END:FAILED log line.
+// It emits a start log line and returns a context with logger attributes attached,
+// plus a cleanup function to emit the success or failure log line.
 //
 // Usage:
 //
@@ -240,9 +240,11 @@ Span や Step の中間記録、状態遷移、サマリー情報、判断結果
 //	defer func() { cleanup(err) }()
 //
 // Log message format:
-// - START:  CMD:<operation>:START (with runId, resourceId in logger attributes)
-// - END:    CMD:<operation>:END:OK or CMD:<operation>:END:FAILED (with err, elapsed in logger attributes)
+// - Start:   CMD:<operation>/S (with runId, resourceId in logger attributes)
+// - Success: CMD:<operation>/EOK (with err, elapsed in logger attributes)
+// - Failure: CMD:<operation>/EFAIL (with err, elapsed in logger attributes)
 //
+// All logs use INFO level (mechanical recording).
 // See design/v1/Kompox-Logging.ja.md for the full Span pattern specification.
 func withCmdRunLogger(ctx context.Context, operation, resourceID string) (context.Context, func(err error)) {
 	runID, err := naming.NewCompactID()
@@ -257,17 +259,17 @@ func withCmdRunLogger(ctx context.Context, operation, resourceID string) (contex
 	logger := logging.FromContext(ctx).With("runId", runID, "resourceId", resourceID)
 	ctx = logging.WithLogger(ctx, logger)
 
-	// Emit START log line
-	logger.Info(ctx, "CMD:"+operation+":START")
+	// Emit start log line
+	logger.Info(ctx, "CMD:"+operation+"/S")
 
 	cleanup := func(err error) {
 		elapsed := time.Since(startAt).Seconds()
 		var msg, errStr string
 		if err == nil {
-			msg = "CMD:" + operation + ":END:OK"
+			msg = "CMD:" + operation + "/EOK"
 			errStr = ""
 		} else {
-			msg = "CMD:" + operation + ":END:FAILED"
+			msg = "CMD:" + operation + "/EFAIL"
 			errMsg := err.Error()
 			if len(errMsg) > 32 {
 				errStr = errMsg[:32] + "..."
@@ -276,11 +278,8 @@ func withCmdRunLogger(ctx context.Context, operation, resourceID string) (contex
 			}
 		}
 
-		if err == nil {
-			logger.Info(ctx, msg, "err", errStr, "elapsed", elapsed)
-		} else {
-			logger.Warn(ctx, msg, "err", errStr, "elapsed", elapsed)
-		}
+		// Always use INFO level for Span pattern (mechanical recording)
+		logger.Info(ctx, msg, "err", errStr, "elapsed", elapsed)
 	}
 
 	return ctx, cleanup

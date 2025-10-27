@@ -19,7 +19,10 @@ func (c *Client) PatchDeploymentPodContentHash(ctx context.Context, namespace, d
 	if c == nil || c.Clientset == nil || namespace == "" || deploymentName == "" {
 		return nil
 	}
+
 	logger := logging.FromContext(ctx)
+	msgSym := "KubeClient:PatchDeploymentPodContentHash"
+
 	dep, err := c.Clientset.AppsV1().Deployments(namespace).Get(ctx, deploymentName, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("get deployment: %w", err)
@@ -118,6 +121,8 @@ func (c *Client) PatchDeploymentPodContentHash(ctx context.Context, namespace, d
 		}
 	}
 
+	patchLogger := logger.With("deployment", deploymentName, "hashChanged", hashChanged, "imagePullSecretsChanged", imagePullSecretsChanged)
+	patchLogger.Info(ctx, msgSym+"/s")
 	if len(patch) == 0 {
 		return nil
 	}
@@ -141,9 +146,9 @@ func (c *Client) PatchDeploymentPodContentHash(ctx context.Context, namespace, d
 		}
 		mpBytes, _ := json.Marshal(mp)
 		if _, err2 := c.Clientset.AppsV1().Deployments(namespace).Patch(ctx, deploymentName, types.MergePatchType, mpBytes, metav1.PatchOptions{}); err2 != nil {
+			patchLogger.Info(ctx, msgSym+"/efail", "err", err2)
 			return fmt.Errorf("patch deployment secret hash: %w (json patch failed: %v)", err2, err)
 		}
 	}
-	logger.Info(ctx, "patched deployment secrets", "deployment", deploymentName, "hashChanged", hashChanged, "imagePullSecretsChanged", imagePullSecretsChanged)
 	return nil
 }

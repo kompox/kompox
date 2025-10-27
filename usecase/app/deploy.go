@@ -37,6 +37,7 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 		return nil, fmt.Errorf("DeployInput.AppID is required")
 	}
 	logger := logging.FromContext(ctx)
+	msgSym := "UC:app.deploy"
 
 	// Resolve the target app for cluster/provider lookup.
 	appObj, err := u.Repos.App.Get(ctx, in.AppID)
@@ -51,12 +52,12 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 	}
 	if len(vout.Errors) > 0 {
 		for _, e := range vout.Errors {
-			logger.Error(ctx, e, "app", appObj.Name)
+			logger.Error(ctx, msgSym+":ValidationError", "desc", e)
 		}
 		return nil, fmt.Errorf("validation failed (%d errors)", len(vout.Errors))
 	}
 	for _, w := range vout.Warnings {
-		logger.Warn(ctx, w, "app", appObj.Name)
+		logger.Warn(ctx, msgSym+":ValidationWarning", "desc", w)
 	}
 	if len(vout.K8sObjects) == 0 {
 		return nil, fmt.Errorf("no Kubernetes objects generated for app %s", appObj.Name)
@@ -127,10 +128,12 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 		selector := vout.Converter.HeadlessServiceSelectorString
 		// Namespace: derive from converter namespace (avoid assuming K8sObjects[0])
 		ns := vout.Converter.Namespace
-		list, lerr := kcli.Clientset.CoreV1().Services(ns).List(ctx, metav1.ListOptions{LabelSelector: selector})
-		if lerr != nil {
-			logger.Warn(ctx, "list headless services for prune failed", "err", lerr, "namespace", ns)
+		listLogger := logging.FromContext(ctx).With("ns", ns, "selector", selector)
+		list, listErr := kcli.Clientset.CoreV1().Services(ns).List(ctx, metav1.ListOptions{LabelSelector: selector})
+		if listErr != nil {
+			listLogger.Info(ctx, msgSym+":HeadlessServices:List/efail", "err", listErr)
 		} else {
+			listLogger.Info(ctx, msgSym+":HeadlessServices:List/eok")
 			var toDelete []string
 			for _, svc := range list.Items {
 				if _, ok := desired[svc.Name]; ok {
@@ -140,25 +143,24 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 			}
 			sort.Strings(toDelete)
 			for _, name := range toDelete {
+				nameLogger := logger.With("ns", ns, "name", name)
 				if derr := kcli.Clientset.CoreV1().Services(ns).Delete(ctx, name, metav1.DeleteOptions{}); derr != nil {
-					logger.Warn(ctx, "delete stale headless service failed", "name", name, "err", derr)
+					nameLogger.Info(ctx, msgSym+":HeadlessServices:Delete/efail", "err", derr)
+				} else {
+					nameLogger.Info(ctx, msgSym+":HeadlessServices:Delete/eok")
 				}
-			}
-			if len(toDelete) > 0 {
-				logger.Info(ctx, "pruned stale headless services", "count", len(toDelete), "names", toDelete)
 			}
 		}
 	}
-
-	logger.Info(ctx, "deploy success", "app", appObj.Name)
 
 	// Runtime patch: recompute PodContentHash via kube.Client method.
 	if vout.Converter != nil && vout.Converter.K8sDeployment != nil {
 		depName := vout.Converter.K8sDeployment.Name
 		depNS := vout.Converter.K8sDeployment.Namespace
 		if err := kcli.PatchDeploymentPodContentHash(ctx, depNS, depName); err != nil {
-			logger.Warn(ctx, "patch deployment content hash failed", "err", err)
+			logger.Warn(ctx, msgSym+":PatchFailed", "err", err)
 		}
 	}
+
 	return &DeployOutput{Warnings: vout.Warnings, AppliedCount: len(vout.K8sObjects)}, nil
 }
