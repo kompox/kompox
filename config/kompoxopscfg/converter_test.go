@@ -271,6 +271,7 @@ func TestToModelVolumes(t *testing.T) {
 				{
 					Name: "data",
 					Size: 32 * 1024 * 1024 * 1024, // 32Gi in bytes
+					Type: model.VolumeTypeDisk,
 					Options: map[string]any{
 						"sku":  "PremiumV2_LRS",
 						"iops": 3000,
@@ -280,6 +281,7 @@ func TestToModelVolumes(t *testing.T) {
 				{
 					Name: "cache",
 					Size: 8 * 1024 * 1024 * 1024, // 8Gi in bytes
+					Type: model.VolumeTypeDisk,
 					Options: map[string]any{
 						"sku": "Premium_LRS",
 					},
@@ -298,6 +300,68 @@ func TestToModelVolumes(t *testing.T) {
 				{
 					Name:    "simple",
 					Size:    1024 * 1024 * 1024, // 1Gi in bytes
+					Type:    model.VolumeTypeDisk,
+					Options: nil,
+				},
+			},
+		},
+		{
+			name: "volumes with type disk",
+			volumes: []AppVolume{
+				{
+					Name: "data",
+					Size: "10Gi",
+					Type: "disk",
+				},
+			},
+			want: []model.AppVolume{
+				{
+					Name:    "data",
+					Size:    10 * 1024 * 1024 * 1024,
+					Type:    model.VolumeTypeDisk,
+					Options: nil,
+				},
+			},
+		},
+		{
+			name: "volumes with type files",
+			volumes: []AppVolume{
+				{
+					Name: "shared",
+					Size: "100Gi",
+					Type: "files",
+					Options: map[string]any{
+						"protocol": "smb",
+						"skuName":  "Standard_LRS",
+					},
+				},
+			},
+			want: []model.AppVolume{
+				{
+					Name: "shared",
+					Size: 100 * 1024 * 1024 * 1024,
+					Type: model.VolumeTypeFiles,
+					Options: map[string]any{
+						"protocol": "smb",
+						"skuName":  "Standard_LRS",
+					},
+				},
+			},
+		},
+		{
+			name: "volumes with empty type defaults to disk",
+			volumes: []AppVolume{
+				{
+					Name: "default",
+					Size: "1Gi",
+					Type: "",
+				},
+			},
+			want: []model.AppVolume{
+				{
+					Name:    "default",
+					Size:    1024 * 1024 * 1024,
+					Type:    model.VolumeTypeDisk,
 					Options: nil,
 				},
 			},
@@ -322,6 +386,10 @@ func TestToModelVolumes(t *testing.T) {
 
 				if volume.Size != expected.Size {
 					t.Errorf("volume[%d].Size = %v, want %v", i, volume.Size, expected.Size)
+				}
+
+				if volume.Type != expected.Type {
+					t.Errorf("volume[%d].Type = %v, want %v", i, volume.Type, expected.Type)
 				}
 
 				// Compare options

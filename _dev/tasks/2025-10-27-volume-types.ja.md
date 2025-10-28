@@ -67,18 +67,18 @@ owner: yaegashi
 
 ## 計画 (チェックリスト)
 
-- [ ] ドメイン
-  - [ ] `domain/model`: `AppVolume` に `Type` フィールド追加
-  - [ ] `domain`: `VolumeTypeDisk`, `VolumeTypeFiles`, `ErrNotSupported` 定数追加
-  - [ ] バリデーション: 不明 `Type` を拒否、空は `disk` 解釈
-  - [ ] `VolumeDisk` コメント更新 (`files` の意味明記)
-- [ ] UseCase/ポート
-  - [ ] `VolumePort` 契約不変を確認
-  - [ ] `Snapshot*` は `Type` に関わらずドライバーに委譲 (UseCase では判断しない)
-- [ ] Kube 変換
-  - [ ] `Type = "files"` 時に RWX PVC 生成
-  - [ ] `Options` から CSI パラメータ反映 (`skuName` など、`protocol` は固定 `"smb"`)
-  - [ ] [Kompox-KubeConverter.ja.md] 仕様追記
+- [x] ドメイン
+  - [x] `domain/model`: `AppVolume` に `Type` フィールド追加
+  - [x] `domain`: `VolumeTypeDisk`, `VolumeTypeFiles`, `ErrNotSupported` 定数追加
+  - [x] バリデーション: 不明 `Type` を拒否、空は `disk` 解釈
+  - [x] `VolumeDisk` コメント更新 (`files` の意味明記)
+- [x] UseCase/ポート
+  - [x] `VolumePort` 契約不変を確認
+  - [x] `Snapshot*` は `Type` に関わらずドライバーに委譲 (UseCase では判断しない)
+- [x] Kube 変換
+  - [x] `Type = "files"` 時に RWX PVC 生成
+  - [x] `Options` から CSI パラメータ反映 (`skuName` など、`protocol` は固定 `"smb"`)
+  - [x] [Kompox-KubeConverter.ja.md] 仕様追記
 - [ ] AKS ドライバー (`adapters/drivers/provider/aks`)
   - [ ] `appStorageAccountName()`: ストレージアカウント名生成 (`k4x{prv_hash}{app_hash}` 形式、15文字)
   - [ ] Storage Account 自動作成ロジック (App 単位、初回 Disk 作成時)

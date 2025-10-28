@@ -214,6 +214,11 @@ type AppVolumeSpec struct {
 	Name string `json:"name"`
 	// Size is the volume size (int64 for bytes, or string like "10Gi").
 	Size any `json:"size,omitzero"`
+	// Type is the volume type: "disk" (default, RWO) or "files" (RWX).
+	// Empty means "disk".
+	// +kubebuilder:validation:Enum=disk;files;""
+	// +kubebuilder:default=""
+	Type string `json:"type,omitzero"`
 	// Options are provider-specific volume options (e.g., SKU, IOPS).
 	Options map[string]any `json:"options,omitzero"`
 }

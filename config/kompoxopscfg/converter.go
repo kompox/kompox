@@ -168,10 +168,16 @@ func toModelVolumes(vs []AppVolume) []model.AppVolume {
 		if err != nil {
 			panic(fmt.Errorf("invalid volume size %q for volume %q: %w", v.Size, v.Name, err))
 		}
+		// Default empty Type to "disk"
+		volType := v.Type
+		if volType == "" {
+			volType = model.VolumeTypeDisk
+		}
 		// Quantity.Value() returns the value in base units (bytes for memory/storage quantities)
 		out = append(out, model.AppVolume{
 			Name:    v.Name,
 			Size:    q.Value(),
+			Type:    volType,
 			Options: v.Options,
 		})
 	}

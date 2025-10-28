@@ -209,13 +209,31 @@ app.volumes スキーマ
 app.volumes:
   - name: <name>
     size: <size>
+    type: <type>  # optional: "disk" (default) or "files"
     options:
       <key>: <value>
 ```
 
 - name: DNS-1123 ラベル、長さ 1..16、正規表現: `^[a-z0-9]([-a-z0-9]{0,14}[a-z0-9])?$`
 - size: `32Gi` など
+- type: ボリュームタイプ
+  - `"disk"` (既定値、空でも同義): ブロックデバイス型ストレージ (通常 RWO アクセス)
+  - `"files"`: ネットワークファイル共有 (RWX アクセス; プロバイダ管理の共有ストレージ)
+  - 不明な値はバリデーションエラー
 - options: Provider Driver が解釈するボリュームオプション。key/value ともに文字列。
+
+ボリュームタイプと Kubernetes 変換
+
+- `Type = "disk"` (既定):
+  - PV/PVC の `accessModes` は既定で `[ReadWriteOnce]` (プロバイダドライバが `VolumeClass.AccessModes` で上書き可能)
+  - 例: Azure Managed Disk (`disk.csi.azure.com`), AWS EBS (`ebs.csi.aws.com`), GCP Persistent Disk (`pd.csi.storage.gke.io`)
+- `Type = "files"`:
+  - PV/PVC の `accessModes` は既定で `[ReadWriteMany]` (プロバイダドライバが `VolumeClass.AccessModes` で設定)
+  - CSI volumeAttributes には `Options` から `protocol` (`smb` | `nfs`), `skuName`, `availability` などを反映
+  - 例: Azure Files (`file.csi.azure.com`, SMB/NFS), AWS EFS (`efs.csi.aws.com`), GCP Filestore (`filestore.csi.storage.gke.io`)
+  - スナップショット機能は多くのプロバイダで非対応 (ドライバは `ErrNotSupported` を返す)
+
+詳細は [K4x-ADR-014] と各プロバイダドライバ仕様 (例: [Kompox-ProviderDriver-AKS.ja.md]) を参照。
 
 Compose の `services.<service>.volumes` は compose-go によりパースされる。
 
@@ -1319,3 +1337,8 @@ spec:
 
 [K4x-ADR-003]: ../adr/K4x-ADR-003.md
 [K4x-ADR-005]: ../adr/K4x-ADR-005.md
+[K4x-ADR-014]: ../adr/K4x-ADR-014.md
+
+<!-- Design References -->
+
+[Kompox-ProviderDriver-AKS.ja.md]: ./Kompox-ProviderDriver-AKS.ja.md

@@ -46,6 +46,7 @@ type AppIngressRule struct {
 type AppVolume struct {
 	Name    string
 	Size    int64          // in bytes (parsed from user configuration quantities like "32Gi").
+	Type    string         // volume type: "disk" (default, RWO block storage) or "files" (RWX network file shares). Empty means "disk".
 	Options map[string]any // provider-specific options for volume configuration (e.g., SKU, IOPS, throughput).
 }
 

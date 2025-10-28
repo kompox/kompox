@@ -95,6 +95,7 @@ type AppIngressRule struct {
 type AppVolume struct {
 	Name    string         `yaml:"name"`
 	Size    string         `yaml:"size"`
+	Type    string         `yaml:"type,omitempty"`    // volume type: "disk" (default, RWO) or "files" (RWX). Empty means "disk".
 	Options map[string]any `yaml:"options,omitempty"` // provider-specific options for volume configuration
 }
 

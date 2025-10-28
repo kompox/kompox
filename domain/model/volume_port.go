@@ -5,6 +5,12 @@ import (
 	"time"
 )
 
+// Canonical volume type constants.
+const (
+	VolumeTypeDisk  = "disk"  // block-device-backed volumes (typically RWO)
+	VolumeTypeFiles = "files" // network file shares for RWX
+)
+
 // Operation-scoped options and functional option types for volume operations.
 // These are placeholders for future extensions (e.g., Force, DryRun, Timeout).
 // Drivers and adapters should accept and may ignore them until used.
@@ -75,6 +81,13 @@ type VolumePort interface {
 }
 
 // VolumeDisk represents a specific disk of a logical volume.
+// For Type="disk": represents a block device (e.g., Azure Managed Disk, AWS EBS).
+// For Type="files": represents a network file share (e.g., Azure Files share, EFS filesystem).
+//   - Name: share/export name
+//   - Handle: provider-native URI (e.g., smbs://{account}.file.core.windows.net/{share}, nfs://{host}:/{export})
+//   - Size: share quota in bytes; 0 if not set
+//   - Zone: empty for regional services; availability/replication via Options
+//   - Options: provider-specific attributes (protocol, skuName, availability, quotaGiB, etc.)
 type VolumeDisk struct {
 	Name       string         `json:"name"`       // name of the volume disk
 	VolumeName string         `json:"volumeName"` // name of the logical volume this disk belongs to

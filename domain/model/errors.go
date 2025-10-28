@@ -14,4 +14,8 @@ var (
 
 	// ErrClusterProtected indicates that the operation is blocked by protection policy.
 	ErrClusterProtected = errors.New("cluster operation blocked by protection policy")
+
+	// ErrNotSupported indicates that the operation is not supported by the provider/driver.
+	// Used for operations like snapshots on volume types that do not support them.
+	ErrNotSupported = errors.New("operation not supported")
 )

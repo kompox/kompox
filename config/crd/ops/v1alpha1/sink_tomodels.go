@@ -252,9 +252,15 @@ func (s *Sink) ToModels(ctx context.Context, repos Repositories, kompoxAppFilePa
 				if err != nil {
 					return fmt.Errorf("invalid volume size for volume %q: %w", v.Name, err)
 				}
+				// Default empty Type to "disk"
+				volType := v.Type
+				if volType == "" {
+					volType = model.VolumeTypeDisk
+				}
 				volumes = append(volumes, model.AppVolume{
 					Name:    v.Name,
 					Size:    sizeBytes,
+					Type:    volType,
 					Options: v.Options,
 				})
 			}

@@ -3,6 +3,7 @@ package kompoxopscfg
 import (
 	"fmt"
 
+	"github.com/kompox/kompox/domain/model"
 	"github.com/kompox/kompox/internal/naming"
 )
 
@@ -35,6 +36,11 @@ func (a *App) validateVolumes() error {
 			return fmt.Errorf("volumes[%d].name: duplicate volume name %q", i, volume.Name)
 		}
 		seen[volume.Name] = struct{}{}
+
+		// Validate Type: must be empty, "disk", or "files"
+		if volume.Type != "" && volume.Type != model.VolumeTypeDisk && volume.Type != model.VolumeTypeFiles {
+			return fmt.Errorf("volumes[%d].type: invalid type %q, must be %q or %q", i, volume.Type, model.VolumeTypeDisk, model.VolumeTypeFiles)
+		}
 	}
 
 	return nil

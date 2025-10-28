@@ -48,6 +48,39 @@ func TestRootValidate_VolumeNames(t *testing.T) {
 			},
 			wantErr: "duplicate volume name",
 		},
+		{
+			name: "valid type disk",
+			root: Root{
+				App: App{
+					Volumes: []AppVolume{{Name: "data", Size: "1Gi", Type: "disk"}},
+				},
+			},
+		},
+		{
+			name: "valid type files",
+			root: Root{
+				App: App{
+					Volumes: []AppVolume{{Name: "data", Size: "1Gi", Type: "files"}},
+				},
+			},
+		},
+		{
+			name: "empty type defaults to disk",
+			root: Root{
+				App: App{
+					Volumes: []AppVolume{{Name: "data", Size: "1Gi", Type: ""}},
+				},
+			},
+		},
+		{
+			name: "invalid type",
+			root: Root{
+				App: App{
+					Volumes: []AppVolume{{Name: "data", Size: "1Gi", Type: "invalid"}},
+				},
+			},
+			wantErr: "invalid type",
+		},
 	}
 
 	for _, tt := range tests {
