@@ -40,12 +40,6 @@ var paramSettingMap = []struct{ param, setting string }{
 	{"aksUserVmZones", "AZURE_AKS_USER_VM_ZONES"},
 }
 
-// azureDeploymentName generates the deployment name for the subscription-scoped deployment.
-// It returns the same name as the resource group name for consistency.
-func (d *driver) azureDeploymentName(cluster *model.Cluster) (string, error) {
-	return d.clusterResourceGroupName(cluster)
-}
-
 // ensureAzureDeploymentCreated creates or updates the subscription-scoped deployment for the cluster.
 // If an existing deployment succeeded and force is false, it returns without changes (idempotent).
 func (d *driver) ensureAzureDeploymentCreated(ctx context.Context, cluster *model.Cluster, resourceGroupName string, tags map[string]*string, force bool) error {

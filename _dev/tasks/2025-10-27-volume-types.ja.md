@@ -79,32 +79,22 @@ owner: yaegashi
   - [x] `Type = "files"` 時に RWX PVC 生成
   - [x] `Options` から CSI パラメータ反映 (`skuName` など、`protocol` は固定 `"smb"`)
   - [x] [Kompox-KubeConverter.ja.md] 仕様追記
-- [x] AKS ドライバー - リファクタリング (`adapters/drivers/provider/aks`)
-  - [x] ファイル構成整理 (`volume.go`, `volume_driver.go`, `volume_driver_disk.go`, `volume_driver_files.go`)
-  - [x] 型名統一: `driverVolume` (interface), `driverVolumeDisk`, `driverVolumeFiles`
-  - [x] インターフェース定義: `DiskList`, `DiskCreate`, `DiskDelete`, `DiskAssign`, `SnapshotList`, `SnapshotCreate`, `SnapshotDelete`, `Class`
-  - [x] ヘルパー関数のメソッド化:
-    - [x] `newVolumeDisk` → `(vd *driverVolumeDisk) newDisk`
-    - [x] `azureZones` → `(vd *driverVolumeDisk) zones`
-    - [x] `setAzureDiskOptions` → `(vd *driverVolumeDisk) setDiskOptions`
-    - [x] `azureDiskOptions` → `(vd *driverVolumeDisk) diskOptions`
-    - [x] `newVolumeSnapshot` → `(vd *driverVolumeDisk) newSnapshot` (移動元: `volume_snapshot.go` 削除)
-  - [x] ディスパッチ処理共通化: `(d *driver) resolveVolumeDriver(vol *model.AppVolume)` メソッド追加
-  - [x] 全7つのディスパッチメソッド簡潔化 (重複ロジック削除、合計76行削減)
-  - [x] ビルド・テスト成功確認
-- [x] AKS ドライバー - Azure Files 実装 (`adapters/drivers/provider/aks`)
-  - [x] `driverVolumeFiles` 構造体と `newDriverVolumeFiles()` 実装
-  - [x] `appStorageAccountName()`: ストレージアカウント名生成 (`k4x{prv_hash}{app_hash}` 形式、15文字)
-  - [x] `ensureStorageAccountExists()`: Storage Account 自動作成ロジック (App 単位、初回 Disk 作成時)
-  - [x] `DiskList()`: 共有一覧取得、メタデータフィルタリング
-  - [x] `DiskCreate()`: 共有作成、メタデータ設定、`source` 指定時エラー
-  - [x] `DiskAssign()`: 共有メタデータ更新 (`kompox-files-share-assigned`)
-  - [x] `DiskDelete()`: 共有削除 (冪等)
-  - [x] `Class()`: `Type = "files"` 時の StorageClass/CSI 情報返却 (`protocol="smb"` 固定)
-  - [x] `SnapshotList/Create/Delete()`: `ErrNotSupported` 返却
-  - [x] `newVolumeFilesDisk()`: 共有 Handle URI 生成 (`smb://...`)
-  - [x] SKU 選択 (`Options` から取得、既定値設定)、プロトコル固定 (SMB)
-  - [x] `Options.protocol` が `"smb"` 以外の場合エラー処理
+- [x] AKS ドライバー - 実装とリファクタリング (`adapters/drivers/provider/aks`)
+  - [x] ファイル構成: `volume.go`, `volume_backend.go`, `volume_backend_disk.go`, `volume_backend_files.go`, `azure_storage.go`, `naming.go`
+  - [x] 型定義: `volumeBackend` interface, `volumeBackendDisk`, `volumeBackendFiles` (レシーバー変数 `vb` 統一)
+  - [x] インターフェース: `DiskList`, `DiskCreate`, `DiskDelete`, `DiskAssign`, `SnapshotList`, `SnapshotCreate`, `SnapshotDelete`, `Class`
+  - [x] ディスパッチ: `resolveVolumeDriver` メソッドによる Type 別振り分け
+  - [x] Azure Files 実装:
+    - [x] Storage Account 自動作成 (App 単位、初回 Disk 作成時)
+    - [x] 共有名: `{vol.name}-{disk.name}` (最大41文字)
+    - [x] 共有メタデータ管理: `kompox-files-share-name`, `kompox-files-share-assigned`
+    - [x] Handle URI: `smbs://{account}.file.core.windows.net/{share}`
+    - [x] SKU 選択サポート (既定: `Standard_LRS`)
+    - [x] プロトコル: SMB 固定 (`Options.protocol` が `"smb"` 以外はエラー)
+    - [x] スナップショット非対応 (`ErrNotSupported` 返却)
+  - [x] 命名メソッドの整理 (`appStorageAccountName`, `azureDeploymentName` を `naming.go` に集約)
+  - [x] Storage Account 管理メソッド (`ensureStorageAccountCreated`) を含む `azure_storage.go` を作成
+  - [x] 全テスト成功
 - [ ] E2E テスト
   - [ ] `tests/aks-e2e-volume/` または新規テストケース作成
   - [ ] `Type = "files"` での共有作成/割当/削除
@@ -171,6 +161,16 @@ owner: yaegashi
   - `DiskCreate` で `resolveSourceSnapshotResourceID` を使用 (スナップショット優先解決)
   - ソース解決メソッド (`resolveSource*`) を `volume_source.go` から `driverVolumeDisk` に移動
   - `volume_source.go` 削除 (ディスク固有ロジックの凝集度向上)
+- 2025-10-28: AKS ドライバー リファクタリング - Phase 2
+  - 型名変更: `driverVolume*` → `volumeBackend*` (interface とすべての実装)
+  - ファイル名変更: `volume_driver*.go` → `volume_backend*.go`
+  - レシーバー変数統一: `vd`/`vf` → `vb` (全 volumeBackend メソッド)
+  - `newVolumeFilesDisk` → `volumeBackendFiles.newDisk` メソッド化
+  - 命名関連メソッドの整理:
+    - `appStorageAccountName()` を `azure_storage.go` から `naming.go` へ移動
+    - `azureDeploymentName()` を `azure_aks.go` から `naming.go` へ移動
+    - Storage Account 管理メソッド (`ensureStorageAccountCreated`) を含む `azure_storage.go` を作成
+  - 全テスト成功、コードの論理的分離とモジュール性が向上
 
 ## 参考
 

@@ -1,17 +1,5 @@
 package aks
 
-// Resource group naming helpers for AKS driver.
-//
-// Rules:
-// Provider base RG name:
-//   base = provider.settings.AZURE_RESOURCE_GROUP_BASE_NAME || "kompox_{provider.name}"
-// Cluster provisioning RG name:
-//   cluster.settings.AZURE_RESOURCE_GROUP_NAME || "{base}_{cluster.name}_{hash.Cluster}"
-// Volume (App) RG name:
-//   app.settings.AZURE_RESOURCE_GROUP_NAME || "{base}_{app.name}_{hash.AppID}"
-// Hashes are generated via internal/naming.NewHashes.
-// Length is truncated to Azure RG max (90 chars) preserving hash suffix.
-
 import (
 	"fmt"
 
@@ -72,6 +60,12 @@ func tagsForLog(tags map[string]*string) map[string]string {
 		}
 	}
 	return out
+}
+
+// azureDeploymentName generates the deployment name for the subscription-scoped deployment.
+// It returns the same name as the resource group name for consistency.
+func (d *driver) azureDeploymentName(cluster *model.Cluster) (string, error) {
+	return d.clusterResourceGroupName(cluster)
 }
 
 // clusterResourceTags generates key-values for tagging cluster-scoped Azure resources.
@@ -164,4 +158,25 @@ func (d *driver) appSnapshotName(app *model.App, volName string, snapshotName st
 		return "", fmt.Errorf("snapshot name: %w", err)
 	}
 	return result, nil
+}
+
+// appStorageAccountName generates the storage account name for an app.
+// Format: k4x{prv_hash}{app_hash} (15 chars total, lowercase alphanumeric only).
+// Storage account names must be 3-24 characters, lowercase letters and numbers only.
+func (d *driver) appStorageAccountName(app *model.App) (string, error) {
+	if app == nil {
+		return "", fmt.Errorf("app nil")
+	}
+	h := naming.NewHashes(d.WorkspaceName(), d.ProviderName(), "", app.Name)
+	// Take first 6 chars of provider hash and first 6 chars of appID hash
+	// k4x + 6 + 6 = 15 characters
+	prvHash := h.Provider
+	if len(prvHash) > 6 {
+		prvHash = prvHash[:6]
+	}
+	appHash := h.AppID
+	if len(appHash) > 6 {
+		appHash = appHash[:6]
+	}
+	return fmt.Sprintf("k4x%s%s", prvHash, appHash), nil
 }

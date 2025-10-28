@@ -6,10 +6,10 @@ import (
 	"github.com/kompox/kompox/domain/model"
 )
 
-// driverVolume abstracts volume operations for different volume types (disk, files, etc.).
+// volumeBackend abstracts volume operations for different volume types (disk, files, etc.).
 // Each volume type has its own implementation that knows how to interact with
 // the corresponding Azure service (Managed Disks, Azure Files, etc.).
-type driverVolume interface {
+type volumeBackend interface {
 	// DiskList returns a list of disks of the specified logical volume.
 	DiskList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, opts ...model.VolumeDiskListOption) ([]*model.VolumeDisk, error)
 

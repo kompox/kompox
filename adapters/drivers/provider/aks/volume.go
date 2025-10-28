@@ -10,18 +10,18 @@ import (
 
 // resolveVolumeDriver returns the appropriate volume driver based on volume type.
 // Empty type defaults to disk volume driver.
-func (d *driver) resolveVolumeDriver(vol *model.AppVolume) (driverVolume, error) {
+func (d *driver) resolveVolumeDriver(vol *model.AppVolume) (volumeBackend, error) {
 	volType := vol.Type
 	if volType == "" {
 		volType = model.VolumeTypeDisk
 	}
 
-	vd, ok := d.volumeDrivers[volType]
+	vb, ok := d.volumeBackends[volType]
 	if !ok {
 		return nil, fmt.Errorf("unsupported volume type: %s", volType)
 	}
 
-	return vd, nil
+	return vb, nil
 }
 
 // VolumeDiskList implements spec method.
@@ -35,12 +35,12 @@ func (d *driver) VolumeDiskList(ctx context.Context, cluster *model.Cluster, app
 		return nil, fmt.Errorf("find volume: %w", err)
 	}
 
-	vd, err := d.resolveVolumeDriver(vol)
+	vb, err := d.resolveVolumeDriver(vol)
 	if err != nil {
 		return nil, err
 	}
 
-	return vd.DiskList(ctx, cluster, app, volName, opts...)
+	return vb.DiskList(ctx, cluster, app, volName, opts...)
 }
 
 // VolumeDiskCreate implements spec method.
@@ -56,12 +56,12 @@ func (d *driver) VolumeDiskCreate(ctx context.Context, cluster *model.Cluster, a
 		return nil, fmt.Errorf("find volume: %w", err)
 	}
 
-	vd, err := d.resolveVolumeDriver(vol)
+	vb, err := d.resolveVolumeDriver(vol)
 	if err != nil {
 		return nil, err
 	}
 
-	return vd.DiskCreate(ctx, cluster, app, volName, diskName, source, opts...)
+	return vb.DiskCreate(ctx, cluster, app, volName, diskName, source, opts...)
 }
 
 // VolumeDiskAssign implements spec method.
@@ -75,12 +75,12 @@ func (d *driver) VolumeDiskAssign(ctx context.Context, cluster *model.Cluster, a
 		return fmt.Errorf("find volume: %w", err)
 	}
 
-	vd, err := d.resolveVolumeDriver(vol)
+	vb, err := d.resolveVolumeDriver(vol)
 	if err != nil {
 		return err
 	}
 
-	return vd.DiskAssign(ctx, cluster, app, volName, diskName, opts...)
+	return vb.DiskAssign(ctx, cluster, app, volName, diskName, opts...)
 }
 
 // VolumeDiskDelete implements spec method.
@@ -94,12 +94,12 @@ func (d *driver) VolumeDiskDelete(ctx context.Context, cluster *model.Cluster, a
 		return fmt.Errorf("find volume: %w", err)
 	}
 
-	vd, err := d.resolveVolumeDriver(vol)
+	vb, err := d.resolveVolumeDriver(vol)
 	if err != nil {
 		return err
 	}
 
-	return vd.DiskDelete(ctx, cluster, app, volName, diskName, opts...)
+	return vb.DiskDelete(ctx, cluster, app, volName, diskName, opts...)
 }
 
 // VolumeSnapshotList implements spec method.
@@ -113,12 +113,12 @@ func (d *driver) VolumeSnapshotList(ctx context.Context, cluster *model.Cluster,
 		return nil, fmt.Errorf("find volume: %w", err)
 	}
 
-	vd, err := d.resolveVolumeDriver(vol)
+	vb, err := d.resolveVolumeDriver(vol)
 	if err != nil {
 		return nil, err
 	}
 
-	return vd.SnapshotList(ctx, cluster, app, volName, opts...)
+	return vb.SnapshotList(ctx, cluster, app, volName, opts...)
 }
 
 // VolumeSnapshotCreate implements spec method.
@@ -132,12 +132,12 @@ func (d *driver) VolumeSnapshotCreate(ctx context.Context, cluster *model.Cluste
 		return nil, fmt.Errorf("find volume: %w", err)
 	}
 
-	vd, err := d.resolveVolumeDriver(vol)
+	vb, err := d.resolveVolumeDriver(vol)
 	if err != nil {
 		return nil, err
 	}
 
-	return vd.SnapshotCreate(ctx, cluster, app, volName, snapName, source, opts...)
+	return vb.SnapshotCreate(ctx, cluster, app, volName, snapName, source, opts...)
 }
 
 // VolumeSnapshotDelete implements spec method.
@@ -151,21 +151,21 @@ func (d *driver) VolumeSnapshotDelete(ctx context.Context, cluster *model.Cluste
 		return fmt.Errorf("find volume: %w", err)
 	}
 
-	vd, err := d.resolveVolumeDriver(vol)
+	vb, err := d.resolveVolumeDriver(vol)
 	if err != nil {
 		return err
 	}
 
-	return vd.SnapshotDelete(ctx, cluster, app, volName, snapName, opts...)
+	return vb.SnapshotDelete(ctx, cluster, app, volName, snapName, opts...)
 }
 
 // VolumeClass implements providerdrv.Driver VolumeClass method for AKS.
 // Returns opinionated defaults suitable for Azure Disk CSI or Azure Files CSI depending on volume type.
 func (d *driver) VolumeClass(ctx context.Context, cluster *model.Cluster, app *model.App, vol model.AppVolume) (model.VolumeClass, error) {
-	vd, err := d.resolveVolumeDriver(&vol)
+	vb, err := d.resolveVolumeDriver(&vol)
 	if err != nil {
 		return model.VolumeClass{}, err
 	}
 
-	return vd.Class(ctx, cluster, app, vol)
+	return vb.Class(ctx, cluster, app, vol)
 }

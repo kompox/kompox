@@ -19,7 +19,7 @@ type driver struct {
 	TokenCredential     azcore.TokenCredential
 	AzureSubscriptionId string
 	AzureLocation       string
-	volumeDrivers       map[string]driverVolume // volume type -> driverVolume
+	volumeBackends      map[string]volumeBackend // volume type -> volumeBackend
 }
 
 // ID returns the provider identifier.
@@ -131,10 +131,10 @@ func init() {
 			AzureLocation:       location,
 		}
 
-		// Initialize volume drivers for each type
-		d.volumeDrivers = map[string]driverVolume{
-			model.VolumeTypeDisk:  newDriverVolumeDisk(d),
-			model.VolumeTypeFiles: newDriverVolumeFiles(d),
+		// Initialize volume backends for each type
+		d.volumeBackends = map[string]volumeBackend{
+			model.VolumeTypeDisk:  newVolumeBackendDisk(d),
+			model.VolumeTypeFiles: newVolumeBackendFiles(d),
 		}
 
 		return d, nil
