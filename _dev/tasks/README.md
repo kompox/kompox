@@ -1,7 +1,7 @@
 ---
 id: README
 title: Developer Tasks Index
-updated: 2025-10-27
+updated: 2025-10-28
 language: en
 ---
 
@@ -16,6 +16,7 @@ This index lists short, action-oriented developer tasks found in this folder. Ta
 
 | ID | Title | Status | Category | Owner | Updated | Language |
 |---|---|---|---|---|---|---|
+| [2025-10-27-volume-types](./2025-10-27-volume-types.ja.md) | Volume Types 実装 | active |  | yaegashi | 2025-10-28 | ja |
 | [2025-10-24-logging](./2025-10-24-logging.ja.md) | kompoxops ログ標準化（Event/Span/Step パターン適用） | active |  | yaegashi | 2025-10-27 | ja |
 | [2025-10-23-aks-cr](./2025-10-23-aks-cr.ja.md) | AKS Driver - ACR 権限付与対応 | done |  | yaegashi | 2025-10-23 | ja |
 | [2025-10-23-protection](./2025-10-23-protection.ja.md) | リソース保護ポリシー導入 Step 1-3 | done |  |  | 2025-10-23 | ja |

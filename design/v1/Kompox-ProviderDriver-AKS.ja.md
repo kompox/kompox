@@ -1,56 +1,64 @@
 ---
 id: Kompox-ProviderDriver-AKS
-title: Kompox Provider Driver AKS ガイド
+title: AKS Provider Driver 実装ガイド
 version: v1
-status: out-of-sync
-updated: 2025-10-12
+status: synced
+updated: 2025-10-28
 language: ja
 ---
 
-# Kompox Provider Driver AKS ガイド v1
+# AKS Provider Driver 実装ガイド v1
 
-## 概要
+本書では、Kompox の AKS Provider Driver の実装仕様を解説する。Driver インターフェースの各メソッドが AKS ドライバでどのように実装されているかをセクションごとに説明する。
 
-本書は Kompox の AKS プロバイダドライバ（`adapters/drivers/provider/aks`）の設計と現行実装の振る舞いを解説します。コード実装に基づく現状仕様であり、将来計画は含みません。
+## AKS 設定と認証
 
-## 対象バージョン / スコープ
-* 対象: 現行 `main` ブランチ実装
-* AKS API 利用: `Microsoft.ContainerService/managedClusters@2025-05-02-preview`
-* Azure Deployment Stacks をサブスクリプションスコープで利用
+### Provider Settings
 
-## ドライバ概要
-AKS クラスタおよび付随する監視 / レジストリ / Key Vault / ユーザ割当マネージドID等を **単一の Deployment Stack**（ARM テンプレート `main.json` 埋込）で一括作成 / 管理する。クラスタのインストール処理では Ingress (Traefik) をデフォルト名前空間（または指定値）に導入する。
+KOM Provider リソースの `spec.settings` または `kompoxops.yml` の `provider.settings` で指定する。
 
-## ドライバ識別子と関連名
-| 項目 | 値 |
-|------|----|
-| Driver ID | `aks` |
-| Deployment Stack 名 | `kompox_<WorkspaceName>_<ProviderName>_<ClusterName>` |
-| 付与クラスタタグ (Azure 全リソース共通タグ) | `kompox-cluster` = `<WorkspaceName>/<ProviderName>/<ClusterName>` |
-| 追加タグ | `managed-by=kompox` |
+- `AZURE_SUBSCRIPTION_ID`: Azure サブスクリプション ID (必須)
+- `AZURE_LOCATION`: Azure リージョン (必須、例: `japaneast`)
+- `AZURE_AUTH_METHOD`: 認証方式 (必須)
+- `AZURE_RESOURCE_PREFIX`: リソース名プレフィクス
 
-`WorkspaceName` はワークスペースが nil の場合 `(nil)` となる。
+認証方式ごとに追加の設定が必要になる場合がある (後述)。
 
-## 設定パラメータ
-### Provider 設定 (必須 / 任意)
-| キー | 必須 | 内容 |
-|------|------|------|
-| `AZURE_SUBSCRIPTION_ID` | 必須 | 操作対象サブスクリプション ID |
-| `AZURE_LOCATION` | 必須 | 主要ロケーション (全リソース location) |
-| `AZURE_AUTH_METHOD` | 必須 | 認証方式 (下記参照) |
-| `AZURE_TENANT_ID` | 認証方式依存 | 一部方式で必須 |
-| `AZURE_CLIENT_ID` | 認証方式依存 | 一部方式で必須 / オプション (Managed Identity の特定) |
-| `AZURE_CLIENT_SECRET` | client_secret 方式必須 | クライアントシークレット |
-| `AZURE_FEDERATED_TOKEN_FILE` | workload_identity 方式必須 | トークンファイルパス |
+### Cluster Settings
 
-### Cluster 設定
-| キー | 必須 | 内容 |
-|------|------|------|
-| `AZURE_RESOURCE_GROUP_NAME` | 必須 | 作成 / 利用するリソースグループ名。存在しない場合 Stack により作成。 |
+KOM Cluster リソースの `spec.settings` または `kompoxops.yml` の `cluster.settings` で指定する。
 
-クラスタ側では現状追加の AKS パラメータ (ノードプール詳細等) は受け取らない。
+- `AZURE_RESOURCE_GROUP_NAME`: クラスタ用リソースグループ名
+- `AZURE_AKS_DNS_ZONE_RESOURCE_IDS`: DNS ゾーンリソース ID リスト (カンマまたはスペース区切り、`ClusterDNSApply()` で使用、`ClusterInstall()` で DNS Zone Contributor ロールを付与)
+- `AZURE_AKS_CONTAINER_REGISTRY_RESOURCE_IDS`: Azure Container Registry リソース ID リスト (カンマまたはスペース区切り、`ClusterInstall()` で AcrPull ロールを付与)
 
-## 認証方式サポート
+また次のような AKS ノードプール設定も指定する。これらは main.bicep デプロイ時のパラメータとして渡される。
+
+```yaml
+AZURE_AKS_SYSTEM_VM_SIZE: Standard_D2ds_v4
+AZURE_AKS_SYSTEM_VM_DISK_TYPE: Ephemeral
+AZURE_AKS_SYSTEM_VM_DISK_SIZE_GB: 64
+AZURE_AKS_SYSTEM_VM_PRIORITY: Regular
+AZURE_AKS_SYSTEM_VM_ZONES:
+AZURE_AKS_USER_VM_SIZE: Standard_D2ds_v4
+AZURE_AKS_USER_VM_DISK_TYPE: Ephemeral
+AZURE_AKS_USER_VM_DISK_SIZE_GB: 64
+AZURE_AKS_USER_VM_PRIORITY: Regular
+AZURE_AKS_USER_VM_ZONES: 1
+```
+
+### App Settings
+
+KOM App リソースの `spec.settings` または `kompoxops.yml` の `app.settings` で指定する。
+
+- `AZURE_RESOURCE_GROUP_NAME`: アプリ用リソースグループ名
+
+### Azure 認証方式
+
+Azure の認証情報は Provider Settings で設定する。
+
+`AZURE_AUTH_METHOD` で認証方式を指定する。未対応の認証方式は `unsupported AZURE_AUTH_METHOD` エラーとなる。
+
 | `AZURE_AUTH_METHOD` | 状態 | 必須追加設定 | 備考 |
 |---------------------|------|---------------|------|
 | `client_secret` | サポート | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET` | Azure AD アプリ資格情報 |
@@ -60,244 +68,593 @@ AKS クラスタおよび付随する監視 / レジストリ / Key Vault / ユ�
 | `azure_cli` | サポート | なし | ローカル開発向け CLI 認証 |
 | `azure_developer_cli` | サポート | なし | Azure Developer CLI 認証 |
 
-上記以外は `unsupported AZURE_AUTH_METHOD` エラー。
+### Azure リソース命名規則
 
-## プロビジョニング動作
-1. ClusterProvision 呼び出し時に `AZURE_RESOURCE_GROUP_NAME` を取得（未設定でエラー）。
-2. 埋込 JSON テンプレート (`main.json`) をアンマーシャル。
-3. Deployment Stack (サブスクリプションスコープ) を `BeginCreateOrUpdateAtSubscription` で開始。
-4. 既に同名 Stack が `Succeeded` の場合はそのまま完了 (冪等性確保)。
-5. Stack Parameters は以下のみ設定: `environmentName` = `cluster.Name`, `location` = Provider 設定, `resourceGroupName` = Cluster 設定値。その他テンプレート内パラメータはデフォルト扱い。
-6. Poll 完了まで待機 (最大 30 分のコンテキストタイムアウト)。
+#### 短縮ハッシュ文字列
 
-### テンプレート (main.json) 主な処理
-サブスクリプションスコープ → RG / 内部サブデプロイ群:
-* Resource Group (存在しない場合作成)
-* Key Vault
-* Log Analytics Workspace / Application Insights (+ 任意ダッシュボード)
-* Container Registry (ACR) + Diagnostic Settings
-* User Assigned Managed Identity
-* Federated Identity Credential (Traefik 用: subject=`system:serviceaccount:traefik:traefik`)
-* AKS クラスタ
-	* SystemAssigned ID
-	* System ノードプール 1 つ (事前定義プリセット: CostOptimised/Standard/HighSpec から `CostOptimised` デフォルト)
-	* `networkPlugin=azure`, `networkPolicy=azure`
-	* Addon: azurepolicy(v2), KeyVault Secrets Provider(ローテーション有効), OMS Agent (Log Analytics 連携), Web App Routing, OIDC issuer, Workload Identity
-	* SKU Tier: `Free` デフォルト
-	* Kubernetes Version: テンプレート上デフォルト `1.29` (Stack 呼び出しでは明示 `1.33` をパラメータ投入)
-* RBAC Role Assignments: Cluster Admin / ACR Pull / Key Vault Secrets User / Key Vault Certificates User
-* Federated Identity Credential は AKS OIDC Issuer URL 出力を利用し Traefik SA に紐付け
+リソース名の重複を避けるため、次の種類の短縮ハッシュ文字列(6文字)を `naming.NewHashes()` で生成して使用する。
+- `{prv_hash}`: workspace/provider 名から生成
+- `{cls_hash}`: workspace/provider/cluster 名から生成
+- `{app_hash}`: workspace/provider/app 名から生成 (App ID ハッシュ)
 
-### Deployment Stack Outputs
-テンプレート outputs (一部):
-| 出力キー | 説明 |
-|----------|------|
-| `AZURE_LOCATION` | Location |
-| `AZURE_TENANT_ID` | Tenant ID |
-| `AZURE_SUBSCRIPTION_ID` | Subscription ID |
-| `AZURE_RESOURCE_GROUP_NAME` | 使用 RG 名 |
-| `AZURE_AKS_CLUSTER_NAME` | AKS クラスタ名 |
-| `AZURE_AKS_OIDC_ISSUER_URL` | AKS OIDC Issuer |
-| `AZURE_CONTAINER_REGISTRY_ENDPOINT` | ACR Login Server |
-| `AZURE_CONTAINER_REGISTRY_NAME` | ACR 名 |
+#### リソース名プレフィクス
 
-ドライバ内部では `AZURE_RESOURCE_GROUP_NAME`, `AZURE_AKS_CLUSTER_NAME` を取得する。ARM 出力キー大文字化のため取得時に UpperCase 正規化。
+リソース名には特定のプレフィクスを付加する。このドキュメントでは `{prefix}` で参照する。
 
-## デプロビジョニング動作
-`ClusterDeprovision` は Stack 存在チェック後、 `BeginDeleteAtSubscription` を実行し **管理対象リソース/リソースグループを削除** 指定。存在しない場合は成功扱い。タイムアウト 30 分。
+命名規則:
+- Provider Settings の `AZURE_RESOURCE_PREFIX` が指定されている場合はその値を使用
+- 未指定の場合は `k4x-{prv_hash}` 形式で自動生成
+- 実装: aks ドライバ初期化関数 (driver.go 参照)
 
-## ステータス判定
-`ClusterStatus`:
-1. Stack 存在 & `Succeeded` で `Provisioned=true`。
-2. 追加で AKS ManagedCluster の `ProvisioningState == Succeeded` を確認。
-3. インストール状態は Kubernetes API で Ingress 名前空間が存在するかで判定 (`Installed=true`)。
-	 * 名前空間: `cluster.Ingress["namespace"]` が string ならその値、未指定は `default`。
-4. 取得不能エラー（認証・通信）はインストール判定を失敗扱いで握り潰し、Provisioned フラグのみ反映。
+#### クラスタ用リソースグループ
 
-## インストール / アンインストール
-`ClusterInstall`:
-1. 管理者 kubeconfig 取得。
-2. Ingress 用名前空間を作成 (存在すれば何もしない)。
-3. Traefik をマニフェストで導入 (冪等)。
+命名規則:
+- Cluster Settings に `AZURE_RESOURCE_GROUP_NAME` が指定されている場合はその値を使用
+- 未指定の場合は `{prefix}_cls_{cluster.name}_{cls_hash}` 形式で自動生成
+- 最大長 72 文字 (Azure RG 制約 90 文字の内、ハッシュ分を考慮) でトランケートされ、ハッシュ部分は保持される
+- 実装: clusterResourceGroupName()
 
-`ClusterUninstall`:
-1. Traefik 削除 (ベストエフォート)。
-2. Ingress 名前空間削除 (ベストエフォート / 冪等)。
+格納されるリソースの例 (ARM テンプレート main.bicep で記述):
+- AKS マネージドクラスタ
+- User Assigned Managed Identity
+- Key Vault
+- Log Analytics Workspace
+- Storage Account
 
-## kubeconfig 取得
-`ClusterKubeconfig` は Stack Outputs から RG / Cluster 名を再取得 → `ListClusterAdminCredentials` を呼び最初の kubeconfig を返す。タイムアウト 2 分。kubeconfig が無い場合エラー。
+#### アプリ用リソースグループ
 
-## タイムアウト設定
-| 操作 | タイムアウト |
-|------|--------------|
-| Provision / Deprovision | 30 分 |
-| Status | 5 分 |
-| Kubeconfig 取得 | 2 分 |
+命名規則:
+- App Settings に `AZURE_RESOURCE_GROUP_NAME` が指定されている場合はその値を使用
+- 未指定の場合は `{prefix}_app_{app.name}_{app_hash}` 形式で自動生成
+- 最大長 72 文字 (Azure RG 制約 90 文字の内、ハッシュ分を考慮) でトランケートされ、ハッシュ部分は保持される
+- 実装: appResourceGroupName()
 
-## 付与される主なロール (Role Assignments)
-| 対象 | ロール | 用途 |
-|------|--------|------|
-| AKS Cluster Scope | Cluster Admin Role (GUID `b1ff04bb-...`) | Azure RBAC 経由 Kubernetes 管理 |
-| Key Vault | Key Vault Secrets User | CSI Secret Provider アドオン用 |
-| Key Vault | Key Vault Certificates Officer | 証明書アクセス |
-| ACR | AcrPull | AKS ノードからのイメージ Pull |
+格納されるリソースの例:
+- Azure Managed Disks (Type=disk)
+- Azure Managed Disk Snapshots (Type=disk)
+- Azure Storage Accounts (Type=files)
 
-## リソース命名規則 (抜粋)
-テンプレート内部変数 `abbrs` により各種既定プレフィクス (例: `aks-`, `rg-`, `kv-`, `cr`, `log-`, `appi-`) と `uniqueString` による `resourceToken` を結合。クラスタ名を直接反映するリソースは AKS DNS Prefix など一部。
+## AKS Cluster
 
-## 制約 / 既知の制限
-* System ノードプールのみ。追加プールや Windows ノード未対応。
-* Kubernetes バージョンはコード内で `1.33` をパラメータ設定（テンプレートデフォルト `1.29`）し固定。任意指定不可。
-* Cluster / Provider 設定からの AKS 詳細カスタマイズ (VM サイズ、オートスケール閾値他) は未対応。プリセット `CostOptimised` のみ使用。
-* Update 系 API (スケール / バージョン更新) 非実装。
-* `client_certificate` 認証方式未対応。
-* インストール判定は Ingress 名前空間存在のみで Traefik Pod 健全性までは確認しない。
-* kubeconfig は常に admin 資格。ユーザ/グループスコープ発行無し。
+### ClusterProvision()
 
-## エラーハンドリング指針 (実装現状)
-| 事象 | 動作 |
-|------|------|
-| 必須設定欠如 | プロビジョニング開始前にエラー返却 |
-| 認証方式パラメータ不足 | エラー返却 |
-| Stack 取得失敗 (Status 判定) | 非既存扱い / Installed 判定スキップ |
-| Ingress 名前空間問い合わせ 404 | Installed=false |
-| Ingress 名前空間問い合わせ その他エラー | Installed=false 扱い (エラー表面化しない) |
+AKS クラスタをプロビジョニングする。
 
-## 今後拡張候補 (参考)
-* 追加ノードプール構成・カスタムパラメータ受け付け
-* Kubernetes バージョン選択 / 自動アップグレード方針
-* Workload Identity / Federated Identity の動的追加
-* Helm / CRDs インストールオーケストレーション抽象化
+実装概要:
+- Cluster Settings から `AZURE_RESOURCE_GROUP_NAME` を取得、または自動生成する
+- Bicep テンプレート (`infra/aks/main.bicep`) を使用してサブスクリプションレベルデプロイメントを実行する
+- デプロイメントはリソースグループ、AKS クラスタ、Workload Identity 設定、ロール割り当てなどを含む
+- 既存のデプロイメントがある場合は冪等に動作する (Force オプションが指定されている場合は再デプロイ)
 
-以上。
+主な Azure リソース:
+- リソースグループ (クラスタ用)
+- AKS マネージドクラスタ
+- Workload Identity 用 Federated Credential
+- ロール割り当て (kubelet マネージド ID への権限付与)
 
-----
+### ClusterDeprovision()
 
-## Volume 管理 (Azure Disk)
+AKS クラスタをデプロビジョニングする。
 
-本節は論理ボリューム `app.volumes[volName]` に紐づく Azure Managed Disk (以下 Volume Disk) の列挙 / 作成 / 割当 / 削除操作を定義する。
+実装概要:
+- サブスクリプションレベルデプロイメントを削除する (ベストエフォート)
+- クラスタのリソースグループ全体を削除する
+- リソースグループ内に Key Vault が存在する場合は論理削除されたものをパージする
 
-### 用語
-- Logical Volume Key: `volName-idHASH`
-- idHASH: [Kompox-Convert-Draft.ja.md](Kompox-Convert-Draft.ja.md) を参照
-- Volume Disk Name (`diskName`): ULID (UTC, モノトニック生成) — 文字集合 Crockford Base32, 長さ 26。時刻順ソート可能。
-- Azure Disk Name: `volName-idHASH-diskName`
-- Assigned フラグ: タグ `kompox-disk-assigned` が `true` の Volume Disk はその Logical Volume に対し現在アクティブに選択された 1 個 (排他)。
-  - 初回に作成された Volume Disk は自動的に `kompox-disk-assigned=true` で作成される。それ以降に作成されるディスクは `false`。
+冪等性:
+- リソースグループが存在しない場合はエラーにならない
 
-### 共通仕様
-- 対象 Resource Group: `app.settings.AZURE_RESOURCE_GROUP_NAME`
-  - Create 時: RG が存在しなければ作成。
-  - List / Assign / Delete 時: RG 不存在なら空結果または冪等成功（副作用での新規作成は行わない）。
-- 必要権限: `Microsoft.Compute/disks/read/write/delete`, `Microsoft.Resources/subscriptions/resourceGroups/read`, `.../resourceGroups/write` (Create 時)。
-- フィルタ条件: 以下すべて
-  1. Resource Group 一致
-  2. タグ `kompox-volume` = `volName-idHASH`
-  3. Disk 名がプレフィクス `volName-idHASH-` で始まる
-- サイズ単位: GiB。最小 1GiB。整数。将来拡張で拡張 (Resize) 未実装。
-- SKU: `Premium_LRS` (固定)。将来拡張時にパラメータ化。
-- タグ操作は指定タグのみ更新（既存の他ユーザタグは保持 / Merge）。
+### ClusterInstall()
 
-### VolumeDiskList
-- 処理: Resource Group 内の Managed Disk を列挙 → 上記フィルタで抽出 → `timeCreated` を取得しクライアント側で降順ソート。
-- 返却項目例: `name`, `diskName`, `sizeGiB`, `assigned(bool)`, `timeCreated`.
-- エラー: RG 不存在 → 空配列。Azure API エラーは上位へ伝播。
+クラスタ内リソース (Ingress Controller など) をインストールする。
 
-### VolumeDiskCreate
-- 入力: `volName`
-- 前提: `app.volumes[volName].sizeGiB` が仕様範囲内。
-- Disk 名: `volName-idHASH-<ULID>`
-- Tags:
-  - `kompox-volume` = `volName-idHASH`
-  - `kompox-disk-name` = `<ULID>`
-  - `kompox-disk-assigned` = 初回ディスクのみ `true`、それ以外は `false`
-  - `managed-by` = `kompox`
-- 冪等性: 同名 Disk が既に存在する場合は衝突 (409) とし再生成不可（ULID 重複は極稀でありエラー扱い）。
-- タイムアウト: 2 分 (推奨)。
-- 戻り: 作成した Volume Disk のメタ。
+実装概要:
+1. クラスタの kubeconfig を取得
+2. Ingress 用 Namespace を作成 (冪等)
+3. デプロイメント出力から ServiceAccount 情報を取得
+4. ServiceAccount を作成し、Workload Identity のアノテーションを追加
+5. DNS Zone Contributor ロールを付与 (ベストエフォート)
+6. ACR AcrPull ロールを付与 (ベストエフォート)
+7. Traefik Ingress Controller を Helm でインストール
 
-### VolumeDiskAssign
-- 入力: `volName`, `diskName`
-- 手順:
-  1. List を実行（最新状態取得）。
-  2. 対象 Disk を特定。存在しなければ NotFound。
-  3. まとめてタグ更新:
-  - 指定 Disk: `kompox-disk-assigned=true`
-     - その他同一 Logical Volume Disk: `...=false`
-- 競合制御: なし（同一 Logical Volume に属する全ディスクのタグを順次更新して排他を担保）。
-- 冪等性: 既に指定 Disk が唯一 true なら無変更で成功。
-- タイムアウト: 1 分。
+DNS Zone Contributor ロール付与:
+- Cluster Settings の `AZURE_AKS_DNS_ZONE_RESOURCE_IDS` に設定された全ゾーンに対して実行
+- kubelet マネージド ID に対してロールを割り当てる
+- クロスサブスクリプションの DNS ゾーンもサポート
+- ロールが既に付与されている場合は冪等 (スキップ)
+- 失敗時は Warn ログを出力して継続 (ベストエフォート)
 
-### VolumeDiskDelete
-- 入力: `volName`, `diskName`
-- 手順: 対象 Disk 名=`volName-idHASH-diskName` を取得し削除。存在しなければ冪等成功。
-- 削除対象が `assigned=true` でも制約無し（運用側で事前に別インスタンスへ Assign することを推奨）。
-- タイムアウト: 2 分。
+ACR AcrPull ロール付与:
+- Cluster Settings の `AZURE_AKS_CONTAINER_REGISTRY_RESOURCE_IDS` に設定された全 ACR に対して実行
+- kubelet マネージド ID に対して AcrPull ロールを割り当てる
+- クロスサブスクリプションの ACR もサポート
+- ロールが既に付与されている場合は冪等 (スキップ)
+- 失敗時は Warn ログを出力して継続 (ベストエフォート)
 
-### エラーハンドリング (Volume)
-| 事象 | 挙動 |
-|------|------|
-| RG 不存在 (List/Assign/Delete) | List: 空配列 / Assign: NotFound / Delete: 成功扱い |
-| 必須設定欠如 (`AZURE_RESOURCE_GROUP_NAME`) | 直ちにエラー |
-| Disk API 429 / 5xx | バックオフリトライ (指数, 最大 3〜5 回) 後失敗 |
-| Assign 競合 (ETag) | リトライ枯渇でエラー |
-| NotFound (指定 diskName) | Delete: 成功 / Assign: エラー |
-| タグ欠如 (不正リソース混入) | スキップ |
-| タイムアウト | 操作失敗 (コンテキストエラー返却) |
+### ClusterUninstall()
 
-### 将来拡張 (参考)
-- Resize / Snapshot / 暗号化セット連携
-- マルチ AZ / ZRS Disk
-- Disk 暗号化 (CMK) オプション
-- `assigned` を Kubernetes PVC 状態と同期する再協調処理
+クラスタ内リソース (Ingress Controller など) をアンインストールする。
 
----
+実装概要:
+1. クラスタの kubeconfig を取得
+2. Traefik Ingress Controller を Helm でアンインストール
+3. Ingress 用 Namespace を削除
 
-## Volume スナップショット (Azure Managed Disk Snapshot)
+### ClusterStatus()
 
-本節は論理ボリュームに属する Azure Managed Disk のスナップショットを列挙/作成/削除/復元する AKS ドライバ実装の仕様を定義する。
+クラスタの状態を取得する。
 
-### 用語・命名
-- Logical Volume Key: `volName-idHASH`（上記 Volume と同一）
-- Snapshot 名 (`snapName`): ULID（UTC, モノトニック）
-- Azure Snapshot Name: `volName-idHASH-<ULID>`
-- 所属タグ:
-  - `kompox-volume` = `volName-idHASH`
-  - `kompox-snapshot-name` = `<ULID>`
-  - `kompox-disk-name` = `<Disk ULID>`（作成元の Volume Disk の ULID）
-  - `managed-by` = `kompox`
+実装概要:
+- kubeconfig の取得を試行してクラスタの存在 (Provisioned) を判定
+- Ingress エンドポイント (LoadBalancer IP/FQDN) の取得を試行してインストール状態 (Installed) を判定
 
-### 共通仕様
-- 対象 Resource Group: Volume と同一（`app.settings.AZURE_RESOURCE_GROUP_NAME`）。
-- フィルタ条件（List）:
-  1. RG 一致
-  2. タグ `kompox-volume` 一致
-  3. リソース名がプレフィクス `volName-idHASH-` で始まる
-- 返却は `CreatedAt` 降順（同時刻は名前昇順で安定化は実装依存）。
-- SKU 既定: `Standard_LRS`（スナップショット）。
-- 作成は Incremental Snapshot（`incremental=true`）。
+返却される ClusterStatus:
+- `Existing`: クラスタ定義が既存かどうか
+- `Provisioned`: クラスタがプロビジョニング済みかどうか
+- `Installed`: Ingress Controller がインストール済みかどうか
+- `IngressGlobalIP`: Ingress の LoadBalancer IP
+- `IngressFQDN`: Ingress の FQDN
 
-### SnapshotList
-- RG 内の Snapshot を列挙し、上記フィルタに合致するものを返す。RG 不存在は空配列。
+### ClusterKubeconfig()
 
-### SnapshotCreate
-- 入力: `diskName`（作成元 Volume Disk の ULID）。
-- `CreationData` は `CreateOption=Copy`, `SourceResourceID` は作成元 Disk を指す。
-- 戻り値: 作成した Snapshot のメタ（`snapName`, `handle`, `sizeGiB`, `createdAt`）。
+AKS クラスタの kubeconfig を取得する。
 
-### SnapshotDelete
-- 入力: `snapName`（ULID）。
-- 該当 Snapshot（`volName-idHASH-snapName`）を削除。`NotFound` は冪等成功。
+実装概要:
+- デプロイメント出力から AKS クラスタのリソース情報を取得
+- Azure AKS SDK の `GetAccessProfile` API を使用して管理者資格情報を取得
+- kubeconfig をバイト列として返す (ファイルには書き込まない)
 
-### SnapshotRestore
-- 入力: `snapName`（ULID）。
-- 指定 Snapshot から新しい Volume Disk を作成する。
-  - Disk `CreationData` は `CreateOption=Copy`, `SourceResourceID` に Snapshot を指定。
-  - Disk SKU は Volume Disk と同じ `Premium_LRS`。
-  - 返す Disk の `Assigned` は常に `false`（切替は `VolumeDiskAssign` で行う）。
+### ClusterDNSApply()
 
-### 必要権限
-- `Microsoft.Compute/snapshots/*`, `Microsoft.Compute/disks/*`, `Microsoft.Resources/subscriptions/resourceGroups/*`（Create/Restore 時 RG 作成の可能性）。
+DNS レコードセットをプロバイダ管理の DNS ゾーンに適用する。
 
-### タイムアウト（実装）
-- List: 1 分 / Create: 3 分 / Delete: 2 分 / Restore: 3 分。
+実装概要:
+1. Cluster Settings から `AZURE_AKS_DNS_ZONE_RESOURCE_IDS` を取得
+2. FQDN に対する最長一致で DNS ゾーンを選択 (ZoneHint が指定されている場合は優先)
+3. 入力検証と正規化 (TTL デフォルト値 300秒、CNAME の RData 件数チェックなど)
+4. DryRun の場合はログ出力のみ
+5. RData が空の場合は Delete、非空の場合は Upsert を実行
+
+サポートするレコードタイプ:
+- A レコード (IPv4 アドレス)
+- AAAA レコード (IPv6 アドレス)
+- CNAME レコード (別名)
+
+レコード操作:
+- Upsert: 既存レコードは上書き (冪等)
+- Delete: レコードが存在しない場合もエラーにならない (冪等)
+- 複数 DNS ゾーンが指定されている場合、各ゾーンに同じレコードを作成
+
+エラーハンドリング:
+- Strict オプションが指定されている場合は失敗をエラーとして返す
+- 既定 (ベストエフォート) の場合は Warn ログで継続
+
+前提条件:
+- DNS Zone Contributor ロールが必要 (`ClusterInstall()` で付与)
+- DNS ゾーンは事前に作成されている必要がある
+
+詳細は [2025-10-07-aks-dns.ja.md] を参照。
+
+## AKS Volumes
+
+### Volume Type
+
+Kompox は論理ボリュームに対して `Type` 属性をサポートする。AKS ドライバは以下の Volume Type に対応する。
+
+- `disk`: Azure Managed Disk (ブロックストレージ、通常 RWO)
+- `files`: Azure Files (ネットワークファイル共有、RWX)
+
+`Type` が省略された場合は `disk` として扱う。
+
+詳細は [K4x-ADR-014] を参照。
+
+### リソース命名規則
+
+ディスクリソース名:
+- 形式: `{prefix}_disk_{vol.name}_{disk.name}_{hash}`
+- `vol.name` は最大 16 文字、`disk.name` は最大 24 文字
+
+スナップショットリソース名:
+- 形式: `{prefix}_snap_{vol.name}_{snap.name}_{hash}`
+- `vol.name` は最大 16 文字、`snap.name` は最大 24 文字
+
+デフォルト名生成:
+- ディスクやスナップショットの指定が省略された場合は `naming.NewCompactID()` を使用してデフォルト名を生成する
+
+### タグ戦略
+
+AKS ドライバは Azure リソースに以下のタグを付与する。
+
+共通タグ:
+- `kompox-workspace-name`: ワークスペース名
+- `kompox-provider-name`: プロバイダ名
+- `kompox-app-name`: アプリ名
+- `kompox-app-id-hash`: アプリ ID ハッシュ (6 文字)
+- `managed-by`: `"kompox"`
+
+ボリューム固有タグ:
+- `kompox-volume`: ボリューム名
+- `kompox-disk-name`: ディスク名 (ディスクリソースのみ)
+- `kompox-disk-assigned`: `"true"` または `"false"` (ディスクリソースのみ)
+- `kompox-snapshot-name`: スナップショット名 (スナップショットリソースのみ)
+
+これらのタグにより、同一ボリュームに属するリソースを確実に識別できる。
+
+### オペーク Source 文字列の仕様
+
+`VolumeDiskCreate` と `VolumeSnapshotCreate` の `source` パラメータは、作成元リソースを指定する不透明な文字列である。CLI/UseCase 層ではパース・検証を行わず、そのままドライバに渡される。
+
+
+#### フォーマット
+
+- `[<type>:]<name>`
+- `<type>`: `disk` または `snapshot` (Kompox 予約語彙)
+- `<name>`: Kompox 管理のディスク名またはスナップショット名、またはプロバイダネイティブなリソース ID
+
+#### AKS ドライバでの解釈
+
+Type チェック:
+- `Type=files` のボリュームではスナップショットをサポートしないため、空文字以外の `source` が渡されるとドライバはエラーを返す。
+
+基本動作: source 文字列のプレフィクスを見て Azure リソース ID 文字列に解決する。
+- 空文字列: 新規作成 (スナップショットの場合はエラー)
+- `"snapshot:<name>"`: Kompox スナップショット名による指定
+- `"disk:<name>"`: Kompox ディスク名による指定
+- `"/subscriptions/..."`: Azure リソース ID
+- `"arm:..."`: Azure リソース ID
+- `"resourceId:..."`: Azure リソース ID
+
+フォールバック動作:
+- `VolumeDiskCreate` で source が解決不能な場合は `snapshot:` プレフィクスを付与して再解決 (スナップショットからディスク)
+- `VolumeSnapshotCreate` で source が解決不能な場合は `disk:` プレフィクスを付与して再解決 (ディスクからスナップショット)
+
+詳細は [2025-09-27-disk-snapshot-unify.ja.md] および [2025-09-28-disk-snapshot-cli-flags.ja.md] を参照。
+
+## Azure Disks
+
+AKS Volume が `Type=disk` の場合は次の Azure リソースをアプリ用リソースグループ内で扱う。
+- Disk: Azure Managed Disks
+- Snapshot: Azure Managed Disk Snapshots
+
+### 用語と命名規則
+
+Azure Disk リソース名:
+- 形式: `{prefix}_disk_{vol.name}_{disk.name}_{app_hash}`
+  - `vol.name` は最大 16 文字、`disk.name` は最大 24 文字
+- Azure の制約によりトランケートされる場合がある
+
+Handle:
+- Azure Disk リソース ID
+- 形式: `/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.Compute/disks/{name}`
+
+タグ:
+- `kompox-volume`: ボリューム名 (論理ボリューム識別子)
+- `kompox-disk-name`: ディスク名 (Kompox 管理名)
+- `kompox-disk-assigned`: `"true"` または `"false"` (割り当て状態)
+- 共通タグ (workspace/provider/app/managed-by) も付与
+
+Assigned フラグ:
+- 各論理ボリュームに対して、`Assigned=true` のディスクは 1 つのみ存在する
+- 初回作成されたディスクは自動的に `Assigned=true` になる
+- 2 個目以降のディスクは `Assigned=false` で作成される
+
+### VolumeDiskList()
+
+指定された論理ボリュームに属するディスクの一覧を取得する。
+
+実装概要:
+- アプリのリソースグループ内の全ディスクを取得
+- `kompox-volume` タグで指定ボリュームに属するディスクをフィルタリング
+- `newVolumeDisk()` を使用して `model.VolumeDisk` に変換
+- `CreatedAt` 降順でソート (同時刻の場合は `Name` 昇順)
+
+返却される `VolumeDisk`:
+- `Name`: ディスク名 (`kompox-disk-name` タグから取得)
+- `VolumeName`: ボリューム名
+- `Assigned`: 割り当て状態 (`kompox-disk-assigned` タグから取得)
+- `Size`: サイズ (バイト単位、Azure の GB 値を 30 ビット左シフト)
+- `Zone`: 可用性ゾーン
+- `Options`: SKU や IOPS などのオプション
+- `Handle`: Azure Disk リソース ID
+- `CreatedAt`: 作成日時
+- `UpdatedAt`: 更新日時 (現在は `CreatedAt` と同じ)
+
+### VolumeDiskCreate()
+
+新規ディスクを作成する。
+
+実装概要:
+1. アプリのリソースグループを取得または作成
+2. kubelet マネージド ID にリソースグループへの Contributor ロールを付与 (ベストエフォート)
+3. 既存ディスク一覧を取得
+4. `diskName` が省略されている場合は `naming.NewCompactID()` で生成、指定されている場合は重複チェック
+5. `source` を解決して作成オプションを決定:
+   - 空文字列: 空ディスク (`CreateOption=Empty`)
+   - 非空: source を Azure リソース ID に解決し、コピー元として使用 (`CreateOption=Copy`)
+6. 最初のディスクの場合は `Assigned=true`、それ以外は `Assigned=false`
+7. Azure Disk を作成し、完了を待機
+8. 作成されたディスクから `model.VolumeDisk` を生成して返す
+
+`source` 解決:
+- `resolveSourceSnapshotResourceID()` を使用してスナップショットリソース ID に解決
+- 解決できない場合はエラー
+
+SKU とパフォーマンスオプション:
+- `setAzureDiskOptions()` を使用してボリューム Options から SKU、IOPS、MBps を設定
+- デフォルト SKU は `Premium_LRS`
+
+サポートする SKU:
+- `Standard_LRS`
+- `Premium_LRS`
+- `StandardSSD_LRS`
+- `UltraSSD_LRS`
+- `Premium_ZRS`
+- `StandardSSD_ZRS`
+- `PremiumV2_LRS`
+
+### VolumeDiskAssign()
+
+指定されたディスクを割り当て、それ以外のディスクの割り当てを解除する。
+
+実装概要:
+1. 既存ディスク一覧を取得
+2. 指定されたディスク名が存在することを確認
+3. 全ディスクに対して `kompox-disk-assigned` タグを更新:
+   - 指定されたディスク: `"true"`
+   - それ以外: `"false"`
+4. タグの更新のみを行い、ディスクの内容には変更を加えない
+
+冪等性:
+- 既に正しい割り当て状態の場合は更新をスキップ
+
+### VolumeDiskDelete()
+
+指定されたディスクを削除する。
+
+実装概要:
+1. ディスクの Azure リソース名を生成
+2. Azure Disk を削除し、完了を待機
+
+冪等性:
+- ディスクが存在しない場合 (`NotFound`) はエラーにならない
+
+### VolumeClass()
+
+`Type=disk` の論理ボリュームに対して Kubernetes で使用するストレージクラス情報を返す。
+
+返却される VolumeClass:
+- `StorageClassName`: `"managed-csi"` (AKS の既定 Managed Disk クラス)
+- `CSIDriver`: `"disk.csi.azure.com"` (Azure Disk CSI Driver)
+- `FSType`: `"ext4"` (既定ファイルシステム)
+- `Attributes`: `{"fsType": "ext4"}` (CSI ドライバへのパラメータ)
+- `AccessModes`: `["ReadWriteOnce"]` (RWO アクセスモード)
+- `ReclaimPolicy`: `"Retain"` (削除時に PV を保持)
+- `VolumeMode`: `"Filesystem"` (ファイルシステムモード)
+
+注意事項:
+- 空フィールドは「ノーオピニオン」を表し、呼び出し側はマニフェストに含めない
+- 将来的には `Options` から SKU やパフォーマンスティアを反映する可能性がある
+
+### VolumeSnapshotList()
+
+指定された論理ボリュームに属するスナップショットの一覧を取得する。
+
+実装概要:
+- アプリのリソースグループ内の全スナップショットを取得
+- `kompox-volume` タグで指定ボリュームに属するスナップショットをフィルタリング
+- `newVolumeSnapshot()` を使用して `model.VolumeSnapshot` に変換
+- `CreatedAt` 降順でソート (同時刻の場合は `Name` 昇順)
+
+返却される `VolumeSnapshot`:
+- `Name`: スナップショット名 (`kompox-snapshot-name` タグから取得)
+- `VolumeName`: ボリューム名
+- `Size`: サイズ (バイト単位)
+- `Handle`: Azure Snapshot リソース ID
+- `CreatedAt`: 作成日時
+- `UpdatedAt`: 更新日時 (現在は `CreatedAt` と同じ)
+
+### VolumeSnapshotCreate()
+
+新規スナップショットを作成する。
+
+実装概要:
+1. `snapName` が省略されている場合は `naming.NewCompactID()` で生成
+2. `source` を解決:
+   - 空文字列: 現在 Assigned されているディスクを自動選択 (単一でない場合はエラー)
+   - 非空: source を Azure リソース ID に解決
+3. source リソース ID を解析して種別 (Disk or Snapshot) を判定:
+   - Disk の場合: `CreateOption=Copy`
+   - Snapshot の場合: `CreateOption=CopyStart`
+4. Azure Snapshot を作成し、完了を待機 (増分スナップショット、SKU は `Standard_ZRS`)
+5. 作成されたスナップショットから `model.VolumeSnapshot` を生成して返す
+
+`source` 解決:
+- `resolveSourceDiskResourceID()` を使用してディスクリソース ID に解決
+- 空文字列の場合は Assigned ディスクを自動選択
+
+### VolumeSnapshotDelete()
+
+指定されたスナップショットを削除する。
+
+実装概要:
+1. スナップショットの Azure リソース名を生成
+2. Azure Snapshot を削除し、完了を待機
+
+冪等性:
+- スナップショットが存在しない場合 (`NotFound`) はエラーにならない
+
+## Azure Files
+
+AKS Volume が `Type=files` の場合は次の Azure リソースをアプリ用リソースグループ内で扱う。
+- Disk: Azure Storage Account のファイル共有 (Azure Files)
+- Snapshot: サポートしない
+
+### 用語と命名規則
+
+ストレージアカウント:
+- アプリ単位で 1 つのストレージアカウントを使用する
+- Disk (`Type=files`) 初回作成時に自動作成される
+- 形式: `k4x{prv_hash}{app_hash}` (小文字英数字のみ、15文字)
+- そのアプリの全 Azure Files 共有はこのアカウント内に作成される
+
+Azure Files 共有名:
+- 形式: `{vol.name}-{disk.name}`
+- `vol.name` は最大 16 文字、`disk.name` は最大 24 文字
+- 合計 41 文字 (ハイフン含む) で Azure Files の共有名上限 (3..63 文字) 内に収まる
+- 文字集合は DNS-1123 制約に整合 (小文字英数字とハイフン)
+
+Handle:
+- SMB: `smbs://{account}.file.core.windows.net/{share}`
+
+メタデータ:
+- Azure Files の共有メタデータで論理ボリュームの属性を保持
+- `kompox-volume`: `{vol.name}-{idHash}` (論理ボリューム識別子)
+- `kompox-disk-assigned`: `"true"` または `"false"` (割り当て状態)
+
+プロトコル:
+- 当面は SMB のみをサポート
+- NFS は将来的な拡張として検討
+
+### VolumeClass()
+
+`Type=files` の論理ボリュームに対して Kubernetes で使用するストレージクラス情報を返す。
+
+返却される VolumeClass:
+- `StorageClassName`: `"azurefile-csi"` (AKS の Azure Files クラス)
+- `CSIDriver`: `"file.csi.azure.com"` (Azure Files CSI Driver)
+- `AccessModes`: `["ReadWriteMany"]` (RWX アクセスモード)
+- `VolumeMode`: `"Filesystem"` (ファイルシステムモード)
+- `Attributes`: SKU などのオプション
+  - `protocol`: `"smb"` (固定)
+  - `skuName`: ストレージアカウントの SKU (例: `"Standard_LRS"`, `"Premium_ZRS"`)
+  - `availability`: 可用性レベル (例: `"zrs"`, `"lrs"`)
+
+注意事項:
+- 当面は SMB プロトコルのみサポート
+- 具体的な StorageClass 名やパラメータはクラスタにより異なる
+- ドライバ既定を採用しつつ、`Options` で上書き可能
+- 空フィールドは「ノーオピニオン」を表し、呼び出し側はマニフェストに含めない
+
+### VolumeDiskList()
+
+指定された論理ボリュームに属する Azure Files 共有の一覧を取得する。
+
+実装概要:
+- アプリのリソースグループ内のストレージアカウントから全共有を取得
+- 共有メタデータの `kompox-volume` で指定ボリュームに属する共有をフィルタリング
+- `CreatedAt` 降順でソート (同時刻の場合は `Name` 昇順)
+
+返却される `VolumeDisk`:
+- `Name`: 共有名 (`{vol.name}-{disk.name}`)
+- `VolumeName`: ボリューム名
+- `Assigned`: 割り当て状態 (共有メタデータから取得)
+- `Size`: クォータサイズ (バイト単位、0 は未設定)
+- `Zone`: 空文字列 (Azure Files はリージョナルサービス)
+- `Options`: プロトコルや SKU などのオプション
+- `Handle`: Azure Files の URI (`smbs://...` または `nfs://...`)
+- `CreatedAt`: 作成日時
+- `UpdatedAt`: 更新日時
+
+エラーハンドリング:
+- リソースグループまたはストレージアカウントが存在しない場合は空配列を返す
+- Azure API エラーは上位へ伝播
+
+### VolumeDiskCreate()
+
+新規 Azure Files 共有を作成する。
+
+実装概要:
+1. アプリのリソースグループを取得または作成
+2. ストレージアカウントが存在しなければ作成 (アプリ単位で 1 つ)
+3. 既存共有一覧を取得
+4. `diskName` が省略されている場合は `naming.NewCompactID()` で生成、指定されている場合は重複チェック
+5. 共有 `{vol.name}-{disk.name}` を作成、クォータに `sizeGiB` を設定
+6. 最初の共有の場合は `kompox-disk-assigned=true`、それ以外は `kompox-disk-assigned=false`
+7. 作成された共有から `model.VolumeDisk` を生成して返す
+
+`source` パラメータ:
+- Azure Files ではスナップショットやコピー元からの復元をサポートしない
+- `source` が指定された場合はエラーを返す
+
+プロトコル:
+- SMB プロトコルのみサポート (固定)
+- `Options.protocol` が `"smb"` 以外の場合はエラーを返す
+
+ストレージアカウント SKU:
+- `Options.skuName` で指定、未指定の場合は `Standard_LRS` (既定)
+- サポートする SKU: `Standard_LRS`, `Standard_ZRS`, `Premium_LRS`, `Premium_ZRS`
+
+### VolumeDiskAssign()
+
+指定された Azure Files 共有を割り当て、それ以外の共有の割り当てを解除する。
+
+実装概要:
+1. 既存共有一覧を取得
+2. 指定された共有名 (`{vol.name}-{disk.name}`) が存在することを確認
+3. 全共有に対して `kompox-disk-assigned` メタデータを更新:
+   - 指定された共有以外: `"false"` に更新
+   - 指定された共有: `"true"` に更新
+
+冪等性:
+- 既に正しい割り当て状態の場合は更新をスキップ
+
+エラーハンドリング:
+- リソースグループまたはストレージアカウントが存在しない場合は `NotFound` エラー
+- 指定された共有が存在しない場合は `NotFound` エラー
+
+注意事項:
+- メタデータ更新は順次実行 (Azure Storage にトランザクション機能なし)
+- 部分的な失敗時はエラーを返すが、一部の更新は完了している可能性がある
+
+### VolumeDiskDelete()
+
+指定された Azure Files 共有を削除する。
+
+実装概要:
+1. 共有 `{vol.name}-{disk.name}` を削除
+
+冪等性:
+- 共有が存在しない場合 (`NotFound`) はエラーにならない
+- ストレージアカウントが存在しない場合もエラーにならない
+
+注意事項:
+- `Assigned=true` の共有でも削除可能 (運用上は切替後の削除を推奨)
+- 最後の共有を削除してもストレージアカウントは削除されない
+
+### スナップショット非対応
+
+Azure Files のスナップショット操作は現在サポートしない。
+
+`VolumeSnapshot*` メソッド:
+- `VolumeSnapshotList`: `ErrNotSupported` を返す
+- `VolumeSnapshotCreate`: `ErrNotSupported` を返す
+- `VolumeSnapshotDelete`: `ErrNotSupported` を返す
+
+将来の拡張:
+- Azure Files NFS プロトコルのサポート
+- Azure Files のネイティブスナップショット機能の統合を検討
+- Azure NetApp Files (ANF) への対応 (`backend=anf` オプション)
+- Azure Managed Lustre への対応 (`backend=lustre` オプション)
+- Azure Blob via FUSE (azureblob) への対応 (`backend=azureblob` オプション)
+
+## 参考文献
+
+- [Kompox-ProviderDriver.ja.md]: Provider Driver の公開契約と実装ガイドライン
+- [Kompox-KOM.ja.md]: Kompox Ops Manifest 仕様
+- [K4x-ADR-003]: Disk/Snapshot CLI フラグ統一と Source パラメータの不透明化
+- [K4x-ADR-004]: Cluster ingress endpoint DNS 自動更新
+- [K4x-ADR-014]: Volume Type の導入 (disk/files)
+- [2025-09-27-disk-snapshot-unify.ja.md]: Disk/Snapshot の Source パススルー実装タスク
+- [2025-09-28-disk-snapshot-cli-flags.ja.md]: Disk/Snapshot CLI フラグ統一タスク
+- [2025-10-07-aks-dns.ja.md]: AKS Driver ClusterDNSApply 実装タスク
+- [2025-10-23-aks-cr.ja.md]: AKS Driver ACR 権限付与対応タスク
+
+[Kompox-ProviderDriver.ja.md]: ./Kompox-ProviderDriver.ja.md
+[Kompox-KOM.ja.md]: ./Kompox-KOM.ja.md
+[K4x-ADR-003]: ../adr/K4x-ADR-003.md
+[K4x-ADR-004]: ../adr/K4x-ADR-004.md
+[K4x-ADR-014]: ../adr/K4x-ADR-014.md
+[2025-09-27-disk-snapshot-unify.ja.md]: ../../_dev/tasks/2025-09-27-disk-snapshot-unify.ja.md
+[2025-09-28-disk-snapshot-cli-flags.ja.md]: ../../_dev/tasks/2025-09-28-disk-snapshot-cli-flags.ja.md
+[2025-10-07-aks-dns.ja.md]: ../../_dev/tasks/2025-10-07-aks-dns.ja.md
+[2025-10-23-aks-cr.ja.md]: ../../_dev/tasks/2025-10-23-aks-cr.ja.md
