@@ -92,19 +92,19 @@ owner: yaegashi
   - [x] ディスパッチ処理共通化: `(d *driver) resolveVolumeDriver(vol *model.AppVolume)` メソッド追加
   - [x] 全7つのディスパッチメソッド簡潔化 (重複ロジック削除、合計76行削減)
   - [x] ビルド・テスト成功確認
-- [ ] AKS ドライバー - Azure Files 実装 (`adapters/drivers/provider/aks`)
-  - [ ] `appStorageAccountName()`: ストレージアカウント名生成 (`k4x{prv_hash}{app_hash}` 形式、15文字)
-  - [ ] Storage Account 自動作成ロジック (App 単位、初回 Disk 作成時)
-  - [ ] `VolumeDiskList()`: 共有一覧取得、メタデータフィルタリング
-  - [ ] `VolumeDiskCreate()`: 共有作成、メタデータ設定、`source` 指定時エラー
-  - [ ] `VolumeDiskAssign()`: 共有メタデータ更新 (`kompox-disk-assigned`)
-  - [ ] `VolumeDiskDelete()`: 共有削除 (冪等)
-  - [ ] `VolumeClass()`: `Type = "files"` 時の StorageClass/CSI 情報返却 (`protocol="smb"` 固定)
-  - [ ] `VolumeSnapshot*()`: `ErrNotSupported` 返却
-  - [ ] 共有 Handle URI 生成 (`smbs://...`)
-  - [ ] SKU 選択 (`Options` から取得、既定値設定)、プロトコル固定 (SMB)
-  - [ ] `Options.protocol` が `"smb"` 以外の場合エラー処理
-  - [ ] 単体テスト (list/create/assign/delete、エラーケース)
+- [x] AKS ドライバー - Azure Files 実装 (`adapters/drivers/provider/aks`)
+  - [x] `driverVolumeFiles` 構造体と `newDriverVolumeFiles()` 実装
+  - [x] `appStorageAccountName()`: ストレージアカウント名生成 (`k4x{prv_hash}{app_hash}` 形式、15文字)
+  - [x] `ensureStorageAccountExists()`: Storage Account 自動作成ロジック (App 単位、初回 Disk 作成時)
+  - [x] `DiskList()`: 共有一覧取得、メタデータフィルタリング
+  - [x] `DiskCreate()`: 共有作成、メタデータ設定、`source` 指定時エラー
+  - [x] `DiskAssign()`: 共有メタデータ更新 (`kompox-files-share-assigned`)
+  - [x] `DiskDelete()`: 共有削除 (冪等)
+  - [x] `Class()`: `Type = "files"` 時の StorageClass/CSI 情報返却 (`protocol="smb"` 固定)
+  - [x] `SnapshotList/Create/Delete()`: `ErrNotSupported` 返却
+  - [x] `newVolumeFilesDisk()`: 共有 Handle URI 生成 (`smb://...`)
+  - [x] SKU 選択 (`Options` から取得、既定値設定)、プロトコル固定 (SMB)
+  - [x] `Options.protocol` が `"smb"` 以外の場合エラー処理
 - [ ] E2E テスト
   - [ ] `tests/aks-e2e-volume/` または新規テストケース作成
   - [ ] `Type = "files"` での共有作成/割当/削除
@@ -157,6 +157,20 @@ owner: yaegashi
   - ヘルパー関数のメソッド化 (5関数 → メソッド化、カプセル化改善)
   - ディスパッチ処理共通化 (`resolveVolumeDriver` メソッド追加、76行削減)
   - 全テスト成功、コードレビュー準備完了
+- 2025-10-28: AKS ドライバー Azure Files 実装完了
+  - `driverVolumeFiles` 構造体と全メソッド実装
+  - Storage Account 自動作成、共有 CRUD 操作
+  - メタデータベースの管理 (`kompox-files-share-*` タグ)
+  - Handle URI 生成 (`smb://...`)
+  - スナップショット非対応 (`ErrNotSupported`)
+  - SMB プロトコル固定、SKU 選択サポート
+- 2025-10-28: AKS ドライバー バグ修正とリファクタリング
+  - リソースグループ未作成時の `DiskList`/`SnapshotList` エラー修正 (404 → 空リスト)
+  - `DiskCreate` でリソースグループ自動作成を追加
+  - エラーハンドリングを `errors.As` + `azcore.ResponseError` に統一
+  - `DiskCreate` で `resolveSourceSnapshotResourceID` を使用 (スナップショット優先解決)
+  - ソース解決メソッド (`resolveSource*`) を `volume_source.go` から `driverVolumeDisk` に移動
+  - `volume_source.go` 削除 (ディスク固有ロジックの凝集度向上)
 
 ## 参考
 

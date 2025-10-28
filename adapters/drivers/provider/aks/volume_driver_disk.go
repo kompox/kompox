@@ -2,12 +2,15 @@ package aks
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"maps"
+	"net/http"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/compute/armcompute/v7"
 	"github.com/kompox/kompox/domain/model"
@@ -43,6 +46,11 @@ func (vd *driverVolumeDisk) DiskList(ctx context.Context, cluster *model.Cluster
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
+			var respErr *azcore.ResponseError
+			if errors.As(err, &respErr) && respErr.StatusCode == http.StatusNotFound {
+				// Resource group doesn't exist yet
+				return []*model.VolumeDisk{}, nil
+			}
 			return nil, fmt.Errorf("list disks: %w", err)
 		}
 		for _, disk := range page.Value {
@@ -137,6 +145,19 @@ func (vd *driverVolumeDisk) DiskCreate(ctx context.Context, cluster *model.Clust
 	tags[tagDiskName] = to.Ptr(diskName)
 	tags[tagDiskAssigned] = to.Ptr("false")
 
+	// Ensure resource group exists before creating disk
+	principalID := ""
+	outputs, err := vd.driver.azureDeploymentOutputs(ctx, cluster)
+	if err == nil {
+		if v, ok := outputs[outputAksPrincipalID].(string); ok {
+			principalID = v
+		}
+	}
+	err = vd.driver.ensureAzureResourceGroupCreated(ctx, rg, vd.driver.appResourceTags(app.Name), principalID)
+	if err != nil {
+		return nil, fmt.Errorf("ensure resource group: %w", err)
+	}
+
 	// Determine creation data based on source
 	source = strings.TrimSpace(source)
 	if source == "" {
@@ -171,89 +192,42 @@ func (vd *driverVolumeDisk) DiskCreate(ctx context.Context, cluster *model.Clust
 		return volumeDisk, nil
 	}
 
-	// Resolve source (snapshot or disk)
-	snapsClient, err := armcompute.NewSnapshotsClient(vd.driver.AzureSubscriptionId, vd.driver.TokenCredential, nil)
+	// Resolve source using snapshot resolution (defaults to "snapshot:" prefix if unknown)
+	sourceResourceID, err := vd.resolveSourceSnapshotResourceID(ctx, app, volName, source)
 	if err != nil {
-		return nil, fmt.Errorf("new snapshots client: %w", err)
+		return nil, fmt.Errorf("resolve source %q: %w", source, err)
 	}
 
-	// Try snapshot first
-	snapResourceName, err := vd.driver.appSnapshotName(app, volName, source)
-	if err == nil {
-		snapResp, err := snapsClient.Get(ctx, rg, snapResourceName, nil)
-		if err == nil {
-			// Create disk from snapshot
-			disk := armcompute.Disk{
-				Location: to.Ptr(vd.driver.AzureLocation),
-				Zones:    vd.zones(zone),
-				Tags:     tags,
-				SKU:      &armcompute.DiskSKU{},
-				Properties: &armcompute.DiskProperties{
-					DiskSizeGB: to.Ptr(sizeGB),
-					CreationData: &armcompute.CreationData{
-						CreateOption:     to.Ptr(armcompute.DiskCreateOptionCopy),
-						SourceResourceID: snapResp.Snapshot.ID,
-					},
-				},
-			}
-			vd.setDiskOptions(&disk, vol.Options)
+	// Create disk from source
+	disk := armcompute.Disk{
+		Location: to.Ptr(vd.driver.AzureLocation),
+		Zones:    vd.zones(zone),
+		Tags:     tags,
+		SKU:      &armcompute.DiskSKU{},
+		Properties: &armcompute.DiskProperties{
+			DiskSizeGB: to.Ptr(sizeGB),
+			CreationData: &armcompute.CreationData{
+				CreateOption:     to.Ptr(armcompute.DiskCreateOptionCopy),
+				SourceResourceID: to.Ptr(sourceResourceID),
+			},
+		},
+	}
+	vd.setDiskOptions(&disk, vol.Options)
 
-			poller, err := disksClient.BeginCreateOrUpdate(ctx, rg, diskResourceName, disk, nil)
-			if err != nil {
-				return nil, fmt.Errorf("create disk from snapshot: %w", err)
-			}
-			getResp, err := poller.PollUntilDone(ctx, nil)
-			if err != nil {
-				return nil, fmt.Errorf("poll disk: %w", err)
-			}
-
-			volumeDisk, err := vd.newDisk(&getResp.Disk, volName)
-			if err != nil {
-				return nil, fmt.Errorf("create VolumeDisk from disk: %w", err)
-			}
-			return volumeDisk, nil
-		}
+	poller, err := disksClient.BeginCreateOrUpdate(ctx, rg, diskResourceName, disk, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create disk from source: %w", err)
+	}
+	getResp, err := poller.PollUntilDone(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("poll disk: %w", err)
 	}
 
-	// Try source as disk name
-	sourceDiskResourceName, err := vd.driver.appDiskName(app, volName, source)
-	if err == nil {
-		sourceDiskResp, err := disksClient.Get(ctx, rg, sourceDiskResourceName, nil)
-		if err == nil {
-			// Create disk from disk (copy)
-			disk := armcompute.Disk{
-				Location: to.Ptr(vd.driver.AzureLocation),
-				Zones:    vd.zones(zone),
-				Tags:     tags,
-				SKU:      &armcompute.DiskSKU{},
-				Properties: &armcompute.DiskProperties{
-					DiskSizeGB: to.Ptr(sizeGB),
-					CreationData: &armcompute.CreationData{
-						CreateOption:     to.Ptr(armcompute.DiskCreateOptionCopy),
-						SourceResourceID: sourceDiskResp.Disk.ID,
-					},
-				},
-			}
-			vd.setDiskOptions(&disk, vol.Options)
-
-			poller, err := disksClient.BeginCreateOrUpdate(ctx, rg, diskResourceName, disk, nil)
-			if err != nil {
-				return nil, fmt.Errorf("create disk from disk: %w", err)
-			}
-			getResp, err := poller.PollUntilDone(ctx, nil)
-			if err != nil {
-				return nil, fmt.Errorf("poll disk: %w", err)
-			}
-
-			volumeDisk, err := vd.newDisk(&getResp.Disk, volName)
-			if err != nil {
-				return nil, fmt.Errorf("create VolumeDisk from disk: %w", err)
-			}
-			return volumeDisk, nil
-		}
+	volumeDisk, err := vd.newDisk(&getResp.Disk, volName)
+	if err != nil {
+		return nil, fmt.Errorf("create VolumeDisk from disk: %w", err)
 	}
-
-	return nil, fmt.Errorf("source %q not found (neither snapshot nor disk)", source)
+	return volumeDisk, nil
 }
 
 // DiskDelete deletes an Azure Managed Disk (Type="disk").
@@ -366,6 +340,11 @@ func (vd *driverVolumeDisk) SnapshotList(ctx context.Context, cluster *model.Clu
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
+			var respErr *azcore.ResponseError
+			if errors.As(err, &respErr) && respErr.StatusCode == http.StatusNotFound {
+				// Resource group doesn't exist yet
+				return []*model.VolumeSnapshot{}, nil
+			}
 			return nil, fmt.Errorf("list snapshots: %w", err)
 		}
 		for _, snap := range page.Value {
@@ -447,7 +426,7 @@ func (vd *driverVolumeDisk) SnapshotCreate(ctx context.Context, cluster *model.C
 			return nil, fmt.Errorf("no assigned disk found for volume %q", volName)
 		}
 	} else {
-		sourceID, err = vd.driver.resolveSourceDiskResourceID(ctx, app, volName, source)
+		sourceID, err = vd.resolveSourceDiskResourceID(ctx, app, volName, source)
 		if err != nil {
 			return nil, fmt.Errorf("resolve source %q: %w", source, err)
 		}
@@ -712,4 +691,139 @@ func (vd *driverVolumeDisk) newSnapshot(snap *armcompute.Snapshot, volName strin
 		CreatedAt:  created,
 		UpdatedAt:  created,
 	}, nil
+}
+
+// resolveSourceResourceID resolves a source string to an Azure resource ID.
+// - "" (empty) -> error
+// - "snapshot:name" -> Kompox managed snapshot
+// - "disk:name" -> Kompox managed disk
+// - "/subscriptions/..." -> Azure resource ID (snapshot or disk)
+// - "arm:..." -> Azure resource ID with arm: prefix
+// - "resourceId:..." -> Azure resource ID with resourceId: prefix
+// - Others -> returns empty string with no error
+func (vd *driverVolumeDisk) resolveSourceResourceID(ctx context.Context, app *model.App, volName string, source string) (string, error) {
+	source = strings.TrimSpace(source)
+	if source == "" {
+		return "", fmt.Errorf("source cannot be empty")
+	}
+
+	// Convert to lowercase once for case-insensitive comparisons
+	lowerSource := strings.ToLower(source)
+
+	// Handle explicit Azure resource IDs (with various prefixes)
+	if strings.HasPrefix(lowerSource, "/subscriptions/") {
+		// Direct Azure resource ID
+		return source, nil
+	}
+	if strings.HasPrefix(lowerSource, "arm:") {
+		// Strip "arm:" prefix (case-insensitive)
+		return source[4:], nil
+	}
+	if strings.HasPrefix(lowerSource, "resourceid:") {
+		// Strip "resourceId:" prefix (case-insensitive)
+		return source[11:], nil
+	}
+
+	// Handle Kompox managed resources
+	if strings.HasPrefix(lowerSource, "disk:") {
+		// Explicit disk reference (case-insensitive)
+		return vd.resolveKompoxDiskResourceID(ctx, app, volName, source[5:])
+	}
+	if strings.HasPrefix(lowerSource, "snapshot:") {
+		// Explicit snapshot reference (case-insensitive)
+		return vd.resolveKompoxSnapshotResourceID(ctx, app, volName, source[9:])
+	}
+
+	// Return empty with no error if no known pattern matched
+	return "", nil
+}
+
+// resolveSourceDiskResourceID resolves a source string to an Azure Disk resource ID (default to "disk:source" if unknown).
+func (vd *driverVolumeDisk) resolveSourceDiskResourceID(ctx context.Context, app *model.App, volName string, source string) (string, error) {
+	src, err := vd.resolveSourceResourceID(ctx, app, volName, source)
+	if src == "" && err == nil {
+		src, err = vd.resolveKompoxDiskResourceID(ctx, app, volName, source)
+	}
+	return src, err
+}
+
+// resolveSourceSnapshotResourceID resolves a source string to an Azure Snapshot resource ID (default to "snapshot:source" if unknown).
+func (vd *driverVolumeDisk) resolveSourceSnapshotResourceID(ctx context.Context, app *model.App, volName string, source string) (string, error) {
+	src, err := vd.resolveSourceResourceID(ctx, app, volName, source)
+	if src == "" && err == nil {
+		src, err = vd.resolveKompoxSnapshotResourceID(ctx, app, volName, source)
+	}
+	return src, err
+}
+
+// resolveKompoxDiskResourceID resolves a Kompox managed disk name to its Azure resource ID.
+func (vd *driverVolumeDisk) resolveKompoxDiskResourceID(ctx context.Context, app *model.App, volName string, diskName string) (string, error) {
+	if diskName == "" {
+		return "", fmt.Errorf("disk name cannot be empty")
+	}
+
+	rg, err := vd.driver.appResourceGroupName(app)
+	if err != nil {
+		return "", fmt.Errorf("app RG: %w", err)
+	}
+
+	diskResourceName, err := vd.driver.appDiskName(app, volName, diskName)
+	if err != nil {
+		return "", fmt.Errorf("generate disk resource name: %w", err)
+	}
+
+	disksClient, err := armcompute.NewDisksClient(vd.driver.AzureSubscriptionId, vd.driver.TokenCredential, nil)
+	if err != nil {
+		return "", fmt.Errorf("new disks client: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	diskRes, err := disksClient.Get(ctx, rg, diskResourceName, nil)
+	if err != nil {
+		return "", fmt.Errorf("get disk %q: %w", diskName, err)
+	}
+
+	if diskRes.ID == nil {
+		return "", fmt.Errorf("disk %q has no resource ID", diskName)
+	}
+
+	return *diskRes.ID, nil
+}
+
+// resolveKompoxSnapshotResourceID resolves a Kompox managed snapshot name to its Azure resource ID.
+func (vd *driverVolumeDisk) resolveKompoxSnapshotResourceID(ctx context.Context, app *model.App, volName string, snapName string) (string, error) {
+	if snapName == "" {
+		return "", fmt.Errorf("snapshot name cannot be empty")
+	}
+
+	rg, err := vd.driver.appResourceGroupName(app)
+	if err != nil {
+		return "", fmt.Errorf("app RG: %w", err)
+	}
+
+	snapResourceName, err := vd.driver.appSnapshotName(app, volName, snapName)
+	if err != nil {
+		return "", fmt.Errorf("generate snapshot resource name: %w", err)
+	}
+
+	snapsClient, err := armcompute.NewSnapshotsClient(vd.driver.AzureSubscriptionId, vd.driver.TokenCredential, nil)
+	if err != nil {
+		return "", fmt.Errorf("new snapshots client: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
+	snapRes, err := snapsClient.Get(ctx, rg, snapResourceName, nil)
+	if err != nil {
+		return "", fmt.Errorf("get snapshot %q: %w", snapName, err)
+	}
+
+	if snapRes.ID == nil {
+		return "", fmt.Errorf("snapshot %q has no resource ID", snapName)
+	}
+
+	return *snapRes.ID, nil
 }

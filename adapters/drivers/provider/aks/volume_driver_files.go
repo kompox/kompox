@@ -2,11 +2,14 @@ package aks
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/kompox/kompox/domain/model"
@@ -60,8 +63,8 @@ func (vf *driverVolumeFiles) DiskList(ctx context.Context, cluster *model.Cluste
 	for pager.More() {
 		page, err := pager.NextPage(ctx)
 		if err != nil {
-			if strings.Contains(strings.ToLower(err.Error()), "could not be found") ||
-				strings.Contains(strings.ToLower(err.Error()), "notfound") {
+			var respErr *azcore.ResponseError
+			if errors.As(err, &respErr) && respErr.StatusCode == http.StatusNotFound {
 				// Storage account doesn't exist yet
 				return []*model.VolumeDisk{}, nil
 			}
@@ -259,9 +262,8 @@ func (vf *driverVolumeFiles) DiskDelete(ctx context.Context, cluster *model.Clus
 	// Delete share
 	_, err = sharesClient.Delete(ctx, rg, accountName, shareName, nil)
 	if err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "notfound") ||
-			strings.Contains(strings.ToLower(err.Error()), "could not be found") ||
-			strings.Contains(strings.ToLower(err.Error()), "sharenotfound") {
+		var respErr *azcore.ResponseError
+		if errors.As(err, &respErr) && respErr.StatusCode == http.StatusNotFound {
 			return nil // Already deleted
 		}
 		return fmt.Errorf("delete share: %w", err)
