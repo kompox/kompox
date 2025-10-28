@@ -19,6 +19,7 @@ type driver struct {
 	TokenCredential     azcore.TokenCredential
 	AzureSubscriptionId string
 	AzureLocation       string
+	volumeDrivers       map[string]driverVolume // volume type -> driverVolume
 }
 
 // ID returns the provider identifier.
@@ -121,13 +122,21 @@ func init() {
 			prefix = prefix[:maxResourcePrefix]
 		}
 
-		return &driver{
+		d := &driver{
 			workspaceName:       workspaceName,
 			providerName:        provider.Name,
 			resourcePrefix:      prefix,
 			TokenCredential:     cred,
 			AzureSubscriptionId: subscriptionID,
 			AzureLocation:       location,
-		}, nil
+		}
+
+		// Initialize volume drivers for each type
+		d.volumeDrivers = map[string]driverVolume{
+			model.VolumeTypeDisk:  newDriverVolumeDisk(d),
+			model.VolumeTypeFiles: newDriverVolumeFiles(d),
+		}
+
+		return d, nil
 	})
 }

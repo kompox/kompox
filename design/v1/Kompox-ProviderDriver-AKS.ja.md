@@ -504,7 +504,7 @@ Azure Files 共有名:
 - 文字集合は DNS-1123 制約に整合 (小文字英数字とハイフン)
 
 Handle:
-- SMB: `smbs://{account}.file.core.windows.net/{share}`
+- SMB: `smb://{account}.file.{suffix}/{share}`
 
 メタデータ:
 - Azure Files の共有メタデータで論理ボリュームの属性を保持

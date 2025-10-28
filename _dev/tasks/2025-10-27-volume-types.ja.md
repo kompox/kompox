@@ -79,7 +79,20 @@ owner: yaegashi
   - [x] `Type = "files"` 時に RWX PVC 生成
   - [x] `Options` から CSI パラメータ反映 (`skuName` など、`protocol` は固定 `"smb"`)
   - [x] [Kompox-KubeConverter.ja.md] 仕様追記
-- [ ] AKS ドライバー (`adapters/drivers/provider/aks`)
+- [x] AKS ドライバー - リファクタリング (`adapters/drivers/provider/aks`)
+  - [x] ファイル構成整理 (`volume.go`, `volume_driver.go`, `volume_driver_disk.go`, `volume_driver_files.go`)
+  - [x] 型名統一: `driverVolume` (interface), `driverVolumeDisk`, `driverVolumeFiles`
+  - [x] インターフェース定義: `DiskList`, `DiskCreate`, `DiskDelete`, `DiskAssign`, `SnapshotList`, `SnapshotCreate`, `SnapshotDelete`, `Class`
+  - [x] ヘルパー関数のメソッド化:
+    - [x] `newVolumeDisk` → `(vd *driverVolumeDisk) newDisk`
+    - [x] `azureZones` → `(vd *driverVolumeDisk) zones`
+    - [x] `setAzureDiskOptions` → `(vd *driverVolumeDisk) setDiskOptions`
+    - [x] `azureDiskOptions` → `(vd *driverVolumeDisk) diskOptions`
+    - [x] `newVolumeSnapshot` → `(vd *driverVolumeDisk) newSnapshot` (移動元: `volume_snapshot.go` 削除)
+  - [x] ディスパッチ処理共通化: `(d *driver) resolveVolumeDriver(vol *model.AppVolume)` メソッド追加
+  - [x] 全7つのディスパッチメソッド簡潔化 (重複ロジック削除、合計76行削減)
+  - [x] ビルド・テスト成功確認
+- [ ] AKS ドライバー - Azure Files 実装 (`adapters/drivers/provider/aks`)
   - [ ] `appStorageAccountName()`: ストレージアカウント名生成 (`k4x{prv_hash}{app_hash}` 形式、15文字)
   - [ ] Storage Account 自動作成ロジック (App 単位、初回 Disk 作成時)
   - [ ] `VolumeDiskList()`: 共有一覧取得、メタデータフィルタリング
@@ -138,6 +151,12 @@ owner: yaegashi
 
 - 2025-10-27: タスク作成
 - 2025-10-28: ADR と AKS 仕様更新に基づきタスク書き直し
+- 2025-10-28: AKS ドライバー リファクタリング完了
+  - ファイル構成整理 (`volume*.go` 分割)
+  - 型名・メソッド名統一 (`driverVolume*`, メソッドから `Volume` プレフィックス削除)
+  - ヘルパー関数のメソッド化 (5関数 → メソッド化、カプセル化改善)
+  - ディスパッチ処理共通化 (`resolveVolumeDriver` メソッド追加、76行削減)
+  - 全テスト成功、コードレビュー準備完了
 
 ## 参考
 
