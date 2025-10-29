@@ -1,7 +1,7 @@
 ---
 id: README
 title: Kompox Design Document Index
-updated: 2025-10-28
+updated: 2025-10-29
 language: en
 ---
 
@@ -13,7 +13,7 @@ This directory holds the canonical design and planning documents for Kompox. v1 
 
 | ID | Title | Language | Version | Status | Last updated |
 |---|---|---|---|---|---|
-| [Kompox-ProviderDriver-AKS](./v1/Kompox-ProviderDriver-AKS.ja.md) | AKS Provider Driver 実装ガイド | ja | v1 | synced | 2025-10-28 |
+| [Kompox-ProviderDriver-AKS](./v1/Kompox-ProviderDriver-AKS.ja.md) | AKS Provider Driver 実装ガイド | ja | v1 | synced | 2025-10-29 |
 | [Kompox-CRD](./v1/Kompox-CRD.ja.md) | Kompox CRD-style configuration | ja | v1 | archived | 2025-10-18 |
 | [Kompox-Arch-Implementation](./v1/Kompox-Arch-Implementation.ja.md) | Kompox Implementation Architecture | ja | v1 | synced | 2025-10-12 |
 | [Kompox-KOM](./v1/Kompox-KOM.ja.md) | Kompox KOM configuration | ja | v1 | synced | 2025-10-19 |
@@ -62,7 +62,7 @@ This directory holds the canonical design and planning documents for Kompox. v1 
 | [K4x-ADR-011](./adr/K4x-ADR-011.md) | Introduce Defaults pseudo-resource for KOM ingestion | en |  | accepted | - |
 | [K4x-ADR-012](./adr/K4x-ADR-012.md) | Introduce App.RefBase for external references | en |  | accepted | - |
 | [K4x-ADR-013](./adr/K4x-ADR-013.md) | Resource protection policy for Cluster operations | en |  | accepted | - |
-| [K4x-ADR-014](./adr/K4x-ADR-014.md) | Introduce Volume Types | en |  | proposed | - |
+| [K4x-ADR-014](./adr/K4x-ADR-014.md) | Introduce Volume Types | en |  | accepted | - |
 
 **Status definitions:**
 

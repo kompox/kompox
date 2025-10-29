@@ -3,7 +3,7 @@ id: Kompox-ProviderDriver-AKS
 title: AKS Provider Driver 実装ガイド
 version: v1
 status: synced
-updated: 2025-10-28
+updated: 2025-10-29
 language: ja
 ---
 
@@ -237,6 +237,50 @@ DNS レコードセットをプロバイダ管理の DNS ゾーンに適用す�
 
 ## AKS Volumes
 
+### Azure Identity と権限モデル
+
+AKS クラスタは 2 種類の Managed Identity を使用し、それぞれ異なる目的で権限が付与される。
+
+#### Cluster Identity (system-assigned managed identity)
+
+- **用途**: Azure リソース操作 (DNS Zone 更新、ACR アクセス、Key Vault アクセス)
+- **ロール割り当て**:
+  - DNS Zone Contributor: 動的 DNS 更新用 (`ClusterInstall()` で付与)
+  - AcrPull: コンテナイメージ取得用 (`ClusterInstall()` で付与)
+  - Key Vault Secrets/Certificate User: 証明書取得用
+- **Bicep 出力**: `AZURE_AKS_CLUSTER_PRINCIPAL_ID` (取得元: `aks.identity.principalId`)
+- **コード内参照**: `outputAksClusterPrincipalID`
+
+#### Kubelet Identity (managed identity for node pools)
+
+- **用途**: Azure Disk/Files CSI ドライバー操作 (ストレージアカウントキー取得、ディスクアタッチ)
+- **ロール割り当て**:
+  - Contributor: App リソースグループに対して (ディスク/ストレージ操作用)
+  - 割り当てタイミング: 
+    - Disk 初回作成時 (`DiskCreate` で `ensureAzureResourceGroupCreated` 呼び出し)
+    - Storage Account 作成時 (`ensureStorageAccountCreated` で `ensureAzureResourceGroupCreated` 呼び出し)
+- **Bicep 出力**: `AZURE_AKS_KUBELET_PRINCIPAL_ID` (取得元: `aks.properties.identityProfile.kubeletidentity.objectId`)
+- **コード内参照**: `outputAksKubeletPrincipalID`
+- **重要**: Azure Files CSI ドライバーが Storage Account キーを取得するには、Kubelet Identity に Contributor ロールが必須
+
+#### 権限付与の実装パターン
+
+```go
+// Cluster Identity を使用 (DNS Zone, ACR)
+principalID, _ := outputs[outputAksClusterPrincipalID].(string)
+
+// Kubelet Identity を使用 (App リソースグループ)
+principalID := ""
+outputs, err := d.azureDeploymentOutputs(ctx, cluster)
+if err == nil {
+    if v, ok := outputs[outputAksKubeletPrincipalID].(string); ok {
+        principalID = v
+    }
+}
+// principalID が空の場合はロール割り当てをスキップ (冪等性)
+err = d.ensureAzureResourceGroupCreated(ctx, rg, tags, principalID)
+```
+
 ### Volume Type
 
 Kompox は論理ボリュームに対して `Type` 属性をサポートする。AKS ドライバは以下の Volume Type に対応する。
@@ -359,13 +403,24 @@ Assigned フラグ:
 - `CreatedAt`: 作成日時
 - `UpdatedAt`: 更新日時 (現在は `CreatedAt` と同じ)
 
+エラーハンドリング:
+- リソースグループが存在しない場合は空配列を返す (404 エラーを吸収)
+- Azure API エラーは上位へ伝播
+
+ボリュームフィルタリング:
+- ディスクタグ `kompox_volume_name` を検証し、指定された `volName` と一致するディスクのみを返す
+- `newDisk` メソッドで volume name が一致しない場合は `nil` を返し、リストから除外
+- これにより、同じ App 内の異なるボリューム間でディスクが分離される
+
 ### VolumeDiskCreate()
 
 新規ディスクを作成する。
 
 実装概要:
 1. アプリのリソースグループを取得または作成
-2. kubelet マネージド ID にリソースグループへの Contributor ロールを付与 (ベストエフォート)
+2. Kubelet Identity (kubelet managed identity) にリソースグループへの Contributor ロールを付与
+   - `ensureAzureResourceGroupCreated` を呼び出し、`outputAksKubeletPrincipalID` を渡す
+   - Kubelet Identity は Azure Disk CSI ドライバーがディスクをアタッチする際に必要
 3. 既存ディスク一覧を取得
 4. `diskName` が省略されている場合は `naming.NewCompactID()` で生成、指定されている場合は重複チェック
 5. `source` を解決して作成オプションを決定:
@@ -398,7 +453,7 @@ SKU とパフォーマンスオプション:
 
 実装概要:
 1. 既存ディスク一覧を取得
-2. 指定されたディスク名が存在することを確認
+2. 指定されたディスク名が存在することを確認 (存在しない場合はエラー)
 3. 全ディスクに対して `kompox-disk-assigned` タグを更新:
    - 指定されたディスク: `"true"`
    - それ以外: `"false"`
@@ -458,11 +513,13 @@ SKU とパフォーマンスオプション:
 新規スナップショットを作成する。
 
 実装概要:
-1. `snapName` が省略されている場合は `naming.NewCompactID()` で生成
-2. `source` を解決:
+1. アプリのリソースグループを確保
+   - `ensureAzureResourceGroupCreated` を呼び出し、Kubelet Identity に Contributor ロールを付与
+2. `snapName` が省略されている場合は `naming.NewCompactID()` で生成
+3. `source` を解決:
    - 空文字列: 現在 Assigned されているディスクを自動選択 (単一でない場合はエラー)
    - 非空: source を Azure リソース ID に解決
-3. source リソース ID を解析して種別 (Disk or Snapshot) を判定:
+4. source リソース ID を解析して種別 (Disk or Snapshot) を判定:
    - Disk の場合: `CreateOption=Copy`
    - Snapshot の場合: `CreateOption=CopyStart`
 4. Azure Snapshot を作成し、完了を待機 (増分スナップショット、SKU は `Standard_ZRS`)
@@ -504,12 +561,15 @@ Azure Files 共有名:
 - 文字集合は DNS-1123 制約に整合 (小文字英数字とハイフン)
 
 Handle:
-- SMB: `smb://{account}.file.{suffix}/{share}`
+- CSI volumeHandle 形式: `{rg}#{account}#{share}#####{subscription}` (6個の `#` で7フィールド区切り)
+- Azure Resource ID ではなく、Azure Files CSI ドライバー固有の形式
+- 参考: [azurefile-csi-driver driver-parameters.md](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/driver-parameters.md)
 
 メタデータ:
 - Azure Files の共有メタデータで論理ボリュームの属性を保持
-- `kompox-volume`: `{vol.name}-{idHash}` (論理ボリューム識別子)
-- `kompox-disk-assigned`: `"true"` または `"false"` (割り当て状態)
+- `kompox_volume_name`: ボリューム名 (論理ボリューム識別子)
+- `kompox_files_share_name`: ディスク名 (Kompox 管理名)
+- `kompox_files_share_assigned`: `"true"` または `"false"` (割り当て状態)
 
 プロトコル:
 - 当面は SMB のみをサポート
@@ -522,18 +582,27 @@ Handle:
 返却される VolumeClass:
 - `StorageClassName`: `"azurefile-csi"` (AKS の Azure Files クラス)
 - `CSIDriver`: `"file.csi.azure.com"` (Azure Files CSI Driver)
+- `FSType`: `""` (空文字列、SMB/NFS では不要)
 - `AccessModes`: `["ReadWriteMany"]` (RWX アクセスモード)
 - `VolumeMode`: `"Filesystem"` (ファイルシステムモード)
-- `Attributes`: SKU などのオプション
-  - `protocol`: `"smb"` (固定)
-  - `skuName`: ストレージアカウントの SKU (例: `"Standard_LRS"`, `"Premium_ZRS"`)
-  - `availability`: 可用性レベル (例: `"zrs"`, `"lrs"`)
+- `Attributes`: CSI ドライバーパラメータ
+  - `protocol`: `"smb"` (固定、将来的に `"nfs"` もサポート予定)
 
-注意事項:
-- 当面は SMB プロトコルのみサポート
-- 具体的な StorageClass 名やパラメータはクラスタにより異なる
-- ドライバ既定を採用しつつ、`Options` で上書き可能
-- 空フィールドは「ノーオピニオン」を表し、呼び出し側はマニフェストに含めない
+Options の扱い:
+- `Options.sku`: Storage Account の SKU 選択に使用 (例: `"Standard_LRS"`, `"Premium_ZRS"`)
+  - 既定値: `"Standard_LRS"`
+  - `ensureStorageAccountCreated` で処理され、VolumeClass.Attributes には含まれない
+- `Options.protocol`: プロトコル選択 (現在は `"smb"` のみサポート)
+  - 既定値: `"smb"`
+  - VolumeClass.Attributes に `protocol` として設定
+
+重要な実装詳細:
+- **FSType は空文字列**: Azure Files は SMB/NFS プロトコルを使用するため、ext4 などのファイルシステムタイプは不要
+  - 空の FSType により、Kubernetes converter は PV volumeAttributes に fsType を設定しない
+  - これにより "diskname could not be empty" エラーを回避
+- **CSI volumeHandle 形式**: `{rg}#{account}#{share}#####{subscription}` (6個の `#` で7フィールド区切り)
+  - Azure Resource ID ではなく、Azure Files CSI ドライバー固有の形式
+  - 参考: [azurefile-csi-driver driver-parameters.md](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/driver-parameters.md)
 
 ### VolumeDiskList()
 
@@ -541,17 +610,28 @@ Handle:
 
 実装概要:
 - アプリのリソースグループ内のストレージアカウントから全共有を取得
-- 共有メタデータの `kompox-volume` で指定ボリュームに属する共有をフィルタリング
+- 共有メタデータの `kompox_volume_name` で指定ボリュームに属する共有をフィルタリング
+- `newDisk` メソッドで volume name が一致しない場合は `nil` を返し、リストから除外
 - `CreatedAt` 降順でソート (同時刻の場合は `Name` 昇順)
 
 返却される `VolumeDisk`:
-- `Name`: 共有名 (`{vol.name}-{disk.name}`)
+- `Name`: ディスク名 (`kompox_files_share_name` メタデータから取得)
 - `VolumeName`: ボリューム名
 - `Assigned`: 割り当て状態 (共有メタデータから取得)
 - `Size`: クォータサイズ (バイト単位、0 は未設定)
 - `Zone`: 空文字列 (Azure Files はリージョナルサービス)
 - `Options`: プロトコルや SKU などのオプション
-- `Handle`: Azure Files の URI (`smbs://...` または `nfs://...`)
+- `Handle`: CSI volumeHandle 形式 (`{rg}#{account}#{share}#####{subscription}`)
+- `CreatedAt`: 作成日時
+- `UpdatedAt`: 更新日時
+
+エラーハンドリング:
+- リソースグループまたはストレージアカウントが存在しない場合は空配列を返す
+- Azure API エラーは上位へ伝播
+
+ボリュームフィルタリング:
+- 共有メタデータ `kompox_volume_name` を検証し、指定された `volName` と一致する共有のみを返す
+- これにより、同じ App 内の異なるボリューム間で共有が分離される
 - `CreatedAt`: 作成日時
 - `UpdatedAt`: 更新日時
 
@@ -564,13 +644,21 @@ Handle:
 新規 Azure Files 共有を作成する。
 
 実装概要:
-1. アプリのリソースグループを取得または作成
-2. ストレージアカウントが存在しなければ作成 (アプリ単位で 1 つ)
-3. 既存共有一覧を取得
-4. `diskName` が省略されている場合は `naming.NewCompactID()` で生成、指定されている場合は重複チェック
-5. 共有 `{vol.name}-{disk.name}` を作成、クォータに `sizeGiB` を設定
-6. 最初の共有の場合は `kompox-disk-assigned=true`、それ以外は `kompox-disk-assigned=false`
-7. 作成された共有から `model.VolumeDisk` を生成して返す
+1. プロトコル検証 (現在は `"smb"` のみサポート)
+2. SKU を Options から取得 (デフォルト: `Standard_LRS`)
+3. ストレージアカウントが存在しなければ作成
+   - `ensureStorageAccountCreated` を呼び出し、アプリ単位で 1 つのアカウントを作成
+   - Kubelet Identity にリソースグループへの Contributor ロールを付与
+   - Azure Files CSI ドライバーがストレージアカウントキーを取得するために必要
+4. `diskName` が省略されている場合は `naming.NewCompactID()` で自動生成
+5. 共有名 `{vol.name}-{disk.name}` を生成 (最大 41 文字)
+6. 既存共有一覧を取得し、初回共有か確認、重複チェック
+7. クォータを設定 (volume サイズから GiB に変換、または Options.quotaGiB)
+8. 共有を作成、メタデータを設定:
+   - `kompox_volume_name`: ボリューム名
+   - `kompox_files_share_name`: ディスク名
+   - `kompox_files_share_assigned`: 初回は `"true"`、それ以外は `"false"`
+9. 作成された共有から `model.VolumeDisk` を生成して返す
 
 `source` パラメータ:
 - Azure Files ではスナップショットやコピー元からの復元をサポートしない
@@ -581,8 +669,8 @@ Handle:
 - `Options.protocol` が `"smb"` 以外の場合はエラーを返す
 
 ストレージアカウント SKU:
-- `Options.skuName` で指定、未指定の場合は `Standard_LRS` (既定)
-- サポートする SKU: `Standard_LRS`, `Standard_ZRS`, `Premium_LRS`, `Premium_ZRS`
+- `Options.sku` で指定、未指定の場合は `Standard_LRS` (既定)
+- サポートする SKU: `Standard_LRS`, `Standard_GRS`, `Standard_RAGRS`, `Standard_ZRS`, `Premium_LRS`, `Premium_ZRS`
 
 ### VolumeDiskAssign()
 
@@ -590,8 +678,8 @@ Handle:
 
 実装概要:
 1. 既存共有一覧を取得
-2. 指定された共有名 (`{vol.name}-{disk.name}`) が存在することを確認
-3. 全共有に対して `kompox-disk-assigned` メタデータを更新:
+2. 指定された共有名が存在することを確認 (存在しない場合はエラー)
+3. 全共有に対して `kompox_files_share_assigned` メタデータを更新:
    - 指定された共有以外: `"false"` に更新
    - 指定された共有: `"true"` に更新
 

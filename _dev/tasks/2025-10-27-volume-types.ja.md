@@ -1,8 +1,8 @@
 ---
 id: 2025-10-27-volume-types
 title: Volume Types 実装
-status: active
-updated: 2025-10-28
+status: done
+updated: 2025-10-29
 language: ja
 owner: yaegashi
 ---
@@ -102,11 +102,17 @@ owner: yaegashi
   - [x] RWX PVC 生成確認
   - [x] スナップショット非対応確認 (`ErrNotSupported`)
   - [x] Azure Files マウント動作確認
-- [ ] ドキュメント
-  - [ ] [Kompox-ProviderDriver-AKS.ja.md] 更新 (完了済み)
-  - [ ] [Kompox-KubeConverter.ja.md] 更新
-  - [ ] `kompoxops.yml` サンプル追加 (`Type: files`, `Options` 例)
-  - [ ] リリースノート項目
+- [x] ドキュメント
+  - [x] [Kompox-ProviderDriver-AKS.ja.md] 更新
+    - Azure Identity と権限モデルのセクション追加 (Cluster Identity vs Kubelet Identity)
+    - VolumeClass() の詳細追加 (FSType, CSI volumeHandle 形式)
+    - Handle 形式を CSI volumeHandle に更新
+    - メタデータタグ名を統一 (kompox_volume_name)
+    - ボリュームフィルタリングの説明追加
+    - DiskCreate/SnapshotCreate での Kubelet Identity 権限付与を明記
+    - DiskAssign の存在チェック追加を記載
+  - [x] [K4x-ADR-014] 更新
+    - Handle 形式に Azure Files CSI volumeHandle を追加
 
 ## 受け入れ条件
 

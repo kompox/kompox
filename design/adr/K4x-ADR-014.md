@@ -1,7 +1,7 @@
 ---
 id: K4x-ADR-014
 title: Introduce Volume Types
-status: proposed
+status: accepted
 date: 2025-10-23
 language: en
 supersedes: []
@@ -30,8 +30,9 @@ supersededBy: []
   - Drivers return a common `ErrNotSupported` for `Snapshot*` operations when the provider/type does not support snapshots.
 - Artifact shape for `Type = "files"`:
   - `VolumeDisk.Name`: share/export name (provider rules apply)
-  - `VolumeDisk.Handle`: provider-native URI/URL (uniform representation)
-    - Examples: `smbs://{account}.file.core.windows.net/{share}` or `nfs://{host}:/{export}`
+  - `VolumeDisk.Handle`: provider-native identifier (CSI driver format or URI)
+    - Azure Files: `{rg}#{account}#{share}#####{subscription}` (CSI volumeHandle format with 6 `#` separators)
+    - Other providers may use URIs: `nfs://{host}:/{export}`
   - `VolumeDisk.Size`: share quota (bytes); 0 if not set
   - `VolumeDisk.Zone`: empty for regional services; availability/replication via `Options`
   - `VolumeDisk.Options`: provider-specific attributes (e.g., `protocol=smb|nfs`, `quotaGiB`, `skuName`, `availability`, `mountUID/GID`, `accessPointId`)
