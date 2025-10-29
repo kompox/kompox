@@ -1071,7 +1071,7 @@ func (c *Converter) BindVolumes(ctx context.Context, vols []*ConverterVolumeBind
 			return fmt.Errorf("no CSIDriver for volume %s", av.Name)
 		}
 
-		// CSI attributes (fsType fallback to ext4).
+		// CSI attributes from VolumeClass
 		attrs := map[string]string{}
 		for k, v := range vc.Attributes {
 			if v != "" {
@@ -1080,9 +1080,6 @@ func (c *Converter) BindVolumes(ctx context.Context, vols []*ConverterVolumeBind
 		}
 		if vc.FSType != "" {
 			attrs["fsType"] = vc.FSType
-		}
-		if _, ok := attrs["fsType"]; !ok {
-			attrs["fsType"] = "ext4"
 		}
 
 		pvSpec := corev1.PersistentVolumeSpec{

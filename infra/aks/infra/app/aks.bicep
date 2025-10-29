@@ -307,5 +307,6 @@ resource aksAcrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = i
 }
 
 output clusterName string = aks.name
-output principalId string = aks.identity.principalId
+output clusterPrincipalId string = aks.identity.principalId
+output kubeletPrincipalId string = aks.properties.identityProfile.kubeletidentity.objectId
 output oidcIssuerUrl string = aks.properties.oidcIssuerProfile.issuerURL

@@ -2,6 +2,15 @@
 
 set -euo pipefail
 
+VOLUME=${VOLUME:-vol1}
+SUFFIX=$(date +%H%M%S)
+
+DISK_BASE="db-${SUFFIX}"
+DISK_FROM_SNAPSHOT="dbsnap-${SUFFIX}"
+DISK_TEMP="dbtmp-${SUFFIX}"
+SNAP_AUTO="snauto-${SUFFIX}"
+SNAP_EXPLICIT="snexp-${SUFFIX}"
+
 CREATED_DISKS=()
 CREATED_SNAPSHOTS=()
 RESTORE_DISK=""
@@ -104,14 +113,9 @@ else
 	exit 1
 fi
 
-VOLUME=${VOLUME:-vol1}
-SUFFIX=$(date +%H%M%S)
-
-DISK_BASE="db-${SUFFIX}"
-DISK_FROM_SNAPSHOT="dbsnap-${SUFFIX}"
-DISK_TEMP="dbtmp-${SUFFIX}"
-SNAP_AUTO="snauto-${SUFFIX}"
-SNAP_EXPLICIT="snexp-${SUFFIX}"
+log "===== Azure Disk Operations Test ====="
+log "Testing disk backend operations for volume $VOLUME"
+log ""
 
 INITIAL_DISKS_JSON=$(run ./kompoxops disk list -V "$VOLUME")
 assert_json_array "$INITIAL_DISKS_JSON" "disk list"
@@ -125,6 +129,8 @@ else
 	log "No pre-existing Assigned disk"
 fi
 
+log ""
+log "===== Creating and assigning disk ====="
 log "Creating base disk $DISK_BASE"
 BASE_DISK_JSON=$(run ./kompoxops disk create -V "$VOLUME" -N "$DISK_BASE")
 CREATED_DISKS+=("$DISK_BASE")
@@ -141,6 +147,8 @@ if (( ASSIGNED_COUNT != 1 )); then
 	exit 1
 fi
 
+log ""
+log "===== Creating snapshots ====="
 log "Creating snapshot without explicit source -> $SNAP_AUTO"
 SNAP_AUTO_JSON=$(run ./kompoxops snapshot create -V "$VOLUME" -N "$SNAP_AUTO")
 CREATED_SNAPSHOTS+=("$SNAP_AUTO")
@@ -160,6 +168,8 @@ for EXPECT in "$SNAP_AUTO" "$SNAP_EXPLICIT"; do
 	fi
 done
 
+log ""
+log "===== Creating disk from snapshot ====="
 log "Creating disk from snapshot $SNAP_AUTO -> $DISK_FROM_SNAPSHOT"
 if ! retry_capture DISK_FROM_SNAP_JSON run ./kompoxops disk create -V "$VOLUME" -N "$DISK_FROM_SNAPSHOT" -S "snapshot:$SNAP_AUTO"; then
 	log "Failed to create disk from snapshot $SNAP_AUTO after ${RETRY_ATTEMPTS} attempts"
@@ -168,6 +178,8 @@ fi
 CREATED_DISKS+=("$DISK_FROM_SNAPSHOT")
 assert_field_equals "$DISK_FROM_SNAP_JSON" '.name' "$DISK_FROM_SNAPSHOT" "disk create from snapshot name"
 
+log ""
+log "===== Testing reassignment ====="
 log "Assigning $DISK_FROM_SNAPSHOT to verify reassignment semantics"
 run ./kompoxops disk assign -V "$VOLUME" -N "$DISK_FROM_SNAPSHOT"
 
@@ -179,6 +191,8 @@ if [[ "$CURRENT_ASSIGNED" != "$DISK_FROM_SNAPSHOT" ]]; then
 	exit 1
 fi
 
+log ""
+log "===== Testing deletion constraints ====="
 log "Validating --disk-name alias rejects assigned deletions"
 expect_failure run ./kompoxops disk delete -V "$VOLUME" --disk-name "$DISK_FROM_SNAPSHOT"
 
@@ -199,6 +213,8 @@ run ./kompoxops disk delete -V "$VOLUME" -N "$DISK_FROM_SNAPSHOT"
 
 mapfile -t CREATED_DISKS < <(printf '%s\n' "${CREATED_DISKS[@]}" | grep -v "^$DISK_FROM_SNAPSHOT$" || true)
 
+log ""
+log "===== Testing source resolution ====="
 log "Creating temporary disk to exercise --source without snapshot prefix"
 if ! retry_capture DISK_TEMP_JSON run ./kompoxops disk create -V "$VOLUME" -N "$DISK_TEMP" -S "disk:$DISK_BASE"; then
 	log "Failed to create disk from disk source $DISK_BASE after ${RETRY_ATTEMPTS} attempts"
@@ -211,13 +227,21 @@ log "Deleting temporary disk $DISK_TEMP"
 run ./kompoxops disk delete -V "$VOLUME" -N "$DISK_TEMP"
 mapfile -t CREATED_DISKS < <(printf '%s\n' "${CREATED_DISKS[@]}" | grep -v "^$DISK_TEMP$" || true)
 
+log ""
+log "===== Cleaning up snapshots ====="
 log "Deleting snapshots using --snap-name"
 for SNAP in "$SNAP_EXPLICIT" "$SNAP_AUTO"; do
 	run ./kompoxops snapshot delete -V "$VOLUME" --snap-name "$SNAP"
 	mapfile -t CREATED_SNAPSHOTS < <(printf '%s\n' "${CREATED_SNAPSHOTS[@]}" | grep -v "^$SNAP$" || true)
 done
 
+log ""
+log "===== Testing error conditions ====="
 log "Verifying invalid disk name is rejected"
 expect_failure run ./kompoxops disk create -V "$VOLUME" -N "INVALID_NAME"
 
-log "Disk/Snapshot CLI E2E checks completed"
+log "Verifying disk assign with non-existent disk name fails"
+expect_failure run ./kompoxops disk assign -V "$VOLUME" -N "nonexistent-disk-name"
+
+log ""
+log "===== All disk operations tests passed! ====="

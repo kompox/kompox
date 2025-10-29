@@ -26,10 +26,6 @@ func newVolumeBackendDisk(d *driver) volumeBackend {
 	return &volumeBackendDisk{driver: d}
 }
 
-// =============================================================================
-// volumeBackend interface methods (public API)
-// =============================================================================
-
 // DiskList lists Azure Managed Disks for a volume (Type="disk").
 func (vb *volumeBackendDisk) DiskList(ctx context.Context, cluster *model.Cluster, app *model.App, volName string, opts ...model.VolumeDiskListOption) ([]*model.VolumeDisk, error) {
 	rg, err := vb.driver.appResourceGroupName(app)
@@ -150,13 +146,16 @@ func (vb *volumeBackendDisk) DiskCreate(ctx context.Context, cluster *model.Clus
 	tags[tagDiskAssigned] = to.Ptr("false")
 
 	// Ensure resource group exists before creating disk
+	// Get AKS system-assigned managed identity principal ID for role assignment (optional for non-AKS scenarios)
 	principalID := ""
 	outputs, err := vb.driver.azureDeploymentOutputs(ctx, cluster)
 	if err == nil {
-		if v, ok := outputs[outputAksPrincipalID].(string); ok {
+		if v, ok := outputs[outputAksClusterPrincipalID].(string); ok {
 			principalID = v
 		}
 	}
+	// Ignore errors: principalID remains empty if outputs unavailable (e.g., aks-e2e-volume tests)
+	// ensureAzureResourceGroupCreated will skip role assignment when principalID is empty
 	err = vb.driver.ensureAzureResourceGroupCreated(ctx, rg, vb.driver.appResourceTags(app.Name), principalID)
 	if err != nil {
 		return nil, fmt.Errorf("ensure resource group: %w", err)
@@ -281,6 +280,18 @@ func (vb *volumeBackendDisk) DiskAssign(ctx context.Context, cluster *model.Clus
 	disks, err := vb.DiskList(ctx, cluster, app, volName)
 	if err != nil {
 		return fmt.Errorf("list disks: %w", err)
+	}
+
+	// Find the target disk
+	var found bool
+	for _, disk := range disks {
+		if disk.Name == diskName {
+			found = true
+			break
+		}
+	}
+	if !found {
+		return fmt.Errorf("disk not found: %s", diskName)
 	}
 
 	for _, disk := range disks {
@@ -411,6 +422,22 @@ func (vb *volumeBackendDisk) SnapshotCreate(ctx context.Context, cluster *model.
 	tags[tagVolumeName] = to.Ptr(volName)
 	tags[tagSnapshotName] = to.Ptr(snapName)
 
+	// Ensure resource group exists before creating snapshot
+	// Get AKS system-assigned managed identity principal ID for role assignment (optional for non-AKS scenarios)
+	principalID := ""
+	outputs, err := vb.driver.azureDeploymentOutputs(ctx, cluster)
+	if err == nil {
+		if v, ok := outputs[outputAksClusterPrincipalID].(string); ok {
+			principalID = v
+		}
+	}
+	// Ignore errors: principalID remains empty if outputs unavailable (e.g., aks-e2e-volume tests)
+	// ensureAzureResourceGroupCreated will skip role assignment when principalID is empty
+	err = vb.driver.ensureAzureResourceGroupCreated(ctx, rg, vb.driver.appResourceTags(app.Name), principalID)
+	if err != nil {
+		return nil, fmt.Errorf("ensure resource group: %w", err)
+	}
+
 	// Determine source disk resource ID
 	sourceID := ""
 	source = strings.TrimSpace(source)
@@ -507,10 +534,6 @@ func (vb *volumeBackendDisk) Class(ctx context.Context, cluster *model.Cluster, 
 	}, nil
 }
 
-// =============================================================================
-// Helper methods (private)
-// =============================================================================
-
 // newDisk creates a model.VolumeDisk from an Azure Disk resource.
 // Returns an error if the disk lacks required tags or metadata.
 func (vb *volumeBackendDisk) newDisk(disk *armcompute.Disk, volName string) (*model.VolumeDisk, error) {
@@ -521,6 +544,19 @@ func (vb *volumeBackendDisk) newDisk(disk *armcompute.Disk, volName string) (*mo
 	tags := disk.Tags
 	if tags == nil {
 		return nil, fmt.Errorf("disk missing tags")
+	}
+
+	// Extract volume name from tags
+	diskVolName := ""
+	if v, ok := tags[tagVolumeName]; !ok || v == nil || *v == "" {
+		return nil, fmt.Errorf("disk missing required tag: %s", tagVolumeName)
+	} else {
+		diskVolName = *v
+	}
+
+	// Verify volume name matches
+	if diskVolName != volName {
+		return nil, nil // Skip this disk, it belongs to a different volume
 	}
 
 	// Extract disk name from tags

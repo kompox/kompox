@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.37.4.10188",
-      "templateHash": "7637533697737951982"
+      "templateHash": "5930393770169495406"
     }
   },
   "parameters": {
@@ -2278,7 +2278,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.37.4.10188",
-              "templateHash": "3276566855331665572"
+              "templateHash": "1841816972220091373"
             }
           },
           "parameters": {
@@ -2583,9 +2583,13 @@
               "type": "string",
               "value": "[parameters('name')]"
             },
-            "principalId": {
+            "clusterPrincipalId": {
               "type": "string",
               "value": "[reference(resourceId('Microsoft.ContainerService/managedClusters', parameters('name')), '2025-05-01', 'full').identity.principalId]"
+            },
+            "kubeletPrincipalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ContainerService/managedClusters', parameters('name')), '2025-05-01').identityProfile.kubeletidentity.objectId]"
             },
             "oidcIssuerUrl": {
               "type": "string",
@@ -2623,9 +2627,13 @@
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))), 'Microsoft.Resources/deployments', 'aks'), '2022-09-01').outputs.clusterName.value]"
     },
-    "AZURE_AKS_PRINCIPAL_ID": {
+    "AZURE_AKS_CLUSTER_PRINCIPAL_ID": {
       "type": "string",
-      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))), 'Microsoft.Resources/deployments', 'aks'), '2022-09-01').outputs.principalId.value]"
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))), 'Microsoft.Resources/deployments', 'aks'), '2022-09-01').outputs.clusterPrincipalId.value]"
+    },
+    "AZURE_AKS_KUBELET_PRINCIPAL_ID": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, if(not(empty(parameters('resourceGroupName'))), parameters('resourceGroupName'), format('{0}{1}', variables('abbrs').resourcesResourceGroups, parameters('environmentName')))), 'Microsoft.Resources/deployments', 'aks'), '2022-09-01').outputs.kubeletPrincipalId.value]"
     },
     "AZURE_AKS_OIDC_ISSUER_URL": {
       "type": "string",

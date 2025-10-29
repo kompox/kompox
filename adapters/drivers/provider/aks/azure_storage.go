@@ -12,7 +12,7 @@ import (
 
 // ensureStorageAccountCreated creates the storage account if it doesn't exist.
 // This is called during the first disk creation for Type="files".
-func (d *driver) ensureStorageAccountCreated(ctx context.Context, app *model.App, sku string) error {
+func (d *driver) ensureStorageAccountCreated(ctx context.Context, cluster *model.Cluster, app *model.App, sku string) error {
 	log := logging.FromContext(ctx)
 
 	rg, err := d.appResourceGroupName(app)
@@ -23,6 +23,23 @@ func (d *driver) ensureStorageAccountCreated(ctx context.Context, app *model.App
 	accountName, err := d.appStorageAccountName(app)
 	if err != nil {
 		return fmt.Errorf("storage account name: %w", err)
+	}
+
+	// Ensure resource group exists with proper role assignments
+	// Get Kubelet Identity principal ID for role assignment (optional for non-AKS scenarios)
+	// Kubelet Identity is used by Azure Files CSI driver to retrieve storage account keys
+	principalID := ""
+	outputs, err := d.azureDeploymentOutputs(ctx, cluster)
+	if err == nil {
+		if v, ok := outputs[outputAksKubeletPrincipalID].(string); ok {
+			principalID = v
+		}
+	}
+	// Ignore errors: principalID remains empty if outputs unavailable (e.g., aks-e2e-volume tests)
+	// ensureAzureResourceGroupCreated will skip role assignment when principalID is empty
+	err = d.ensureAzureResourceGroupCreated(ctx, rg, d.appResourceTags(app.Name), principalID)
+	if err != nil {
+		return fmt.Errorf("ensure RG for storage account: %w", err)
 	}
 
 	// Create storage accounts client
@@ -40,20 +57,6 @@ func (d *driver) ensureStorageAccountCreated(ctx context.Context, app *model.App
 
 	// Account doesn't exist, create it
 	log.Info(ctx, "Creating storage account", "account", accountName, "resource_group", rg)
-
-	// Ensure resource group exists
-	principalID := ""
-	outputs, err := d.azureDeploymentOutputs(ctx, nil) // cluster-independent
-	if err == nil {
-		if v, ok := outputs[outputAksPrincipalID].(string); ok {
-			principalID = v
-		}
-	}
-
-	err = d.ensureAzureResourceGroupCreated(ctx, rg, d.appResourceTags(app.Name), principalID)
-	if err != nil {
-		log.Warn(ctx, "Failed to ensure RG for storage account", "resource_group", rg, "error", azureShorterErrorString(err))
-	}
 
 	// Parse SKU
 	var skuName armstorage.SKUName

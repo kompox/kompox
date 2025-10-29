@@ -14,12 +14,14 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/storage/armstorage"
 	"github.com/kompox/kompox/domain/model"
 	"github.com/kompox/kompox/internal/logging"
+	"github.com/kompox/kompox/internal/naming"
 )
 
 // Azure Files specific constants
 const (
-	tagFilesShareName     = "kompox-files-share-name"
-	tagFilesShareAssigned = "kompox-files-share-assigned" // true/false
+	tagFilesVolumeName    = "kompox_volume_name"
+	tagFilesShareName     = "kompox_files_share_name"
+	tagFilesShareAssigned = "kompox_files_share_assigned" // true/false
 	maxShareNameLength    = 41                            // {vol.name}-{disk.name} with max 16+1+24=41
 	defaultFilesSKU       = "Standard_LRS"
 	defaultFilesProtocol  = "smb"
@@ -79,7 +81,7 @@ func (vb *volumeBackendFiles) DiskList(ctx context.Context, cluster *model.Clust
 			storageEndpointSuffix := "core.windows.net"
 			// TODO: Support other clouds if needed
 
-			volumeDisk, err := vb.newDisk(share, volName, accountName, storageEndpointSuffix)
+			volumeDisk, err := vb.newDisk(share, volName, rg, accountName, storageEndpointSuffix)
 			if err != nil {
 				continue
 			}
@@ -121,12 +123,12 @@ func (vb *volumeBackendFiles) DiskCreate(ctx context.Context, cluster *model.Clu
 
 	// Get SKU from options
 	sku := defaultFilesSKU
-	if v, ok := options["skuName"].(string); ok && v != "" {
+	if v, ok := options["sku"].(string); ok && v != "" {
 		sku = v
 	}
 
 	// Ensure storage account exists
-	err = vb.driver.ensureStorageAccountCreated(ctx, app, sku)
+	err = vb.driver.ensureStorageAccountCreated(ctx, cluster, app, sku)
 	if err != nil {
 		return nil, fmt.Errorf("ensure storage account: %w", err)
 	}
@@ -139,6 +141,15 @@ func (vb *volumeBackendFiles) DiskCreate(ctx context.Context, cluster *model.Clu
 	accountName, err := vb.driver.appStorageAccountName(app)
 	if err != nil {
 		return nil, fmt.Errorf("storage account name: %w", err)
+	}
+
+	// Auto-generate diskName if not provided
+	if diskName == "" {
+		var err error
+		diskName, err = naming.NewCompactID()
+		if err != nil {
+			return nil, fmt.Errorf("generate disk name: %w", err)
+		}
 	}
 
 	// Generate share name: {vol.name}-{disk.name}
@@ -190,7 +201,7 @@ func (vb *volumeBackendFiles) DiskCreate(ctx context.Context, cluster *model.Clu
 
 	// Build metadata
 	metadata := map[string]*string{
-		tagVolumeName:         to.Ptr(volName),
+		tagFilesVolumeName:    to.Ptr(volName),
 		tagFilesShareName:     to.Ptr(diskName),
 		tagFilesShareAssigned: to.Ptr(assignedValue),
 	}
@@ -229,7 +240,7 @@ func (vb *volumeBackendFiles) DiskCreate(ctx context.Context, cluster *model.Clu
 	}
 
 	storageEndpointSuffix := "core.windows.net"
-	volumeDisk, err := vb.newDisk(shareItem, volName, accountName, storageEndpointSuffix)
+	volumeDisk, err := vb.newDisk(shareItem, volName, rg, accountName, storageEndpointSuffix)
 	if err != nil {
 		return nil, fmt.Errorf("create VolumeDisk from share: %w", err)
 	}
@@ -367,20 +378,19 @@ func (vb *volumeBackendFiles) SnapshotDelete(ctx context.Context, cluster *model
 
 // Class returns Azure Files provisioning parameters (Type="files").
 func (vb *volumeBackendFiles) Class(ctx context.Context, cluster *model.Cluster, app *model.App, vol model.AppVolume) (model.VolumeClass, error) {
-	attrs := map[string]string{
-		"protocol": "smb", // Fixed for now, NFS in future
-	}
-	// Add skuName if specified in options
+	// Protocol is required for CSI driver to mount the share correctly
+	protocol := defaultFilesProtocol
 	if vol.Options != nil {
-		if v, ok := vol.Options["skuName"].(string); ok && v != "" {
-			attrs["skuName"] = v
+		if v, ok := vol.Options["protocol"].(string); ok && v != "" {
+			protocol = v
 		}
 	}
+
 	return model.VolumeClass{
 		StorageClassName: "azurefile-csi",
 		CSIDriver:        "file.csi.azure.com",
 		FSType:           "",
-		Attributes:       attrs,
+		Attributes:       map[string]string{"protocol": protocol},
 		AccessModes:      []string{"ReadWriteMany"},
 		ReclaimPolicy:    "Retain",
 		VolumeMode:       "Filesystem",
@@ -388,7 +398,7 @@ func (vb *volumeBackendFiles) Class(ctx context.Context, cluster *model.Cluster,
 }
 
 // newDisk creates a model.VolumeDisk from an Azure Files share.
-func (vb *volumeBackendFiles) newDisk(share *armstorage.FileShareItem, volName, accountName, storageEndpointSuffix string) (*model.VolumeDisk, error) {
+func (vb *volumeBackendFiles) newDisk(share *armstorage.FileShareItem, volName, rg, accountName, storageEndpointSuffix string) (*model.VolumeDisk, error) {
 	if share == nil || share.Name == nil || share.Properties == nil {
 		return nil, fmt.Errorf("share is nil or missing required fields")
 	}
@@ -408,8 +418,8 @@ func (vb *volumeBackendFiles) newDisk(share *armstorage.FileShareItem, volName, 
 
 	// Extract volume name from metadata
 	shareVolName := ""
-	if v, ok := metadata[tagVolumeName]; !ok || v == nil || *v == "" {
-		return nil, fmt.Errorf("share missing required metadata: %s", tagVolumeName)
+	if v, ok := metadata[tagFilesVolumeName]; !ok || v == nil || *v == "" {
+		return nil, fmt.Errorf("share missing required metadata: %s", tagFilesVolumeName)
 	} else {
 		shareVolName = *v
 	}
@@ -437,8 +447,11 @@ func (vb *volumeBackendFiles) newDisk(share *armstorage.FileShareItem, volName, 
 		created = *share.Properties.LastModifiedTime
 	}
 
-	// Generate Handle URI: smb://{account}.file.{suffix}/{share}
-	handle := fmt.Sprintf("smb://%s.file.%s/%s", accountName, storageEndpointSuffix, *share.Name)
+	// Generate Handle as Azure Resource ID for CSI driver
+	// Format: {resource-group-name}#{account-name}#{file-share-name}#{placeholder}#{uuid}#{secret-namespace}#{subscription-id}
+	// placeholder, uuid, secret-namespace, subscription-id are optional
+	// https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/driver-parameters.md
+	handle := fmt.Sprintf("%s#%s#%s####%s", rg, accountName, *share.Name, vb.driver.AzureSubscriptionId)
 
 	// Build options from share properties
 	options := map[string]any{

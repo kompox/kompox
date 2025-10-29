@@ -66,7 +66,7 @@ metadata:
   annotations:
     ops.kompox.dev/id: /ws/${SERVICE_NAME}/prv/aks1/cls/cluster1/app/app1
 spec:
-  compose:
+  compose: |
     services:
       whoami:
         image: traefik/woami
@@ -89,3 +89,15 @@ spec:
       size: 10Gi
       options:
         sku: PremiumV2_LRS
+    - name: vol3
+      type: files
+      size: 100Gi
+      options:
+        protocol: smb
+        sku: Standard_LRS
+    - name: vol4
+      type: files
+      size: 100Gi
+      options:
+        protocol: smb
+        sku: Standard_LRS

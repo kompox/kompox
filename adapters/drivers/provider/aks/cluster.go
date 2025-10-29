@@ -178,7 +178,7 @@ func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster, _ .
 
 	// Step 4: Assign DNS Zone Contributor role for configured DNS zones (best-effort)
 	// This allows AKS managed identity to update DNS records in Azure DNS zones.
-	aksPrincipalID, _ := outputs[outputAksPrincipalID].(string)
+	aksPrincipalID, _ := outputs[outputAksClusterPrincipalID].(string)
 	if aksPrincipalID != "" {
 		zones, err := d.collectDNSZoneIDs(cluster)
 		if err != nil {

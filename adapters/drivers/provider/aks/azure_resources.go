@@ -2,25 +2,13 @@ package aks
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"net/http"
 	"strings"
 
-	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/resources/armresources"
 	"github.com/kompox/kompox/internal/logging"
 )
-
-func azureShorterErrorString(err error) string {
-	errstr := err.Error()
-	var responseErr *azcore.ResponseError
-	if errors.As(err, &responseErr) {
-		errstr = fmt.Sprintf("%d %s (%s)", responseErr.StatusCode, http.StatusText(responseErr.StatusCode), responseErr.ErrorCode)
-	}
-	return errstr
-}
 
 // ensureAzureResourceGroupCreated ensures RG exists for Create path only.
 func (d *driver) ensureAzureResourceGroupCreated(ctx context.Context, rg string, tags map[string]*string, principalID string) error {

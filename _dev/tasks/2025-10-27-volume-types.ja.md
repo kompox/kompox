@@ -95,11 +95,13 @@ owner: yaegashi
   - [x] 命名メソッドの整理 (`appStorageAccountName`, `azureDeploymentName` を `naming.go` に集約)
   - [x] Storage Account 管理メソッド (`ensureStorageAccountCreated`) を含む `azure_storage.go` を作成
   - [x] 全テスト成功
-- [ ] E2E テスト
-  - [ ] `tests/aks-e2e-volume/` または新規テストケース作成
-  - [ ] `Type = "files"` での共有作成/割当/削除
-  - [ ] RWX PVC 生成確認
-  - [ ] スナップショット非対応確認 (`ErrNotSupported`)
+- [x] E2E テスト
+  - [x] `tests/aks-e2e-volume/` テストケース作成
+  - [x] `Type = "files"` での共有作成/割当/削除 (`test-run-files-ops.sh`)
+  - [x] ボリューム分離テスト (`test-run-files-filter.sh`)
+  - [x] RWX PVC 生成確認
+  - [x] スナップショット非対応確認 (`ErrNotSupported`)
+  - [x] Azure Files マウント動作確認
 - [ ] ドキュメント
   - [ ] [Kompox-ProviderDriver-AKS.ja.md] 更新 (完了済み)
   - [ ] [Kompox-KubeConverter.ja.md] 更新
@@ -171,6 +173,63 @@ owner: yaegashi
     - `azureDeploymentName()` を `azure_aks.go` から `naming.go` へ移動
     - Storage Account 管理メソッド (`ensureStorageAccountCreated`) を含む `azure_storage.go` を作成
   - 全テスト成功、コードの論理的分離とモジュール性が向上
+- 2025-10-28: Azure Identity の理解と修正
+  - **Cluster Identity と Kubelet Identity の違い**:
+    - Cluster Identity (system-assigned managed identity): AKS クラスター自体に割り当てられ、Azure リソース操作 (DNS Zone, ACR, Key Vault アクセス) に使用
+    - Kubelet Identity: 各ノードのコンテナランタイムに割り当てられ、Azure Disk/Files CSI ドライバーがストレージアカウントキーの取得に使用
+  - **修正内容**:
+    - Bicep テンプレート (`infra/aks/infra/app/aks.bicep`, `infra/aks/infra/main.bicep`): 
+      - 出力名を `principalId` から `clusterPrincipalId` と `kubeletPrincipalId` に分離
+      - `kubeletPrincipalId` は `aks.properties.identityProfile.kubeletidentity.objectId` から取得
+    - Go コード (`azure_aks.go`, `cluster.go`, `azure_storage.go`, `volume_backend_disk.go`): 
+      - `outputAksPrincipalID` を `outputAksClusterPrincipalID` と `outputAksKubeletPrincipalID` に分離
+      - DNS Zone/ACR には Cluster Identity、Storage Account/Disk RG には Kubelet Identity を使用
+  - **重要性**: Azure Files CSI ドライバーが Storage Account キーを取得するには、Kubelet Identity に適切な権限 (Contributor) が必要
+- 2025-10-28: Disk backend バグ修正
+  - **DiskAssign の存在チェック欠如**:
+    - 問題: 存在しない disk 名で `DiskAssign` を呼ぶと、すべてのディスクの Assigned フラグを false にしてしまう
+    - 修正: `DiskAssign` 開始時に対象ディスクの存在を確認、存在しない場合はエラーを返す
+  - **SnapshotCreate の RG 未作成**:
+    - 問題: スナップショット作成時にリソースグループが存在しない場合にエラー
+    - 修正: `SnapshotCreate` で `ensureAzureResourceGroupCreated` を呼び出し、RG 作成と Kubelet Identity の Contributor ロール割り当てを実行
+  - **newDisk の vol フィルタ未実装**:
+    - 問題: `newDisk` がディスクタグから volume name を取得せず、異なる volume のディスクも返してしまう
+    - 修正: `newDisk` でタグから `kompox_volume_name` を抽出し、引数の `volName` と一致しない場合は `nil` を返す
+- 2025-10-28: Files backend バグ修正
+  - **DiskCreate の disk name 自動生成欠如**:
+    - 問題: Azure Files の `DiskCreate` で `diskName` が空の場合にエラー (Disk backend は自動生成するが、Files では未実装)
+    - 修正: `diskName` が空の場合に `naming.NewCompactID()` で自動生成
+  - **handle の VolumeID 設定**:
+    - 問題: `newDisk` が Azure Files の handle を SMB URI 形式 (`smb://account.file.core.windows.net/share`) で生成していたが、CSI ドライバーは特殊形式を要求
+    - 修正: CSI volumeHandle 形式 (`{rg}#{account}#{share}#####{subscription}`) に変更 (6個の `#` で7フィールド区切り)
+    - 参考: [azurefile-csi-driver driver-parameters.md](https://github.com/kubernetes-sigs/azurefile-csi-driver/blob/master/docs/driver-parameters.md)
+  - **Options の protocol 設定**:
+    - 問題: `Class()` が `Options["skuName"]` を `Attributes` に設定していたが、実際には `protocol` のみが必要
+    - 修正: `Attributes` に `protocol` (デフォルト `"smb"`) のみを設定、SKU は `ensureStorageAccountCreated` で処理
+  - **メタデータタグ名の統一**:
+    - 問題: Disk backend は `kompox_volume_name` タグを使用、Files backend は `kompox-files-volume-name` を使用していた
+    - 修正: Files backend も `kompox_volume_name` タグに統一 (vol フィルタの一貫性向上)
+- 2025-10-28: Converter バグ修正
+  - **fsType の ext4 fallback 削除**:
+    - 問題: `BindVolumes()` が `VolumeClass.FSType` が空でも無条件に `ext4` を設定していた (Azure Files では不要)
+    - 修正: fallback ロジックを削除、`VolumeClass.FSType` が空でない場合のみ `fsType` 属性を設定
+    - 結果: Azure Disk は `FSType: "ext4"` を返すため `fsType: ext4` が設定され、Azure Files は `FSType: ""` を返すため `fsType` が設定されない
+- 2025-10-28: 重要なバグ修正 - Azure Files マウント失敗
+  - **問題**: Azure Files が "diskname could not be empty" エラーでマウント失敗
+  - **原因**: 
+    1. `volume_backend_files.go`: `FSType: "ext4"` を設定していた (SMB/NFS では不要)
+    2. `converter.go`: `VolumeClass.FSType` が空でも無条件に `ext4` を fallback していた
+  - **修正**:
+    1. `volume_backend_files.go` の `Class()`: `FSType: ""` (空文字列) に変更
+    2. `converter.go` の `BindVolumes()`: ext4 fallback ロジックを削除
+  - **結果**: Azure Disk は `fsType: ext4` を保持、Azure Files は `fsType` なしで正しくマウント
+- 2025-10-29: E2E テスト完了
+  - `test-run-disk-ops.sh`, `test-run-disk-filter.sh`: Disk backend テスト成功
+  - `test-run-files-ops.sh`: Azure Files 共有 CRUD、割当、エラーハンドリングテスト成功
+  - `test-run-files-filter.sh`: ボリューム分離テスト成功
+  - volumeHandle 検証修正: Azure Resource ID 形式から CSI volumeHandle 形式へ変更
+  - 実環境での Pod 起動とマウント動作確認完了 (vol1: Azure Disk, vol3: Azure Files)
+  - すべてのテストケースがパス
 
 ## 参考
 
