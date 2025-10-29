@@ -2,14 +2,14 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
     <url>
         <loc>https://docs.kompox.dev/v0.0/en/</loc>
-        <lastmod>2025-10-27</lastmod>
+        <lastmod>2025-10-29</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/v0.0/en/"/>
         <xhtml:link rel="alternate" hreflang="ja" href="https://docs.kompox.dev/v0.0ja/"/>
     </url>
     <url>
         <loc>https://docs.kompox.dev/v0.0/ja/</loc>
-        <lastmod>2025-10-27</lastmod>
+        <lastmod>2025-10-29</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="ja" href="https://docs.kompox.dev/v0.0/ja/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/v0.0en/"/>
