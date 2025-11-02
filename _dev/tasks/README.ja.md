@@ -16,6 +16,7 @@ language: ja
 
 | ID | タイトル | ステータス | カテゴリ | 担当 | 更新日 | 言語 |
 |---|---|---|---|---|---|---|
+| [2025-11-03-kompox-dir](./2025-11-03-kompox-dir.ja.md) | KOMPOX_DIR/KOMPOX_CFG_DIR と入力優先順位の実装 | active |  |  | 2025-11-03 | ja |
 | [2025-10-27-volume-types](./2025-10-27-volume-types.ja.md) | Volume Types 実装 | done |  | yaegashi | 2025-10-29 | ja |
 | [2025-10-24-logging](./2025-10-24-logging.ja.md) | kompoxops ログ標準化（Event/Span/Step パターン適用） | active |  | yaegashi | 2025-10-27 | ja |
 | [2025-10-23-aks-cr](./2025-10-23-aks-cr.ja.md) | AKS Driver - ACR 権限付与対応 | done |  | yaegashi | 2025-10-23 | ja |
