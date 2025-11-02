@@ -242,7 +242,10 @@ func (e *Env) IsWithinBoundary(path string) bool
   - `make test` および `make build` が成功
   - K4x-ADR-015 のコア実装完了
   - 残タスク: E2E テストへの組み込みと実プロバイダでの動作確認
-
+- 2025-11-03: タイトルの簡潔化とフラグ衝突の修正
+  - ADR/タスクのタイトルを「Kompox CLI Env の導入」に変更
+  - `cmd_cluster.go` の `--cluster-id` から `-C` 短縮形を削除 (K4x-ADR-015 に従い `-C` は作業ディレクトリ変更専用)
+  - フラグ衝突による panic を解消
 
 ## 参考
 

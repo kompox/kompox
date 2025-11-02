@@ -32,8 +32,9 @@ func newCmdCluster() *cobra.Command {
 			return fmt.Errorf("invalid command")
 		},
 	}
-	// Persistent flag so all subcommands can use --cluster-name / -C / --cluster-id
-	cmd.PersistentFlags().StringVarP(&flagClusterID, "cluster-id", "C", "", "Cluster ID (FQN: ws/prv/cls)")
+	// Persistent flag so all subcommands can use --cluster-id / --cluster-name
+	// -C shorthand removed per K4x-ADR-015 (reserved for working directory change)
+	cmd.PersistentFlags().StringVar(&flagClusterID, "cluster-id", "", "Cluster ID (FQN: ws/prv/cls)")
 	cmd.PersistentFlags().StringVar(&flagClusterName, "cluster-name", "", "Cluster name (backward compatibility, use --cluster-id)")
 	cmd.AddCommand(
 		newCmdClusterProvision(),
