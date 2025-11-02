@@ -3,7 +3,7 @@ id: Kompox-CLI
 title: Kompox PaaS CLI
 version: v1
 status: synced
-updated: 2025-10-19
+updated: 2025-11-03
 language: ja
 ---
 
@@ -36,12 +36,67 @@ kompoxops snapshot          スナップショット操作
 kompoxops admin             管理ツール
 ```
 
-共通オプション
+### 共通オプション
 
-- `--kom-path <PATH>` KOM YAML の取り込み対象（ファイルまたはディレクトリ）。複数回指定可能。環境変数 `KOMPOX_KOM_PATH=path1,path2` でも指定可能（カンマ区切り）。指定したパスが存在しない場合はエラー。
-- `--kom-app <PATH>` 既定 App/Cluster の推定に用いる KOM YAML。デフォルトは `./kompoxapp.yml`。環境変数 `KOMPOX_KOM_APP` でも指定可能。指定したパスが存在しない場合は無視（エラーにはならない）。
+- `-C <DIR>` 実行前に作業ディレクトリを `DIR` に一時切替 (git の `-C` と同様)。
+- `--kompox-dir <DIR>` プロジェクトディレクトリ (Kompox ルート)。環境変数 `KOMPOX_DIR` でも指定可能。
+- `--kompox-cfg-dir <DIR>` 設定ディレクトリ (既定: `$KOMPOX_DIR/.kompox`)。環境変数 `KOMPOX_CFG_DIR` でも指定可能。
+- `--kom-path <PATH>` KOM 格納場所 (ファイルまたはディレクトリ)。複数回指定可能。環境変数 `KOMPOX_KOM_PATH` (OS 依存のパス区切りで複数指定可) でも指定可能。指定したパスが存在しない場合はエラー。
+- `--kom-app <PATH>` Kompox アプリファイル。既定は `./kompoxapp.yml`。環境変数 `KOMPOX_KOM_APP` でも指定可能。
 - `--db-url <URL>` 永続化DBの接続URL。環境変数 `KOMPOX_DB_URL` で指定可能。KOM モードが有効な場合は無視される。
-- レガシー `--crd-*` フラグと `KOMPOX_CRD_*` 環境変数はサポート対象外で、指定された場合はエラーで即時終了する（後方互換なし）。
+
+### プロジェクトディレクトリ
+
+標準的な Kompox プロジェクトのディレクトリ構造:
+
+```
+/                          プロジェクトディレクトリ ($KOMPOX_DIR)
+├── .kompox/               設定ディレクトリ ($KOMPOX_CFG_DIR)
+│   ├── config.yml         Kompox 設定ファイル
+│   └── kom/               KOM 格納ディレクトリ (komPath)
+│       ├── workspace.yml
+│       ├── provider.yml
+│       └── cluster.yml
+├── app1/                  アプリ1ディレクトリ
+│   ├── kompoxapp.yml
+│   └── compose.yml
+└── app2/                  アプリ2ディレクトリ
+    ├── kompoxapp.yml
+    └── compose.yml
+```
+
+決定順序と導出:
+
+- プロジェクトディレクトリ (`$KOMPOX_DIR`)
+  - 優先度: `--kompox-dir` > 環境変数 `KOMPOX_DIR` > (`-C` 適用後の) 作業ディレクトリから「.kompox を含む親」を上方探索
+  - 見つからない場合はエラー
+- 設定ディレクトリ (`$KOMPOX_CFG_DIR`)
+  - 優先度: `--kompox-cfg-dir` > 環境変数 `KOMPOX_CFG_DIR` > 既定の `$KOMPOX_DIR/.kompox`
+  - ディレクトリでない/存在しない場合はエラー
+- CLI は確定した `KOMPOX_DIR` と `KOMPOX_CFG_DIR` を環境変数としてエクスポートする
+
+文字列展開:
+- `$KOMPOX_DIR` と `$KOMPOX_CFG_DIR` はフラグ、環境変数、`.kompox/config.yml`、Defaults のいずれでも展開される
+
+`.kompox/config.yml` の最小スキーマ例:
+
+```yaml
+version: 1
+store:
+  type: local           # local | rdb | custom
+komPath:
+  - $KOMPOX_CFG_DIR/kom
+```
+
+可視配置の例 (プロジェクト直下に `kom/` を置く):
+
+```yaml
+version: 1
+store:
+  type: local
+komPath:
+  - $KOMPOX_DIR/kom
+```
 
 ### CLI 設定モード
 
@@ -86,20 +141,29 @@ Kompox アプリファイルには Defaults リソースを 1 件だけ含めら
 
 **KOM の読み込み**
 
-読み込み順序:
+読み込み順序 (次の優先順位で最初に有効な場所からのみ入力する):
 1. `--kom-path` で指定されたパス (複数指定可、ファイルまたはディレクトリ)
-2. `KOMPOX_KOM_PATH` で指定されたパス (カンマ区切り、`--kom-path` 未指定時)
-3. Defaults リソースの `spec.komPath` で指定されたパス (`--kom-path`/`KOMPOX_KOM_PATH` 両方未指定時)
-4. Kompox アプリファイルに含まれる KOM リソース
+2. 環境変数 `KOMPOX_KOM_PATH` (OS 依存のパス区切り)
+3. Kompox アプリファイル内 Defaults の `spec.komPath`
+4. `.kompox/config.yml` の `komPath`
+5. 既定の KOM ディレクトリ `$KOMPOX_CFG_DIR/kom`
 
 ルール:
+- URL は不可。ローカルファイル/ディレクトリのみを許可する (globbing/wildcard も不可)
+- ファイルを直接指定する場合は拡張子 `.yml`/`.yaml` のみ許可
 - ディレクトリは再帰的に `.yml`/`.yaml` ファイルをスキャンする
+- ディレクトリスキャン時は標準的な除外パスを無視する (例: `.git/`, `.github/`, `node_modules/`, `vendor/`, `.direnv/`, `.venv/`, `dist/`, `build/`)
 - マルチドキュメント YAML に対応する
 - すべてのドキュメントを収集後に整合検証を行う (オール・オア・ナッシング)
 - 検証に失敗した場合、すべてのドキュメントを破棄する
 - `--kom-path` で指定したパスが存在しない場合はエラー
 - `--kom-app` で指定したパスが存在しない場合は無視する (エラーにならない)
+- 文字列中の `$KOMPOX_DIR` と `$KOMPOX_CFG_DIR` はフラグ/環境変数/`.kompox/config.yml`/Defaults のいずれでも展開される
+- 相対パスは、Kompox アプリファイルが存在する場合はそのファイルのディレクトリ、存在しない場合は作業ディレクトリを基準に解決し、正規化とシンボリックリンク解決を行う
+- Defaults リソースの `spec.komPath` は、解決済み実パスが `$KOMPOX_DIR` または `$KOMPOX_CFG_DIR` の配下であること
+- `--kom-path` / `KOMPOX_KOM_PATH` / `.kompox/config.yml` の `komPath` には上記の境界チェックを適用しない
 - ローカルファイルシステム参照のポリシー違反(後述)は読み込み時ではなく CLI の変換/実行フェーズで検証される。
+- 安全対策として、読み込むファイル数や総サイズには実装上の上限を設ける (大規模入力の暴走防止)
 
 **既定 ID の決定**
 
@@ -159,8 +223,8 @@ kompoxops cluster kubeconfig --cluster-id <clusterID>        kubectl 用 kubecon
 
 共通オプション
 
-- `--cluster-id | -C` クラスタ ID (Resource ID: `/ws/<ws>/prv/<prv>/cls/<cls>`) を指定。KOM モードでは `--kom-app` 範囲に App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `cluster.name` が既定。
-- `--cluster-name` クラスタ名を指定（後方互換）。複数のクラスタが同名の場合はエラー。
+- `--cluster-id` クラスタ ID (Resource ID: `/ws/<ws>/prv/<prv>/cls/<cls>`) を指定。KOM モードでは `--kom-app` 範囲に App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `cluster.name` が既定。短縮 `-C` は作業ディレクトリ切替のため予約されており使用不可。
+- `--cluster-name` クラスタ名を指定 (後方互換)。複数のクラスタが同名の場合はエラー。
 
 優先度: `--cluster-id` > `--cluster-name` > CRD デフォルト (Resource ID) > 単一ファイルモード (`cluster.name`)
 
@@ -244,19 +308,19 @@ Provider Driver からクラスタの kubeconfig(管理者資格)を取得し、
 
 ```
 # 標準出力へ(明示)
-kompoxops cluster kubeconfig -C mycluster -o -
+kompoxops cluster kubeconfig --cluster-id mycluster -o -
 
 # 一時ファイル化と KUBECONFIG エクスポート
-eval "$(kompoxops cluster kubeconfig -C mycluster --temp --print-export)"
+eval "$(kompoxops cluster kubeconfig --cluster-id mycluster --temp --print-export)"
 
 # 既存へ統合して current-context を切替え
-kompoxops cluster kubeconfig -C mycluster --merge --set-current
+kompoxops cluster kubeconfig --cluster-id mycluster --merge --set-current
 
 # context と namespace を指定して保存
-kompoxops cluster kubeconfig -C mycluster --merge --context kompox/prod --namespace staging
+kompoxops cluster kubeconfig --cluster-id mycluster --merge --context kompox/prod --namespace staging
 
 # namespace 自動設定の例 (config から導出される既定 namespace を利用)
-kompoxops cluster kubeconfig -C cluster1 --merge --set-current
+kompoxops cluster kubeconfig --cluster-id cluster1 --merge --set-current
 ```
 
 ### kompoxops app
@@ -274,7 +338,7 @@ kompoxops app exec     --app-id <appID> -- <command> [args...]
 共通オプション
 
 - `--app-id | -A` アプリ ID (Resource ID: `/ws/<ws>/prv/<prv>/cls/<cls>/app/<app>`) を指定。KOM モードでは `--kom-app` 範囲に App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
-- `--app-name` アプリ名を指定（後方互換）。複数のアプリが同名の場合はエラー。
+- `--app-name` アプリ名を指定 (後方互換)。複数のアプリが同名の場合はエラー。
 
 優先度: `--app-id` > `--app-name` > KOM デフォルト (Resource ID) > 単一ファイルモード (`app.name`)
 
@@ -423,7 +487,7 @@ kompoxops secret pull delete --app-id <appID>
 共通オプション
 
 - `--app-id | -A` アプリ ID (Resource ID: `/ws/<ws>/prv/<prv>/cls/<cls>/app/<app>`) を指定。KOM モードでは `--kom-app` 範囲に App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
-- `--app-name` アプリ名を指定（後方互換）。複数のアプリが同名の場合はエラー。
+- `--app-name` アプリ名を指定 (後方互換)。複数のアプリが同名の場合はエラー。
 - `--component | -C` コンポーネント名を指定 (デフォルト: `app`)
 
 優先度: `--app-id` > `--app-name` > KOM デフォルト (Resource ID) > 単一ファイルモード (`app.name`)
@@ -628,7 +692,7 @@ kompoxops disk delete --app-id <appID> --vol-name <volName> -N <name>          �
 共通オプション
 
 - `--app-id | -A` アプリ ID (Resource ID: `/ws/<ws>/prv/<prv>/cls/<cls>/app/<app>`) を指定。KOM モードでは `--kom-app` 範囲に App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
-- `--app-name` アプリ名を指定（後方互換）。複数のアプリが同名の場合はエラー。
+- `--app-name` アプリ名を指定 (後方互換)。複数のアプリが同名の場合はエラー。
 - `--vol-name | -V` ボリューム名を指定
 - `--name | -N` 操作対象ディスク名。`--disk-name` は同義のロングエイリアス。list/create では省略可、assign/delete では必須。
 
@@ -678,7 +742,7 @@ vol-202312  false     32Gi   9ab1c02 (az)  2023-12-31T09:00Z    2024-01-10T12:05
 
 新しいボリュームインスタンスを作成します (サイズは app.volumes 定義)。
 
-オプション：
+オプション:
 - `--name | -N`: 明示的なディスク名を指定 (省略時は Driver が自動生成)。`--disk-name` は同義。最大 24 文字。
 - `--source | -S`: ディスク作成元を示す任意文字列。CLI は解釈・検証・正規化を行わず、そのまま Driver に渡す。(予約語: `disk:`/`snapshot:`、省略時は空文字を渡し Driver に委任)
 - `--zone | -Z`: デプロイメントゾーンを指定。app.deployment.zone の設定をオーバーライドします。
@@ -691,7 +755,7 @@ Source の扱い (パススルー):
 - 省略時は `snapshot:` の省略とみなす。
 - 例: AKS ドライバでは Kompox 管理名に加え Azure ARM Resource ID 等も受理し、ドライバ内部で解決する。
 
-使用例：
+使用例:
 ```bash
 # デフォルト設定でディスク作成 (名前は自動生成)
 kompoxops disk create -V myvolume
@@ -744,7 +808,7 @@ kompoxops snapshot delete  --app-id <appID> --vol-name <volName> -N <name>      
 共通オプション
 
 - `--app-id | -A` アプリ ID (Resource ID: `/ws/<ws>/prv/<prv>/cls/<cls>/app/<app>`) を指定。KOM モードでは `--kom-app` 範囲に App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
-- `--app-name` アプリ名を指定（後方互換）。複数のアプリが同名の場合はエラー。
+- `--app-name` アプリ名を指定 (後方互換)。複数のアプリが同名の場合はエラー。
 - `--vol-name | -V` ボリューム名を指定
 - `--name | -N` スナップショット名。`--snap-name` は同義。create では任意、delete では必須。最大 24 文字。
 
@@ -813,7 +877,7 @@ kompoxops box rsync   --app-id <appID> -- <rsync args...>                       
 共通オプション
 
 - `--app-id | -A` アプリ ID (Resource ID: `/ws/<ws>/prv/<prv>/cls/<cls>/app/<app>`) を指定。KOM モードでは `--kom-app` 範囲に App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
-- `--app-name` アプリ名を指定（後方互換）。複数のアプリが同名の場合はエラー。
+- `--app-name` アプリ名を指定 (後方互換)。複数のアプリが同名の場合はエラー。
 
 優先度: `--app-id` > `--app-name` > KOM デフォルト (Resource ID) > 単一ファイルモード (`app.name`)
 
@@ -976,7 +1040,7 @@ kompoxops box scp -- -r localdir kompox@host:/path/to/remotedir
 # 複数ファイルの転送
 kompoxops box scp -- file1.txt file2.txt kompox@host:/tmp/
 
-# 圧縮転送（大きなファイル向け）
+# 圧縮転送 (大きなファイル向け)
 kompoxops box scp -- -C largefile.zip kompox@host:/data/
 
 # 詳細モードでの転送
@@ -989,13 +1053,13 @@ kompoxops box scp -- -v localfile kompox@host:/path/to/remotefile
 - `-C` 圧縮を有効にして転送速度を向上
 - `-v` 詳細な転送情報を表示
 - `-p` ファイルの権限とタイムスタンプを保持
-- `-q` 静音モード（進行状況を表示しない）
+- `-q` 静音モード (進行状況を表示しない)
 
 備考:
 
 - SSH ポートフォワードを通じて SCP プロトコルでファイル転送を行います。
 - 標準的な scp コマンドと同じオプションが使用できます。
-- `host` 部分は任意の文字列で構いません（SSH と同様）。
+- `host` 部分は任意の文字列で構いません (SSH と同様)。
 - バイナリファイルやテキストファイルを問わず転送可能です。
 
 #### kompoxops box rsync
@@ -1011,19 +1075,19 @@ kompoxops box rsync -- <rsync args...>
 使用例:
 
 ```
-# 基本的な同期（アーカイブモード、詳細表示、圧縮）
+# 基本的な同期 (アーカイブモード、詳細表示、圧縮)
 kompoxops box rsync -- -avz localdir/ root@host:/path/to/remotedir/
 
 # リモートからローカルへの同期
 kompoxops box rsync -- -avz root@host:/path/to/remotedir/ localdir/
 
-# 削除も含む完全同期（ミラーリング）
+# 削除も含む完全同期 (ミラーリング)
 kompoxops box rsync -- -avz --delete localdir/ root@host:/path/to/remotedir/
 
 # 特定のファイルを除外
 kompoxops box rsync -- -avz --exclude='*.log' --exclude='tmp/' localdir/ root@host:/remotedir/
 
-# ドライラン（実際の転送前に変更内容を確認）
+# ドライラン (実際の転送前に変更内容を確認)
 kompoxops box rsync -- -avzn localdir/ root@host:/remotedir/
 
 # 進行状況を表示
@@ -1032,13 +1096,13 @@ kompoxops box rsync -- -avz --progress localdir/ root@host:/remotedir/
 # 帯域制限付きの転送
 kompoxops box rsync -- -avz --bwlimit=1000 largedir/ root@host:/remotedir/
 
-# バックアップ作成（既存ファイルを .bak で保存）
+# バックアップ作成 (既存ファイルを .bak で保存)
 kompoxops box rsync -- -avz --backup --suffix=.bak localdir/ root@host:/remotedir/
 ```
 
 主要なrsyncオプション:
 
-- `-a, --archive` アーカイブモード（-rlptgoD と同等）
+- `-a, --archive` アーカイブモード (-rlptgoD と同等)
 - `-v, --verbose` 詳細情報を表示
 - `-z, --compress` 転送時にデータを圧縮
 - `-r, --recursive` ディレクトリを再帰的に処理
@@ -1052,7 +1116,7 @@ kompoxops box rsync -- -avz --backup --suffix=.bak localdir/ root@host:/remotedi
 - `--exclude=PATTERN` 指定パターンのファイルを除外
 - `--progress` 転送進行状況を表示
 - `-n, --dry-run` 実際の変更は行わず、何が変更されるかのみ表示
-- `--bwlimit=RATE` 帯域制限（KB/s単位）
+- `--bwlimit=RATE` 帯域制限 (KB/s単位)
 - `--backup` 既存ファイルをバックアップ
 
 SCPとrsyncの使い分け:
@@ -1084,3 +1148,4 @@ kompoxops admin workspace delete ws-a
 ```
 
 [Kompox-KOM.ja.md]: ./Kompox-KOM.ja.md
+[K4x-ADR-015]: ../adr/K4x-ADR-015.md
