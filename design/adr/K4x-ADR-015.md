@@ -1,13 +1,13 @@
 ---
 id: K4x-ADR-015
-title: Adopt project KOMPOX_DIR, KOMPOX_CFG_DIR (.kompox), and Git-like discovery for KOM inputs
-status: proposed
+title: Introduce Kompox CLI Env with Git-like discovery
+status: accepted
 date: 2025-11-03
 language: en
 supersedes: []
 supersededBy: []
 ---
-# K4x-ADR-015: Adopt project KOMPOX_DIR, KOMPOX_CFG_DIR (.kompox), and Git-like discovery for KOM inputs
+# K4x-ADR-015: Introduce Kompox CLI Env with Git-like discovery
 
 ## Context
 

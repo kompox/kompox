@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/kompox/kompox/config/kompoxenv"
 	"github.com/spf13/cobra"
 )
 
@@ -17,11 +19,33 @@ func TestInitializeKOMMode(t *testing.T) {
 	t.Run("no KOM inputs", func(t *testing.T) {
 		komMode = komModeContext{enabled: false}
 
+		// Create temp directory with .kompox
+		tmpDir := t.TempDir()
+		kompoxCfgDir := filepath.Join(tmpDir, ".kompox")
+		if err := os.Mkdir(kompoxCfgDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create default kom directory to avoid validation error
+		defaultKomDir := filepath.Join(kompoxCfgDir, "kom")
+		if err := os.Mkdir(defaultKomDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		// Resolve kompoxenv.Env
+		cfg, err := kompoxenv.Resolve(tmpDir, kompoxCfgDir, tmpDir)
+		if err != nil {
+			t.Fatalf("Failed to resolve kompoxenv.Env: %v", err)
+		}
+
+		// Create command with context containing Env
 		cmd := &cobra.Command{}
+		ctx := context.WithValue(context.Background(), kompoxEnvKey, cfg)
+		cmd.SetContext(ctx)
 		cmd.PersistentFlags().StringArray("kom-path", nil, "")
 		cmd.PersistentFlags().String("kom-app", "./kompoxapp.yml", "")
 
-		err := initializeKOMMode(cmd)
+		err = initializeKOMMode(cmd)
 		if err != nil {
 			t.Errorf("initializeKOMMode() unexpected error: %v", err)
 		}
@@ -33,7 +57,23 @@ func TestInitializeKOMMode(t *testing.T) {
 	t.Run("kom-path does not exist", func(t *testing.T) {
 		komMode = komModeContext{enabled: false}
 
+		// Create temp directory with .kompox
+		tmpDir := t.TempDir()
+		kompoxCfgDir := filepath.Join(tmpDir, ".kompox")
+		if err := os.Mkdir(kompoxCfgDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		// Resolve kompoxenv.Env
+		cfg, err := kompoxenv.Resolve(tmpDir, kompoxCfgDir, tmpDir)
+		if err != nil {
+			t.Fatalf("Failed to resolve kompoxenv.Env: %v", err)
+		}
+
+		// Create command with context containing Env
 		cmd := &cobra.Command{}
+		ctx := context.WithValue(context.Background(), kompoxEnvKey, cfg)
+		cmd.SetContext(ctx)
 		cmd.PersistentFlags().StringArray("kom-path", nil, "")
 		cmd.PersistentFlags().String("kom-app", "./kompoxapp.yml", "")
 
@@ -41,7 +81,7 @@ func TestInitializeKOMMode(t *testing.T) {
 		cmd.SetArgs(args)
 		cmd.ParseFlags(args)
 
-		err := initializeKOMMode(cmd)
+		err = initializeKOMMode(cmd)
 		if err == nil {
 			t.Errorf("initializeKOMMode() should error on nonexistent kom-path")
 		}
@@ -53,10 +93,16 @@ func TestInitializeKOMMode(t *testing.T) {
 		// Create test file
 		tmpDir := t.TempDir()
 
-		// Create .git marker for base root
-		gitDir := filepath.Join(tmpDir, ".git")
-		if err := os.Mkdir(gitDir, 0755); err != nil {
+		// Create .kompox directory and config
+		kompoxCfgDir := filepath.Join(tmpDir, ".kompox")
+		if err := os.Mkdir(kompoxCfgDir, 0755); err != nil {
 			t.Fatal(err)
+		}
+
+		// Resolve kompoxenv.Env
+		cfg, err := kompoxenv.Resolve(tmpDir, kompoxCfgDir, tmpDir)
+		if err != nil {
+			t.Fatalf("Failed to resolve kompoxenv.Env: %v", err)
 		}
 
 		testFile := filepath.Join(tmpDir, "test.yml")
@@ -99,13 +145,16 @@ spec: {}
 			t.Fatalf("failed to create test file: %v", err)
 		}
 
-		// Create dummy kompoxapp.yml to establish baseRoot context
+		// Create dummy kompoxapp.yml
 		komAppFile := filepath.Join(tmpDir, "kompoxapp.yml")
 		if err := os.WriteFile(komAppFile, []byte("# dummy\n"), 0644); err != nil {
 			t.Fatal(err)
 		}
 
+		// Create command with context containing Env
 		cmd := &cobra.Command{}
+		ctx := context.WithValue(context.Background(), kompoxEnvKey, cfg)
+		cmd.SetContext(ctx)
 		cmd.PersistentFlags().StringArray("kom-path", nil, "")
 		cmd.PersistentFlags().String("kom-app", "./kompoxapp.yml", "")
 
@@ -113,7 +162,7 @@ spec: {}
 		cmd.SetArgs(args)
 		cmd.ParseFlags(args)
 
-		err := initializeKOMMode(cmd)
+		err = initializeKOMMode(cmd)
 		if err != nil {
 			t.Errorf("initializeKOMMode() unexpected error: %v", err)
 		}
@@ -130,6 +179,25 @@ spec: {}
 
 		// Create test file with single app
 		tmpDir := t.TempDir()
+
+		// Create .kompox directory and config
+		kompoxCfgDir := filepath.Join(tmpDir, ".kompox")
+		if err := os.Mkdir(kompoxCfgDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		// Create default kom directory to avoid validation error
+		defaultKomDir := filepath.Join(kompoxCfgDir, "kom")
+		if err := os.Mkdir(defaultKomDir, 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		// Resolve kompoxenv.Env
+		cfg, err := kompoxenv.Resolve(tmpDir, kompoxCfgDir, tmpDir)
+		if err != nil {
+			t.Fatalf("Failed to resolve kompoxenv.Env: %v", err)
+		}
+
 		testFile := filepath.Join(tmpDir, "single-app.yml")
 		content := `---
 apiVersion: ops.kompox.dev/v1alpha1
@@ -170,7 +238,10 @@ spec: {}
 			t.Fatalf("failed to create test file: %v", err)
 		}
 
+		// Create command with context containing Env
 		cmd := &cobra.Command{}
+		ctx := context.WithValue(context.Background(), kompoxEnvKey, cfg)
+		cmd.SetContext(ctx)
 		cmd.PersistentFlags().StringArray("kom-path", nil, "")
 		cmd.PersistentFlags().String("kom-app", testFile, "")
 
@@ -178,7 +249,7 @@ spec: {}
 		cmd.SetArgs(args)
 		cmd.ParseFlags(args)
 
-		err := initializeKOMMode(cmd)
+		err = initializeKOMMode(cmd)
 		if err != nil {
 			t.Errorf("initializeKOMMode() unexpected error: %v", err)
 		}
@@ -202,10 +273,16 @@ func TestKOMPathRecursiveDirectoryScan(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	// Create .git marker for base root
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.Mkdir(gitDir, 0755); err != nil {
+	// Create .kompox directory and config
+	kompoxCfgDir := filepath.Join(tmpDir, ".kompox")
+	if err := os.Mkdir(kompoxCfgDir, 0755); err != nil {
 		t.Fatal(err)
+	}
+
+	// Resolve kompoxenv.Env
+	cfg, err := kompoxenv.Resolve(tmpDir, kompoxCfgDir, tmpDir)
+	if err != nil {
+		t.Fatalf("Failed to resolve kompoxenv.Env: %v", err)
 	}
 
 	// Create kompoxapp.yml
@@ -301,6 +378,8 @@ spec: {}
 
 	// Initialize KOM mode
 	cmd := &cobra.Command{}
+	ctx := context.WithValue(context.Background(), kompoxEnvKey, cfg)
+	cmd.SetContext(ctx)
 	cmd.PersistentFlags().StringArray("kom-path", nil, "")
 	cmd.PersistentFlags().String("kom-app", komAppFile, "")
 
@@ -308,7 +387,7 @@ spec: {}
 	cmd.SetArgs(args)
 	cmd.ParseFlags(args)
 
-	err := initializeKOMMode(cmd)
+	err = initializeKOMMode(cmd)
 	if err != nil {
 		t.Fatalf("initializeKOMMode() unexpected error: %v", err)
 	}
@@ -348,10 +427,16 @@ func TestKOMPathParentDirectoryReference(t *testing.T) {
 
 	tmpDir := t.TempDir()
 
-	// Create .git marker at top level
-	gitDir := filepath.Join(tmpDir, ".git")
-	if err := os.Mkdir(gitDir, 0755); err != nil {
+	// Create .kompox directory and config
+	kompoxCfgDir := filepath.Join(tmpDir, ".kompox")
+	if err := os.Mkdir(kompoxCfgDir, 0755); err != nil {
 		t.Fatal(err)
+	}
+
+	// Resolve kompoxenv.Env
+	cfg, err := kompoxenv.Resolve(tmpDir, kompoxCfgDir, tmpDir)
+	if err != nil {
+		t.Fatalf("Failed to resolve kompoxenv.Env: %v", err)
 	}
 
 	// Create shared configs in parent directory
@@ -423,6 +508,8 @@ spec:
 
 	// Initialize KOM mode
 	cmd := &cobra.Command{}
+	ctx := context.WithValue(context.Background(), kompoxEnvKey, cfg)
+	cmd.SetContext(ctx)
 	cmd.PersistentFlags().StringArray("kom-path", nil, "")
 	cmd.PersistentFlags().String("kom-app", komAppFile, "")
 
@@ -430,7 +517,7 @@ spec:
 	cmd.SetArgs(args)
 	cmd.ParseFlags(args)
 
-	err := initializeKOMMode(cmd)
+	err = initializeKOMMode(cmd)
 	if err != nil {
 		t.Fatalf("initializeKOMMode() unexpected error: %v", err)
 	}

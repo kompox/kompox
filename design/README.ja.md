@@ -63,7 +63,7 @@ language: ja
 | [K4x-ADR-012](./adr/K4x-ADR-012.md) | Introduce App.RefBase for external references | en |  | accepted | - |
 | [K4x-ADR-013](./adr/K4x-ADR-013.md) | Resource protection policy for Cluster operations | en |  | accepted | - |
 | [K4x-ADR-014](./adr/K4x-ADR-014.md) | Introduce Volume Types | en |  | accepted | - |
-| [K4x-ADR-015](./adr/K4x-ADR-015.md) | Adopt project KOMPOX_DIR, KOMPOX_CFG_DIR (.kompox), and Git-like discovery for KOM inputs | en |  | proposed | - |
+| [K4x-ADR-015](./adr/K4x-ADR-015.md) | Introduce Kompox CLI Env with Git-like discovery | en |  | accepted | - |
 
 **ステータスの意味:**
 

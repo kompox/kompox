@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	komv1 "github.com/kompox/kompox/config/crd/ops/v1alpha1"
+	"github.com/kompox/kompox/config/kompoxenv"
 	"github.com/spf13/cobra"
 )
 
@@ -21,39 +22,6 @@ const (
 // Paths to ignore during recursive directory scanning
 var ignoredPathComponents = []string{
 	".git", ".github", "node_modules", "vendor", ".direnv", ".venv", "dist", "build",
-}
-
-// findBaseRoot searches for a base root directory by looking for .git or .kompoxroot
-// in ancestors of the given directory. Returns the directory containing the marker,
-// or the parent directory of dir if no marker is found.
-func findBaseRoot(dir string) (string, error) {
-	absDir, err := filepath.Abs(dir)
-	if err != nil {
-		return "", fmt.Errorf("resolving directory path: %w", err)
-	}
-
-	current := absDir
-	for {
-		// Check for .git or .kompoxroot
-		gitPath := filepath.Join(current, ".git")
-		kompoxrootPath := filepath.Join(current, ".kompoxroot")
-
-		if _, err := os.Stat(gitPath); err == nil {
-			return current, nil
-		}
-		if _, err := os.Stat(kompoxrootPath); err == nil {
-			return current, nil
-		}
-
-		// Move to parent
-		parent := filepath.Dir(current)
-		if parent == current {
-			// Reached filesystem root without finding marker
-			// Return the parent of the original directory
-			return filepath.Dir(absDir), nil
-		}
-		current = parent
-	}
 }
 
 // isPathIgnored checks if any component of the path should be ignored.
@@ -72,18 +40,24 @@ func isPathIgnored(path string) bool {
 // validateAndResolveKOMPath validates a KOM path according to spec requirements:
 // - Local paths only (no URLs)
 // - Resolves to absolute path with symlinks evaluated
-// - Must be within baseRoot
 // - Must have .yml or .yaml extension (if file)
-func validateAndResolveKOMPath(inputPath, baseDir, baseRoot string) (string, error) {
+// - If requireBoundary is true, must be within KOMPOX_DIR or KOMPOX_CFG_DIR
+func validateAndResolveKOMPath(inputPath string, cfg *kompoxenv.Env, baseDir string, requireBoundary bool) (string, error) {
 	// Reject URLs
 	if strings.Contains(inputPath, "://") {
 		return "", fmt.Errorf("URL not supported: %q", inputPath)
 	}
 
+	// Expand $KOMPOX_DIR and $KOMPOX_CFG_DIR
+	expandedPath := inputPath
+	if cfg != nil {
+		expandedPath = cfg.ExpandVars(inputPath)
+	}
+
 	// Resolve relative paths relative to baseDir
-	resolvedPath := inputPath
-	if !filepath.IsAbs(inputPath) {
-		resolvedPath = filepath.Join(baseDir, inputPath)
+	resolvedPath := expandedPath
+	if !filepath.IsAbs(expandedPath) {
+		resolvedPath = filepath.Join(baseDir, expandedPath)
 	}
 
 	// Clean the path
@@ -98,10 +72,11 @@ func validateAndResolveKOMPath(inputPath, baseDir, baseRoot string) (string, err
 		return "", fmt.Errorf("resolving path %q: %w", inputPath, err)
 	}
 
-	// Ensure the path is within baseRoot
-	relPath, err := filepath.Rel(baseRoot, realPath)
-	if err != nil || strings.HasPrefix(relPath, "..") {
-		return "", fmt.Errorf("path %q (resolved to %q) is outside base root %q", inputPath, realPath, baseRoot)
+	// Boundary check if required (for Defaults.spec.komPath only)
+	if requireBoundary && cfg != nil {
+		if !cfg.IsWithinBoundary(realPath) {
+			return "", fmt.Errorf("path %q (resolved to %q) is outside KOMPOX_DIR/KOMPOX_CFG_DIR boundary", inputPath, realPath)
+		}
 	}
 
 	// Check if it's a file or directory
@@ -123,7 +98,7 @@ func validateAndResolveKOMPath(inputPath, baseDir, baseRoot string) (string, err
 
 // scanKOMDirectory recursively scans a directory for .yml/.yaml files,
 // respecting ignore patterns and limits.
-func scanKOMDirectory(dir string, baseRoot string, depth int, visited map[string]bool, stats *komScanStats) ([]string, error) {
+func scanKOMDirectory(dir string, depth int, visited map[string]bool, stats *komScanStats) ([]string, error) {
 	if depth > maxKOMDepth {
 		return nil, fmt.Errorf("maximum directory depth (%d) exceeded", maxKOMDepth)
 	}
@@ -156,7 +131,7 @@ func scanKOMDirectory(dir string, baseRoot string, depth int, visited map[string
 
 		if entry.IsDir() {
 			// Recurse into subdirectory
-			subFiles, err := scanKOMDirectory(fullPath, baseRoot, depth+1, visited, stats)
+			subFiles, err := scanKOMDirectory(fullPath, depth+1, visited, stats)
 			if err != nil {
 				return nil, err
 			}
@@ -215,29 +190,57 @@ type komModeContext struct {
 // Global KOM mode context (set during initialization).
 var komMode komModeContext
 
-// getKOMPaths extracts KOM paths from flags and environment variables.
-// Flags take precedence over environment variables.
-func getKOMPaths(cmd *cobra.Command) []string {
-	var paths []string
-
-	// Get paths from flag
+// getKOMPathsWithPriority determines KOM input paths using 5-level priority system.
+// Returns paths and a flag indicating the source level (for boundary check logic).
+//
+// Priority (first valid source wins):
+//  1. --kom-path flag
+//  2. KOMPOX_KOM_PATH environment variable
+//  3. Defaults.spec.komPath (requires boundary check)
+//  4. Config.KOMPath (.kompox/config.yml)
+//  5. Default: $KOMPOX_CFG_DIR/kom
+//
+// Returns: (paths, requireBoundary, sourceLevel)
+// - requireBoundary is true only for level 3 (Defaults.spec.komPath)
+// - sourceLevel: 1-5 indicating which level was used
+func getKOMPathsWithPriority(cmd *cobra.Command, cfg *kompoxenv.Env, defaults *komv1.Defaults) ([]string, bool, int) {
+	// Level 1: --kom-path flag
 	flagPaths, err := cmd.Flags().GetStringArray("kom-path")
 	if err == nil && len(flagPaths) > 0 {
-		paths = append(paths, flagPaths...)
+		return flagPaths, false, 1
 	}
 
-	// If no flag paths, check environment variable
-	if len(paths) == 0 {
-		if envPaths := os.Getenv("KOMPOX_KOM_PATH"); envPaths != "" {
-			for _, p := range strings.Split(envPaths, ",") {
-				if trimmed := strings.TrimSpace(p); trimmed != "" {
-					paths = append(paths, trimmed)
-				}
+	// Level 2: KOMPOX_KOM_PATH environment variable
+	if envPaths := os.Getenv("KOMPOX_KOM_PATH"); envPaths != "" {
+		var paths []string
+		// OS-dependent path separator
+		for _, p := range filepath.SplitList(envPaths) {
+			if trimmed := strings.TrimSpace(p); trimmed != "" {
+				paths = append(paths, trimmed)
 			}
+		}
+		if len(paths) > 0 {
+			return paths, false, 2
 		}
 	}
 
-	return paths
+	// Level 3: Defaults.spec.komPath (requires boundary check)
+	if defaults != nil && len(defaults.Spec.KOMPath) > 0 {
+		return defaults.Spec.KOMPath, true, 3
+	}
+
+	// Level 4: Config.KOMPath (.kompox/config.yml)
+	if cfg != nil && len(cfg.KOMPath) > 0 {
+		return cfg.KOMPath, false, 4
+	}
+
+	// Level 5: Default $KOMPOX_CFG_DIR/kom
+	if cfg != nil {
+		defaultPath := cfg.ExpandVars("$KOMPOX_CFG_DIR/kom")
+		return []string{defaultPath}, false, 5
+	}
+
+	return nil, false, 0
 }
 
 // getKOMAppPath extracts the KOM app path from flags and environment variables.
@@ -258,21 +261,25 @@ func getKOMAppPath(cmd *cobra.Command) string {
 	return "./kompoxapp.yml"
 }
 
-// initializeKOMMode attempts to load and validate KOM documents.
+// initializeKOMMode attempts to load and validate KOM documents using the 5-level priority system.
 // If successful, it sets up the KOM mode context.
 func initializeKOMMode(cmd *cobra.Command) error {
-	komPaths := getKOMPaths(cmd)
-	komAppPath := getKOMAppPath(cmd)
+	// Get kompoxenv.Env from context
+	ctx := cmd.Context()
+	cfg := getKompoxEnv(ctx)
+	if cfg == nil {
+		return fmt.Errorf("kompoxenv.Env not found in context")
+	}
 
+	komAppPath := getKOMAppPath(cmd)
 	loader := komv1.NewLoader()
 
 	// Load kompoxapp.yml to extract Defaults (if present)
 	var defaults *komv1.Defaults
 	var komAppDocs []komv1.Document
 	var komAppDir string
-	var baseRoot string
 
-	// Determine komAppDir and baseRoot
+	// Determine komAppDir
 	if komAppPath != "" {
 		komAppDir = filepath.Dir(komAppPath)
 		if !filepath.IsAbs(komAppDir) {
@@ -281,13 +288,6 @@ func initializeKOMMode(cmd *cobra.Command) error {
 			if err != nil {
 				return fmt.Errorf("resolving kompoxapp.yml directory: %w", err)
 			}
-		}
-
-		// Find base root for validation
-		var err error
-		baseRoot, err = findBaseRoot(komAppDir)
-		if err != nil {
-			return fmt.Errorf("finding base root: %w", err)
 		}
 
 		// Load kompoxapp.yml if it exists
@@ -325,33 +325,24 @@ func initializeKOMMode(cmd *cobra.Command) error {
 		if err != nil {
 			return fmt.Errorf("getting current directory: %w", err)
 		}
-		baseRoot, err = findBaseRoot(komAppDir)
-		if err != nil {
-			return fmt.Errorf("finding base root: %w", err)
-		}
 	}
 
-	// Collect and validate all KOM paths
-	var validatedKOMPaths []string
+	// Determine KOM paths using 5-level priority
+	komPaths, requireBoundary, sourceLevel := getKOMPathsWithPriority(cmd, cfg, defaults)
 
-	// Priority 1: --kom-path / KOMPOX_KOM_PATH
+	// If no paths determined and no documents in kompoxapp.yml, KOM mode is not applicable
+	if len(komPaths) == 0 && len(komAppDocs) == 0 {
+		return nil
+	}
+
+	// Validate and resolve all KOM paths
+	var validatedKOMPaths []string
 	for _, p := range komPaths {
-		validated, err := validateAndResolveKOMPath(p, komAppDir, baseRoot)
+		validated, err := validateAndResolveKOMPath(p, cfg, komAppDir, requireBoundary)
 		if err != nil {
-			return fmt.Errorf("--kom-path validation failed: %w", err)
+			return fmt.Errorf("KOM path validation failed (source level %d): %w", sourceLevel, err)
 		}
 		validatedKOMPaths = append(validatedKOMPaths, validated)
-	}
-
-	// Priority 2: Defaults.spec.komPath (if no --kom-path)
-	if len(komPaths) == 0 && defaults != nil && len(defaults.Spec.KOMPath) > 0 {
-		for _, p := range defaults.Spec.KOMPath {
-			validated, err := validateAndResolveKOMPath(p, komAppDir, baseRoot)
-			if err != nil {
-				return fmt.Errorf("Defaults.spec.komPath validation failed: %w", err)
-			}
-			validatedKOMPaths = append(validatedKOMPaths, validated)
-		}
 	}
 
 	// Expand directories to file lists and deduplicate
@@ -368,7 +359,7 @@ func initializeKOMMode(cmd *cobra.Command) error {
 
 		if info.IsDir() {
 			// Scan directory recursively
-			files, err := scanKOMDirectory(path, baseRoot, 0, visitedDirs, stats)
+			files, err := scanKOMDirectory(path, 0, visitedDirs, stats)
 			if err != nil {
 				return fmt.Errorf("scanning directory %q: %w", path, err)
 			}

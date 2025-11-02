@@ -10,9 +10,25 @@ import (
 
 	_ "github.com/kompox/kompox/adapters/drivers/provider/aks"
 	_ "github.com/kompox/kompox/adapters/drivers/provider/k3s"
+	"github.com/kompox/kompox/config/kompoxenv"
 	"github.com/kompox/kompox/internal/logging"
 	"github.com/spf13/cobra"
 )
+
+// Context keys
+type contextKey string
+
+const (
+	kompoxEnvKey contextKey = "kompox-env"
+)
+
+// getKompoxEnv retrieves the kompoxenv.Env from context.
+func getKompoxEnv(ctx context.Context) *kompoxenv.Env {
+	if env, ok := ctx.Value(kompoxEnvKey).(*kompoxenv.Env); ok {
+		return env
+	}
+	return nil
+}
 
 func newRootCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -32,6 +48,11 @@ func newRootCmd() *cobra.Command {
 	}
 	cmd.PersistentFlags().String("db-url", defaultDB, "Database URL (env KOMPOX_DB_URL) (file:/path/to/kompoxops.yml | sqlite:/path/to.db | postgres:// | mysql://)")
 
+	// Add directory flags
+	cmd.PersistentFlags().StringP("directory", "C", "", "Change to directory before processing (equivalent to -C in git)")
+	cmd.PersistentFlags().String("kompox-dir", "", "Project directory (env KOMPOX_DIR)")
+	cmd.PersistentFlags().String("kompox-cfg-dir", "", "Configuration directory (env KOMPOX_CFG_DIR)")
+
 	// Add KOM flags
 	cmd.PersistentFlags().StringArray("kom-path", nil, "KOM YAML paths (files or directories, can be repeated) (env KOMPOX_KOM_PATH, comma-separated)")
 	cmd.PersistentFlags().String("kom-app", "./kompoxapp.yml", "KOM YAML for app inference (env KOMPOX_KOM_APP)")
@@ -40,7 +61,53 @@ func newRootCmd() *cobra.Command {
 	cmd.PersistentFlags().String("log-level", "info", "Log level (debug|info|warn|error) (env KOMPOX_LOG_LEVEL)")
 
 	cmd.PersistentPreRunE = func(c *cobra.Command, _ []string) error {
-		// Initialize KOM mode first (before logging setup). This also handles legacy env fail-fast.
+		// Handle -C flag (change directory)
+		if dir, _ := c.Flags().GetString("directory"); dir != "" {
+			if err := os.Chdir(dir); err != nil {
+				return fmt.Errorf("changing directory to %q: %w", dir, err)
+			}
+		}
+
+		// Resolve KOMPOX_DIR and KOMPOX_CFG_DIR
+		kompoxDirFlag, _ := c.Flags().GetString("kompox-dir")
+		kompoxCfgDirFlag, _ := c.Flags().GetString("kompox-cfg-dir")
+
+		// Priority: flag > env > discovery/default
+		kompoxDirVal := kompoxDirFlag
+		if kompoxDirVal == "" {
+			kompoxDirVal = os.Getenv(kompoxenv.KompoxDirEnvKey)
+		}
+
+		kompoxCfgDirVal := kompoxCfgDirFlag
+		if kompoxCfgDirVal == "" {
+			kompoxCfgDirVal = os.Getenv(kompoxenv.KompoxCfgDirEnvKey)
+		}
+
+		// Get current working directory for discovery
+		workDir, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("getting current directory: %w", err)
+		}
+
+		// Resolve directories and load config
+		cfg, err := kompoxenv.Resolve(kompoxDirVal, kompoxCfgDirVal, workDir)
+		if err != nil {
+			return fmt.Errorf("resolving KOMPOX_DIR/KOMPOX_CFG_DIR: %w", err)
+		}
+
+		// Export to environment
+		if err := os.Setenv(kompoxenv.KompoxDirEnvKey, cfg.KompoxDir); err != nil {
+			return fmt.Errorf("setting KOMPOX_DIR environment variable: %w", err)
+		}
+		if err := os.Setenv(kompoxenv.KompoxCfgDirEnvKey, cfg.KompoxCfgDir); err != nil {
+			return fmt.Errorf("setting KOMPOX_CFG_DIR environment variable: %w", err)
+		}
+
+		// Store Config in context for use by commands
+		ctx := context.WithValue(c.Context(), kompoxEnvKey, cfg)
+		c.SetContext(ctx)
+
+		// Initialize KOM mode (before logging setup). This also handles legacy env fail-fast.
 		if err := initializeKOMMode(c); err != nil {
 			return fmt.Errorf("KOM initialization failed: %w", err)
 		}
@@ -68,7 +135,7 @@ func newRootCmd() *cobra.Command {
 		if err != nil {
 			return err
 		}
-		ctx := logging.WithLogger(c.Context(), l)
+		ctx = logging.WithLogger(c.Context(), l)
 		c.SetContext(ctx)
 		return nil
 	}
