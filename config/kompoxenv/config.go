@@ -206,3 +206,27 @@ func (e *Env) IsWithinBoundary(path string) bool {
 
 	return false
 }
+
+// InitialConfigYAML generates the initial .kompox/config.yml content as YAML bytes.
+// The generated YAML has proper field ordering and 2-space indentation.
+func InitialConfigYAML() ([]byte, error) {
+	defaultConfig := configFile{
+		Version: 1,
+		Store: Store{
+			Type: "local",
+		},
+		KOMPath: []string{"kom"},
+	}
+
+	var buf strings.Builder
+	encoder := yaml.NewEncoder(&buf)
+	encoder.SetIndent(2)
+	if err := encoder.Encode(&defaultConfig); err != nil {
+		return nil, fmt.Errorf("encoding default config: %w", err)
+	}
+	if err := encoder.Close(); err != nil {
+		return nil, fmt.Errorf("closing yaml encoder: %w", err)
+	}
+
+	return []byte(buf.String()), nil
+}

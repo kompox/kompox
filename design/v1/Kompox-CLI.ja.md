@@ -26,7 +26,7 @@ language: ja
 kompoxops は Kompox PaaS 準拠のデプロイツールである。
 
 ```
-kompoxops init              設定ファイルの雛形作成
+kompoxops init              Kompox CLI Env の初期化 (.kompox/ ディレクトリと設定ファイルの作成)
 kompoxops cluster           クラスタ操作
 kompoxops app               アプリ操作
 kompoxops secret            シークレット操作
@@ -38,7 +38,7 @@ kompoxops admin             管理ツール
 
 ### 共通オプション
 
-- `-C <DIR>` 実行前に作業ディレクトリを `DIR` に一時切替 (git の `-C` と同様)。
+- `-C, --chdir <DIR>` 実行前に作業ディレクトリを `DIR` に一時切替 (git の `-C` と同様)。
 - `--kompox-dir <DIR>` プロジェクトディレクトリ (Kompox ルート)。環境変数 `KOMPOX_DIR` でも指定可能。
 - `--kompox-cfg-dir <DIR>` 設定ディレクトリ (既定: `$KOMPOX_DIR/.kompox`)。環境変数 `KOMPOX_CFG_DIR` でも指定可能。
 - `--kom-path <PATH>` KOM 格納場所 (ファイルまたはディレクトリ)。複数回指定可能。環境変数 `KOMPOX_KOM_PATH` (OS 依存のパス区切りで複数指定可) でも指定可能。指定したパスが存在しない場合はエラー。
@@ -85,7 +85,7 @@ version: 1
 store:
   type: local           # local | rdb | custom
 komPath:
-  - $KOMPOX_CFG_DIR/kom
+  - kom
 ```
 
 可視配置の例 (プロジェクト直下に `kom/` を置く):
@@ -207,6 +207,58 @@ Kompox アプリファイルには Defaults リソースを 1 件だけ含めら
 
 - 読み込み元ファイルパスとマルチドキュメント内のインデックス (1-based) を含める
 - 整合性エラーの場合、すべてのドキュメントを破棄する
+
+### kompoxops init
+
+Kompox CLI Env を初期化する。指定されたディレクトリに `.kompox/` ディレクトリ構造と設定ファイルを作成する。
+
+```
+kompoxops init [FLAGS]
+```
+
+**動作**
+
+1. `-C` で指定されたディレクトリが存在しない場合は作成する (親ディレクトリも含めて再帰的に作成)
+2. `-C` で指定されたディレクトリ (未指定時はカレントディレクトリ) に `.kompox/` ディレクトリを作成
+3. `.kompox/config.yml` を作成 (既定の設定を含む)
+4. `.kompox/kom/` ディレクトリを作成 (KOM ファイルの既定配置場所)
+
+**フラグ**
+
+- `-f, --force`: 既存の `.kompox/config.yml` を上書きする。このフラグがない場合、ファイルが既に存在するとエラーになる
+
+**注意事項**
+
+- `-C` で指定されたディレクトリが存在しない場合の自動作成は `init` コマンド専用の動作である
+- 他のコマンドでは `-C` のディレクトリが存在しない場合はエラーになる
+
+**作成される `.kompox/config.yml` の既定内容**
+
+```yaml
+version: 1
+store:
+  type: local
+komPath:
+  - kom
+```
+
+**使用例**
+
+```bash
+# カレントディレクトリに .kompox/ を作成
+kompoxops init
+
+# 指定ディレクトリに .kompox/ を作成
+kompoxops init -C /path/to/project
+
+# 既存の config.yml を上書き
+kompoxops init -f
+```
+
+**エラー条件**
+
+- `.kompox/config.yml` が既に存在し、`-f` フラグが指定されていない場合
+- ディレクトリ作成やファイル書き込みに失敗した場合
 
 ### kompoxops cluster
 

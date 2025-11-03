@@ -186,6 +186,11 @@ func (e *Env) IsWithinBoundary(path string) bool
   - [x] `TestKOMPathRecursiveDirectoryScan` の更新
   - [x] `TestKOMPathParentDirectoryReference` の更新
   - [x] すべての統合テストが passing
+- [x] `kompoxops init` コマンドの実装
+  - [x] `cmd/kompoxops/cmd_init.go` の作成 (cobra コマンド定義、`-f/--force` フラグ)
+  - [x] `.kompox/` ディレクトリ構造と `config.yml` の生成 (version: 1, store: inmem, komPath: ["kom"])
+  - [x] `-C` 指定時のディレクトリ自動作成 (`os.MkdirAll` で親も再帰的に作成)
+  - [x] ユニットテスト (`cmd_init_test.go`: 正常系・異常系)
 - [x] ビルド検証
   - [x] `make test` 成功
   - [x] `make build` 成功
@@ -246,6 +251,20 @@ func (e *Env) IsWithinBoundary(path string) bool
   - ADR/タスクのタイトルを「Kompox CLI Env の導入」に変更
   - `cmd_cluster.go` の `--cluster-id` から `-C` 短縮形を削除 (K4x-ADR-015 に従い `-C` は作業ディレクトリ変更専用)
   - フラグ衝突による panic を解消
+- 2025-11-03: `kompoxops init` コマンド実装完了
+  - `cmd/kompoxops/cmd_init.go` 作成 (新規 Kompox CLI Env の初期化)
+  - `.kompox/` ディレクトリ構造と `config.yml` の生成
+  - 既定の `config.yml` 内容: `version: 1`, `store.type: local`, `komPath: ["kom"]`
+  - `-C` フラグ指定時の親ディレクトリも含めた再帰的作成
+  - `-f/--force` フラグによる既存ファイル上書き機能
+  - ユニットテスト追加 (正常系・異常系・`-C` フラグテスト)
+  - `main.go` の `PersistentPreRunE` で `init` コマンドをスキップ
+  - すべてのテストが passing (make test 成功)
+- 2025-11-03: フラグ long name の整理
+  - `-C` フラグに long name `--chdir` を追加 (cobra の制約により short-only は不可)
+  - CLI ヘルプ表示: `-C, --chdir string` として表示されることを確認
+  - フラグ取得を `GetString("chdir")` に統一
+  - すべてのテストが passing (make test 成功)
 
 ## 参考
 

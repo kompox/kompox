@@ -13,70 +13,141 @@ supersededBy: []
 
 - The current "baseRoot" and `.kompoxroot` rules are confusing and hard to reason about for users and for tooling.
 - We want a Git-like mental model: a repository-local hidden directory that anchors discovery and configuration, and a clear separation between working directory changes and repository configuration.
-- We also want an unambiguous contract for where KOM files are read from, how paths are resolved, and how defaults are provided without relying on implicit heuristics.
- - Backward compatibility is not required for this change set; we may repurpose flags and semantics (e.g., reclaim `-C`, remove `baseRoot`/`.kompoxroot`, rename variables) without providing shims.
+- We need an unambiguous contract for where KOM files are read from, how paths are resolved, and how defaults are provided without relying on implicit heuristics.
+- Prior ADRs define KOM mode architecture and Defaults pseudo-resource. [K4x-ADR-009] [K4x-ADR-012]
+- Backward compatibility is not required for this change set; we may repurpose flags and semantics (e.g., reclaim `-C`, remove `baseRoot`/`.kompoxroot`, rename variables) without providing shims.
 
 ## Decision
 
-- Introduce the notion of a project directory (project root) and a configuration directory:
-  - Project directory: environment variable `KOMPOX_DIR`; CLI flag `--kompox-dir`.
-  - Configuration directory: `.kompox/` at the project directory by default; environment variable `KOMPOX_CFG_DIR`; CLI flag `--kompox-cfg-dir`.
-  - Repository config file: `.kompox/config.yml` (YAML) for CLI/runtime defaults.
-    - Rationale: keep repository configuration clearly separated from KOM content while allowing a concise default location.
-- Reserve `-C` exclusively for changing the current working directory before execution (like `git -C`). The intended use is to point to the directory that contains `kompoxapp.yml`.
-- Define Git-like discovery anchored by `.kompox/`:
-  - If `--kompox-dir`/`KOMPOX_DIR` is set, use it as the project directory; otherwise search upward from the working directory for a parent containing `.kompox/` and use that parent as `KOMPOX_DIR`.
-  - If `--kompox-cfg-dir`/`KOMPOX_CFG_DIR` is set, use it as the configuration directory; otherwise default to `$KOMPOX_DIR/.kompox`.
-  - If neither is resolvable, error with guidance.
-- KOM inputs are read only from the first available source in the following precedence:
-  1) `--kom-path` (repeatable; file or directory)
-  2) `KOMPOX_KOM_PATH` (OS PathListSeparator)
-  3) `kompoxapp.yml` → `Defaults.spec.komPath`
-  4) `.kompox/config.yml` → `komPath`
-  5) `$KOMPOX_CFG_DIR/kom` (default KOM directory)
-- Support `$KOMPOX_DIR` and `$KOMPOX_CFG_DIR` expansion across flags, environment variables, `.kompox/config.yml`, and `Defaults` values.
-- Deprecate and remove `baseRoot` and `.kompoxroot`. Reclaim the `-C` short option from `--cluster-id` (do not reuse it for cluster-id).
-  
-Implementation specifics (discovery steps, resolution rules, path constraints, excludes, limits) are documented in [Kompox-CLI.ja.md].
+Introduce **Kompox CLI Env**, a Git-inspired project environment system centered around the `.kompox/` directory.
 
-## Migration
-- Add an empty `.kompox/` directory at the project directory; optionally add `.kompox/config.yml` with `store.type: local` and `komPath`.
-- Update CLI invocations and scripts:
-  - Prefer `-C` to point to the directory containing `kompoxapp.yml` and rely on upward discovery.
-  - Use `--kompox-dir` to pin the project directory when discovery is ambiguous; use `--kompox-cfg-dir` only for advanced setups.
-  - Replace any prior usage of `baseRoot`/`.kompoxroot`.
+### Core Concepts
+
+- **Project Directory (`KOMPOX_DIR`)**: The root of a Kompox project, analogous to a Git repository root. Discovered by searching upward for a parent directory containing `.kompox/`. Can be explicitly set via `--kompox-dir` flag or `KOMPOX_DIR` environment variable.
+- **Configuration Directory (`KOMPOX_CFG_DIR`)**: The directory containing Kompox CLI configuration. Defaults to `$KOMPOX_DIR/.kompox`. Can be overridden via `--kompox-cfg-dir` flag or `KOMPOX_CFG_DIR` environment variable. This directory will also serve as the standard location for logs, cache, and other CLI-managed data in future versions.
+- **Repository Configuration (`.kompox/config.yml`)**: YAML file for project-level CLI settings (store backend, default KOM paths, etc.).
+
+### Discovery Rules
+
+1. Apply `-C, --chdir` flag: Change working directory before any other processing (like `git -C`)
+2. Resolve `KOMPOX_DIR`: Priority is `--kompox-dir` > `KOMPOX_DIR` env var > upward search for `.kompox/`
+3. Resolve `KOMPOX_CFG_DIR`: Priority is `--kompox-cfg-dir` > `KOMPOX_CFG_DIR` env var > `$KOMPOX_DIR/.kompox`
+4. Export to environment: Set `KOMPOX_DIR` and `KOMPOX_CFG_DIR` as environment variables
+
+### KOM Input Precedence
+
+KOM files are read from **only the first available source** in this order:
+1. `--kom-path` flag (repeatable; file or directory)
+2. `KOMPOX_KOM_PATH` environment variable (OS-specific path separator)
+3. `Defaults.spec.komPath` in `kompoxapp.yml` (with boundary check: must be within `$KOMPOX_DIR` or `$KOMPOX_CFG_DIR`)
+4. `komPath` in `.kompox/config.yml`
+5. Default: `$KOMPOX_CFG_DIR/kom` directory
+
+Single source selection principle: no merging across precedence levels.
+
+### Variable Expansion
+
+The strings `$KOMPOX_DIR` and `$KOMPOX_CFG_DIR` are expanded in CLI flag values, environment variables, `.kompox/config.yml` fields, and `Defaults.spec.komPath` values.
+
+### Project Initialization
+
+New `kompoxops init` command bootstraps the Kompox CLI Env:
+- Creates `.kompox/` directory structure
+- Generates `.kompox/config.yml` with default configuration:
+  ```yaml
+  version: 1
+  store:
+    type: local
+  komPath:
+    - kom
+  ```
+- Creates `.kompox/kom/` as the default KOM storage location
+- Supports `-C, --chdir <DIR>` to initialize in specified directory (creates parents if needed)
+- Supports `-f, --force` to overwrite existing configuration
+
+**Future extensions**: The `.kompox/` directory is designed to accommodate additional CLI-managed subdirectories such as:
+- `.kompox/logs/` for standard log output
+- `.kompox/cache/` for temporary artifacts and caches
+- `.kompox/tmp/` for transient working files
+These extensions will be added as needed while maintaining backward compatibility with the core structure.
+
+### Breaking Changes
+
+- Remove `baseRoot` and `.kompoxroot` concepts
+- Reclaim `-C` flag from `--cluster-id` (use full `--cluster-id` flag instead)
+- Remove implicit `.git` fallback for discovery
+- Enforce single-source KOM input (no merging behavior)
+
+Implementation details (path constraints, directory excludes, safety limits) are documented in [Kompox-CLI.ja.md]. Implementation tracking in [2025-11-03-kompox-cli-env.ja.md].
+
+## Alternatives Considered
+
+- **Keep `baseRoot` and `.kompoxroot`**: Rejected due to ambiguity and poor UX compared to Git analogy.
+- **Use `KOMPOX_PATH` instead of `KOMPOX_DIR`**: Rejected because `PATH` conventionally implies a list; project root is a single directory. Git analogy favors `DIR`.
+- **Name config file `.kompox/defaults.yml`**: Rejected to avoid confusion with `Defaults` pseudo-resource kind. `config.yml` matches Git's `config`.
+- **Support multiple project roots**: Deferred for complexity. Current design covers most use cases with one root per invocation.
+- **Merge KOM sources across precedence**: Rejected for unpredictability. Single-source selection is simpler and explicit.
 
 ## Consequences
 
-- Pros
-  - Clear, Git-like UX and simpler mental model for discovery and configuration.
-  - Stronger safety by scoping KOM inputs under a single store root.
-  - Explicit, composable precedence order enables reproducible runs and easier debugging.
-- Cons
-  - Minor migration work to add `.kompox/` and adjust flags in scripts.
-  - Tools and tests that assumed `baseRoot` must be updated to use `KOMPOX_DIR` and store root constraints.
+### Pros
+- Clear, Git-like UX with simpler mental model for discovery and configuration
+- Stronger safety by scoping KOM inputs and enforcing boundaries
+- Explicit precedence order enables reproducible runs and easier debugging
+- Easy initialization with `kompoxops init` provides zero-friction setup
+- Composable commands with `-C` enable directory changes without affecting project discovery
+- Better tooling support due to explicit discovery rules
+- Extensible structure: `.kompox/` can accommodate future additions (logs, cache, etc.) without breaking changes
 
-## Alternatives considered
+### Cons
+- Migration effort required for existing projects (add `.kompox/`, adjust flag usage)
+- Breaking changes to CLI flags and semantics (no backward compatibility)
+- Tools and tests that assumed `baseRoot` must be updated
 
-- Keep `baseRoot` and `.kompoxroot`:
-  - Rejected: ambiguous and hard to document/validate; worse UX than Git analogy.
-- Use `--kompox-path`/`KOMPOX_PATH` instead of `--kompox-dir`/`KOMPOX_DIR`:
-  - Rejected: `PATH` conventionally implies a list; the root concept is a single directory. Git analogy favors `DIR`.
-- Name `.kompox/defaults.yml` for repository settings:
-  - Rejected: confusable with the `Defaults` pseudo-resource kind; `config.yml` is clearer and matches Git.
+## Migration
+
+### For New Projects
+```bash
+# Initialize in current directory
+kompoxops init
+
+# Initialize in specific directory
+kompoxops init -C /path/to/new-project
+```
+
+### For Existing Projects
+1. Add `.kompox/` directory: `kompoxops init`
+2. Update scripts: Change `-C` usage (now means "change directory"), remove `baseRoot` references
+3. Configure KOM paths in `.kompox/config.yml` if needed
+
+### Example
+**Before** (using baseRoot):
+```bash
+cd /project/app1
+export KOMPOX_BASE_ROOT=/project
+kompoxops app deploy
+```
+
+**After** (using Kompox CLI Env):
+```bash
+kompoxops init -C /project  # One-time setup
+cd /project/app1
+kompoxops app deploy
+# Or: kompoxops -C /project/app1 app deploy
+```
 
 ## References
 
-- [K4x-ADR-009]
-- [K4x-ADR-011]
-- [K4x-ADR-012]
-- [Kompox-KOM.ja.md]
-- [Kompox-CLI.ja.md]
-- [_dev/tasks/2025-10-17-defaults.ja.md]
+- [K4x-ADR-009]: KOM Mode and Repository Architecture
+- [K4x-ADR-011]: Kompox Object Model (KOM) Validation
+- [K4x-ADR-012]: Defaults Pseudo-Resource and App.RefBase
+- [Kompox-CLI.ja.md]: Comprehensive CLI specification
+- [Kompox-KOM.ja.md]: KOM file format and resolution
+- [2025-11-03-kompox-cli-env.ja.md]: Implementation task tracking
 
 [K4x-ADR-009]: ./K4x-ADR-009.md
 [K4x-ADR-011]: ./K4x-ADR-011.md
 [K4x-ADR-012]: ./K4x-ADR-012.md
-[Kompox-KOM.ja.md]: ../v1/Kompox-KOM.ja.md
 [Kompox-CLI.ja.md]: ../v1/Kompox-CLI.ja.md
-[_dev/tasks/2025-10-17-defaults.ja.md]: ../../_dev/tasks/2025-10-17-defaults.ja.md
+[Kompox-KOM.ja.md]: ../v1/Kompox-KOM.ja.md
+[2025-11-03-kompox-cli-env.ja.md]: ../../_dev/tasks/2025-11-03-kompox-cli-env.ja.md

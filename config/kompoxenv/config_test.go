@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestSearchForKompoxDir(t *testing.T) {
@@ -287,5 +289,45 @@ komPath:
 	// Should have zero values
 	if cfg2.Version != 0 {
 		t.Errorf("Version = %d, want 0 when config missing", cfg2.Version)
+	}
+}
+
+func TestInitialConfigYAML(t *testing.T) {
+	data, err := InitialConfigYAML()
+	if err != nil {
+		t.Fatalf("InitialConfigYAML() error: %v", err)
+	}
+
+	// Check that it's valid YAML
+	if len(data) == 0 {
+		t.Fatal("InitialConfigYAML() returned empty data")
+	}
+
+	// Expected content (with proper ordering and 2-space indent)
+	expected := `version: 1
+store:
+  type: local
+komPath:
+  - kom
+`
+	got := string(data)
+	if got != expected {
+		t.Errorf("InitialConfigYAML() mismatch:\ngot:\n%s\nwant:\n%s", got, expected)
+	}
+
+	// Verify it can be unmarshaled back to configFile
+	var cfg configFile
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("unmarshaling generated YAML: %v", err)
+	}
+
+	if cfg.Version != 1 {
+		t.Errorf("Version = %d, want 1", cfg.Version)
+	}
+	if cfg.Store.Type != "local" {
+		t.Errorf("Store.Type = %q, want %q", cfg.Store.Type, "local")
+	}
+	if len(cfg.KOMPath) != 1 || cfg.KOMPath[0] != "kom" {
+		t.Errorf("KOMPath = %v, want [\"kom\"]", cfg.KOMPath)
 	}
 }

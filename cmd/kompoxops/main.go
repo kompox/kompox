@@ -49,7 +49,7 @@ func newRootCmd() *cobra.Command {
 	cmd.PersistentFlags().String("db-url", defaultDB, "Database URL (env KOMPOX_DB_URL) (file:/path/to/kompoxops.yml | sqlite:/path/to.db | postgres:// | mysql://)")
 
 	// Add directory flags
-	cmd.PersistentFlags().StringP("directory", "C", "", "Change to directory before processing (equivalent to -C in git)")
+	cmd.PersistentFlags().StringP("chdir", "C", "", "Change to directory before processing")
 	cmd.PersistentFlags().String("kompox-dir", "", "Project directory (env KOMPOX_DIR)")
 	cmd.PersistentFlags().String("kompox-cfg-dir", "", "Configuration directory (env KOMPOX_CFG_DIR)")
 
@@ -61,14 +61,15 @@ func newRootCmd() *cobra.Command {
 	cmd.PersistentFlags().String("log-level", "info", "Log level (debug|info|warn|error) (env KOMPOX_LOG_LEVEL)")
 
 	cmd.PersistentPreRunE = func(c *cobra.Command, _ []string) error {
-		// Handle -C flag (change directory)
-		if dir, _ := c.Flags().GetString("directory"); dir != "" {
-			if err := os.Chdir(dir); err != nil {
-				return fmt.Errorf("changing directory to %q: %w", dir, err)
-			}
+		// Skip init command as it doesn't require kompoxenv
+		if c.Name() == "init" {
+			return nil
 		}
-
-		// Resolve KOMPOX_DIR and KOMPOX_CFG_DIR
+		if dir, _ := c.Flags().GetString("chdir"); dir != "" {
+			if err := os.Chdir(dir); err != nil {
+				return fmt.Errorf("failed to change directory: %w", err)
+			}
+		} // Resolve KOMPOX_DIR and KOMPOX_CFG_DIR
 		kompoxDirFlag, _ := c.Flags().GetString("kompox-dir")
 		kompoxCfgDirFlag, _ := c.Flags().GetString("kompox-cfg-dir")
 
@@ -150,6 +151,7 @@ func newRootCmd() *cobra.Command {
 	cmd.AddCommand(newCmdSnapshot())
 	cmd.AddCommand(newCmdDNS())
 	cmd.AddCommand(newCmdAdmin())
+	cmd.AddCommand(newCmdInit())
 	return cmd
 }
 
