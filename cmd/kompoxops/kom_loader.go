@@ -19,6 +19,15 @@ const (
 	maxKOMDepth     = 10
 )
 
+// KOM path source descriptions (for error messages and diagnostics)
+const (
+	komSourceFlagKOMPath  = "--kom-path flag"
+	komSourceEnvKOMPath   = "KOMPOX_KOM_PATH environment variable"
+	komSourceDefaultsSpec = "Defaults.spec.komPath in kompoxapp.yml"
+	komSourceConfigYML    = ".kompox/config.yml"
+	komSourceDefault      = "default path"
+)
+
 // Paths to ignore during recursive directory scanning
 var ignoredPathComponents = []string{
 	".git", ".github", "node_modules", "vendor", ".direnv", ".venv", "dist", "build",
@@ -41,14 +50,15 @@ func isPathIgnored(path string) bool {
 // - Local paths only (no URLs)
 // - Resolves to absolute path with symlinks evaluated
 // - Must have .yml or .yaml extension (if file)
-// - If requireBoundary is true, must be within KOMPOX_DIR or KOMPOX_CFG_DIR
-func validateAndResolveKOMPath(inputPath string, cfg *kompoxenv.Env, baseDir string, requireBoundary bool) (string, error) {
+// - If requireBoundary is true, must be within KOMPOX_ROOT or KOMPOX_DIR
+// - If allowMissing is true and path doesn't exist, returns empty string (skip)
+func validateAndResolveKOMPath(inputPath string, cfg *kompoxenv.Env, baseDir string, requireBoundary bool, allowMissing bool) (string, error) {
 	// Reject URLs
 	if strings.Contains(inputPath, "://") {
 		return "", fmt.Errorf("URL not supported: %q", inputPath)
 	}
 
-	// Expand $KOMPOX_DIR and $KOMPOX_CFG_DIR
+	// Expand $KOMPOX_ROOT and $KOMPOX_DIR
 	expandedPath := inputPath
 	if cfg != nil {
 		expandedPath = cfg.ExpandVars(inputPath)
@@ -63,19 +73,25 @@ func validateAndResolveKOMPath(inputPath string, cfg *kompoxenv.Env, baseDir str
 	// Clean the path
 	resolvedPath = filepath.Clean(resolvedPath)
 
+	// Check if path exists before trying EvalSymlinks
+	if _, err := os.Stat(resolvedPath); os.IsNotExist(err) {
+		if allowMissing {
+			// Skip missing default path silently
+			return "", nil
+		}
+		return "", fmt.Errorf("path does not exist: %q", inputPath)
+	}
+
 	// Evaluate symlinks to get real path
 	realPath, err := filepath.EvalSymlinks(resolvedPath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return "", fmt.Errorf("path does not exist: %q", inputPath)
-		}
 		return "", fmt.Errorf("resolving path %q: %w", inputPath, err)
 	}
 
 	// Boundary check if required (for Defaults.spec.komPath only)
 	if requireBoundary && cfg != nil {
 		if !cfg.IsWithinBoundary(realPath) {
-			return "", fmt.Errorf("path %q (resolved to %q) is outside KOMPOX_DIR/KOMPOX_CFG_DIR boundary", inputPath, realPath)
+			return "", fmt.Errorf("path %q (resolved to %q) is outside KOMPOX_ROOT/KOMPOX_DIR boundary", inputPath, realPath)
 		}
 	}
 
@@ -191,23 +207,23 @@ type komModeContext struct {
 var komMode komModeContext
 
 // getKOMPathsWithPriority determines KOM input paths using 5-level priority system.
-// Returns paths and a flag indicating the source level (for boundary check logic).
+// Returns paths and a flag indicating the source (for boundary check logic and error messages).
 //
 // Priority (first valid source wins):
 //  1. --kom-path flag
 //  2. KOMPOX_KOM_PATH environment variable
 //  3. Defaults.spec.komPath (requires boundary check)
 //  4. Config.KOMPath (.kompox/config.yml)
-//  5. Default: $KOMPOX_CFG_DIR/kom
+//  5. Default: $KOMPOX_DIR/kom
 //
-// Returns: (paths, requireBoundary, sourceLevel)
+// Returns: (paths, requireBoundary, sourceDescription)
 // - requireBoundary is true only for level 3 (Defaults.spec.komPath)
-// - sourceLevel: 1-5 indicating which level was used
-func getKOMPathsWithPriority(cmd *cobra.Command, cfg *kompoxenv.Env, defaults *komv1.Defaults) ([]string, bool, int) {
+// - sourceDescription: human-readable description of the source
+func getKOMPathsWithPriority(cmd *cobra.Command, cfg *kompoxenv.Env, defaults *komv1.Defaults) ([]string, bool, string) {
 	// Level 1: --kom-path flag
 	flagPaths, err := cmd.Flags().GetStringArray("kom-path")
 	if err == nil && len(flagPaths) > 0 {
-		return flagPaths, false, 1
+		return flagPaths, false, komSourceFlagKOMPath
 	}
 
 	// Level 2: KOMPOX_KOM_PATH environment variable
@@ -220,27 +236,27 @@ func getKOMPathsWithPriority(cmd *cobra.Command, cfg *kompoxenv.Env, defaults *k
 			}
 		}
 		if len(paths) > 0 {
-			return paths, false, 2
+			return paths, false, komSourceEnvKOMPath
 		}
 	}
 
 	// Level 3: Defaults.spec.komPath (requires boundary check)
 	if defaults != nil && len(defaults.Spec.KOMPath) > 0 {
-		return defaults.Spec.KOMPath, true, 3
+		return defaults.Spec.KOMPath, true, komSourceDefaultsSpec
 	}
 
 	// Level 4: Config.KOMPath (.kompox/config.yml)
 	if cfg != nil && len(cfg.KOMPath) > 0 {
-		return cfg.KOMPath, false, 4
+		return cfg.KOMPath, false, komSourceConfigYML
 	}
 
-	// Level 5: Default $KOMPOX_CFG_DIR/kom
+	// Level 5: Default $KOMPOX_DIR/kom
 	if cfg != nil {
-		defaultPath := cfg.ExpandVars("$KOMPOX_CFG_DIR/kom")
-		return []string{defaultPath}, false, 5
+		defaultPath := cfg.ExpandVars("$KOMPOX_DIR/kom")
+		return []string{defaultPath}, false, komSourceDefault
 	}
 
-	return nil, false, 0
+	return nil, false, ""
 }
 
 // getKOMAppPath extracts the KOM app path from flags and environment variables.
@@ -328,21 +344,37 @@ func initializeKOMMode(cmd *cobra.Command) error {
 	}
 
 	// Determine KOM paths using 5-level priority
-	komPaths, requireBoundary, sourceLevel := getKOMPathsWithPriority(cmd, cfg, defaults)
+	komPaths, requireBoundary, sourceDesc := getKOMPathsWithPriority(cmd, cfg, defaults)
 
 	// If no paths determined and no documents in kompoxapp.yml, KOM mode is not applicable
 	if len(komPaths) == 0 && len(komAppDocs) == 0 {
 		return nil
 	}
 
+	// Determine the base directory for relative path resolution based on source
+	baseDir := komAppDir
+	switch sourceDesc {
+	case komSourceConfigYML:
+		// Level 4: Config.KOMPath (.kompox/config.yml) - resolve relative to .kompox directory
+		baseDir = cfg.KompoxDir
+	case komSourceDefault:
+		// Level 5: Default path is already absolute after expansion
+		baseDir = cfg.KompoxDir
+	}
+
 	// Validate and resolve all KOM paths
 	var validatedKOMPaths []string
 	for _, p := range komPaths {
-		validated, err := validateAndResolveKOMPath(p, cfg, komAppDir, requireBoundary)
+		// Allow missing path only for default path (Level 5)
+		allowMissing := (sourceDesc == komSourceDefault)
+		validated, err := validateAndResolveKOMPath(p, cfg, baseDir, requireBoundary, allowMissing)
 		if err != nil {
-			return fmt.Errorf("KOM path validation failed (source level %d): %w", sourceLevel, err)
+			return fmt.Errorf("KOM path validation failed (source: %s): %w", sourceDesc, err)
 		}
-		validatedKOMPaths = append(validatedKOMPaths, validated)
+		// Skip if path was allowed to be missing and doesn't exist
+		if validated != "" {
+			validatedKOMPaths = append(validatedKOMPaths, validated)
+		}
 	}
 
 	// Expand directories to file lists and deduplicate

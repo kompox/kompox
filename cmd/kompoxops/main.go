@@ -50,8 +50,8 @@ func newRootCmd() *cobra.Command {
 
 	// Add directory flags
 	cmd.PersistentFlags().StringP("chdir", "C", "", "Change to directory before processing")
-	cmd.PersistentFlags().String("kompox-dir", "", "Project directory (env KOMPOX_DIR)")
-	cmd.PersistentFlags().String("kompox-cfg-dir", "", "Configuration directory (env KOMPOX_CFG_DIR)")
+	cmd.PersistentFlags().String("kompox-root", "", "Project directory (env KOMPOX_ROOT)")
+	cmd.PersistentFlags().String("kompox-dir", "", "Kompox directory (env KOMPOX_DIR)")
 
 	// Add KOM flags
 	cmd.PersistentFlags().StringArray("kom-path", nil, "KOM YAML paths (files or directories, can be repeated) (env KOMPOX_KOM_PATH, comma-separated)")
@@ -69,19 +69,19 @@ func newRootCmd() *cobra.Command {
 			if err := os.Chdir(dir); err != nil {
 				return fmt.Errorf("failed to change directory: %w", err)
 			}
-		} // Resolve KOMPOX_DIR and KOMPOX_CFG_DIR
+		} // Resolve KOMPOX_ROOT and KOMPOX_DIR
+		kompoxRootFlag, _ := c.Flags().GetString("kompox-root")
 		kompoxDirFlag, _ := c.Flags().GetString("kompox-dir")
-		kompoxCfgDirFlag, _ := c.Flags().GetString("kompox-cfg-dir")
 
 		// Priority: flag > env > discovery/default
+		kompoxRootVal := kompoxRootFlag
+		if kompoxRootVal == "" {
+			kompoxRootVal = os.Getenv(kompoxenv.KompoxRootEnvKey)
+		}
+
 		kompoxDirVal := kompoxDirFlag
 		if kompoxDirVal == "" {
 			kompoxDirVal = os.Getenv(kompoxenv.KompoxDirEnvKey)
-		}
-
-		kompoxCfgDirVal := kompoxCfgDirFlag
-		if kompoxCfgDirVal == "" {
-			kompoxCfgDirVal = os.Getenv(kompoxenv.KompoxCfgDirEnvKey)
 		}
 
 		// Get current working directory for discovery
@@ -91,17 +91,17 @@ func newRootCmd() *cobra.Command {
 		}
 
 		// Resolve directories and load config
-		cfg, err := kompoxenv.Resolve(kompoxDirVal, kompoxCfgDirVal, workDir)
+		cfg, err := kompoxenv.Resolve(kompoxRootVal, kompoxDirVal, workDir)
 		if err != nil {
-			return fmt.Errorf("resolving KOMPOX_DIR/KOMPOX_CFG_DIR: %w", err)
+			return fmt.Errorf("resolving KOMPOX_ROOT/KOMPOX_DIR: %w", err)
 		}
 
 		// Export to environment
+		if err := os.Setenv(kompoxenv.KompoxRootEnvKey, cfg.KompoxRoot); err != nil {
+			return fmt.Errorf("setting KOMPOX_ROOT environment variable: %w", err)
+		}
 		if err := os.Setenv(kompoxenv.KompoxDirEnvKey, cfg.KompoxDir); err != nil {
 			return fmt.Errorf("setting KOMPOX_DIR environment variable: %w", err)
-		}
-		if err := os.Setenv(kompoxenv.KompoxCfgDirEnvKey, cfg.KompoxCfgDir); err != nil {
-			return fmt.Errorf("setting KOMPOX_CFG_DIR environment variable: %w", err)
 		}
 
 		// Store Config in context for use by commands

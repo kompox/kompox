@@ -61,9 +61,9 @@ func runInit(cmd *cobra.Command, args []string, forceFlag bool) error {
 	}
 
 	// Define paths
-	kompoxCfgDir := filepath.Join(workDir, kompoxenv.KompoxCfgDirName)
-	configPath := filepath.Join(kompoxCfgDir, kompoxenv.ConfigFileName)
-	komDir := filepath.Join(kompoxCfgDir, "kom")
+	kompoxDir := filepath.Join(workDir, kompoxenv.KompoxDirName)
+	configPath := filepath.Join(kompoxDir, kompoxenv.ConfigFileName)
+	komDir := filepath.Join(kompoxDir, "kom")
 
 	// Check if config.yml already exists
 	if !forceFlag {
@@ -73,8 +73,8 @@ func runInit(cmd *cobra.Command, args []string, forceFlag bool) error {
 	}
 
 	// Create .kompox/ directory
-	if err := os.MkdirAll(kompoxCfgDir, 0755); err != nil {
-		return fmt.Errorf("creating %s directory: %w", kompoxCfgDir, err)
+	if err := os.MkdirAll(kompoxDir, 0755); err != nil {
+		return fmt.Errorf("creating %s directory: %w", kompoxDir, err)
 	}
 
 	// Create .kompox/kom/ directory
@@ -92,7 +92,7 @@ func runInit(cmd *cobra.Command, args []string, forceFlag bool) error {
 		return fmt.Errorf("writing %s: %w", configPath, err)
 	}
 
-	fmt.Printf("Initialized Kompox CLI Env in %s\n", kompoxCfgDir)
+	fmt.Printf("Initialized Kompox CLI Env in %s\n", kompoxDir)
 	fmt.Printf("Created:\n")
 	fmt.Printf("  - %s\n", configPath)
 	fmt.Printf("  - %s/\n", komDir)

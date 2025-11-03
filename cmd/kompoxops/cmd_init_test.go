@@ -98,7 +98,7 @@ func TestInitCommand(t *testing.T) {
 			}
 
 			// Verify .kompox/ directory exists
-			kompoxCfgDir := filepath.Join(tmpDir, kompoxenv.KompoxCfgDirName)
+			kompoxCfgDir := filepath.Join(tmpDir, kompoxenv.KompoxDirName)
 			if _, err := os.Stat(kompoxCfgDir); os.IsNotExist(err) {
 				t.Errorf(".kompox/ directory not created")
 			}
@@ -179,7 +179,7 @@ func TestInitCommand_WithCFlag(t *testing.T) {
 	}
 
 	// Verify .kompox/ directory exists in target
-	kompoxCfgDir := filepath.Join(targetDir, kompoxenv.KompoxCfgDirName)
+	kompoxCfgDir := filepath.Join(targetDir, kompoxenv.KompoxDirName)
 	if _, err := os.Stat(kompoxCfgDir); os.IsNotExist(err) {
 		t.Errorf(".kompox/ directory not created in target: %s", kompoxCfgDir)
 	}

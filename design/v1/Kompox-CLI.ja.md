@@ -39,8 +39,8 @@ kompoxops admin             管理ツール
 ### 共通オプション
 
 - `-C, --chdir <DIR>` 実行前に作業ディレクトリを `DIR` に一時切替 (git の `-C` と同様)。
-- `--kompox-dir <DIR>` プロジェクトディレクトリ (Kompox ルート)。環境変数 `KOMPOX_DIR` でも指定可能。
-- `--kompox-cfg-dir <DIR>` 設定ディレクトリ (既定: `$KOMPOX_DIR/.kompox`)。環境変数 `KOMPOX_CFG_DIR` でも指定可能。
+- `--kompox-root <DIR>` プロジェクトディレクトリ (Kompox ルート)。環境変数 `KOMPOX_ROOT` でも指定可能。
+- `--kompox-dir <DIR>` Kompox ディレクトリ (既定: `$KOMPOX_ROOT/.kompox`)。環境変数 `KOMPOX_DIR` でも指定可能。
 - `--kom-path <PATH>` KOM 格納場所 (ファイルまたはディレクトリ)。複数回指定可能。環境変数 `KOMPOX_KOM_PATH` (OS 依存のパス区切りで複数指定可) でも指定可能。指定したパスが存在しない場合はエラー。
 - `--kom-app <PATH>` Kompox アプリファイル。既定は `./kompoxapp.yml`。環境変数 `KOMPOX_KOM_APP` でも指定可能。
 - `--db-url <URL>` 永続化DBの接続URL。環境変数 `KOMPOX_DB_URL` で指定可能。KOM モードが有効な場合は無視される。
@@ -50,8 +50,8 @@ kompoxops admin             管理ツール
 標準的な Kompox プロジェクトのディレクトリ構造:
 
 ```
-/                          プロジェクトディレクトリ ($KOMPOX_DIR)
-├── .kompox/               設定ディレクトリ ($KOMPOX_CFG_DIR)
+/                          プロジェクトディレクトリ ($KOMPOX_ROOT)
+├── .kompox/               Kompox ディレクトリ ($KOMPOX_DIR)
 │   ├── config.yml         Kompox 設定ファイル
 │   └── kom/               KOM 格納ディレクトリ (komPath)
 │       ├── workspace.yml
@@ -67,16 +67,16 @@ kompoxops admin             管理ツール
 
 決定順序と導出:
 
-- プロジェクトディレクトリ (`$KOMPOX_DIR`)
-  - 優先度: `--kompox-dir` > 環境変数 `KOMPOX_DIR` > (`-C` 適用後の) 作業ディレクトリから「.kompox を含む親」を上方探索
+- プロジェクトディレクトリ (`$KOMPOX_ROOT`)
+  - 優先度: `--kompox-root` > 環境変数 `KOMPOX_ROOT` > (`-C` 適用後の) 作業ディレクトリから「.kompox を含む親」を上方探索
   - 見つからない場合はエラー
-- 設定ディレクトリ (`$KOMPOX_CFG_DIR`)
-  - 優先度: `--kompox-cfg-dir` > 環境変数 `KOMPOX_CFG_DIR` > 既定の `$KOMPOX_DIR/.kompox`
+- Kompox ディレクトリ (`$KOMPOX_DIR`)
+  - 優先度: `--kompox-dir` > 環境変数 `KOMPOX_DIR` > 既定の `$KOMPOX_ROOT/.kompox`
   - ディレクトリでない/存在しない場合はエラー
-- CLI は確定した `KOMPOX_DIR` と `KOMPOX_CFG_DIR` を環境変数としてエクスポートする
+- CLI は確定した `KOMPOX_ROOT` と `KOMPOX_DIR` を環境変数としてエクスポートする
 
 文字列展開:
-- `$KOMPOX_DIR` と `$KOMPOX_CFG_DIR` はフラグ、環境変数、`.kompox/config.yml`、Defaults のいずれでも展開される
+- `$KOMPOX_ROOT` と `$KOMPOX_DIR` はフラグ、環境変数、`.kompox/config.yml`、Defaults のいずれでも展開される
 
 `.kompox/config.yml` の最小スキーマ例:
 
@@ -95,7 +95,7 @@ version: 1
 store:
   type: local
 komPath:
-  - $KOMPOX_DIR/kom
+  - $KOMPOX_ROOT/kom
 ```
 
 ### CLI 設定モード
@@ -146,7 +146,7 @@ Kompox アプリファイルには Defaults リソースを 1 件だけ含めら
 2. 環境変数 `KOMPOX_KOM_PATH` (OS 依存のパス区切り)
 3. Kompox アプリファイル内 Defaults の `spec.komPath`
 4. `.kompox/config.yml` の `komPath`
-5. 既定の KOM ディレクトリ `$KOMPOX_CFG_DIR/kom`
+5. 既定の KOM ディレクトリ `$KOMPOX_DIR/kom` (存在しない場合は無視)
 
 ルール:
 - URL は不可。ローカルファイル/ディレクトリのみを許可する (globbing/wildcard も不可)
@@ -157,10 +157,18 @@ Kompox アプリファイルには Defaults リソースを 1 件だけ含めら
 - すべてのドキュメントを収集後に整合検証を行う (オール・オア・ナッシング)
 - 検証に失敗した場合、すべてのドキュメントを破棄する
 - `--kom-path` で指定したパスが存在しない場合はエラー
+- 環境変数 `KOMPOX_KOM_PATH` で指定したパスが存在しない場合はエラー
+- Defaults の `spec.komPath` で指定したパスが存在しない場合はエラー
+- `.kompox/config.yml` の `komPath` で指定したパスが存在しない場合はエラー
+- 既定の `$KOMPOX_DIR/kom` が存在しない場合は単に無視される (エラーにならない)
 - `--kom-app` で指定したパスが存在しない場合は無視する (エラーにならない)
-- 文字列中の `$KOMPOX_DIR` と `$KOMPOX_CFG_DIR` はフラグ/環境変数/`.kompox/config.yml`/Defaults のいずれでも展開される
-- 相対パスは、Kompox アプリファイルが存在する場合はそのファイルのディレクトリ、存在しない場合は作業ディレクトリを基準に解決し、正規化とシンボリックリンク解決を行う
-- Defaults リソースの `spec.komPath` は、解決済み実パスが `$KOMPOX_DIR` または `$KOMPOX_CFG_DIR` の配下であること
+- 文字列中の `$KOMPOX_ROOT` と `$KOMPOX_DIR` はフラグ/環境変数/`.kompox/config.yml`/Defaults のいずれでも展開される
+- 相対パスの解決基準:
+  - Level 1-3 (`--kom-path`, `KOMPOX_KOM_PATH`, Defaults の `spec.komPath`): Kompox アプリファイルが存在する場合はそのファイルのディレクトリ、存在しない場合は作業ディレクトリ
+  - Level 4 (`.kompox/config.yml` の `komPath`): `$KOMPOX_DIR` (`.kompox` ディレクトリ)
+  - Level 5 (既定の `$KOMPOX_DIR/kom`): 変数展開により絶対パス
+- すべてのパスは正規化とシンボリックリンク解決を行う
+- Defaults リソースの `spec.komPath` は、解決済み実パスが `$KOMPOX_ROOT` または `$KOMPOX_DIR` の配下であること
 - `--kom-path` / `KOMPOX_KOM_PATH` / `.kompox/config.yml` の `komPath` には上記の境界チェックを適用しない
 - ローカルファイルシステム参照のポリシー違反(後述)は読み込み時ではなく CLI の変換/実行フェーズで検証される。
 - 安全対策として、読み込むファイル数や総サイズには実装上の上限を設ける (大規模入力の暴走防止)

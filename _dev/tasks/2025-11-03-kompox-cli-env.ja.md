@@ -10,17 +10,17 @@ owner: yaegashi
 
 ## 目的
 
-- [K4x-ADR-015] に基づき、プロジェクトディレクトリ `KOMPOX_DIR` と設定ディレクトリ `KOMPOX_CFG_DIR` の導入、および Git ライクなディスカバリと KOM 入力の単一ソース優先順位を実装する。
+- [K4x-ADR-015] に基づき、プロジェクトディレクトリ `KOMPOX_ROOT` と Kompox ディレクトリ `KOMPOX_DIR` の導入、および Git ライクなディスカバリと KOM 入力の単一ソース優先順位を実装する。
 - 仕様の一次参照は [Kompox-CLI.ja.md]、KOM の補助仕様は [Kompox-KOM.ja.md] を参照。
 
 ## スコープ / 非スコープ
 
 - In:
-  - CLI 起動時の `-C` 適用、`--kompox-dir`/`KOMPOX_DIR`、`--kompox-cfg-dir`/`KOMPOX_CFG_DIR` の評価と上方探索実装
-  - `KOMPOX_DIR` と `KOMPOX_CFG_DIR` の確定とプロセス環境へのエクスポート
+  - CLI 起動時の `-C` 適用、`--kompox-root`/`KOMPOX_ROOT`、`--kompox-dir`/`KOMPOX_DIR` の評価と上方探索実装
+  - `KOMPOX_ROOT` と `KOMPOX_DIR` の確定とプロセス環境へのエクスポート
   - KOM 入力の優先順位と単一ソース採用の実装
-  - `Defaults.spec.komPath` の境界チェック実装 (解決後が `$KOMPOX_DIR` または `$KOMPOX_CFG_DIR` 配下)
-  - 文字列展開 `$KOMPOX_DIR` と `$KOMPOX_CFG_DIR` の統一的処理 (フラグ/環境変数/config/Defaults)
+  - `Defaults.spec.komPath` の境界チェック実装 (解決後が `$KOMPOX_ROOT` または `$KOMPOX_DIR` 配下)
+  - 文字列展開 `$KOMPOX_ROOT` と `$KOMPOX_DIR` の統一的処理 (フラグ/環境変数/config/Defaults)
   - ディレクトリスキャンの拡張子フィルタ `.yml`/`.yaml`、除外ディレクトリ、シンボリックリンク解決
   - 仕様に依存しない実装上の安全対策の適用 (大規模入力暴走防止、具体値はコード側のみ)
   - ユニット/統合テストの追加・更新
@@ -32,17 +32,17 @@ owner: yaegashi
 
 - ディレクトリ解決
   - `-C` は作業ディレクトリの一時切替のみ。
-  - `KOMPOX_DIR`: `--kompox-dir` > `KOMPOX_DIR` > 作業ディレクトリから `.kompox/` を含む親を上方探索。
-  - `KOMPOX_CFG_DIR`: `--kompox-cfg-dir` > `KOMPOX_CFG_DIR` > `$KOMPOX_DIR/.kompox`。
-  - 確定した `KOMPOX_DIR`/`KOMPOX_CFG_DIR` を環境変数にエクスポート。
+  - `KOMPOX_ROOT`: `--kompox-root` > `KOMPOX_ROOT` > 作業ディレクトリから `.kompox/` を含む親を上方探索。
+  - `KOMPOX_DIR`: `--kompox-dir` > `KOMPOX_DIR` > `$KOMPOX_ROOT/.kompox`。
+  - 確定した `KOMPOX_ROOT`/`KOMPOX_DIR` を環境変数にエクスポート。
 - KOM 入力は次の優先順位で最初に有効な場所からのみ入力する:
   1. `--kom-path` (複数指定可、ファイルまたはディレクトリ)
   2. 環境変数 `KOMPOX_KOM_PATH` (OS 依存のパス区切り)
   3. Kompox アプリファイル内 Defaults の `spec.komPath`
   4. `.kompox/config.yml` の `komPath`
-  5. 既定の KOM ディレクトリ `$KOMPOX_CFG_DIR/kom`
+  5. 既定の KOM ディレクトリ `$KOMPOX_DIR/kom`
 - 境界とポリシー
-  - `Defaults.spec.komPath` のみ、解決済み実パスが `$KOMPOX_DIR` または `$KOMPOX_CFG_DIR` 配下である必要がある。
+  - `Defaults.spec.komPath` のみ、解決済み実パスが `$KOMPOX_ROOT` または `$KOMPOX_DIR` 配下である必要がある。
   - `--kom-path`/`KOMPOX_KOM_PATH`/`.kompox/config.yml` の `komPath` には上記境界チェックを適用しない。
   - URL は不可。ローカルのみ。ファイル拡張子は `.yml`/`.yaml`。
   - ディレクトリスキャン時は `.git/`, `.github/`, `node_modules/`, `vendor/`, `.direnv/`, `.venv/`, `dist/`, `build/` を除外。
@@ -58,19 +58,19 @@ owner: yaegashi
 モジュール境界を明確にし、既存の CLI フラグ解決パターンに合わせた設計:
 
 1. **`config/kompoxenv` パッケージ** (新規作成)
-   - `Env` 型: KOMPOX_DIR, KOMPOX_CFG_DIR, および `.kompox/config.yml` の内容を保持する環境データホルダー
-   - `Resolve(kompoxDir, kompoxCfgDir, workDir string) (*Env, error)` 関数: ディレクトリ発見と設定読み込み
-   - `Env.ExpandVars(path string) string` メソッド: `$KOMPOX_DIR`/`$KOMPOX_CFG_DIR` の文字列置換
+   - `Env` 型: KOMPOX_ROOT, KOMPOX_DIR, および `.kompox/config.yml` の内容を保持する環境データホルダー
+   - `Resolve(kompoxRoot, kompoxDir, workDir string) (*Env, error)` 関数: ディレクトリ発見と設定読み込み
+   - `Env.ExpandVars(path string) string` メソッド: `$KOMPOX_ROOT`/`$KOMPOX_DIR` の文字列置換
    - `Env.IsWithinBoundary(path string) bool` メソッド: パスが境界内かチェック
-   - 定数: `KompoxDirEnvKey`, `KompoxCfgDirEnvKey`, `KompoxCfgDirName`, `ConfigFileName`
+   - 定数: `KompoxRootEnvKey`, `KompoxDirEnvKey`, `KompoxDirName`, `ConfigFileName`
    - 将来の拡張: `Env.LogDir()`, `Env.CacheDir()` などのパス管理メソッド
 
 2. **`cmd/kompoxops/main.go` でのフラグ/環境変数解決**
    - `-C` フラグ: 作業ディレクトリ変更 (`os.Chdir()`)
+   - `--kompox-root` フラグ: 優先度 フラグ > `KOMPOX_ROOT` 環境変数 > nil
    - `--kompox-dir` フラグ: 優先度 フラグ > `KOMPOX_DIR` 環境変数 > nil
-   - `--kompox-cfg-dir` フラグ: 優先度 フラグ > `KOMPOX_CFG_DIR` 環境変数 > nil
    - `PersistentPreRunE` で `kompoxenv.Resolve()` を呼び出し
-   - 確定した `KOMPOX_DIR`/`KOMPOX_CFG_DIR` を環境変数にエクスポート (`os.Setenv()`)
+   - 確定した `KOMPOX_ROOT`/`KOMPOX_DIR` を環境変数にエクスポート (`os.Setenv()`)
    - `Env` をコンテキストに保存し、後続処理で使用
 
 3. **`cmd/kompoxops/kom_loader.go` での KOM 入力優先順位実装**
@@ -81,7 +81,7 @@ owner: yaegashi
      2. `KOMPOX_KOM_PATH` 環境変数 (OS依存区切り文字でパース)
      3. `Defaults.spec.komPath` (`Env.IsWithinBoundary()` で境界チェック必須)
      4. `Env.KOMPath` (`.kompox/config.yml` の `komPath`)
-     5. デフォルト: `$KOMPOX_CFG_DIR/kom` (`Env.ExpandVars()` で展開)
+     5. デフォルト: `$KOMPOX_DIR/kom` (`Env.ExpandVars()` で展開)
    - すべてのパスに `Env.ExpandVars()` を適用
    - ディレクトリスキャン時は既存の除外パターン/拡張子フィルタを適用
 
@@ -103,14 +103,14 @@ CLI起動
   ↓
 main.go: -C フラグ処理 (os.Chdir)
   ↓
-main.go: --kompox-dir/--kompox-cfg-dir フラグ解決
+main.go: --kompox-root/--kompox-dir フラグ解決
   ↓
-kompoxenv.Resolve(kompoxDir, kompoxCfgDir, workDir)
-  ├─ kompoxDir が nil → 作業ディレクトリから .kompox/ を上方探索
-  ├─ kompoxCfgDir が nil → $KOMPOX_DIR/.kompox を使用
+kompoxenv.Resolve(kompoxRoot, kompoxDir, workDir)
+  ├─ kompoxRoot が nil → 作業ディレクトリから .kompox/ を上方探索
+  ├─ kompoxDir が nil → $KOMPOX_ROOT/.kompox を使用
   └─ .kompox/config.yml を読み込み
   ↓
-main.go: KOMPOX_DIR/KOMPOX_CFG_DIR を環境変数にエクスポート
+main.go: KOMPOX_ROOT/KOMPOX_DIR を環境変数にエクスポート
   ↓
 main.go: Env をコンテキストに保存
   ↓
@@ -119,7 +119,7 @@ kom_loader.go: 5段階優先順位で KOM 入力ソースを決定
   ├─ 2. KOMPOX_KOM_PATH 環境変数
   ├─ 3. Defaults.spec.komPath (境界チェック)
   ├─ 4. Env.KOMPath
-  └─ 5. デフォルト $KOMPOX_CFG_DIR/kom
+  └─ 5. デフォルト $KOMPOX_DIR/kom
   ↓
 kom_loader.go: 選択されたソースから KOM を読み込み
 ```
@@ -134,20 +134,20 @@ package kompoxenv
 // It holds directory paths, configuration from .kompox/config.yml,
 // and provides path expansion and boundary checking utilities.
 type Env struct {
-    KompoxDir    string // 確定した KOMPOX_DIR
-    KompoxCfgDir string // 確定した KOMPOX_CFG_DIR
-    Version      string // .kompox/config.yml の version
-    Store        string // .kompox/config.yml の store
-    KOMPath      string // .kompox/config.yml の komPath
+    KompoxRoot string // 確定した KOMPOX_ROOT (プロジェクトディレクトリ)
+    KompoxDir  string // 確定した KOMPOX_DIR (Kompox ディレクトリ)
+    Version    string // .kompox/config.yml の version
+    Store      string // .kompox/config.yml の store
+    KOMPath    string // .kompox/config.yml の komPath
 }
 
 // Resolve discovers and resolves the Kompox environment.
-func Resolve(kompoxDir, kompoxCfgDir, workDir string) (*Env, error)
+func Resolve(kompoxRoot, kompoxDir, workDir string) (*Env, error)
 
-// ExpandVars replaces $KOMPOX_DIR and $KOMPOX_CFG_DIR in the given path.
+// ExpandVars replaces $KOMPOX_ROOT and $KOMPOX_DIR in the given path.
 func (e *Env) ExpandVars(path string) string
 
-// IsWithinBoundary checks if the resolved path is within KOMPOX_DIR or KOMPOX_CFG_DIR.
+// IsWithinBoundary checks if the resolved path is within KOMPOX_ROOT or KOMPOX_DIR.
 func (e *Env) IsWithinBoundary(path string) bool
 
 // Future extensions:
@@ -164,7 +164,7 @@ func (e *Env) IsWithinBoundary(path string) bool
   - [x] テストを新 API に合わせて更新
   - [x] すべてのユニットテストが passing
 - [x] `cmd/kompoxops/main.go` 更新
-  - [x] `-C`, `--kompox-dir`, `--kompox-cfg-dir` フラグ追加
+  - [x] `-C, --chdir`, `--kompox-root`, `--kompox-dir` フラグ追加
   - [x] `PersistentPreRunE` での解決ロジック実装
   - [x] 環境変数エクスポート (`os.Setenv`)
   - [x] コンテキストへの Env 保存 (`kompoxEnvKey`)
@@ -196,17 +196,17 @@ func (e *Env) IsWithinBoundary(path string) bool
   - [x] `make build` 成功
 - [ ] E2E テスト
   - [ ] 既存 E2E テストへの `.kompox/` ディレクトリ構造の組み込み
-  - [ ] `KOMPOX_DIR`/`KOMPOX_CFG_DIR` 環境変数のテスト
+  - [ ] `KOMPOX_ROOT`/`KOMPOX_DIR` 環境変数のテスト
   - [ ] KOM 入力の5段階優先順位の E2E 検証
   - [ ] 境界チェックの E2E 検証 (Defaults.spec.komPath)
   - [ ] 実際のプロバイダ (AKS/k3s) での動作確認
 
 ## 受け入れ条件
 
-- ✅ `--kompox-dir`/`--kompox-cfg-dir` を明示した場合にその値が使用され、未指定時は規定の上方探索/既定により決定されること。
-- ✅ 確定した `KOMPOX_DIR`/`KOMPOX_CFG_DIR` がプロセス環境に設定され、パス展開に使用されること。
+- ✅ `--kompox-root`/`--kompox-dir` を明示した場合にその値が使用され、未指定時は規定の上方探索/既定により決定されること。
+- ✅ 確定した `KOMPOX_ROOT`/`KOMPOX_DIR` がプロセス環境に設定され、パス展開に使用されること。
 - ✅ KOM 入力は優先順位の 5 項目のうち最初に有効な 1 ソースのみが採用され、他は無視されること (統合しない)。
-- ✅ `Defaults.spec.komPath` のパスは境界内 (`$KOMPOX_DIR` または `$KOMPOX_CFG_DIR`) のみ許容され、境界外はエラーとなること。
+- ✅ `Defaults.spec.komPath` のパスは境界内 (`$KOMPOX_ROOT` または `$KOMPOX_DIR`) のみ許容され、境界外はエラーとなること。
 - ✅ ディレクトリスキャンの拡張子/除外/シンボリックリンク解決が適用されること。
 - ✅ 実装上の安全対策により異常な大規模入力で暴走しないこと (具体値は仕様非依存)。
 - ⏳ 既存の回帰が無いこと (主要コマンドのスモークテストが成功) - E2E テストで検証予定
@@ -265,6 +265,37 @@ func (e *Env) IsWithinBoundary(path string) bool
   - CLI ヘルプ表示: `-C, --chdir string` として表示されることを確認
   - フラグ取得を `GetString("chdir")` に統一
   - すべてのテストが passing (make test 成功)
+- 2025-11-03: **命名規則の最終決定と実装完了**
+  - ドキュメント更新: K4x-ADR-015.md, Kompox-CLI.ja.md, Kompox-KOM.ja.md
+  - 命名規則変更: `KOMPOX_DIR`/`KOMPOX_CFG_DIR` → `KOMPOX_ROOT`/`KOMPOX_DIR`
+  - 変数名変更: `KompoxDir`/`KompoxCfgDir` → `KompoxRoot`/`KompoxDir`
+  - フラグ変更: `--kompox-dir`/`--kompox-cfg-dir` → `--kompox-root`/`--kompox-dir`
+  - 環境変数変更: `KOMPOX_DIR`/`KOMPOX_CFG_DIR` → `KOMPOX_ROOT`/`KOMPOX_DIR`
+  - 定数変更: `KompoxDirEnvKey`/`KompoxCfgDirEnvKey` → `KompoxRootEnvKey`/`KompoxDirEnvKey`
+  - 定数変更: `KompoxCfgDirName` → `KompoxDirName`
+  - 関数名変更: `searchForKompoxDir()` → `searchForKompoxRoot()`
+  - 影響範囲: 7ファイル (145行変更、145行削除)
+  - すべてのユニットテスト・統合テスト passing
+  - `make test` および `make build` 成功
+- 2025-11-03: **デフォルト KOM パスの無視とエラーメッセージ改善**
+  - Level 5 (既定の `$KOMPOX_DIR/kom`) が存在しない場合、自動作成せずに無視してスキップ
+  - エラーメッセージの改善: "source level 4" → "source: .kompox/config.yml" など人間が読める形式に
+  - KOM パスソース定数の追加 (`komSourceFlagKOMPath`, `komSourceEnvKOMPath`, etc.)
+  - `validateAndResolveKOMPath()` に `allowMissing` パラメータ追加
+  - デフォルトパスのみ `allowMissing=true` で空パスの場合はスキップ
+  - switch 文による条件分岐の整理
+  - すべてのユニットテスト・統合テスト passing
+  - `.kompox/kom` ディレクトリを Git にコミットする必要がなくなった
+- 2025-11-03: **設計ドキュメント更新**
+  - `design/v1/Kompox-CLI.ja.md` の KOM 読み込み仕様を更新
+  - Level 5 の既定パス `$KOMPOX_DIR/kom` が存在しない場合は無視される旨を明記
+  - 各 Level のパス存在チェック動作を明確化
+  - 相対パスの解決基準を Level ごとに明記
+  - `$KOMPOX_ROOT` と `$KOMPOX_DIR` の展開を統一
+  - タスクファイルの進捗を更新
+- 2025-11-03: **タスク完了**
+  - 実装、テスト、ドキュメント更新完了
+  - E2E テストへの組み込みは別タスクで対応予定
 
 ## 参考
 

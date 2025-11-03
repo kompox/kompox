@@ -23,31 +23,31 @@ Introduce **Kompox CLI Env**, a Git-inspired project environment system centered
 
 ### Core Concepts
 
-- **Project Directory (`KOMPOX_DIR`)**: The root of a Kompox project, analogous to a Git repository root. Discovered by searching upward for a parent directory containing `.kompox/`. Can be explicitly set via `--kompox-dir` flag or `KOMPOX_DIR` environment variable.
-- **Configuration Directory (`KOMPOX_CFG_DIR`)**: The directory containing Kompox CLI configuration. Defaults to `$KOMPOX_DIR/.kompox`. Can be overridden via `--kompox-cfg-dir` flag or `KOMPOX_CFG_DIR` environment variable. This directory will also serve as the standard location for logs, cache, and other CLI-managed data in future versions.
+- **Project Directory (`KOMPOX_ROOT`)**: The root of a Kompox project, analogous to a Git repository root. Discovered by searching upward for a parent directory containing `.kompox/`. Can be explicitly set via `--kompox-root` flag or `KOMPOX_ROOT` environment variable.
+- **Kompox Directory (`KOMPOX_DIR`)**: The directory containing Kompox CLI configuration. Defaults to `$KOMPOX_ROOT/.kompox`. Can be overridden via `--kompox-dir` flag or `KOMPOX_DIR` environment variable. This directory will also serve as the standard location for logs, cache, and other CLI-managed data in future versions.
 - **Repository Configuration (`.kompox/config.yml`)**: YAML file for project-level CLI settings (store backend, default KOM paths, etc.).
 
 ### Discovery Rules
 
 1. Apply `-C, --chdir` flag: Change working directory before any other processing (like `git -C`)
-2. Resolve `KOMPOX_DIR`: Priority is `--kompox-dir` > `KOMPOX_DIR` env var > upward search for `.kompox/`
-3. Resolve `KOMPOX_CFG_DIR`: Priority is `--kompox-cfg-dir` > `KOMPOX_CFG_DIR` env var > `$KOMPOX_DIR/.kompox`
-4. Export to environment: Set `KOMPOX_DIR` and `KOMPOX_CFG_DIR` as environment variables
+2. Resolve `KOMPOX_ROOT`: Priority is `--kompox-root` > `KOMPOX_ROOT` env var > upward search for `.kompox/`
+3. Resolve `KOMPOX_DIR`: Priority is `--kompox-dir` > `KOMPOX_DIR` env var > `$KOMPOX_ROOT/.kompox`
+4. Export to environment: Set `KOMPOX_ROOT` and `KOMPOX_DIR` as environment variables
 
 ### KOM Input Precedence
 
 KOM files are read from **only the first available source** in this order:
 1. `--kom-path` flag (repeatable; file or directory)
 2. `KOMPOX_KOM_PATH` environment variable (OS-specific path separator)
-3. `Defaults.spec.komPath` in `kompoxapp.yml` (with boundary check: must be within `$KOMPOX_DIR` or `$KOMPOX_CFG_DIR`)
+3. `Defaults.spec.komPath` in `kompoxapp.yml` (with boundary check: must be within `$KOMPOX_ROOT` or `$KOMPOX_DIR`)
 4. `komPath` in `.kompox/config.yml`
-5. Default: `$KOMPOX_CFG_DIR/kom` directory
+5. Default: `$KOMPOX_DIR/kom` directory
 
 Single source selection principle: no merging across precedence levels.
 
 ### Variable Expansion
 
-The strings `$KOMPOX_DIR` and `$KOMPOX_CFG_DIR` are expanded in CLI flag values, environment variables, `.kompox/config.yml` fields, and `Defaults.spec.komPath` values.
+The strings `$KOMPOX_ROOT` and `$KOMPOX_DIR` are expanded in CLI flag values, environment variables, `.kompox/config.yml` fields, and `Defaults.spec.komPath` values.
 
 ### Project Initialization
 

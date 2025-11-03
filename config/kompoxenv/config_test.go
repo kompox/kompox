@@ -23,7 +23,7 @@ func TestSearchForKompoxDir(t *testing.T) {
 	}
 
 	// Create .kompox in project directory
-	kompoxDir := filepath.Join(projectDir, KompoxCfgDirName)
+	kompoxDir := filepath.Join(projectDir, KompoxDirName)
 	if err := os.Mkdir(kompoxDir, 0755); err != nil {
 		t.Fatalf("creating .kompox directory: %v", err)
 	}
@@ -57,12 +57,12 @@ func TestSearchForKompoxDir(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := searchForKompoxDir(tt.startDir)
+			got, err := searchForKompoxRoot(tt.startDir)
 			if err != nil {
-				t.Fatalf("searchForKompoxDir() error: %v", err)
+				t.Fatalf("searchForKompoxRoot() error: %v", err)
 			}
 			if got != tt.wantFound {
-				t.Errorf("searchForKompoxDir() = %q, want %q", got, tt.wantFound)
+				t.Errorf("searchForKompoxRoot() = %q, want %q", got, tt.wantFound)
 			}
 		})
 	}
@@ -71,53 +71,53 @@ func TestSearchForKompoxDir(t *testing.T) {
 func TestResolve(t *testing.T) {
 	tmpDir := t.TempDir()
 	projectDir := filepath.Join(tmpDir, "project")
-	kompoxDir := filepath.Join(projectDir, KompoxCfgDirName)
+	kompoxDir := filepath.Join(projectDir, KompoxDirName)
 
 	if err := os.MkdirAll(kompoxDir, 0755); err != nil {
 		t.Fatalf("creating directories: %v", err)
 	}
 
 	tests := []struct {
-		name             string
-		kompoxDir        string
-		kompoxCfgDir     string
-		workDir          string
-		wantKompoxDir    string
-		wantKompoxCfgDir string
-		wantErr          bool
+		name       string
+		kompoxRoot string
+		kompoxDir  string
+		workDir    string
+		wantRoot   string
+		wantDir    string
+		wantErr    bool
 	}{
 		{
-			name:             "explicit dirs",
-			kompoxDir:        projectDir,
-			kompoxCfgDir:     kompoxDir,
-			workDir:          tmpDir,
-			wantKompoxDir:    projectDir,
-			wantKompoxCfgDir: kompoxDir,
-			wantErr:          false,
+			name:       "explicit dirs",
+			kompoxRoot: projectDir,
+			kompoxDir:  kompoxDir,
+			workDir:    tmpDir,
+			wantRoot:   projectDir,
+			wantDir:    kompoxDir,
+			wantErr:    false,
 		},
 		{
-			name:             "discover from workdir",
-			kompoxDir:        "",
-			kompoxCfgDir:     "",
-			workDir:          projectDir,
-			wantKompoxDir:    projectDir,
-			wantKompoxCfgDir: kompoxDir,
-			wantErr:          false,
+			name:       "discover from workdir",
+			kompoxRoot: "",
+			kompoxDir:  "",
+			workDir:    projectDir,
+			wantRoot:   projectDir,
+			wantDir:    kompoxDir,
+			wantErr:    false,
 		},
 		{
-			name:             "explicit kompoxDir, default kompoxCfgDir",
-			kompoxDir:        projectDir,
-			kompoxCfgDir:     "",
-			workDir:          tmpDir,
-			wantKompoxDir:    projectDir,
-			wantKompoxCfgDir: kompoxDir,
-			wantErr:          false,
+			name:       "explicit kompoxRoot, default kompoxDir",
+			kompoxRoot: projectDir,
+			kompoxDir:  "",
+			workDir:    tmpDir,
+			wantRoot:   projectDir,
+			wantDir:    kompoxDir,
+			wantErr:    false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg, err := Resolve(tt.kompoxDir, tt.kompoxCfgDir, tt.workDir)
+			cfg, err := Resolve(tt.kompoxRoot, tt.kompoxDir, tt.workDir)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("Resolve() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -125,11 +125,11 @@ func TestResolve(t *testing.T) {
 				return
 			}
 
-			if cfg.KompoxDir != tt.wantKompoxDir {
-				t.Errorf("KompoxDir = %q, want %q", cfg.KompoxDir, tt.wantKompoxDir)
+			if cfg.KompoxRoot != tt.wantRoot {
+				t.Errorf("KompoxRoot = %q, want %q", cfg.KompoxRoot, tt.wantRoot)
 			}
-			if cfg.KompoxCfgDir != tt.wantKompoxCfgDir {
-				t.Errorf("KompoxCfgDir = %q, want %q", cfg.KompoxCfgDir, tt.wantKompoxCfgDir)
+			if cfg.KompoxDir != tt.wantDir {
+				t.Errorf("KompoxDir = %q, want %q", cfg.KompoxDir, tt.wantDir)
 			}
 		})
 	}
@@ -137,8 +137,8 @@ func TestResolve(t *testing.T) {
 
 func TestConfig_ExpandVars(t *testing.T) {
 	cfg := &Env{
-		KompoxDir:    "/home/user/project",
-		KompoxCfgDir: "/home/user/project/.kompox",
+		KompoxRoot: "/home/user/project",
+		KompoxDir:  "/home/user/project/.kompox",
 	}
 
 	tests := []struct {
@@ -147,18 +147,18 @@ func TestConfig_ExpandVars(t *testing.T) {
 		want  string
 	}{
 		{
-			name:  "expand KOMPOX_DIR",
-			input: "$KOMPOX_DIR/kom",
+			name:  "expand KOMPOX_ROOT",
+			input: "$KOMPOX_ROOT/kom",
 			want:  "/home/user/project/kom",
 		},
 		{
-			name:  "expand KOMPOX_CFG_DIR",
-			input: "$KOMPOX_CFG_DIR/kom",
+			name:  "expand KOMPOX_DIR",
+			input: "$KOMPOX_DIR/kom",
 			want:  "/home/user/project/.kompox/kom",
 		},
 		{
 			name:  "expand both",
-			input: "$KOMPOX_DIR/app and $KOMPOX_CFG_DIR/kom",
+			input: "$KOMPOX_ROOT/app and $KOMPOX_DIR/kom",
 			want:  "/home/user/project/app and /home/user/project/.kompox/kom",
 		},
 		{
@@ -180,8 +180,8 @@ func TestConfig_ExpandVars(t *testing.T) {
 
 func TestConfig_IsWithinBoundary(t *testing.T) {
 	cfg := &Env{
-		KompoxDir:    "/home/user/project",
-		KompoxCfgDir: "/home/user/project/.kompox",
+		KompoxRoot: "/home/user/project",
+		KompoxDir:  "/home/user/project/.kompox",
 	}
 
 	tests := []struct {
@@ -190,22 +190,22 @@ func TestConfig_IsWithinBoundary(t *testing.T) {
 		want bool
 	}{
 		{
-			name: "within KOMPOX_DIR",
+			name: "within KOMPOX_ROOT",
 			path: "/home/user/project/kom/app.yml",
 			want: true,
 		},
 		{
-			name: "within KOMPOX_CFG_DIR",
+			name: "within KOMPOX_DIR",
 			path: "/home/user/project/.kompox/kom/db.yml",
 			want: true,
 		},
 		{
-			name: "exactly KOMPOX_DIR",
+			name: "exactly KOMPOX_ROOT",
 			path: "/home/user/project",
 			want: true,
 		},
 		{
-			name: "exactly KOMPOX_CFG_DIR",
+			name: "exactly KOMPOX_DIR",
 			path: "/home/user/project/.kompox",
 			want: true,
 		},
@@ -215,7 +215,7 @@ func TestConfig_IsWithinBoundary(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "parent of KOMPOX_DIR",
+			name: "parent of KOMPOX_ROOT",
 			path: "/home/user",
 			want: false,
 		},
@@ -233,13 +233,13 @@ func TestConfig_IsWithinBoundary(t *testing.T) {
 
 func TestLoadConfigFile(t *testing.T) {
 	tmpDir := t.TempDir()
-	kompoxCfgDir := filepath.Join(tmpDir, KompoxCfgDirName)
-	if err := os.Mkdir(kompoxCfgDir, 0755); err != nil {
+	kompoxDir := filepath.Join(tmpDir, KompoxDirName)
+	if err := os.Mkdir(kompoxDir, 0755); err != nil {
 		t.Fatalf("creating .kompox directory: %v", err)
 	}
 
 	// Test case 1: config file exists
-	configPath := filepath.Join(kompoxCfgDir, ConfigFileName)
+	configPath := filepath.Join(kompoxDir, ConfigFileName)
 	configContent := `version: 1
 store:
   type: local
@@ -252,8 +252,8 @@ komPath:
 	}
 
 	cfg := &Env{
-		KompoxDir:    tmpDir,
-		KompoxCfgDir: kompoxCfgDir,
+		KompoxRoot: tmpDir,
+		KompoxDir:  kompoxDir,
 	}
 
 	if err := cfg.loadConfigFile(); err != nil {
@@ -272,14 +272,14 @@ komPath:
 
 	// Test case 2: config file doesn't exist
 	tmpDir2 := t.TempDir()
-	kompoxCfgDir2 := filepath.Join(tmpDir2, KompoxCfgDirName)
-	if err := os.Mkdir(kompoxCfgDir2, 0755); err != nil {
+	kompoxDir2 := filepath.Join(tmpDir2, KompoxDirName)
+	if err := os.Mkdir(kompoxDir2, 0755); err != nil {
 		t.Fatalf("creating .kompox directory: %v", err)
 	}
 
 	cfg2 := &Env{
-		KompoxDir:    tmpDir2,
-		KompoxCfgDir: kompoxCfgDir2,
+		KompoxRoot: tmpDir2,
+		KompoxDir:  kompoxDir2,
 	}
 
 	if err := cfg2.loadConfigFile(); err != nil {

@@ -145,7 +145,7 @@ spec:
     - ./kom                      # A: 同一プロジェクト配下のディレクトリ
     - ../shared                  # B: 兄弟ディレクトリ配下の共有フォルダ
     - ../shared/workspace.yml    # C: 単一ファイル(Workspace)
-    - $KOMPOX_DIR/shared/prv.yml # D: プロジェクトディレクトリ配下の絶対パス
+    - $KOMPOX_ROOT/shared/prv.yml # D: プロジェクトディレクトリ配下の絶対パス
     - ./kom-linked               # E: シンボリックリンク(解決後の実体で評価)
   appId: /ws/myWorkspace/prv/azure1/cls/prod-cluster/app/app1
 ```
@@ -154,20 +154,20 @@ spec:
 
 - 型: string[]
 - 目的: Kompox アプリファイルを起点に、追加の KOM 入力元を宣言する。
-- 入力要件:
+  - 入力要件:
   - ローカルパスのみ許可(URL不可)。
   - 相対/絶対の両方を許可。相対パスは Kompox アプリファイルのディレクトリを基準に解決。
   - 親ディレクトリ参照 ../ を許可。
   - 解決手順: path.Clean と EvalSymlinks を行い実パスを得る。
-  - 文字列展開: `$KOMPOX_DIR` と `$KOMPOX_CFG_DIR` をサポートする (CLI により解決される)。
-  - セキュリティ境界: 解決後の実パスは `$KOMPOX_DIR` または `$KOMPOX_CFG_DIR` の配下でなければならない。
+  - 文字列展開: `$KOMPOX_ROOT` と `$KOMPOX_DIR` をサポートする (CLI により解決される)。
+  - セキュリティ境界: 解決後の実パスは `$KOMPOX_ROOT` または `$KOMPOX_DIR` の配下でなければならない。
   - ディレクトリは再帰的に走査し、.yml/.yaml のみを対象とする。
   - 無視パス: .git/ .github/ node_modules/ vendor/ .direnv/ .venv/ dist/ build/
   - グロブ/ワイルドカードは不可。
   - 去重と循環防止: 正規化済み実パスで重複を除外する。
 - エラー条件:
   - パスが存在しない。
-  - 解決済み実パスが `$KOMPOX_DIR` または `$KOMPOX_CFG_DIR` の配下ではない。
+  - 解決済み実パスが `$KOMPOX_ROOT` または `$KOMPOX_DIR` の配下ではない。
   - 対象拡張子が .yml/.yaml 以外。
 
 ### spec.appId

@@ -156,7 +156,7 @@ func findSubstring(s, substr string) bool {
 }
 
 // TestFindBaseRoot is removed because findBaseRoot() function was removed.
-// Directory discovery is now handled by kompoxdir.Resolve().
+// Directory discovery is now handled by kompoxenv.Resolve().
 
 // TestValidateAndResolveKOMPath is temporarily disabled because the function signature changed.
 // TODO: Update this test to use the new validateAndResolveKOMPath signature with cfg and requireBoundary parameters.
@@ -165,4 +165,4 @@ func findSubstring(s, substr string) bool {
 // TODO: Update this test to use the new scanKOMDirectory signature without baseRoot parameter.
 
 // TestKOMPathOutsideBaseRoot is temporarily disabled because boundary checking logic changed.
-// TODO: Update this test to use kompoxdir.Config.IsWithinBoundary() for boundary validation.
+// TODO: Update this test to use kompoxenv.Env.IsWithinBoundary() for boundary validation.
