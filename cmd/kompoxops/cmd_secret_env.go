@@ -78,7 +78,7 @@ func newCmdSecretEnvSet() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&filePath, "file", "f", "", "Env file path (.env, .json, .yaml)")
 	cmd.Flags().StringVarP(&service, "service", "S", "", "Service (compose) name (required)")
-	cmd.Flags().StringVarP(&component, "component", "C", "app", "Component name (default: app)")
+	cmd.Flags().StringVar(&component, "component", "app", "Component name (default: app)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Validate and show result without applying changes")
 	_ = cmd.MarkFlagRequired("file")
 	return cmd
@@ -130,7 +130,7 @@ func newCmdSecretEnvDelete() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&service, "service", "S", "", "Service (compose) name (required)")
-	cmd.Flags().StringVarP(&component, "component", "C", "app", "Component name (default: app)")
+	cmd.Flags().StringVar(&component, "component", "app", "Component name (default: app)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Validate and show result without applying changes")
 	return cmd
 }

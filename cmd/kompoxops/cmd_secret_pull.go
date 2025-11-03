@@ -73,7 +73,7 @@ func newCmdSecretPullSet() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVarP(&filePath, "file", "f", "", "Docker config JSON path (e.g. ~/.docker/config.json)")
-	cmd.Flags().StringVarP(&component, "component", "C", "app", "Component name (default: app)")
+	cmd.Flags().StringVar(&component, "component", "app", "Component name (default: app)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Validate and show result without applying changes")
 	_ = cmd.MarkFlagRequired("file")
 	return cmd
@@ -119,7 +119,7 @@ func newCmdSecretPullDelete() *cobra.Command {
 			return enc.Encode(out)
 		},
 	}
-	cmd.Flags().StringVarP(&component, "component", "C", "app", "Component name (default: app)")
+	cmd.Flags().StringVar(&component, "component", "app", "Component name (default: app)")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Validate and show result without applying changes")
 	return cmd
 }

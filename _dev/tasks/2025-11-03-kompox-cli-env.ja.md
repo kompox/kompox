@@ -1,7 +1,7 @@
 ---
 id: 2025-11-03-kompox-cli-env
 title: Kompox CLI Env の導入と KOM 入力優先順位の実装
-status: active
+status: done
 updated: 2025-11-03
 language: ja
 owner: yaegashi
@@ -194,12 +194,12 @@ func (e *Env) IsWithinBoundary(path string) bool
 - [x] ビルド検証
   - [x] `make test` 成功
   - [x] `make build` 成功
-- [ ] E2E テスト
-  - [ ] 既存 E2E テストへの `.kompox/` ディレクトリ構造の組み込み
-  - [ ] `KOMPOX_ROOT`/`KOMPOX_DIR` 環境変数のテスト
-  - [ ] KOM 入力の5段階優先順位の E2E 検証
-  - [ ] 境界チェックの E2E 検証 (Defaults.spec.komPath)
-  - [ ] 実際のプロバイダ (AKS/k3s) での動作確認
+- [x] E2E テスト
+  - [x] 既存 E2E テストへの `.kompox/` ディレクトリ構造の組み込み
+  - [x] `KOMPOX_ROOT`/`KOMPOX_DIR` 環境変数のテスト
+  - [x] KOM 入力の5段階優先順位の E2E 検証
+  - [x] 境界チェックの E2E 検証 (Defaults.spec.komPath)
+  - [x] 実際のプロバイダ (AKS) での動作確認
 
 ## 受け入れ条件
 
@@ -209,7 +209,7 @@ func (e *Env) IsWithinBoundary(path string) bool
 - ✅ `Defaults.spec.komPath` のパスは境界内 (`$KOMPOX_ROOT` または `$KOMPOX_DIR`) のみ許容され、境界外はエラーとなること。
 - ✅ ディレクトリスキャンの拡張子/除外/シンボリックリンク解決が適用されること。
 - ✅ 実装上の安全対策により異常な大規模入力で暴走しないこと (具体値は仕様非依存)。
-- ⏳ 既存の回帰が無いこと (主要コマンドのスモークテストが成功) - E2E テストで検証予定
+- ✅ 既存の回帰が無いこと (主要コマンドのスモークテストが成功)
 
 ## メモ
 
@@ -293,9 +293,49 @@ func (e *Env) IsWithinBoundary(path string) bool
   - 相対パスの解決基準を Level ごとに明記
   - `$KOMPOX_ROOT` と `$KOMPOX_DIR` の展開を統一
   - タスクファイルの進捗を更新
+- 2025-11-03: **E2E テスト追加 (tests/aks-e2e-kom)**
+  - KOM モードの包括的なテストスイート作成 (28テストケース)
+  - Level 1-5 の KOM パス優先順位検証
+  - `--kom-path`, `KOMPOX_KOM_PATH`, `Defaults.spec.komPath`, `.kompox/config.yml` の `komPath`, デフォルトパス
+  - `--kompox-root`, `--kompox-dir`, `-C` フラグの動作検証
+  - `KOMPOX_ROOT`, `KOMPOX_DIR` 環境変数の動作検証
+  - 環境変数展開 (`$KOMPOX_ROOT`, `$KOMPOX_DIR`) の検証
+  - 優先順位の上書き動作検証 (Level 1 > Level 2 > Level 4)
+  - エラーメッセージの明確性検証 (KOM パスソース表示)
+  - RefBase と file: 参照の検証
+  - `Defaults.appId` の動作検証
+  - `admin app list` コマンドの動作検証 (完全な Workspace/Provider/Cluster/App 構成)
+  - すべてのテストが passing
+- 2025-11-03: **E2E テスト設定の最適化**
+  - 全 E2E テストディレクトリの `.kompox/config.yml` から不要な `komPath` を削除
+  - KOM モード専用テスト (aks-e2e-kom) の構造とテストを拡充:
+    - ディレクトリ構造を最適化:
+      - `.kompox/` - デフォルト設定 (`komPath` なし)
+      - `.kompox-kompath/` - Level 4 テスト用 (`komPath: [kom]` あり)
+    - test-run.sh を28テストに拡充:
+      - Level 4 成功ケース: `.kompox-kompath/kom/` が存在し KOM ドキュメントが利用可能
+      - Level 4 失敗ケース: `komPath` が設定されているがパスが存在しない → バリデーションエラー
+      - Level 5 成功ケース: デフォルトパス `$KOMPOX_DIR/kom` が存在しない場合は無視される
+    - Level 4 と Level 5 の重要な違いをテストで明確化:
+      - Level 4: `config.yml` に `komPath` が設定されている場合、パスは存在必須
+      - Level 5: デフォルトパス `$KOMPOX_DIR/kom` は存在しない場合は無視される
+    - 全テストが passing (28/28)
+  - 他の KOM モード E2E テストの実行成功を確認:
+    - aks-e2e-basic: 基本的なアプリケーションデプロイメントテスト passing
+    - aks-e2e-volume: ボリューム機能のテスト passing
+  - E2E テストの設定が統一され、保守性が向上
+- 2025-11-03: **フラグ衝突の修正**
+  - グローバルフラグ `-C, --chdir` とローカルフラグ `-C` (component) の衝突を解消
+  - 以下のコマンドから `--component` フラグの短縮形 `-C` を削除:
+    - `dns apply`, `dns destroy`
+    - `secret env apply`, `secret env delete`
+    - `secret pull apply`, `secret pull delete`
+  - すべてのコマンドで panic が解消され、正常に動作することを確認
 - 2025-11-03: **タスク完了**
-  - 実装、テスト、ドキュメント更新完了
-  - E2E テストへの組み込みは別タスクで対応予定
+  - すべての受け入れ条件を満たし、タスクを完了
+  - コア実装、ユニットテスト、統合テスト、E2E テスト完了
+  - ドキュメント更新完了
+  - AKS プロバイダでの動作確認完了
 
 ## 参考
 

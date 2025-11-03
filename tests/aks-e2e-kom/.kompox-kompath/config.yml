@@ -1,0 +1,5 @@
+version: 1
+store:
+  type: local
+komPath:
+  - kom

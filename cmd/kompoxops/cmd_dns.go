@@ -92,7 +92,7 @@ func newCmdDNSDeploy() *cobra.Command {
 
 	cmd.Flags().BoolVar(&strict, "strict", false, "Treat DNS update failures as errors")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be changed without applying")
-	cmd.Flags().StringVarP(&component, "component", "C", "app", "Component name (default: app)")
+	cmd.Flags().StringVar(&component, "component", "app", "Component name (default: app)")
 
 	return cmd
 }
@@ -163,7 +163,7 @@ func newCmdDNSDestroy() *cobra.Command {
 
 	cmd.Flags().BoolVar(&strict, "strict", false, "Treat DNS update failures as errors")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "Show what would be changed without applying")
-	cmd.Flags().StringVarP(&component, "component", "C", "app", "Component name (default: app)")
+	cmd.Flags().StringVar(&component, "component", "app", "Component name (default: app)")
 
 	return cmd
 }

@@ -1,0 +1,42 @@
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Defaults
+metadata:
+  name: defaults
+spec: {}
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: kom-nokompath1
+  annotations:
+    ops.kompox.dev/id: /ws/${SERVICE_NAME}/prv/aks1/cls/cluster1/app/kom-nokompath1
+spec:
+  compose: file:compose.yml
+  ingress:
+    certResolver: staging
+    rules:
+      - name: main
+        port: 8080
+        hosts:
+          - kom-nokompath1.custom.exp.kompox.dev
+  deployment:
+    zone: "1"
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: kom-nokompath2
+  annotations:
+    ops.kompox.dev/id: /ws/${SERVICE_NAME}/prv/aks1/cls/cluster1/app/kom-nokompath2
+spec:
+  compose: file:compose.yml
+  ingress:
+    certResolver: staging
+    rules:
+      - name: main
+        port: 8080
+        hosts:
+          - kom-nokompath2.custom.exp.kompox.dev
+  deployment:
+    zone: "2"
