@@ -307,8 +307,6 @@ func TestInitialConfigYAML(t *testing.T) {
 	expected := `version: 1
 store:
   type: local
-komPath:
-  - kom
 `
 	got := string(data)
 	if got != expected {
@@ -327,7 +325,8 @@ komPath:
 	if cfg.Store.Type != "local" {
 		t.Errorf("Store.Type = %q, want %q", cfg.Store.Type, "local")
 	}
-	if len(cfg.KOMPath) != 1 || cfg.KOMPath[0] != "kom" {
-		t.Errorf("KOMPath = %v, want [\"kom\"]", cfg.KOMPath)
+	// KOMPath should be empty - Level 5 default will be used
+	if len(cfg.KOMPath) != 0 {
+		t.Errorf("KOMPath = %v, want empty (let Level 5 default be used)", cfg.KOMPath)
 	}
 }

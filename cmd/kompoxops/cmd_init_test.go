@@ -127,11 +127,9 @@ func TestInitCommand(t *testing.T) {
 				t.Errorf("expected store.type=local, got %v", store["type"])
 			}
 
-			// Check komPath
-			if komPath, ok := config["komPath"].([]interface{}); !ok {
-				t.Errorf("expected komPath to be array, got %T", config["komPath"])
-			} else if len(komPath) != 1 || komPath[0] != "kom" {
-				t.Errorf("expected komPath=[\"kom\"], got %v", komPath)
+			// Check komPath is not present (Level 5 default will be used)
+			if _, exists := config["komPath"]; exists {
+				t.Errorf("expected komPath to not be present in config (should use Level 5 default), got %v", config["komPath"])
 			}
 
 			// Verify .kompox/kom/ directory exists

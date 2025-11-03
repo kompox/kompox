@@ -58,8 +58,6 @@ New `kompoxops init` command bootstraps the Kompox CLI Env:
   version: 1
   store:
     type: local
-  komPath:
-    - kom
   ```
 - Creates `.kompox/kom/` as the default KOM storage location
 - Supports `-C, --chdir <DIR>` to initialize in specified directory (creates parents if needed)

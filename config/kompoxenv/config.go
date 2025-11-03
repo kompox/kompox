@@ -215,7 +215,7 @@ func InitialConfigYAML() ([]byte, error) {
 		Store: Store{
 			Type: "local",
 		},
-		KOMPath: []string{"kom"},
+		// KOMPath is omitted - let Level 5 default ($KOMPOX_DIR/kom) be used
 	}
 
 	var buf strings.Builder

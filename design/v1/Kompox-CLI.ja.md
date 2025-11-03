@@ -246,9 +246,9 @@ kompoxops init [FLAGS]
 version: 1
 store:
   type: local
-komPath:
-  - kom
 ```
+
+`komPath` は含まれていない。これにより Level 5 の既定パス (`$KOMPOX_DIR/kom`) が使用される。
 
 **使用例**
 

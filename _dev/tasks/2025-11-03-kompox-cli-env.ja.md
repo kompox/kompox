@@ -331,7 +331,14 @@ func (e *Env) IsWithinBoundary(path string) bool
     - `secret env apply`, `secret env delete`
     - `secret pull apply`, `secret pull delete`
   - すべてのコマンドで panic が解消され、正常に動作することを確認
-- 2025-11-03: **タスク完了**
+- 2025-11-03: **デフォルト config.yml から komPath を削除**
+  - `kompoxops init` で作成される `.kompox/config.yml` から `komPath: [kom]` を削除
+  - Level 5 のデフォルトパス (`$KOMPOX_DIR/kom`) を使用するため、Level 4 での明示的設定は不要
+  - 関連ドキュメントを更新:
+    - `design/adr/K4x-ADR-015.md`
+    - `design/v1/Kompox-CLI.ja.md`
+  - 実装とテストを修正して動作確認完了
+- 2025-11-03: **タスク完了 (最終版)**
   - すべての受け入れ条件を満たし、タスクを完了
   - コア実装、ユニットテスト、統合テスト、E2E テスト完了
   - ドキュメント更新完了
