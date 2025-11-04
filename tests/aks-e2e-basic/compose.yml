@@ -1,5 +1,7 @@
 services:
-  app:
+  # Test: no entrypoint/command (uses image defaults)
+  # Expects: no command, no args (image's ENTRYPOINT/CMD used)
+  app1:
     image: traefik/whoami
     env_file:
       - app-env-base.env
@@ -7,3 +9,22 @@ services:
       TZ: Asia/Tokyo
     ports:
       - "8080:80"
+
+  # Test: entrypoint + command
+  # Expects: container.command=["/bin/sh", "-c"], container.args=["while..."]
+  app2:
+    image: busybox:1.36
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["while true; do date +'%F %T %z app2'; sleep 2; done"]
+
+  # Test: entrypoint only
+  # Expects: container.command=["/bin/sh", "-c", "while..."], no args
+  app3:
+    image: busybox:1.36
+    entrypoint: ["/bin/sh", "-c", "while true; do date +'%F %T %z app3'; sleep 3; done"]
+
+  # Test: command only
+  # Expects: no command, container.args=["sh", "-c", "while..."]
+  app4:
+    image: busybox:1.36
+    command: ["sh", "-c", "while true; do date +'%F %T %z app4'; sleep 4; done"]

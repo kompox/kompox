@@ -386,6 +386,16 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 	for _, s := range proj.Services { // deterministic order from compose-go
 		ctn := corev1.Container{Name: s.Name, Image: s.Image}
 
+		// entrypoint → command
+		if len(s.Entrypoint) > 0 {
+			ctn.Command = []string(s.Entrypoint)
+		}
+
+		// command → args
+		if len(s.Command) > 0 {
+			ctn.Args = []string(s.Command)
+		}
+
 		// Collect target mappings for conflict detection
 		var targetMappings []targetMapping
 

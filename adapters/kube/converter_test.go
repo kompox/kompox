@@ -1287,3 +1287,141 @@ func TestZeroHeadlessServices(t *testing.T) {
 		t.Fatalf("headless selector metadata incomplete: %#v", c.HeadlessServiceSelector)
 	}
 }
+
+// TestConverterEntrypointCommand tests entrypoint and command conversion.
+func TestConverterEntrypointCommand(t *testing.T) {
+	ctx := context.Background()
+	cwd, _ := os.Getwd()
+
+	tests := []struct {
+		name          string
+		compose       string
+		wantCommand   []string
+		wantArgs      []string
+		wantNoCommand bool
+		wantNoArgs    bool
+	}{
+		{
+			name: "both_entrypoint_and_command",
+			compose: `
+services:
+  app:
+    image: app
+    entrypoint: ["/app/entrypoint.sh"]
+    command: ["--config", "/etc/app.conf"]
+`,
+			wantCommand: []string{"/app/entrypoint.sh"},
+			wantArgs:    []string{"--config", "/etc/app.conf"},
+		},
+		{
+			name: "entrypoint_only",
+			compose: `
+services:
+  app:
+    image: app
+    entrypoint: ["/bin/bash", "-c"]
+`,
+			wantCommand: []string{"/bin/bash", "-c"},
+			wantNoArgs:  true,
+		},
+		{
+			name: "command_only",
+			compose: `
+services:
+  app:
+    image: app
+    command: ["npm", "start"]
+`,
+			wantNoCommand: true,
+			wantArgs:      []string{"npm", "start"},
+		},
+		{
+			name: "neither_specified",
+			compose: `
+services:
+  app:
+    image: app
+`,
+			wantNoCommand: true,
+			wantNoArgs:    true,
+		},
+		{
+			name: "entrypoint_single_element",
+			compose: `
+services:
+  app:
+    image: app
+    entrypoint: ["/app/start"]
+`,
+			wantCommand: []string{"/app/start"},
+			wantNoArgs:  true,
+		},
+		{
+			name: "command_with_flags",
+			compose: `
+services:
+  app:
+    image: app
+    entrypoint: ["/usr/bin/python"]
+    command: ["-m", "http.server", "8000"]
+`,
+			wantCommand: []string{"/usr/bin/python"},
+			wantArgs:    []string{"-m", "http.server", "8000"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &model.Workspace{Name: "svc"}
+			prv := &model.Provider{Name: "prv", Driver: "test"}
+			cls := &model.Cluster{Name: "cls"}
+			app := &model.App{Name: "testapp", Compose: tt.compose, RefBase: "file://" + cwd + "/"}
+
+			c := NewConverter(svc, prv, cls, app, "app")
+			_, err := c.Convert(ctx)
+			if err != nil {
+				t.Fatalf("convert failed: %v", err)
+			}
+
+			if len(c.K8sContainers) != 1 {
+				t.Fatalf("expected 1 container, got %d", len(c.K8sContainers))
+			}
+
+			ctn := c.K8sContainers[0]
+
+			// Check command
+			if tt.wantNoCommand {
+				if len(ctn.Command) != 0 {
+					t.Errorf("expected no command, got %v", ctn.Command)
+				}
+			} else {
+				if len(ctn.Command) != len(tt.wantCommand) {
+					t.Errorf("command length mismatch: want %d, got %d", len(tt.wantCommand), len(ctn.Command))
+				} else {
+					for i, want := range tt.wantCommand {
+						if ctn.Command[i] != want {
+							t.Errorf("command[%d]: want %q, got %q", i, want, ctn.Command[i])
+						}
+					}
+				}
+			}
+
+			// Check args
+			if tt.wantNoArgs {
+				if len(ctn.Args) != 0 {
+					t.Errorf("expected no args, got %v", ctn.Args)
+				}
+			} else {
+				if len(ctn.Args) != len(tt.wantArgs) {
+					t.Errorf("args length mismatch: want %d, got %d", len(tt.wantArgs), len(ctn.Args))
+				} else {
+					for i, want := range tt.wantArgs {
+						if ctn.Args[i] != want {
+							t.Errorf("args[%d]: want %q, got %q", i, want, ctn.Args[i])
+						}
+					}
+				}
+			}
+		})
+	}
+}

@@ -289,6 +289,43 @@ app:
     size: 32Gi
 ```
 
+### entrypoint/command
+
+Compose の `entrypoint` と `command` を Kubernetes の `command` と `args` にマッピングする。
+
+| Compose フィールド | Kubernetes フィールド | 説明 |
+|-------------------|---------------------|------|
+| `entrypoint` | `command` | コンテナのエントリポイント (実行ファイルパス) |
+| `command` | `args` | コマンドライン引数 |
+
+変換規則:
+- `entrypoint` が指定されている場合、その値を `command` に設定する
+- `command` が指定されている場合、その値を `args` に設定する
+- どちらも未指定の場合、Kubernetes フィールドを設定しない (イメージのデフォルトを使用)
+- 文字列形式 (shell form) と配列形式 (exec form) の両方をサポートする
+  - 文字列形式: `/bin/sh -c` でラップして配列化
+  - 配列形式: そのまま使用
+
+例:
+
+```yaml
+# Compose
+services:
+  app:
+    image: app
+    entrypoint: ["/app/entrypoint.sh"]
+    command: ["--config", "/etc/app.conf"]
+```
+
+```yaml
+# Kubernetes
+containers:
+  - name: app
+    image: app
+    command: ["/app/entrypoint.sh"]
+    args: ["--config", "/etc/app.conf"]
+```
+
 ### x-kompox (リソース変換)
 
 | キー | 意味 | K8s 出力 |

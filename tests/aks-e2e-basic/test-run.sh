@@ -24,7 +24,13 @@ kubectl get ns
 
 ./kompoxops app status
 
-./kompoxops app logs
+./kompoxops app logs -c app1
+
+./kompoxops app logs -c app2
+
+./kompoxops app logs -c app3
+
+./kompoxops app logs -c app4
 
 ./kompoxops box deploy --ssh-pubkey=$SSH_PUBLIC_KEY
 
