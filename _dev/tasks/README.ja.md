@@ -1,7 +1,7 @@
 ---
 id: README
 title: 開発者向けタスク索引
-updated: 2025-11-04
+updated: 2025-11-09
 language: ja
 ---
 
@@ -16,6 +16,7 @@ language: ja
 
 | ID | タイトル | ステータス | カテゴリ | 担当 | 更新日 | 言語 |
 |---|---|---|---|---|---|---|
+| [2025-11-09-aks-cluster-fix](./2025-11-09-aks-cluster-fix.ja.md) | AKS Driver - Cluster 関連の不具合修正 | done |  | yaegashi | 2025-11-09 | ja |
 | [2025-11-04-converter](./2025-11-04-converter.ja.md) | Converter の entrypoint/command 変換実装 | done |  | yaegashi | 2025-11-04 | ja |
 | [2025-11-03-kompox-cli-env](./2025-11-03-kompox-cli-env.ja.md) | Kompox CLI Env の導入と KOM 入力優先順位の実装 | done |  | yaegashi | 2025-11-03 | ja |
 | [2025-10-27-volume-types](./2025-10-27-volume-types.ja.md) | Volume Types 実装 | done |  | yaegashi | 2025-10-29 | ja |

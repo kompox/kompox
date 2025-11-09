@@ -1,7 +1,7 @@
 ---
 id: README
 title: Kompox Design Document Index
-updated: 2025-11-04
+updated: 2025-11-09
 language: en
 ---
 

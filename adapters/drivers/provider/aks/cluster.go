@@ -177,36 +177,51 @@ func (d *driver) ClusterInstall(ctx context.Context, cluster *model.Cluster, _ .
 	}
 
 	// Step 4: Assign DNS Zone Contributor role for configured DNS zones (best-effort)
-	// This allows AKS managed identity to update DNS records in Azure DNS zones.
-	aksPrincipalID, _ := outputs[outputAksClusterPrincipalID].(string)
-	if aksPrincipalID != "" {
+	// This allows AKS cluster identity (control plane) to update DNS records in Azure DNS zones.
+	aksClusterPrincipalID, _ := outputs[outputAksClusterPrincipalID].(string)
+	if aksClusterPrincipalID != "" {
 		zones, err := d.collectDNSZoneIDs(cluster)
 		if err != nil {
 			log.Warn(ctx, "failed to collect DNS zone IDs for role assignment (best-effort)", "error", err.Error())
 		} else if len(zones) > 0 {
-			d.ensureAzureDNSZoneRoles(ctx, aksPrincipalID, zones)
+			d.ensureAzureDNSZoneRoles(ctx, aksClusterPrincipalID, zones)
 		}
 	} else {
-		log.Warn(ctx, "AKS principal ID not available, skipping DNS zone role assignments")
+		log.Warn(ctx, "AKS cluster principal ID not available, skipping DNS zone role assignments")
 	}
 
 	// Step 5: Assign AcrPull role for configured ACR resources (best-effort)
-	// This allows AKS kubelet managed identity to pull images from Azure Container Registry.
-	if aksPrincipalID != "" {
+	// This allows AKS kubelet identity (data plane) to pull images from Azure Container Registry.
+	aksKubeletPrincipalID, _ := outputs[outputAksKubeletPrincipalID].(string)
+	if aksKubeletPrincipalID != "" {
 		registries, err := d.collectAzureContainerRegistryIDs(cluster)
 		if err != nil {
 			log.Warn(ctx, "failed to collect ACR resource IDs for role assignment (best-effort)", "error", err.Error())
 		} else if len(registries) > 0 {
-			d.ensureAzureContainerRegistryRoles(ctx, aksPrincipalID, registries)
+			d.ensureAzureContainerRegistryRoles(ctx, aksKubeletPrincipalID, registries)
 		}
 	} else {
-		log.Warn(ctx, "AKS principal ID not available, skipping ACR role assignments")
+		log.Warn(ctx, "AKS kubelet principal ID not available, skipping ACR role assignments")
 	}
 
 	// Step 6: Install Traefik via Helm (idempotent)
 	// Mount SecretProviderClass volumes created in ensureSecretProviderClassFromKeyVault.
 	// For multiple Key Vaults, mount one CSI volume per SPC with distinct mount paths.
 	mutator := func(ctx context.Context, _ *model.Cluster, _ string, values kube.HelmValues) {
+		// Set externalTrafficPolicy to Local to preserve client source IP
+		// Must be set in service.spec according to Traefik Helm chart structure
+		svc, _ := values["service"].(map[string]any)
+		if svc == nil {
+			svc = map[string]any{}
+			values["service"] = svc
+		}
+		spec, _ := svc["spec"].(map[string]any)
+		if spec == nil {
+			spec = map[string]any{}
+			svc["spec"] = spec
+		}
+		spec["externalTrafficPolicy"] = "Local"
+
 		// Ensure the nested map at values["deployment"] exists first.
 		dep, _ := values["deployment"].(map[string]any)
 		if dep == nil {
