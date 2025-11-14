@@ -7,7 +7,6 @@ import (
 
 	providerdrv "github.com/kompox/kompox/adapters/drivers/provider"
 	"github.com/kompox/kompox/adapters/kube"
-	"github.com/kompox/kompox/domain/model"
 	"github.com/kompox/kompox/internal/logging"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -45,35 +44,46 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 		return nil, fmt.Errorf("failed to get app %s: %w", in.AppID, err)
 	}
 
-	// Reuse Validate to obtain Kubernetes objects and warnings.
-	vout, err := u.Validate(ctx, &ValidateInput{AppID: in.AppID})
+	res, err := u.validateApp(ctx, appObj)
 	if err != nil {
 		return nil, fmt.Errorf("validation failed: %w", err)
 	}
-	if len(vout.Errors) > 0 {
-		for _, e := range vout.Errors {
-			logger.Error(ctx, msgSym+":ValidationError", "desc", e)
+	if res == nil {
+		return nil, fmt.Errorf("validation result unavailable")
+	}
+	_, warnCount, errCount := countIssuesBySeverity(res.Issues)
+	for _, issue := range res.Issues {
+		switch issue.Severity {
+		case SeverityError:
+			logger.Error(ctx, msgSym+":ValidationError", "code", issue.Code, "desc", issue.Message)
+		case SeverityWarn:
+			logger.Warn(ctx, msgSym+":ValidationWarning", "code", issue.Code, "desc", issue.Message)
+		default:
+			logger.Info(ctx, msgSym+":ValidationInfo", "code", issue.Code, "desc", issue.Message)
 		}
-		return nil, fmt.Errorf("validation failed (%d errors)", len(vout.Errors))
 	}
-	for _, w := range vout.Warnings {
-		logger.Warn(ctx, msgSym+":ValidationWarning", "desc", w)
+	if warnCount > 0 || errCount > 0 {
+		return nil, fmt.Errorf("validation blocked (%d warnings, %d errors)", warnCount, errCount)
 	}
-	if len(vout.K8sObjects) == 0 {
+	if len(res.K8sObjects) == 0 {
 		return nil, fmt.Errorf("no Kubernetes objects generated for app %s", appObj.Name)
 	}
 
 	// Resolve related cluster/provider/workspace for kubeconfig.
-	clusterObj, err := u.Repos.Cluster.Get(ctx, appObj.ClusterID)
-	if err != nil || clusterObj == nil {
-		return nil, fmt.Errorf("failed to get cluster %s: %w", appObj.ClusterID, err)
+	clusterObj := res.cluster
+	if clusterObj == nil {
+		if clusterObj, err = u.Repos.Cluster.Get(ctx, appObj.ClusterID); err != nil || clusterObj == nil {
+			return nil, fmt.Errorf("failed to get cluster %s: %w", appObj.ClusterID, err)
+		}
 	}
-	providerObj, err := u.Repos.Provider.Get(ctx, clusterObj.ProviderID)
-	if err != nil || providerObj == nil {
-		return nil, fmt.Errorf("failed to get provider %s: %w", clusterObj.ProviderID, err)
+	providerObj := res.provider
+	if providerObj == nil {
+		if providerObj, err = u.Repos.Provider.Get(ctx, clusterObj.ProviderID); err != nil || providerObj == nil {
+			return nil, fmt.Errorf("failed to get provider %s: %w", clusterObj.ProviderID, err)
+		}
 	}
-	var workspaceObj *model.Workspace
-	if providerObj.WorkspaceID != "" {
+	workspaceObj := res.workspace
+	if workspaceObj == nil && providerObj.WorkspaceID != "" {
 		workspaceObj, _ = u.Repos.Workspace.Get(ctx, providerObj.WorkspaceID)
 	}
 
@@ -101,7 +111,7 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 	utilruntime.Must(appsv1.AddToScheme(scheme))
 	utilruntime.Must(corev1.AddToScheme(scheme))
 	utilruntime.Must(netv1.AddToScheme(scheme))
-	for _, obj := range vout.K8sObjects {
+	for _, obj := range res.K8sObjects {
 		if obj == nil {
 			continue
 		}
@@ -111,23 +121,23 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 	}
 
 	// Apply via server-side apply.
-	if err := kcli.ApplyObjects(ctx, vout.K8sObjects, &kube.ApplyOptions{FieldManager: "kompoxops", ForceConflicts: true}); err != nil {
+	if err := kcli.ApplyObjects(ctx, res.K8sObjects, &kube.ApplyOptions{FieldManager: "kompoxops", ForceConflicts: true}); err != nil {
 		return nil, fmt.Errorf("apply objects failed: %w", err)
 	}
 
 	// Inline prune of stale headless Services using converter metadata.
-	if vout.Converter != nil {
+	if res.Converter != nil {
 		// Desired names from converter (authoritative)
 		desired := map[string]struct{}{}
-		for _, hs := range vout.Converter.K8sHeadlessServices {
+		for _, hs := range res.Converter.K8sHeadlessServices {
 			if hs != nil {
 				desired[hs.Name] = struct{}{}
 			}
 		}
 		// List current headless services via selector (app + marker)
-		selector := vout.Converter.HeadlessServiceSelectorString
+		selector := res.Converter.HeadlessServiceSelectorString
 		// Namespace: derive from converter namespace (avoid assuming K8sObjects[0])
-		ns := vout.Converter.Namespace
+		ns := res.Converter.Namespace
 		listLogger := logging.FromContext(ctx).With("ns", ns, "selector", selector)
 		list, listErr := kcli.Clientset.CoreV1().Services(ns).List(ctx, metav1.ListOptions{LabelSelector: selector})
 		if listErr != nil {
@@ -154,13 +164,13 @@ func (u *UseCase) Deploy(ctx context.Context, in *DeployInput) (*DeployOutput, e
 	}
 
 	// Runtime patch: recompute PodContentHash via kube.Client method.
-	if vout.Converter != nil && vout.Converter.K8sDeployment != nil {
-		depName := vout.Converter.K8sDeployment.Name
-		depNS := vout.Converter.K8sDeployment.Namespace
+	if res.Converter != nil && res.Converter.K8sDeployment != nil {
+		depName := res.Converter.K8sDeployment.Name
+		depNS := res.Converter.K8sDeployment.Namespace
 		if err := kcli.PatchDeploymentPodContentHash(ctx, depNS, depName); err != nil {
 			logger.Warn(ctx, msgSym+":PatchFailed", "err", err)
 		}
 	}
 
-	return &DeployOutput{Warnings: vout.Warnings, AppliedCount: len(vout.K8sObjects)}, nil
+	return &DeployOutput{Warnings: issueMessagesBySeverity(res.Issues, SeverityInfo), AppliedCount: len(res.K8sObjects)}, nil
 }

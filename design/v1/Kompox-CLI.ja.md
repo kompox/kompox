@@ -412,21 +412,38 @@ YAML 構文エラーや制約違反が検出された場合はエラーを返す
 
 Compose の検証と K8s マニフェスト生成を行います。`--out-compose`/`--out-manifest` でファイル出力可能です。ローカルファイルシステム参照ポリシーもこの段階で検証されます(KOM 読み込み時には検証しません)。
 
+検証結果は UseCase 層で共通化された Issue (Severity) として集計される。Severity の意味とコマンドごとの扱いは次の通り。
+
+|Severity|概要|app validate|app deploy|
+|---|---|---|---|
+|INFO|補足情報。変換や生成は継続する|ログ出力のみで exit code 0|ログ出力のみで続行|
+|WARN|仕様上の不足・未初期化状態|exit code 0 だが WARN を表示|即時ブロック (exit code != 0)|
+|ERROR|致命的な不整合・構文エラー|即時ブロック (exit code != 0)|即時ブロック (exit code != 0)|
+
+代表例: すべての論理ボリュームで Assigned ディスク数が 0 件のとき `volume assignment missing (count=0)` WARN を発行しつつ検証は成功させる。Compose 正規化や Manifest 生成は可能な限り継続し、ディスク情報が不足する箇所は WARN として明示する。
+
+標準フロー:
+
+1. 新規 App 作成後に `kompoxops app validate` を実行し、WARN/ERROR を確認する。
+2. 未割当ディスクのみで構成される初期状態では WARN のみで exit code 0 となる。
+3. `kompoxops app deploy --bootstrap-disks` を実行してボリュームごとに 1 件ずつディスクを自動作成し、再度 Issue を評価する。
+4. WARN が解消されたら manifest を適用し、必要なら `--update-dns` を併用する。
+
 #### kompoxops app deploy
 
 検証・変換済みのリソースを対象クラスタに適用します(冪等)。
 
 オプション:
 
-- `--bootstrap-disks` 全 app.volumes で Assigned ディスクが 0 件の場合に限り、各ボリューム 1 件ずつ新規ディスクを自動作成してからデプロイを続行する。部分的に一部ボリュームのみ未初期化 (Assigned=0) / 他は 1 件以上 Assigned の混在状態や、未割当ディスクのみが残っている不整合状態はエラー。
+- `--bootstrap-disks` 全 app.volumes で Assigned ディスクが 0 件の場合に限り、各ボリューム 1 件ずつ新規ディスクを自動作成してからデプロイを続行する。部分的に一部ボリュームのみ未初期化 (Assigned=0) / 他は 1 件以上 Assigned の混在状態や、未割当ディスクのみが残っている不整合状態はエラー。UseCase 側で WARN/ERROR Issue を再評価し、WARN が残っている場合は apply を行わない。
 - `--update-dns` デプロイ完了後に DNS レコードを自動的に更新する。`kompoxops dns deploy` 相当の処理を実行する (ベストエフォートモード)。
 
 ディスク初期化挙動 (概要):
 1. 判定: 全ボリュームで Assigned=0 ?
-2. YES -> `disk create --bootstrap` 相当の一括作成を実行 (各ボリューム 1 件)。
+2. YES -> `disk create --bootstrap` 相当の一括作成を実行 (各ボリューム 1 件) し、`validateApp` を再実行して Issue を再評価する。
 3. NO かつ 全ボリュームで Assigned=1 -> そのまま続行 (no-op)。
 4. それ以外 -> エラー終了 (ユーザーが手動で assign/delete を整理して再実行)。
-5. 以後、通常の manifest 生成・適用フェーズで "各ボリューム Assigned=1" を前提とする。
+5. 以後、通常の manifest 生成・適用フェーズで "各ボリューム Assigned=1" を前提とする。WARN/ERROR が 0 件であることが apply の必須条件となる。
 
 使用例:
 ```bash

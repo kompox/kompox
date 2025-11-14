@@ -3,11 +3,8 @@ package app
 import (
 	"context"
 	"fmt"
-	"strings"
 
-	providerdrv "github.com/kompox/kompox/adapters/drivers/provider"
 	"github.com/kompox/kompox/adapters/kube"
-	"github.com/kompox/kompox/domain/model"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -24,6 +21,8 @@ type ValidateOutput struct {
 	Errors []string
 	// Warnings are non-fatal issues.
 	Warnings []string
+	// Issues contains structured severity information.
+	Issues []Issue
 	// Compose is the normalized compose YAML when validation succeeds.
 	Compose string
 	// Converter is the populated kube.Converter when conversion succeeds (nil otherwise).
@@ -48,125 +47,24 @@ func (u *UseCase) Validate(ctx context.Context, in *ValidateInput) (*ValidateOut
 		return out, fmt.Errorf("app not found: %s", in.AppID)
 	}
 
-	pro, _, err := kube.NewComposeProject(ctx, app.Compose, app.RefBase)
+	res, err := u.validateApp(ctx, app)
 	if err != nil {
-		// Treat compose parsing failures as validation errors, not transport errors.
-		out.Errors = append(out.Errors, fmt.Sprintf("compose validation failed: %v", err))
-		return out, nil
+		return out, err
 	}
-
-	b, err := pro.MarshalYAML()
-	if err != nil {
-		// Normalization failure is also a validation error from the caller's perspective.
-		out.Errors = append(out.Errors, fmt.Sprintf("compose normalization failed: %v", err))
-		return out, nil
+	if res == nil {
+		return out, fmt.Errorf("validation result unavailable")
 	}
-	out.Compose = string(b)
-
-	// Fetch related resources for hash & conversion
-	cls, err := u.Repos.Cluster.Get(ctx, app.ClusterID)
-	if err != nil {
-		// Repository error means the use case cannot proceed reliably.
-		return out, fmt.Errorf("failed to get cluster: %w", err)
-	}
-	if cls == nil {
-		// Conversion is optional; warn and return validated compose result.
-		out.Warnings = append(out.Warnings, "compose conversion skipped: cluster not found")
-		return out, nil
-	}
-	prv, perr := u.Repos.Provider.Get(ctx, cls.ProviderID)
-	if perr != nil {
-		return out, fmt.Errorf("failed to get provider: %w", perr)
-	}
-	if prv == nil {
-		out.Warnings = append(out.Warnings, "compose conversion skipped: provider not found")
-		return out, nil
-	}
-	ws, serr := u.Repos.Workspace.Get(ctx, prv.WorkspaceID)
-	if serr != nil {
-		return out, fmt.Errorf("failed to get workspace: %w", serr)
-	}
-	if ws == nil {
-		out.Warnings = append(out.Warnings, "compose conversion skipped: workspace not found")
-		return out, nil
-	}
-	// Instantiate provider driver for conversion (volume class, etc.)
-	var drv providerdrv.Driver
-	if factory, ok := providerdrv.GetDriverFactory(prv.Driver); ok {
-		if d, derr := factory(ws, prv); derr == nil {
-			drv = d
+	out.Compose = res.Compose
+	out.Converter = res.Converter
+	out.K8sObjects = res.K8sObjects
+	out.Issues = append(out.Issues, res.Issues...)
+	for _, issue := range res.Issues {
+		switch issue.Severity {
+		case SeverityError:
+			out.Errors = append(out.Errors, issue.Message)
+		default:
+			out.Warnings = append(out.Warnings, issue.Message)
 		}
 	}
-	// Build volume bindings first and collect fatal errors.
-	binds := make([]*kube.ConverterVolumeBinding, 0, len(app.Volumes))
-	for _, av := range app.Volumes {
-		var chosenDisk *model.VolumeDisk
-		if u.VolumePort != nil {
-			disks, lerr := u.VolumePort.DiskList(ctx, cls, app, av.Name)
-			if lerr != nil {
-				out.Errors = append(out.Errors, fmt.Sprintf("volume disk lookup failed for %s: %v", av.Name, lerr))
-				continue
-			}
-			var assigned []*model.VolumeDisk
-			for _, disk := range disks {
-				if disk.Assigned {
-					assigned = append(assigned, disk)
-				}
-			}
-			if len(assigned) != 1 {
-				out.Errors = append(out.Errors, fmt.Sprintf("volume assignment invalid for %s (count=%d)", av.Name, len(assigned)))
-				continue
-			}
-			chosenDisk = assigned[0]
-		}
-		if chosenDisk == nil || strings.TrimSpace(chosenDisk.Handle) == "" {
-			out.Errors = append(out.Errors, fmt.Sprintf("no assigned disk handle for volume %s", av.Name))
-			continue
-		}
-		// Resolve provider-specific volume class (non-fatal on failure)
-		var vc model.VolumeClass
-		if drv != nil {
-			if res, rerr := drv.VolumeClass(ctx, cls, app, av); rerr != nil {
-				out.Warnings = append(out.Warnings, fmt.Sprintf("compose conversion failed: volume class resolve failed for %s: %v", av.Name, rerr))
-			} else {
-				vc = res
-			}
-		} else {
-			out.Warnings = append(out.Warnings, "compose conversion failed: provider driver unavailable for volume class resolution")
-		}
-		binds = append(binds, &kube.ConverterVolumeBinding{
-			Name:        av.Name,
-			VolumeDisk:  chosenDisk,
-			VolumeClass: &vc,
-		})
-	}
-
-	// Only attempt conversion if no fatal errors have been collected.
-	if len(out.Errors) > 0 {
-		return out, nil
-	}
-	conv := kube.NewConverter(ws, prv, cls, app, "app")
-	if conv == nil {
-		out.Warnings = append(out.Warnings, "compose conversion failed: converter initialization failed")
-		return out, nil
-	}
-	warns1, convErr := conv.Convert(ctx)
-	if convErr != nil {
-		out.Warnings = append(out.Warnings, fmt.Sprintf("compose conversion failed: %v", convErr))
-		return out, nil
-	}
-	if bindErr := conv.BindVolumes(ctx, binds); bindErr != nil {
-		out.Warnings = append(out.Warnings, fmt.Sprintf("compose conversion failed: %v", bindErr))
-		return out, nil
-	}
-	warns2, buildErr := conv.Build()
-	if buildErr != nil {
-		out.Warnings = append(out.Warnings, fmt.Sprintf("compose conversion failed: %v", buildErr))
-		return out, nil
-	}
-	out.Converter = conv
-	out.K8sObjects = conv.AllObjects()
-	out.Warnings = append(out.Warnings, warns1...)
-	out.Warnings = append(out.Warnings, warns2...)
 	return out, nil
 }

@@ -1,0 +1,80 @@
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Defaults
+metadata:
+  name: defaults
+spec: {}
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: ${SERVICE_NAME}
+  annotations:
+    ops.kompox.dev/id: /ws/${SERVICE_NAME}
+spec: {}
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: aks1
+  annotations:
+    ops.kompox.dev/id: /ws/${SERVICE_NAME}/prv/aks1
+spec:
+  driver: aks
+  settings:
+    AZURE_AUTH_METHOD: azure_cli
+    AZURE_SUBSCRIPTION_ID: ${AZURE_SUBSCRIPTION_ID}
+    AZURE_LOCATION: ${AZURE_LOCATION}
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: cluster1
+  annotations:
+    ops.kompox.dev/id: /ws/${SERVICE_NAME}/prv/aks1/cls/cluster1
+spec:
+  existing: false
+  protection:
+    provisioning: readOnly
+    installation: readOnly
+  ingress:
+    certEmail: yaegashi@live.jp
+    certResolver: staging
+    domain: cluster1.aks1.exp.kompox.dev
+    certificates:
+      - name: l0wdevtls-cluster
+        source: https://l0wdevtls-jpe-prd1.vault.azure.net/secrets/cluster1-aks1-exp-kompox-dev
+      - name: l0wdevtls-custom
+        source: https://l0wdevtls-jpe-prd1.vault.azure.net/secrets/custom-exp-kompox-dev
+  settings:
+    AZURE_AKS_SYSTEM_VM_SIZE: ${AZURE_AKS_SYSTEM_VM_SIZE}
+    AZURE_AKS_SYSTEM_VM_DISK_TYPE: ${AZURE_AKS_SYSTEM_VM_DISK_TYPE}
+    AZURE_AKS_SYSTEM_VM_DISK_SIZE_GB: ${AZURE_AKS_SYSTEM_VM_DISK_SIZE_GB}
+    AZURE_AKS_SYSTEM_VM_PRIORITY: ${AZURE_AKS_SYSTEM_VM_PRIORITY}
+    AZURE_AKS_SYSTEM_VM_ZONES: ${AZURE_AKS_SYSTEM_VM_ZONES}
+    AZURE_AKS_USER_VM_SIZE: ${AZURE_AKS_USER_VM_SIZE}
+    AZURE_AKS_USER_VM_DISK_TYPE: ${AZURE_AKS_USER_VM_DISK_TYPE}
+    AZURE_AKS_USER_VM_DISK_SIZE_GB: ${AZURE_AKS_USER_VM_DISK_SIZE_GB}
+    AZURE_AKS_USER_VM_PRIORITY: ${AZURE_AKS_USER_VM_PRIORITY}
+    AZURE_AKS_USER_VM_ZONES: ${AZURE_AKS_USER_VM_ZONES}
+    AZURE_AKS_DNS_ZONE_RESOURCE_IDS: ${AZURE_AKS_DNS_ZONE_RESOURCE_IDS}
+    AZURE_AKS_CONTAINER_REGISTRY_RESOURCE_IDS: ${AZURE_AKS_CONTAINER_REGISTRY_RESOURCE_IDS}
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: validate
+  annotations:
+    ops.kompox.dev/id: /ws/${SERVICE_NAME}/prv/aks1/cls/cluster1/app/validate
+spec:
+  compose: file:compose.yml
+  ingress:
+    certResolver: staging
+    rules:
+      - name: main
+        port: 8080
+        hosts: [whoami.custom.exp.kompox.dev]
+  deployment:
+    zone: "1"
+  volumes:
+    - name: default
+      size: 16Gi
