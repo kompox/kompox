@@ -3,8 +3,6 @@ package app
 import (
 	"context"
 	"fmt"
-	"io"
-	"os"
 	"strings"
 
 	providerdrv "github.com/kompox/kompox/adapters/drivers/provider"
@@ -152,40 +150,17 @@ func (u *UseCase) Exec(ctx context.Context, in *ExecInput) (*ExecOutput, error) 
 		return nil, fmt.Errorf("exec create: %w", err)
 	}
 
-	// Prepare terminal mode and window resize if TTY is requested
-	restore, sizeQueue := terminal.SetupTTYIfRequested(ctx, in.TTY)
-	if restore != nil {
-		defer restore()
-	}
-
-	// Escape handling: if escape sequence is configured, wrap stdin and cancel on match
-	var stdinR *os.File
-	if in.Stdin {
-		stdinR = os.Stdin
-	}
-	var cleanup func()
-	ctx, stdinR, cleanup = terminal.WrapStdinWithEscape(ctx, in.Stdin, in.TTY, in.Escape)
-	if cleanup != nil {
-		defer cleanup()
-	}
-
-	var stderrW io.Writer
-	if !in.TTY {
-		stderrW = os.Stderr
-	}
-	if err := ex.StreamWithContext(ctx, remotecommand.StreamOptions{
-		Stdin:             stdinR,
-		Stdout:            os.Stdout,
-		Stderr:            stderrW,
-		Tty:               in.TTY,
-		TerminalSizeQueue: sizeQueue,
-	}); err != nil {
-		if ctx.Err() == context.Canceled {
-			return &ExecOutput{ExitCode: 0, Message: "detached"}, nil
-		}
+	// Execute with TTY, stdin, and escape handling via shared helper.
+	result, err := terminal.RunExecStream(ctx, ex, terminal.ExecStreamOptions{
+		TTY:    in.TTY,
+		Stdin:  in.Stdin,
+		Escape: in.Escape,
+	})
+	if err != nil {
 		return nil, fmt.Errorf("exec stream: %w", err)
+	}
+	if result.Detached {
+		return &ExecOutput{ExitCode: 0, Message: "detached"}, nil
 	}
 	return &ExecOutput{ExitCode: 0}, nil
 }
-
-// parseEscapeSequence removed in favor of internal/termexec.ParseEscapeSequence

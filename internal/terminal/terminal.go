@@ -3,6 +3,7 @@ package terminal
 import (
 	"context"
 	"flag"
+	"io"
 	"os"
 	"strings"
 
@@ -87,10 +88,14 @@ func ParseEscapeSequence(s string) []byte {
 
 // WrapStdinWithEscape wraps os.Stdin to intercept a configured escape sequence when tty and stdin are enabled.
 // It returns a possibly new context with cancel, the reader to pass as Stdin, and a cleanup function.
-// If wrapping is not necessary, it returns the original context, os.Stdin, and a no-op cleanup.
+// If stdin is false, it returns nil for the reader so that no stdin is attached to the remote command.
+// If escape wrapping is not necessary, it returns os.Stdin and a no-op cleanup.
 func WrapStdinWithEscape(ctx context.Context, stdin, tty bool, escape string) (context.Context, *os.File, func()) {
 	noop := func() {}
-	if !(tty && stdin) || escape == "" || escape == "none" {
+	if !stdin {
+		return ctx, nil, noop
+	}
+	if !tty || escape == "" || escape == "none" {
 		return ctx, os.Stdin, noop
 	}
 	escBytes := ParseEscapeSequence(escape)
@@ -138,4 +143,69 @@ func QuietKlog() {
 	_ = flag.Set("v", "0")
 	_ = flag.Set("logtostderr", "false")
 	_ = flag.Set("alsologtostderr", "false")
+}
+
+// ExecStreamOptions contains parameters for streaming a remote command execution.
+type ExecStreamOptions struct {
+	// TTY requests a TTY allocation.
+	TTY bool
+	// Stdin attaches stdin.
+	Stdin bool
+	// Escape is an optional escape sequence to detach the session.
+	// Examples: "^P^Q", "~.", "^]", "none" to disable.
+	Escape string
+}
+
+// ExecStreamResult contains the result of a streamed command execution.
+type ExecStreamResult struct {
+	// Detached is true if the session was terminated via escape sequence.
+	Detached bool
+}
+
+// RunExecStream executes a remote command via the given executor with TTY, stdin, and escape handling.
+// It sets up terminal raw mode if TTY is requested, handles escape sequences, and streams I/O.
+// Returns ExecStreamResult indicating whether the session was detached, or an error.
+func RunExecStream(ctx context.Context, executor remotecommand.Executor, opts ExecStreamOptions) (*ExecStreamResult, error) {
+	// Prepare terminal mode and window resize if TTY is requested.
+	restore, sizeQueue := SetupTTYIfRequested(ctx, opts.TTY)
+	if restore != nil {
+		defer restore()
+	}
+
+	// Escape handling: if escape sequence is configured, wrap stdin and cancel on match.
+	// WrapStdinWithEscape returns nil for stdinR when stdin is false.
+	var cleanup func()
+	ctx, stdinR, cleanup := WrapStdinWithEscape(ctx, opts.Stdin, opts.TTY, opts.Escape)
+	if cleanup != nil {
+		defer cleanup()
+	}
+
+	// Convert *os.File to io.Reader, ensuring nil stays nil (Go interface quirk:
+	// a nil *os.File assigned to io.Reader is not a nil interface).
+	var stdinReader io.Reader
+	if stdinR != nil {
+		stdinReader = stdinR
+	}
+
+	// When TTY is enabled, stderr is merged into stdout; set nil to avoid extra stream.
+	var stderrW io.Writer
+	if !opts.TTY {
+		stderrW = os.Stderr
+	}
+
+	err := executor.StreamWithContext(ctx, remotecommand.StreamOptions{
+		Stdin:             stdinReader,
+		Stdout:            os.Stdout,
+		Stderr:            stderrW,
+		Tty:               opts.TTY,
+		TerminalSizeQueue: sizeQueue,
+	})
+	if err != nil {
+		// If the user requested detach via escape, ctx will be canceled.
+		if ctx.Err() == context.Canceled {
+			return &ExecStreamResult{Detached: true}, nil
+		}
+		return nil, err
+	}
+	return &ExecStreamResult{Detached: false}, nil
 }
