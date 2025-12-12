@@ -393,7 +393,7 @@ kompoxops app deploy        --app-id <appID> [--bootstrap-disks]
 kompoxops app destroy       --app-id <appID>
 kompoxops app status        --app-id <appID>
 kompoxops app exec          --app-id <appID> -- <command> [args...]
-kompoxops app port-forward  --app-id <appID> [LOCAL_PORT:]REMOTE_PORT...   (alias: pf)
+kompoxops app tunnel        --app-id <appID> -p PORT... [-- command [args...]]   (aliases: port-forward, pf)
 kompoxops app logs          --app-id <appID>
 ```
 
@@ -555,25 +555,27 @@ kompoxops app exec -it -- bash
 kompoxops app exec -t -c app -- sh -c 'tail -n 100 /var/log/app.log'
 ```
 
-#### kompoxops app port-forward
+#### kompoxops app tunnel
 
-アプリの Pod に対してポートフォワードを行います。Ctrl+C で終了するまで接続を維持します。
+アプリの Pod に対してポートフォワードトンネルを作成します。サブシェルコマンドを指定した場合はそのコマンドを実行し、終了時にトンネルを閉じます。コマンド未指定時は Ctrl+C で終了するまで接続を維持します。
 
-エイリアス: `kompoxops app pf`
+エイリアス: `kompoxops app port-forward`, `kompoxops app pf`
 
 使用法:
 
 ```
-kompoxops app port-forward -A <appName> [--component COMPONENT] [-S SERVICE] [--address ADDR] [LOCAL_PORT:]REMOTE_PORT...
+kompoxops app tunnel -A <appName> [--component COMPONENT] [-S SERVICE] [--address ADDR] [-q] -p PORT... [-- command [args...]]
 ```
 
 オプション:
 
+- `-p, --port` ポートマッピング (複数回指定可、必須)
 - `--component` 対象の component ラベル値 (既定: `app`、`box` を指定すると Kompox Box に接続)
 - `-S, --service` 対象の Compose service 名 (未指定時は最初のサービスを選択、`--component=app` 時のみ有効)
 - `--address` 待ち受けアドレス (既定: `localhost`、カンマ区切りで複数指定可)
+- `-q, --quiet` ログ出力を抑制 (`Forwarding from ...` メッセージを表示しない)
 
-ポート指定形式:
+ポート指定形式 (`-p` の引数):
 
 | 形式 | 説明 |
 |------|------|
@@ -581,39 +583,67 @@ kompoxops app port-forward -A <appName> [--component COMPONENT] [-S SERVICE] [--
 | `8080` | ローカル 8080 → リモート 8080 (同じポート) |
 | `:80` | ローカル自動割当 → リモート 80 |
 
-複数ポートを同時に指定できます (空白区切り)。
-
 挙動:
 
 - アプリの Namespace 内で `app.kubernetes.io/component=<COMPONENT>` ラベルを持つ Pod を対象とします。
 - `--component` 未指定時は `app` (アプリの Pod)、`box` を指定すると Kompox Box の Pod に接続します。
 - Ready 状態の Pod を優先し、無ければ非終了中の Pod を選択します。
 - 対象 Pod が終了すると自動的に接続が終了します。
-- Ctrl+C (SIGINT) で終了できます。
+
+サブシェルコマンド実行:
+
+- `--` 以降にコマンドを指定すると、トンネル確立後にそのコマンドをサブシェルで実行します。
+- トンネルが接続可能になるまで待機してからコマンドを起動します。
+- コマンド終了時にトンネルを自動で閉じ、コマンドの終了コードを返します。
+- サブシェルには以下の環境変数が設定されます:
+  - `KOMPOX_TUNNEL_HOST`: 待ち受けアドレス (既定: `localhost`)
+  - `KOMPOX_TUNNEL_PORT_<remotePort>`: リモートポートに対応するローカルポート番号
+    - 例: `-p 8080:80` の場合 `KOMPOX_TUNNEL_PORT_80=8080`
+    - 例: `-p :3000` で自動割当された場合 `KOMPOX_TUNNEL_PORT_3000=52341`
+
+インタラクティブモード:
+
+- コマンド未指定時は `Forwarding from HOST:PORT to PORT` のようなメッセージを表示し、Ctrl+C (SIGINT) で終了するまで待機します。
+- `-q` 指定時はメッセージを表示せず、Ctrl+C のみで終了します。
 
 使用例:
 
 ```bash
-# ローカル 8080 → リモート 80
-kompoxops app port-forward 8080:80
+# トンネルを作成して curl でアクセスし、終了時にトンネルを閉じる
+kompoxops app tunnel -p 8080 -- curl -v http://localhost:8080
+
+# 複数ポートをトンネルしてコマンド実行
+kompoxops app tunnel -p 8080 -p 8022:22 -- ssh -p 8022 localhost
+
+# 環境変数を利用したコマンド実行
+kompoxops app tunnel -p :3000 -- sh -c 'curl http://localhost:$KOMPOX_TUNNEL_PORT_3000'
+
+# 環境変数で複数ポートを参照
+kompoxops app tunnel -p 8080:80 -p 2222:22 -- sh -c 'echo "HTTP: $KOMPOX_TUNNEL_PORT_80, SSH: $KOMPOX_TUNNEL_PORT_22"'
+
+# ログを抑制してコマンド実行 (スクリプト向け)
+kompoxops app tunnel -q -p 8080 -- curl -s http://localhost:8080/health
+
+# インタラクティブモード (ローカル 8080 → リモート 80)
+kompoxops app tunnel -p 8080:80
 
 # 複数ポートを同時にフォワード
-kompoxops app port-forward 8022:22 8080:80
+kompoxops app tunnel -p 8022:22 -p 8080:80
 
 # ローカルポート自動割当
-kompoxops app port-forward :3000
+kompoxops app tunnel -p :3000
 
 # 特定のサービスを指定
-kompoxops app port-forward -S web 8080:80
+kompoxops app tunnel -S web -p 8080:80
 
 # すべてのインターフェースで待ち受け
-kompoxops app port-forward --address 0.0.0.0 8080:80
+kompoxops app tunnel --address 0.0.0.0 -p 8080:80
 
 # Kompox Box の SSH ポートをフォワード
-kompoxops app port-forward --component=box 2222:22
+kompoxops app tunnel --component=box -p 2222:22
 
 # 短縮形 (エイリアス pf)
-kompoxops app pf 8080:80
+kompoxops app pf -p 8080:80
 ```
 
 備考:

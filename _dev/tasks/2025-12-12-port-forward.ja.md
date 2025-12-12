@@ -1,7 +1,7 @@
 ---
 id: 2025-12-12-port-forward
 title: kompoxops app port-forward コマンド実装
-status: active
+status: done
 updated: 2025-12-12
 language: ja
 owner: yaegashi
