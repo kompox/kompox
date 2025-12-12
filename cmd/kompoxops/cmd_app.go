@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/kompox/kompox/adapters/kube"
@@ -38,7 +40,55 @@ func newCmdApp() *cobra.Command {
 	// Persistent flag shared across subcommands
 	cmd.PersistentFlags().StringVarP(&flagAppID, "app-id", "A", "", "App ID (FQN: ws/prv/cls/app)")
 	cmd.PersistentFlags().StringVar(&flagAppName, "app-name", "", "App name (backward compatibility, use --app-id)")
-	cmd.AddCommand(newCmdAppValidate(), newCmdAppDeploy(), newCmdAppDestroy(), newCmdAppStatus(), newCmdAppExec(), newCmdAppLogs())
+	cmd.AddCommand(newCmdAppValidate(), newCmdAppDeploy(), newCmdAppDestroy(), newCmdAppStatus(), newCmdAppExec(), newCmdAppLogs(), newCmdAppPortForward())
+	return cmd
+}
+
+func newCmdAppPortForward() *cobra.Command {
+	var component string
+	var service string
+	var address string
+
+	cmd := &cobra.Command{
+		Use:                "port-forward [LOCAL_PORT:]REMOTE_PORT...",
+		Aliases:            []string{"pf"},
+		Short:              "Port-forward to an app (or box) pod",
+		Args:               cobra.MinimumNArgs(1),
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			appUC, err := buildAppUseCase(cmd)
+			if err != nil {
+				return err
+			}
+
+			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+			defer stop()
+
+			appID, err := resolveAppID(ctx, appUC.Repos.App, nil)
+			if err != nil {
+				return err
+			}
+
+			ctx, cleanup := withCmdRunLogger(ctx, "app.port-forward", appID)
+			defer func() { cleanup(err) }()
+
+			_, err = appUC.PortForward(ctx, &app.PortForwardInput{
+				AppID:     appID,
+				Component: component,
+				Service:   service,
+				Address:   address,
+				Ports:     args,
+			})
+			return err
+		},
+	}
+
+	cmd.Flags().StringVar(&component, "component", "app", "Target component label value (app|box)")
+	cmd.Flags().StringVarP(&service, "service", "S", "", "Target compose service name (only for --component=app)")
+	cmd.Flags().StringVar(&address, "address", "localhost", "Listen address(es), comma-separated")
+
 	return cmd
 }
 

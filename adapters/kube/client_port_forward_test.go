@@ -71,6 +71,79 @@ func TestPortForwardOptions_Validation(t *testing.T) {
 	}
 }
 
+func TestPortForwardMultiOptions_Validation(t *testing.T) {
+	client := &kube.Client{
+		Clientset: fake.NewSimpleClientset(),
+	}
+
+	tests := []struct {
+		name    string
+		opts    *kube.PortForwardMultiOptions
+		wantErr bool
+	}{
+		{
+			name:    "nil options",
+			opts:    nil,
+			wantErr: true,
+		},
+		{
+			name: "missing pod name",
+			opts: &kube.PortForwardMultiOptions{
+				Namespace: "test-ns",
+				Ports:     []kube.PortForwardPort{{LocalPort: 8080, RemotePort: 80}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "missing namespace",
+			opts: &kube.PortForwardMultiOptions{
+				PodName: "test-pod",
+				Ports:   []kube.PortForwardPort{{LocalPort: 8080, RemotePort: 80}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "missing ports",
+			opts: &kube.PortForwardMultiOptions{
+				Namespace: "test-ns",
+				PodName:   "test-pod",
+				Ports:     nil,
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid remote port",
+			opts: &kube.PortForwardMultiOptions{
+				Namespace: "test-ns",
+				PodName:   "test-pod",
+				Ports:     []kube.PortForwardPort{{LocalPort: 8080, RemotePort: 0}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid local port",
+			opts: &kube.PortForwardMultiOptions{
+				Namespace: "test-ns",
+				PodName:   "test-pod",
+				Ports:     []kube.PortForwardPort{{LocalPort: -1, RemotePort: 80}},
+			},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+
+			_, err := client.PortForwardMulti(ctx, tt.opts)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("PortForwardMulti() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestFindPodByLabels_Validation(t *testing.T) {
 	// Create a fake client with some test pods
 	testPods := []corev1.Pod{

@@ -64,23 +64,23 @@ kompoxops app port-forward -A <appName> [--component COMPONENT] [-S SERVICE] [--
 
 ## 計画 (チェックリスト)
 
-- [ ] `usecase/app/port_forward.go` を新規作成
-  - [ ] `PortForwardInput` 構造体定義 (AppID, Component, Service, Address, Ports)
-  - [ ] `PortForwardOutput` 構造体定義 (LocalPorts, Message)
-  - [ ] ポート指定文字列のパース関数 (`parsePortSpec`)
-  - [ ] `PortForward` メソッド実装 (Pod 選択、複数ポートフォワード設定)
-- [ ] `usecase/app/types.go` に必要な型を追加 (必要に応じて)
-- [ ] `cmd/kompoxops/app_port_forward.go` を新規作成
-  - [ ] cobra コマンド定義 (`appPortForwardCmd`)
-  - [ ] エイリアス `pf` 登録
-  - [ ] フラグ定義 (`--component`, `-S/--service`, `--address`)
-  - [ ] ポート引数パース
-  - [ ] SIGINT ハンドラ実装
-- [ ] `cmd/kompoxops/app.go` に `appPortForwardCmd` を登録
-- [ ] 単体テスト追加 (`usecase/app/port_forward_test.go`)
-  - [ ] ポート指定パースのテスト
+- [x] `usecase/app/port_forward.go` を新規作成
+  - [x] `PortForwardInput` 構造体定義 (AppID, Component, Service, Address, Ports)
+  - [x] `PortForwardOutput` 構造体定義 (現在は空の構造体として維持)
+  - [x] ポート指定文字列のパース関数 (`parsePortSpec`)
+  - [x] アドレス指定のパース関数 (`splitAddresses`)
+  - [x] `PortForward` メソッド実装 (Pod 選択、複数ポートフォワード設定、リトライ)
+- [x] `usecase/app/types.go` に必要な型を追加 (不要だったため追加なし)
+- [x] `cmd/kompoxops` への `app port-forward` サブコマンド追加
+  - [x] cobra コマンド定義 (`cmd/kompoxops/cmd_app.go` に統合)
+  - [x] エイリアス `pf` 登録
+  - [x] フラグ定義 (`--component`, `-S/--service`, `--address`)
+  - [x] ポート引数パース
+  - [x] SIGINT ハンドラ実装
+- [x] 単体テスト追加 (`usecase/app/port_forward_test.go`)
+  - [x] ポート指定パースのテスト
   - [ ] Pod 選択ロジックのテスト (モック使用)
-- [ ] 統合テスト (手動または既存 e2e テストへの追加)
+- [x] 統合テスト (手動確認)
 
 ## 受け入れ条件
 
@@ -104,6 +104,11 @@ kompoxops app port-forward -A <appName> [--component COMPONENT] [-S SERVICE] [--
 ## 進捗
 
 - 2025-12-12: タスク作成
+- 2025-12-12: `kompoxops app port-forward` を実装 (エイリアス `pf`、複数ポート、`--component`、`--service`、`--address`)
+- 2025-12-12: `cmd/kompoxops/cmd_app.go` に統合し、専用ファイルは作成しない構成に変更
+- 2025-12-12: 誤ったリモートポート等による `connection refused` を警告扱いとして継続 (リトライとバックオフ)
+- 2025-12-12: ログを `design/v1/Kompox-Logging.ja.md` に準拠するよう調整 (msg シンボル、key 順序の安定化)
+- 2025-12-12: 終了後に出る "Forwarding from ..." の出力は削除 (UseCase の戻り値に意味のあるメッセージを持たせない)
 
 ## 参考
 
