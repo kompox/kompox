@@ -1,7 +1,7 @@
 ---
 id: README
 title: Developer Tasks Index
-updated: 2025-11-14
+updated: 2025-12-12
 language: en
 ---
 
@@ -16,7 +16,8 @@ This index lists short, action-oriented developer tasks found in this folder. Ta
 
 | ID | Title | Status | Category | Owner | Updated | Language |
 |---|---|---|---|---|---|---|
-| [2025-11-13-app-validate](./2025-11-13-app-validate.ja.md) | app validate バリデーション共通化と未割当ディスク警告化 | active |  | yaegashi | 2025-11-14 | ja |
+| [2025-12-12-port-forward](./2025-12-12-port-forward.ja.md) | kompoxops app port-forward コマンド実装 | active |  | yaegashi | 2025-12-12 | ja |
+| [2025-11-13-app-validate](./2025-11-13-app-validate.ja.md) | app validate バリデーション共通化と未割当ディスク警告化 | done |  | yaegashi | 2025-11-14 | ja |
 | [2025-11-09-aks-cluster-fix](./2025-11-09-aks-cluster-fix.ja.md) | AKS Driver - Cluster 関連の不具合修正 | done |  | yaegashi | 2025-11-09 | ja |
 | [2025-11-04-converter](./2025-11-04-converter.ja.md) | Converter の entrypoint/command 変換実装 | done |  | yaegashi | 2025-11-04 | ja |
 | [2025-11-03-kompox-cli-env](./2025-11-03-kompox-cli-env.ja.md) | Kompox CLI Env の導入と KOM 入力優先順位の実装 | done |  | yaegashi | 2025-11-03 | ja |

@@ -3,7 +3,7 @@ id: Kompox-CLI
 title: Kompox PaaS CLI
 version: v1
 status: synced
-updated: 2025-11-03
+updated: 2025-12-12
 language: ja
 ---
 
@@ -388,11 +388,13 @@ kompoxops cluster kubeconfig --cluster-id cluster1 --merge --set-current
 アプリの操作を行う。
 
 ```
-kompoxops app validate --app-id <appID>
-kompoxops app deploy   --app-id <appID> [--bootstrap-disks]
-kompoxops app destroy  --app-id <appID>
-kompoxops app status   --app-id <appID>
-kompoxops app exec     --app-id <appID> -- <command> [args...]
+kompoxops app validate      --app-id <appID>
+kompoxops app deploy        --app-id <appID> [--bootstrap-disks]
+kompoxops app destroy       --app-id <appID>
+kompoxops app status        --app-id <appID>
+kompoxops app exec          --app-id <appID> -- <command> [args...]
+kompoxops app port-forward  --app-id <appID> [LOCAL_PORT:]REMOTE_PORT...   (alias: pf)
+kompoxops app logs          --app-id <appID>
 ```
 
 共通オプション
@@ -402,15 +404,19 @@ kompoxops app exec     --app-id <appID> -- <command> [args...]
 
 優先度: `--app-id` > `--app-name` > KOM デフォルト (Resource ID) > 単一ファイルモード (`app.name`)
 
-validate コマンドは app.compose の内容を検証し Kompose により K8s マニフェストに変換する。
-YAML 構文エラーや制約違反が検出された場合はエラーを返す。
+仕様
 
-- `--out-compose FILE` を指定すると正規化した Docker Compose の YAML ドキュメントを出力する (`-` は stdout)
-- `--out-manifest FILE` を指定すると K8s マニフェストの YAML ドキュメントを出力する (`-` は stdout)
+- アプリは `app.kubernetes.io/component=app` ラベル付きでデプロイされる。
+- component 名は将来的にユーザー指定で可変となる予定。
 
 #### kompoxops app validate
 
 Compose の検証と K8s マニフェスト生成を行います。`--out-compose`/`--out-manifest` でファイル出力可能です。ローカルファイルシステム参照ポリシーもこの段階で検証されます(KOM 読み込み時には検証しません)。
+
+オプション:
+
+- `--out-compose FILE` 正規化した Docker Compose の YAML ドキュメントを出力する (`-` は stdout)
+- `--out-manifest FILE` K8s マニフェストの YAML ドキュメントを出力する (`-` は stdout)
 
 検証結果は UseCase 層で共通化された Issue (Severity) として集計される。Severity の意味とコマンドごとの扱いは次の通り。
 
@@ -534,8 +540,7 @@ kompoxops app exec -A <appName> [-i] [-t] [-e ESC] [-c CONTAINER] -- <command> [
 
 挙動:
 
-- 対象 Pod の選択はアプリの Namespace 内で実施します。
-- `kompox.dev/tool-runner=true` が付与されたメンテナンス用ランナー Pod は除外します。
+- アプリの Namespace 内で `app.kubernetes.io/component=app` ラベルを持つ Pod を対象とします。
 - 少なくとも 1 つの Ready コンテナを持つ Pod を優先し、無ければ非終了中の Pod を選択します。
 - `--tty` 指定時は stderr は stdout にマージされます (TTY の仕様)。
 - `--escape` で指定したシーケンスを送るとセッションを切断して終了できます (例: `~.`)。
@@ -549,6 +554,71 @@ kompoxops app exec -it -- bash
 # コンテナ名を指定してログを確認
 kompoxops app exec -t -c app -- sh -c 'tail -n 100 /var/log/app.log'
 ```
+
+#### kompoxops app port-forward
+
+アプリの Pod に対してポートフォワードを行います。Ctrl+C で終了するまで接続を維持します。
+
+エイリアス: `kompoxops app pf`
+
+使用法:
+
+```
+kompoxops app port-forward -A <appName> [--component COMPONENT] [-S SERVICE] [--address ADDR] [LOCAL_PORT:]REMOTE_PORT...
+```
+
+オプション:
+
+- `--component` 対象の component ラベル値 (既定: `app`、`box` を指定すると Kompox Box に接続)
+- `-S, --service` 対象の Compose service 名 (未指定時は最初のサービスを選択、`--component=app` 時のみ有効)
+- `--address` 待ち受けアドレス (既定: `localhost`、カンマ区切りで複数指定可)
+
+ポート指定形式:
+
+| 形式 | 説明 |
+|------|------|
+| `8080:80` | ローカル 8080 → リモート 80 |
+| `8080` | ローカル 8080 → リモート 8080 (同じポート) |
+| `:80` | ローカル自動割当 → リモート 80 |
+
+複数ポートを同時に指定できます (空白区切り)。
+
+挙動:
+
+- アプリの Namespace 内で `app.kubernetes.io/component=<COMPONENT>` ラベルを持つ Pod を対象とします。
+- `--component` 未指定時は `app` (アプリの Pod)、`box` を指定すると Kompox Box の Pod に接続します。
+- Ready 状態の Pod を優先し、無ければ非終了中の Pod を選択します。
+- 対象 Pod が終了すると自動的に接続が終了します。
+- Ctrl+C (SIGINT) で終了できます。
+
+使用例:
+
+```bash
+# ローカル 8080 → リモート 80
+kompoxops app port-forward 8080:80
+
+# 複数ポートを同時にフォワード
+kompoxops app port-forward 8022:22 8080:80
+
+# ローカルポート自動割当
+kompoxops app port-forward :3000
+
+# 特定のサービスを指定
+kompoxops app port-forward -S web 8080:80
+
+# すべてのインターフェースで待ち受け
+kompoxops app port-forward --address 0.0.0.0 8080:80
+
+# Kompox Box の SSH ポートをフォワード
+kompoxops app port-forward --component=box 2222:22
+
+# 短縮形 (エイリアス pf)
+kompoxops app pf 8080:80
+```
+
+備考:
+
+- より高度なポートフォワード (任意ホストへの転送、逆方向トンネル) が必要な場合は `kompoxops box ssh -- -L/-R ...` を使用してください。
 
 ### kompoxops secret
 
@@ -565,7 +635,7 @@ kompoxops secret pull delete --app-id <appID>
 
 - `--app-id | -A` アプリ ID (Resource ID: `/ws/<ws>/prv/<prv>/cls/<cls>/app/<app>`) を指定。KOM モードでは `--kom-app` 範囲に App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
 - `--app-name` アプリ名を指定 (後方互換)。複数のアプリが同名の場合はエラー。
-- `--component | -C` コンポーネント名を指定 (デフォルト: `app`)
+- `--component` コンポーネント名を指定 (デフォルト: `app`)
 
 優先度: `--app-id` > `--app-name` > KOM デフォルト (Resource ID) > 単一ファイルモード (`app.name`)
 
@@ -588,7 +658,7 @@ kompoxops secret env set -A <appName> -S <serviceName> -f override.env
 主なオプション:
 - `-S, --service <serviceName>` 対象コンテナ (Compose service 名) を指定 (必須)
 - `-f, --file <path>`          読み込むファイル (必須)
-- `-C, --component <name>`     コンポーネント名を指定 (デフォルト: `app`)
+- `--component <name>`         コンポーネント名を指定 (デフォルト: `app`)
 
 サポートファイル形式: `.env` / `.yml` / `.yaml` / `.json`
 
@@ -599,7 +669,7 @@ kompoxops secret env set -A <appName> -S <serviceName> -f override.env
 kompoxops secret env set -A app1 -S app -f staging.env
 
 # コンポーネント名を指定
-kompoxops secret env set -A app1 -S app -f staging.env -C mycomponent
+kompoxops secret env set -A app1 -S app -f staging.env --component mycomponent
 ```
 
 ##### kompoxops secret env delete
@@ -614,7 +684,7 @@ kompoxops secret env delete -A <appName> -S <serviceName>
 
 主なオプション:
 - `-S, --service <serviceName>` 対象コンテナ (Compose service 名) を指定 (必須)
-- `-C, --component <name>`     コンポーネント名を指定 (デフォルト: `app`)
+- `--component <name>`         コンポーネント名を指定 (デフォルト: `app`)
 
 使用例:
 
@@ -623,7 +693,7 @@ kompoxops secret env delete -A <appName> -S <serviceName>
 kompoxops secret env delete -A app1 -S app
 
 # コンポーネント名を指定
-kompoxops secret env delete -A app1 -S app -C mycomponent
+kompoxops secret env delete -A app1 -S app --component mycomponent
 ```
 
 #### kompoxops secret pull
@@ -642,7 +712,7 @@ kompoxops secret pull set -A <appName> -f ~/.docker/config.json
 
 主なオプション:
 - `-f, --file <path>`      Docker 認証ファイル (`config.json`) を指定 (必須)
-- `-C, --component <name>` コンポーネント名を指定 (デフォルト: `app`)
+- `--component <name>` コンポーネント名を指定 (デフォルト: `app`)
 
 使用例:
 
@@ -651,7 +721,7 @@ kompoxops secret pull set -A <appName> -f ~/.docker/config.json
 kompoxops secret pull set -A app1 -f ~/.docker/config.json
 
 # コンポーネント名を指定
-kompoxops secret pull set -A app1 -f ~/.docker/config.json -C mycomponent
+kompoxops secret pull set -A app1 -f ~/.docker/config.json --component mycomponent
 ```
 
 ##### kompoxops secret pull delete
@@ -665,7 +735,7 @@ kompoxops secret pull delete -A <appName>
 ```
 
 主なオプション:
-- `-C, --component <name>` コンポーネント名を指定 (デフォルト: `app`)
+- `--component <name>` コンポーネント名を指定 (デフォルト: `app`)
 
 使用例:
 
@@ -674,7 +744,7 @@ kompoxops secret pull delete -A <appName>
 kompoxops secret pull delete -A app1
 
 # コンポーネント名を指定
-kompoxops secret pull delete -A app1 -C mycomponent
+kompoxops secret pull delete -A app1 --component mycomponent
 ```
 
 ### kompoxops dns
@@ -690,7 +760,7 @@ kompoxops dns destroy --app-id <appID>    DNS レコードの削除
 
 - `--app-id | -A` アプリ ID (Resource ID: `/ws/<ws>/prv/<prv>/cls/<cls>/app/<app>`) を指定。KOM モードでは `--kom-app` 範囲に App が 1 件のみの場合に自動設定。単一ファイルモードでは kompoxops.yml の `app.name` が既定。
 - `--app-name` アプリ名を指定(後方互換)。複数のアプリが同名の場合はエラー。
-- `--component | -C` コンポーネント名を指定 (デフォルト: `app`)
+- `--component` コンポーネント名を指定 (デフォルト: `app`)
 - `--strict` DNS 書き込み失敗時にエラーで終了 (デフォルトは警告のみで継続)
 - `--dry-run` 実際の変更を行わず、計画のみを表示
 
@@ -724,7 +794,7 @@ kompoxops dns deploy -A app1 --dry-run
 kompoxops dns deploy -A app1 --strict
 
 # コンポーネント名を指定
-kompoxops dns deploy -A app1 -C mycomponent
+kompoxops dns deploy -A app1 --component mycomponent
 ```
 
 備考:
@@ -748,7 +818,7 @@ kompoxops dns destroy -A app1 --dry-run
 kompoxops dns destroy -A app1 --strict
 
 # コンポーネント名を指定
-kompoxops dns destroy -A app1 -C mycomponent
+kompoxops dns destroy -A app1 --component mycomponent
 ```
 
 備考:
@@ -942,13 +1012,13 @@ kompoxops snapshot delete -V db -N 01J8WXYZABCDEF1234567890
 アプリの Namespace に Kompox Box (Deployment/Pod) をデプロイ・操作する。
 
 ```
-kompoxops box deploy  --app-id <appID> [--image IMG] [-V vol:disk:/path]... [-c CMD]... [-a ARG]...   Kompox Box のデプロイ
-kompoxops box destroy --app-id <appID>                                                                 Kompox Box の削除
-kompoxops box status  --app-id <appID>                                                                 Kompox Box の状態表示
-kompoxops box exec    --app-id <appID> [-i] [-t] [-e ESC] -- <command> [args...]                     Kompox Box 内でコマンド実行
-kompoxops box ssh     --app-id <appID> -- <ssh args...>                                               Kompox Box への SSH 接続
-kompoxops box scp     --app-id <appID> -- <scp args...>                                               Kompox Box とのファイル転送 (SCP)
-kompoxops box rsync   --app-id <appID> -- <rsync args...>                                             Kompox Box とのファイル同期 (rsync)
+kompoxops box deploy       --app-id <appID> [--image IMG] [-V vol:disk:/path]... [-c CMD]... [-a ARG]...   Kompox Box のデプロイ
+kompoxops box destroy      --app-id <appID>                                                                 Kompox Box の削除
+kompoxops box status       --app-id <appID>                                                                 Kompox Box の状態表示
+kompoxops box exec         --app-id <appID> [-i] [-t] [-e ESC] -- <command> [args...]                       Kompox Box 内でコマンド実行
+kompoxops box ssh          --app-id <appID> -- <ssh args...>                                                Kompox Box への SSH 接続
+kompoxops box scp          --app-id <appID> -- <scp args...>                                                Kompox Box とのファイル転送 (SCP)
+kompoxops box rsync        --app-id <appID> -- <rsync args...>                                              Kompox Box とのファイル同期 (rsync)
 ```
 
 共通オプション
@@ -960,7 +1030,7 @@ kompoxops box rsync   --app-id <appID> -- <rsync args...>                       
 
 仕様
 
-- Kompox Box はアプリの Namespace に `kompox.dev/box=true` ラベル付きでデプロイされる。
+- Kompox Box はアプリの Namespace に `app.kubernetes.io/component=box` ラベル付きでデプロイされる。
 - リソース名は固定で `kompox-box`。
 - PV/PVC は必要に応じて自動生成される。
 - PV/PVC をアプリ定義のボリュームにバインドしてマウントでき、メンテナンスや開発の環境として利用できる。
@@ -1050,7 +1120,7 @@ kompoxops box exec -t -- ls -la /mnt
 
 備考:
 
-- `kompox.dev/box=true` ラベルが付与された Pod を対象とします。
+- `app.kubernetes.io/component=box` ラベルが付与された Pod を対象とします。
 - Ready 状態の Pod を優先し、無ければ非終了中の Pod を選択します。
 - `--tty` 指定時は stderr は stdout にマージされます (TTY の仕様)。
 - `--escape` で指定したシーケンスを送るとセッションを切断して終了できます (例: `~.`)。

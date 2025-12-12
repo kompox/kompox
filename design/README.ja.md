@@ -1,7 +1,7 @@
 ---
 id: README
 title: Kompox 設計ドキュメント目次
-updated: 2025-11-14
+updated: 2025-12-12
 language: ja
 ---
 
@@ -19,7 +19,7 @@ language: ja
 | [Kompox-KOM](./v1/Kompox-KOM.ja.md) | Kompox KOM configuration | ja | v1 | synced | 2025-11-03 |
 | [Kompox-KubeClient](./v1/Kompox-KubeClient.ja.md) | Kompox Kube Client ガイド | ja | v1 | out-of-sync | 2025-09-26 |
 | [Kompox-KubeConverter](./v1/Kompox-KubeConverter.ja.md) | Kompox Kube Converter ガイド | ja | v1 | synced | 2025-10-12 |
-| [Kompox-CLI](./v1/Kompox-CLI.ja.md) | Kompox PaaS CLI | ja | v1 | synced | 2025-11-03 |
+| [Kompox-CLI](./v1/Kompox-CLI.ja.md) | Kompox PaaS CLI | ja | v1 | synced | 2025-12-12 |
 | [Kompox-Resources](./v1/Kompox-Resources.ja.md) | Kompox PaaS Resources | ja | v1 | archived | 2025-10-12 |
 | [Kompox-ProviderDriver](./v1/Kompox-ProviderDriver.ja.md) | Kompox Provider Driver ガイド | ja | v1 | synced | 2025-10-12 |
 | [Kompox-Logging](./v1/Kompox-Logging.ja.md) | Kompox ロギング仕様 | ja | v1 | synced | 2025-10-27 |
