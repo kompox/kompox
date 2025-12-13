@@ -6,6 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
+	"os"
+	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -41,8 +44,8 @@ func (w *warnLineWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// PortForwardInput defines parameters for port-forwarding to an app (or box) pod.
-type PortForwardInput struct {
+// TunnelInput defines parameters for tunneling (port-forwarding) to an app (or box) pod.
+type TunnelInput struct {
 	AppID string `json:"app_id"`
 
 	// Component is the target component label value.
@@ -61,14 +64,20 @@ type PortForwardInput struct {
 	//   - "PORT" (same local/remote)
 	//   - ":REMOTE" (auto-assign local port)
 	Ports []string `json:"ports"`
+
+	// Quiet suppresses "Forwarding from ..." messages when true.
+	Quiet bool `json:"quiet"`
+
+	// Command is an optional command to run in a subshell after tunnel is established.
+	// If non-empty, the tunnel is closed automatically when the command finishes.
+	Command []string `json:"command"`
 }
 
-// PortForwardOutput is reserved for future use.
-//
-// Port-forward is a blocking operation; runtime details (such as assigned local ports)
-// are not available to the caller until the operation ends.
-// To keep the usecase API consistent, this output is currently returned empty.
-type PortForwardOutput struct{}
+// TunnelOutput contains the result of the tunnel operation.
+type TunnelOutput struct {
+	// ExitCode is the exit code of the subshell command (0 if no command was run).
+	ExitCode int `json:"exit_code"`
+}
 
 func parsePortSpec(s string) (localPort int, remotePort int, err error) {
 	ss := strings.TrimSpace(s)
@@ -167,13 +176,13 @@ func isRecoverablePortForwardError(err error) bool {
 	return false
 }
 
-// PortForward establishes port-forwarding to a target pod and blocks until the session ends.
-// The session ends when:
-//   - The caller cancels the context (Ctrl+C), or
-//   - The target pod terminates.
-func (u *UseCase) PortForward(ctx context.Context, in *PortForwardInput) (*PortForwardOutput, error) {
+// Tunnel establishes a tunnel (port-forwarding) to a target pod.
+// If Command is provided, it runs the command in a subshell after the tunnel is established,
+// then closes the tunnel when the command finishes.
+// Otherwise, it blocks until the caller cancels the context (Ctrl+C) or the target pod terminates.
+func (u *UseCase) Tunnel(ctx context.Context, in *TunnelInput) (*TunnelOutput, error) {
 	if in == nil || in.AppID == "" {
-		return nil, fmt.Errorf("PortForwardInput.AppID is required")
+		return nil, fmt.Errorf("TunnelInput.AppID is required")
 	}
 	if len(in.Ports) == 0 {
 		return nil, fmt.Errorf("at least one port spec is required")
@@ -186,7 +195,7 @@ func (u *UseCase) PortForward(ctx context.Context, in *PortForwardInput) (*PortF
 	addresses := splitAddresses(in.Address)
 
 	logger := logging.FromContext(ctx)
-	msgSym := "UC:app.port-forward"
+	msgSym := "UC:app.tunnel"
 
 	appObj, err := u.Repos.App.Get(ctx, in.AppID)
 	if err != nil || appObj == nil {
@@ -299,11 +308,35 @@ func (u *UseCase) PortForward(ctx context.Context, in *PortForwardInput) (*PortF
 		)
 		backoff = time.Second
 
+		// Print "Forwarding from ..." messages unless --quiet
+		if !in.Quiet {
+			host := addresses[0]
+			for i, lp := range pf.LocalPorts {
+				rp := remotePorts[i]
+				fmt.Fprintf(os.Stderr, "Forwarding from %s:%d -> %d\n", host, lp, rp)
+			}
+		}
+
+		// Wait for tunnel to be connectable before running subshell
+		if len(in.Command) > 0 {
+			if err := waitForTunnelReady(ctx, addresses[0], pf.LocalPorts, 30*time.Second); err != nil {
+				pf.StopFunc()
+				<-pf.DoneChannel
+				return nil, fmt.Errorf("tunnel not ready: %w", err)
+			}
+
+			exitCode := runSubshellCommand(ctx, in.Command, addresses[0], pf.LocalPorts, remotePorts)
+			pf.StopFunc()
+			<-pf.DoneChannel
+			return &TunnelOutput{ExitCode: exitCode}, nil
+		}
+
+		// Interactive mode: wait for Ctrl+C or tunnel termination
 		select {
 		case <-ctx.Done():
 			pf.StopFunc()
 			<-pf.DoneChannel
-			return &PortForwardOutput{}, nil
+			return &TunnelOutput{}, nil
 		case <-pf.DoneChannel:
 			var ferr error
 			select {
@@ -312,14 +345,14 @@ func (u *UseCase) PortForward(ctx context.Context, in *PortForwardInput) (*PortF
 			}
 			pf.StopFunc()
 			if ferr == nil || isExpectedPortForwardStop(ferr) {
-				return &PortForwardOutput{}, nil
+				return &TunnelOutput{}, nil
 			}
 			if isRecoverablePortForwardError(ferr) {
 				pfLogger.Warn(ctx, msgSym+":Retrying", "err", ferr.Error())
 				// Backoff to avoid a tight restart loop when the user keeps hitting an unopened port.
 				select {
 				case <-ctx.Done():
-					return &PortForwardOutput{}, nil
+					return &TunnelOutput{}, nil
 				case <-time.After(backoff):
 				}
 				if backoff < 5*time.Second {
@@ -333,4 +366,63 @@ func (u *UseCase) PortForward(ctx context.Context, in *PortForwardInput) (*PortF
 			return nil, fmt.Errorf("port forward ended: %w", ferr)
 		}
 	}
+}
+
+// waitForTunnelReady polls until at least one local port is connectable or timeout.
+func waitForTunnelReady(ctx context.Context, host string, localPorts []int, timeout time.Duration) error {
+	if len(localPorts) == 0 {
+		return nil
+	}
+
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		// Try to connect to the first port
+		addr := net.JoinHostPort(host, strconv.Itoa(localPorts[0]))
+		conn, err := net.DialTimeout("tcp", addr, 500*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			return nil
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+	return fmt.Errorf("timeout waiting for tunnel")
+}
+
+// runSubshellCommand runs a command in a subshell with tunnel environment variables.
+// Returns the exit code of the command.
+func runSubshellCommand(ctx context.Context, command []string, host string, localPorts, remotePorts []int) int {
+	if len(command) == 0 {
+		return 0
+	}
+
+	// Build environment variables
+	env := os.Environ()
+	env = append(env, "KOMPOX_TUNNEL_HOST="+host)
+	for i, rp := range remotePorts {
+		lp := localPorts[i]
+		env = append(env, fmt.Sprintf("KOMPOX_TUNNEL_PORT_%d=%d", rp, lp))
+	}
+
+	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
+	cmd.Env = env
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	err := cmd.Run()
+	if err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return exitErr.ExitCode()
+		}
+		return 1
+	}
+	return 0
 }

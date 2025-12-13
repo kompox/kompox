@@ -1,6 +1,9 @@
 package app
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func TestParsePortSpec(t *testing.T) {
 	tests := []struct {
@@ -68,4 +71,72 @@ func TestSplitAddresses(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestBuildTunnelEnvVars(t *testing.T) {
+	tests := []struct {
+		name        string
+		host        string
+		localPorts  []int
+		remotePorts []int
+		want        []string
+	}{
+		{
+			name:        "single port",
+			host:        "localhost",
+			localPorts:  []int{8080},
+			remotePorts: []int{80},
+			want: []string{
+				"KOMPOX_TUNNEL_HOST=localhost",
+				"KOMPOX_TUNNEL_PORT_80=8080",
+			},
+		},
+		{
+			name:        "multiple ports",
+			host:        "localhost",
+			localPorts:  []int{8080, 2222},
+			remotePorts: []int{80, 22},
+			want: []string{
+				"KOMPOX_TUNNEL_HOST=localhost",
+				"KOMPOX_TUNNEL_PORT_80=8080",
+				"KOMPOX_TUNNEL_PORT_22=2222",
+			},
+		},
+		{
+			name:        "custom host",
+			host:        "0.0.0.0",
+			localPorts:  []int{3000},
+			remotePorts: []int{3000},
+			want: []string{
+				"KOMPOX_TUNNEL_HOST=0.0.0.0",
+				"KOMPOX_TUNNEL_PORT_3000=3000",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := buildTunnelEnvVars(tt.host, tt.localPorts, tt.remotePorts)
+			if len(got) != len(tt.want) {
+				t.Fatalf("buildTunnelEnvVars() len=%d, want %d (%v)", len(got), len(tt.want), got)
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Fatalf("buildTunnelEnvVars()[%d]=%q, want %q (%v)", i, got[i], tt.want[i], got)
+				}
+			}
+		})
+	}
+}
+
+// buildTunnelEnvVars builds environment variable assignments for subshell.
+// This is a helper that mirrors the logic in runSubshellCommand for testing.
+func buildTunnelEnvVars(host string, localPorts, remotePorts []int) []string {
+	var env []string
+	env = append(env, "KOMPOX_TUNNEL_HOST="+host)
+	for i, rp := range remotePorts {
+		lp := localPorts[i]
+		env = append(env, fmt.Sprintf("KOMPOX_TUNNEL_PORT_%d=%d", rp, lp))
+	}
+	return env
 }

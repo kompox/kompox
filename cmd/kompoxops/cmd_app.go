@@ -40,24 +40,29 @@ func newCmdApp() *cobra.Command {
 	// Persistent flag shared across subcommands
 	cmd.PersistentFlags().StringVarP(&flagAppID, "app-id", "A", "", "App ID (FQN: ws/prv/cls/app)")
 	cmd.PersistentFlags().StringVar(&flagAppName, "app-name", "", "App name (backward compatibility, use --app-id)")
-	cmd.AddCommand(newCmdAppValidate(), newCmdAppDeploy(), newCmdAppDestroy(), newCmdAppStatus(), newCmdAppExec(), newCmdAppLogs(), newCmdAppPortForward())
+	cmd.AddCommand(newCmdAppValidate(), newCmdAppDeploy(), newCmdAppDestroy(), newCmdAppStatus(), newCmdAppExec(), newCmdAppLogs(), newCmdAppTunnel())
 	return cmd
 }
 
-func newCmdAppPortForward() *cobra.Command {
+func newCmdAppTunnel() *cobra.Command {
 	var component string
 	var service string
 	var address string
+	var ports []string
+	var quiet bool
 
 	cmd := &cobra.Command{
-		Use:                "port-forward [LOCAL_PORT:]REMOTE_PORT...",
-		Aliases:            []string{"pf"},
-		Short:              "Port-forward to an app (or box) pod",
-		Args:               cobra.MinimumNArgs(1),
+		Use:                "tunnel",
+		Aliases:            []string{"port-forward", "pf"},
+		Short:              "Tunnel (port-forward) to an app (or box) pod",
 		SilenceUsage:       true,
 		SilenceErrors:      true,
 		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			if len(ports) == 0 {
+				return fmt.Errorf("at least one --port is required")
+			}
+
 			appUC, err := buildAppUseCase(cmd)
 			if err != nil {
 				return err
@@ -71,23 +76,33 @@ func newCmdAppPortForward() *cobra.Command {
 				return err
 			}
 
-			ctx, cleanup := withCmdRunLogger(ctx, "app.port-forward", appID)
+			ctx, cleanup := withCmdRunLogger(ctx, "app.tunnel", appID)
 			defer func() { cleanup(err) }()
 
-			_, err = appUC.PortForward(ctx, &app.PortForwardInput{
+			out, err := appUC.Tunnel(ctx, &app.TunnelInput{
 				AppID:     appID,
 				Component: component,
 				Service:   service,
 				Address:   address,
-				Ports:     args,
+				Ports:     ports,
+				Quiet:     quiet,
+				Command:   args,
 			})
-			return err
+			if err != nil {
+				return err
+			}
+			if out.ExitCode != 0 {
+				os.Exit(out.ExitCode)
+			}
+			return nil
 		},
 	}
 
 	cmd.Flags().StringVar(&component, "component", "app", "Target component label value (app|box)")
 	cmd.Flags().StringVarP(&service, "service", "S", "", "Target compose service name (only for --component=app)")
 	cmd.Flags().StringVar(&address, "address", "localhost", "Listen address(es), comma-separated")
+	cmd.Flags().StringArrayVarP(&ports, "port", "p", nil, "Port mapping [LOCAL:]REMOTE (can be specified multiple times)")
+	cmd.Flags().BoolVarP(&quiet, "quiet", "q", false, "Suppress 'Forwarding from ...' messages")
 
 	return cmd
 }

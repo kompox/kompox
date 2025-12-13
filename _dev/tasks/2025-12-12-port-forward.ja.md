@@ -109,6 +109,7 @@ kompoxops app port-forward -A <appName> [--component COMPONENT] [-S SERVICE] [--
 - 2025-12-12: 誤ったリモートポート等による `connection refused` を警告扱いとして継続 (リトライとバックオフ)
 - 2025-12-12: ログを `design/v1/Kompox-Logging.ja.md` に準拠するよう調整 (msg シンボル、key 順序の安定化)
 - 2025-12-12: 終了後に出る "Forwarding from ..." の出力は削除 (UseCase の戻り値に意味のあるメッセージを持たせない)
+- 2025-12-12: [2025-12-12-tunnel] タスクにより `tunnel` コマンドへ発展・統合
 
 ## 参考
 
@@ -116,8 +117,10 @@ kompoxops app port-forward -A <appName> [--component COMPONENT] [-S SERVICE] [--
 - [usecase/box/port_forward.go]
 - [adapters/kube/client_port_forward.go]
 - [usecase/app/exec.go]
+- [2025-12-12-tunnel]
 
 [Kompox-CLI.ja.md]: ../../design/v1/Kompox-CLI.ja.md
 [usecase/box/port_forward.go]: ../../usecase/box/port_forward.go
 [adapters/kube/client_port_forward.go]: ../../adapters/kube/client_port_forward.go
 [usecase/app/exec.go]: ../../usecase/app/exec.go
+[2025-12-12-tunnel]: ./2025-12-12-tunnel.ja.md
