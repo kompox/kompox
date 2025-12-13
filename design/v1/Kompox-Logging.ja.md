@@ -292,6 +292,78 @@ Span や Step の中間記録、状態遷移、サマリー情報、判断結果
 
 注: `KubeClient:Apply/efail` は `INFO` レベル。リソースの重複作成は冪等性の観点で正常なパス。
 
+## コマンド実行ログ
+
+### CMD 開始・終了ログ
+
+CLI の各コマンド実行は開始ログと終了ログで囲まれる。これらは `runId` を含み、コマンド実行全体のトレースを可能にする。
+
+**開始ログ**
+
+```json
+{"time":"2025-12-13T10:06:21Z","level":"INFO","msg":"CMD","runId":"0t77del56dte","args":["kompoxops","app","deploy"]}
+```
+
+| 属性 | 説明 |
+|------|------|
+| `msg` | `CMD` (固定) |
+| `runId` | このコマンド実行の一意識別子 |
+| `args` | コマンドライン引数の配列 (`os.Args`) |
+
+**終了ログ**
+
+```json
+{"time":"2025-12-13T10:06:30Z","level":"INFO","msg":"CMD","runId":"0t77del56dte","exitCode":0}
+```
+
+| 属性 | 説明 |
+|------|------|
+| `msg` | `CMD` (固定) |
+| `runId` | 開始ログと同じ識別子 |
+| `exitCode` | 終了コード (0: 成功、1: 失敗) |
+
+### ExitCodeError と終了コード伝播
+
+サブプロセスを実行するコマンド (例: `kompoxops app tunnel`) では、サブプロセスの終了コードを CLI の終了コードとして伝播する必要がある。この場合、`ExitCodeError` 型を使用する。
+
+**ExitCodeError の特性**
+
+- サブプロセスの終了コードを格納するエラー型
+- コマンド自体の失敗ではなく、終了コードの伝播手段
+- Span パターンでは **EOK** として扱う (コマンドは正常に完了した)
+- `exitCode` フィールドをログに出力
+
+**Span 終了ログでの扱い**
+
+```json
+{"time":"...","level":"INFO","msg":"CMD:app.tunnel/EOK","resourceId":"...","err":"","exitCode":42,"elapsed":0.5}
+```
+
+| 属性 | 説明 |
+|------|------|
+| `msg` | `/EOK` (成功終了) |
+| `err` | `""` (空文字列) |
+| `exitCode` | サブプロセスの終了コード |
+
+注: `ExitCodeError` でない通常の成功終了では `exitCode` フィールドは出力されない。
+
+### runId の生成と伝搬
+
+`runId` は CLI 起動時に `PersistentPreRunE` で一度だけ生成され、ロガーに付与される。以降のすべてのログ出力はこの `runId` を継承する。
+
+```go
+// PersistentPreRunE 内
+runID, _ := naming.NewCompactID()
+logger = logger.With("runId", runID)
+logger.Info(ctx, "CMD", "args", os.Args)
+ctx = logging.WithLogger(ctx, logger)
+```
+
+これにより:
+- 1 回のコマンド実行内のすべてのログが同じ `runId` を持つ
+- `withCmdRunLogger` や下位レイヤーのロガーは `runId` を自動的に継承する
+- ログファイル内で特定のコマンド実行に関連するログを `runId` でフィルタリングできる
+
 ## 実装例
 
 ### Span ログパターン: withCmdRunLogger
@@ -299,59 +371,23 @@ Span や Step の中間記録、状態遷移、サマリー情報、判断結果
 [cmd/kompoxops/logging.go] の `withCmdRunLogger` 関数は Span パターンを実装している。
 
 ```go
-// withCmdRunLogger implements the Span pattern for CLI command logging.
-// It emits a start log line and returns a context with logger attributes attached,
-// plus a cleanup function to emit the success or failure log line.
-//
-// Usage:
-//
-//	ctx, cleanup := withCmdRunLogger(ctx, "cluster.provision", resourceID)
-//	defer func() { cleanup(err) }()
-//
-// Log message format:
-// - Start:   CMD:<operation>/S (with runId, resourceId in logger attributes)
-// - Success: CMD:<operation>/EOK (with err, elapsed in logger attributes)
-// - Failure: CMD:<operation>/EFAIL (with err, elapsed in logger attributes)
-//
-// All logs use INFO level (mechanical recording).
-// See design/v1/Kompox-Logging.ja.md for the full Span pattern specification.
-func withCmdRunLogger(ctx context.Context, operation, resourceID string) (context.Context, func(err error)) {
-	runID, err := naming.NewCompactID()
-	if err != nil {
-		// Fallback to a fixed value if ID generation fails
-		runID = "error"
-	}
+func withCmdRunLogger(ctx context.Context, operation, resourceID string) (context.Context, func(err error))
+```
 
-	startAt := time.Now()
+この関数では `resourceId` をコンテキストに追加したロガーとクリーンアップ関数を返す。
+クリーンアップ関数には `ExitCodeError` の特別処理も含まれている。
 
-	// Attach runId, resourceId to logger and return new context
-	logger := logging.FromContext(ctx).With("runId", runID, "resourceId", resourceID)
-	ctx = logging.WithLogger(ctx, logger)
+withCmdRunLogger 使用法:
 
-	// Emit start log line
-	logger.Info(ctx, "CMD:"+operation+"/S")
-
-	cleanup := func(err error) {
-		elapsed := time.Since(startAt).Seconds()
-		var msg, errStr string
-		if err == nil {
-			msg = "CMD:" + operation + "/EOK"
-			errStr = ""
-		} else {
-			msg = "CMD:" + operation + "/EFAIL"
-			errMsg := err.Error()
-			if len(errMsg) > 32 {
-				errStr = errMsg[:32] + "..."
-			} else {
-				errStr = errMsg
-			}
-		}
-
-		// Always use INFO level for Span pattern (mechanical recording)
-		logger.Info(ctx, msg, "err", errStr, "elapsed", elapsed)
-	}
-
-	return ctx, cleanup
+```go
+func cmdFoo(ctx context.Context, resourceID string) (err error) {
+  ctx, cleanup := withCmdRunLogger(ctx, "foo", resourceID)
+  defer func() { cleanup(err) }()
+  // foo 処理
+  if err = fooBar(ctx); err != nil {
+    return err
+  }
+  return nil
 }
 ```
 

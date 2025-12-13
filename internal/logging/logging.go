@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"sync"
@@ -31,7 +32,7 @@ func WithLogger(ctx context.Context, l Logger) context.Context {
 	return context.WithValue(ctx, loggerKey, l)
 }
 
-// FromContext retrieves a logger from context, returns noop if absent.
+// FromContext retrieves a logger from context, returns default logger if absent.
 func FromContext(ctx context.Context) Logger {
 	if v, ok := ctx.Value(loggerKey).(Logger); ok && v != nil {
 		return v
@@ -41,13 +42,18 @@ func FromContext(ctx context.Context) Logger {
 
 // New constructs a new Logger of given format (text|json|human) and level.
 func New(format string, level slog.Leveler) (Logger, error) {
+	return NewWithWriter(format, level, os.Stderr)
+}
+
+// NewWithWriter constructs a new Logger of given format, level, and output writer.
+func NewWithWriter(format string, level slog.Leveler, w io.Writer) (Logger, error) {
 	switch format {
 	case "", "human":
-		return humanLogger(level), nil
+		return humanLoggerWithWriter(level, w), nil
 	case "text":
-		return &slogWrapper{logger: slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: level, AddSource: false}))}, nil
+		return &slogWrapper{logger: slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{Level: level, AddSource: false}))}, nil
 	case "json":
-		return &slogWrapper{logger: slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: level, AddSource: false}))}, nil
+		return &slogWrapper{logger: slog.New(slog.NewJSONHandler(w, &slog.HandlerOptions{Level: level, AddSource: false}))}, nil
 	default:
 		return nil, errors.New("unsupported log format: " + format)
 	}
@@ -89,10 +95,19 @@ var (
 )
 
 func humanLogger(level slog.Leveler) *slogWrapper {
+	return humanLoggerWithWriter(level, os.Stderr)
+}
+
+func humanLoggerWithWriter(level slog.Leveler, w io.Writer) *slogWrapper {
 	// Set level for the std log logger used by slog's default logger output.
 	slog.SetLogLoggerLevel(level.Level())
-	humanLoggerOnce.Do(func() {
-		humanLoggerValue = &slogWrapper{logger: slog.Default()}
-	})
-	return humanLoggerValue
+	if w == os.Stderr {
+		humanLoggerOnce.Do(func() {
+			humanLoggerValue = &slogWrapper{logger: slog.Default()}
+		})
+		return humanLoggerValue
+	}
+	// For non-stderr writers, create a new handler
+	handler := slog.NewTextHandler(w, &slog.HandlerOptions{Level: level, AddSource: false})
+	return &slogWrapper{logger: slog.New(handler)}
 }

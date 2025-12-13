@@ -92,7 +92,7 @@ func newCmdAppTunnel() *cobra.Command {
 				return err
 			}
 			if out.ExitCode != 0 {
-				os.Exit(out.ExitCode)
+				return ExitCodeError{Code: out.ExitCode}
 			}
 			return nil
 		},

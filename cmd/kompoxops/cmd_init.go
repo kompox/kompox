@@ -64,6 +64,8 @@ func runInit(cmd *cobra.Command, args []string, forceFlag bool) error {
 	kompoxDir := filepath.Join(workDir, kompoxenv.KompoxDirName)
 	configPath := filepath.Join(kompoxDir, kompoxenv.ConfigFileName)
 	komDir := filepath.Join(kompoxDir, "kom")
+	logsDir := filepath.Join(kompoxDir, "logs")
+	gitignorePath := filepath.Join(kompoxDir, ".gitignore")
 
 	// Check if config.yml already exists
 	if !forceFlag {
@@ -82,6 +84,11 @@ func runInit(cmd *cobra.Command, args []string, forceFlag bool) error {
 		return fmt.Errorf("creating %s directory: %w", komDir, err)
 	}
 
+	// Create .kompox/logs/ directory
+	if err := os.MkdirAll(logsDir, 0755); err != nil {
+		return fmt.Errorf("creating %s directory: %w", logsDir, err)
+	}
+
 	// Generate default config.yml content
 	data, err := kompoxenv.InitialConfigYAML()
 	if err != nil {
@@ -92,10 +99,24 @@ func runInit(cmd *cobra.Command, args []string, forceFlag bool) error {
 		return fmt.Errorf("writing %s: %w", configPath, err)
 	}
 
+	// Create .kompox/.gitignore if it doesn't exist
+	gitignoreCreated := false
+	if _, err := os.Stat(gitignorePath); os.IsNotExist(err) {
+		gitignoreContent := "/logs\n"
+		if err := os.WriteFile(gitignorePath, []byte(gitignoreContent), 0644); err != nil {
+			return fmt.Errorf("writing %s: %w", gitignorePath, err)
+		}
+		gitignoreCreated = true
+	}
+
 	fmt.Printf("Initialized Kompox CLI Env in %s\n", kompoxDir)
 	fmt.Printf("Created:\n")
 	fmt.Printf("  - %s\n", configPath)
 	fmt.Printf("  - %s/\n", komDir)
+	fmt.Printf("  - %s/\n", logsDir)
+	if gitignoreCreated {
+		fmt.Printf("  - %s\n", gitignorePath)
+	}
 
 	return nil
 }

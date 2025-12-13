@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"log/slog"
@@ -12,6 +14,7 @@ import (
 	_ "github.com/kompox/kompox/adapters/drivers/provider/k3s"
 	"github.com/kompox/kompox/config/kompoxenv"
 	"github.com/kompox/kompox/internal/logging"
+	"github.com/kompox/kompox/internal/naming"
 	"github.com/spf13/cobra"
 )
 
@@ -19,8 +22,20 @@ import (
 type contextKey string
 
 const (
-	kompoxEnvKey contextKey = "kompox-env"
+	kompoxEnvKey     contextKey = "kompox-env"
+	logFilePathKey   contextKey = "log-file-path"
+	logFileCloserKey contextKey = "log-file-closer"
 )
+
+// ExitCodeError is an error that carries an exit code.
+// Use this to propagate subprocess exit codes to main() without calling os.Exit() directly.
+type ExitCodeError struct {
+	Code int
+}
+
+func (e ExitCodeError) Error() string {
+	return fmt.Sprintf("exit code %d", e.Code)
+}
 
 // getKompoxEnv retrieves the kompoxenv.Env from context.
 func getKompoxEnv(ctx context.Context) *kompoxenv.Env {
@@ -28,6 +43,14 @@ func getKompoxEnv(ctx context.Context) *kompoxenv.Env {
 		return env
 	}
 	return nil
+}
+
+// getLogFilePath retrieves the log file path from context.
+func getLogFilePath(ctx context.Context) string {
+	if path, ok := ctx.Value(logFilePathKey).(string); ok {
+		return path
+	}
+	return ""
 }
 
 func newRootCmd() *cobra.Command {
@@ -57,8 +80,9 @@ func newRootCmd() *cobra.Command {
 	cmd.PersistentFlags().StringArray("kom-path", nil, "KOM YAML paths (files or directories, can be repeated) (env KOMPOX_KOM_PATH, comma-separated)")
 	cmd.PersistentFlags().String("kom-app", "./kompoxapp.yml", "KOM YAML for app inference (env KOMPOX_KOM_APP)")
 
-	cmd.PersistentFlags().String("log-format", "human", "Log format (human|text|json) (env KOMPOX_LOG_FORMAT)")
-	cmd.PersistentFlags().String("log-level", "info", "Log level (debug|info|warn|error) (env KOMPOX_LOG_LEVEL)")
+	cmd.PersistentFlags().String("log-format", "", "Log format (json|human) (env KOMPOX_LOG_FORMAT, default: json)")
+	cmd.PersistentFlags().String("log-level", "", "Log level (debug|info|warn|error) (env KOMPOX_LOG_LEVEL, default: info)")
+	cmd.PersistentFlags().String("log-output", "", "Log output: path, '-' for stderr, 'none' to disable (env KOMPOX_LOG_OUTPUT)")
 
 	cmd.PersistentPreRunE = func(c *cobra.Command, _ []string) error {
 		// Skip init command as it doesn't require kompoxenv
@@ -113,16 +137,24 @@ func newRootCmd() *cobra.Command {
 			return fmt.Errorf("KOM initialization failed: %w", err)
 		}
 
-		format, _ := c.Flags().GetString("log-format")
-		if env := os.Getenv("KOMPOX_LOG_FORMAT"); env != "" { // env overrides flag
-			format = env
+		// Resolve logging configuration: flag > env > config.yml > default
+		logCfg := resolveLogConfig(c, cfg)
+
+		// Clean up old log files
+		if err := logging.CleanupOldLogFiles(logCfg.Dir, logCfg.RetentionDays); err != nil {
+			// Log cleanup failure is not fatal - continue
+			fmt.Fprintf(os.Stderr, "Warning: failed to cleanup old log files: %v\n", err)
 		}
-		levelStr, _ := c.Flags().GetString("log-level")
-		if env := os.Getenv("KOMPOX_LOG_LEVEL"); env != "" { // env overrides flag
-			levelStr = env
+
+		// Create log file
+		logFile, err := logging.NewLogFile(logCfg)
+		if err != nil {
+			return fmt.Errorf("initializing log file: %w", err)
 		}
+
+		// Parse log level
 		var lvl slog.Level
-		switch strings.ToLower(strings.TrimSpace(levelStr)) {
+		switch strings.ToLower(strings.TrimSpace(logCfg.Level)) {
 		case "debug":
 			lvl = slog.LevelDebug
 		case "warn", "warning":
@@ -132,11 +164,28 @@ func newRootCmd() *cobra.Command {
 		default:
 			lvl = slog.LevelInfo
 		}
-		l, err := logging.New(format, lvl)
+
+		// Create logger with file output
+		l, err := logging.NewWithWriter(logCfg.Format, lvl, logFile.Writer())
 		if err != nil {
+			logFile.Close()
 			return err
 		}
-		ctx = logging.WithLogger(c.Context(), l)
+
+		// Generate runID and attach to logger
+		runID, err := naming.NewCompactID()
+		if err != nil {
+			runID = "error"
+		}
+		l = l.With("runId", runID)
+
+		// Emit CMD start log
+		l.Info(ctx, "CMD", "args", os.Args)
+
+		// Store log file path and closer in context
+		ctx = context.WithValue(ctx, logFilePathKey, logFile.Path)
+		ctx = context.WithValue(ctx, logFileCloserKey, logFile)
+		ctx = logging.WithLogger(ctx, l)
 		c.SetContext(ctx)
 		return nil
 	}
@@ -155,16 +204,98 @@ func newRootCmd() *cobra.Command {
 	return cmd
 }
 
+// resolveLogConfig resolves logging configuration from multiple sources.
+// Priority: flag > env > config.yml > default
+func resolveLogConfig(c *cobra.Command, cfg *kompoxenv.Env) *logging.LogConfig {
+	logCfg := &logging.LogConfig{
+		Format:        "json",
+		Level:         "INFO",
+		Output:        "",
+		Dir:           filepath.Join(cfg.KompoxDir, "logs"),
+		RetentionDays: 7,
+	}
+
+	// Apply config.yml values
+	if cfg.Logging.Dir != "" {
+		logCfg.Dir = cfg.ExpandVars(cfg.Logging.Dir)
+	}
+	if cfg.Logging.Format != "" {
+		logCfg.Format = cfg.Logging.Format
+	}
+	if cfg.Logging.Level != "" {
+		logCfg.Level = cfg.Logging.Level
+	}
+	if cfg.Logging.RetentionDays > 0 {
+		logCfg.RetentionDays = cfg.Logging.RetentionDays
+	}
+
+	// Apply environment variables
+	if env := os.Getenv("KOMPOX_LOG_DIR"); env != "" {
+		logCfg.Dir = env
+	}
+	if env := os.Getenv("KOMPOX_LOG_FORMAT"); env != "" {
+		logCfg.Format = env
+	}
+	if env := os.Getenv("KOMPOX_LOG_LEVEL"); env != "" {
+		logCfg.Level = env
+	}
+	if env := os.Getenv("KOMPOX_LOG_OUTPUT"); env != "" {
+		logCfg.Output = env
+	}
+
+	// Apply flags (highest priority)
+	if format, _ := c.Flags().GetString("log-format"); format != "" {
+		logCfg.Format = format
+	}
+	if level, _ := c.Flags().GetString("log-level"); level != "" {
+		logCfg.Level = level
+	}
+	if output, _ := c.Flags().GetString("log-output"); output != "" {
+		logCfg.Output = output
+	}
+
+	return logCfg
+}
+
 func main() {
 	root := newRootCmd()
 	root.SetContext(context.Background())
 	executed, err := root.ExecuteC()
+
+	// Determine exit code
+	exitCode := 0
 	if err != nil {
-		ctx := root.Context()
-		if executed != nil {
-			ctx = executed.Context()
+		exitCode = 1
+		// Check if error carries a specific exit code
+		var exitErr ExitCodeError
+		if errors.As(err, &exitErr) {
+			exitCode = exitErr.Code
+			err = nil // Don't print error message for exit code propagation
 		}
-		logging.FromContext(ctx).Errorf(ctx, "Failed: %s", err)
-		os.Exit(1)
 	}
+
+	// Get context from executed command
+	ctx := root.Context()
+	if executed != nil {
+		ctx = executed.Context()
+	}
+
+	// Emit CMD exit log
+	logging.FromContext(ctx).Info(ctx, "CMD", "exitCode", exitCode)
+
+	// Close log file if opened
+	if closer, ok := ctx.Value(logFileCloserKey).(*logging.LogFile); ok && closer != nil {
+		closer.Close()
+	}
+
+	if err != nil {
+		// Print error message
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+
+		// Print log file path if available
+		if logPath := getLogFilePath(ctx); logPath != "" {
+			fmt.Fprintf(os.Stderr, "See log file for details: %s\n", logPath)
+		}
+	}
+	os.Exit(exitCode)
 }

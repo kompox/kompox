@@ -137,6 +137,21 @@ func TestInitCommand(t *testing.T) {
 			if _, err := os.Stat(komDir); os.IsNotExist(err) {
 				t.Errorf(".kompox/kom/ directory not created")
 			}
+
+			// Verify .kompox/logs/ directory exists
+			logsDir := filepath.Join(kompoxCfgDir, "logs")
+			if _, err := os.Stat(logsDir); os.IsNotExist(err) {
+				t.Errorf(".kompox/logs/ directory not created")
+			}
+
+			// Verify .kompox/.gitignore exists with correct content
+			gitignorePath := filepath.Join(kompoxCfgDir, ".gitignore")
+			gitignoreData, err := os.ReadFile(gitignorePath)
+			if err != nil {
+				t.Errorf("reading .gitignore: %v", err)
+			} else if string(gitignoreData) != "/logs\n" {
+				t.Errorf(".gitignore content = %q, want %q", string(gitignoreData), "/logs\n")
+			}
 		})
 	}
 }

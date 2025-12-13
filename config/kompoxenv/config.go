@@ -30,6 +30,7 @@ type Env struct {
 	Version    int      // .kompox/config.yml version
 	Store      Store    // .kompox/config.yml store configuration
 	KOMPath    []string // .kompox/config.yml komPath
+	Logging    Logging  // .kompox/config.yml logging configuration
 }
 
 // Store represents the store configuration from .kompox/config.yml
@@ -37,11 +38,20 @@ type Store struct {
 	Type string `yaml:"type"` // local | rdb | custom
 }
 
+// Logging represents the logging configuration from .kompox/config.yml
+type Logging struct {
+	Dir           string `yaml:"dir,omitempty"`           // Log directory (default: $KOMPOX_DIR/logs)
+	Format        string `yaml:"format,omitempty"`        // Log format: json (default), human
+	Level         string `yaml:"level,omitempty"`         // Log level: DEBUG, INFO (default), WARN, ERROR
+	RetentionDays int    `yaml:"retentionDays,omitempty"` // Days to retain log files (default: 7)
+}
+
 // configFile represents the structure of .kompox/config.yml for unmarshaling
 type configFile struct {
 	Version int      `yaml:"version"`
 	Store   Store    `yaml:"store"`
 	KOMPath []string `yaml:"komPath,omitempty"`
+	Logging Logging  `yaml:"logging,omitempty"`
 }
 
 // Resolve discovers KOMPOX_ROOT and KOMPOX_DIR, then loads .kompox/config.yml.
@@ -175,6 +185,7 @@ func (e *Env) loadConfigFile() error {
 	e.Version = cf.Version
 	e.Store = cf.Store
 	e.KOMPath = cf.KOMPath
+	e.Logging = cf.Logging
 
 	return nil
 }

@@ -1,7 +1,7 @@
 ---
 id: K4x-ADR-016
 title: CLI Logging Strategy
-status: proposed
+status: accepted
 date: 2025-12-13
 language: en
 supersedes: []

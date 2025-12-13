@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/kompox/kompox/internal/logging"
-	"github.com/kompox/kompox/internal/naming"
 )
 
 // withCmdRunLogger implements the Span pattern for CLI command logging.
@@ -18,23 +18,21 @@ import (
 //	defer func() { cleanup(err) }()
 //
 // Log message format:
-// - Start:   CMD:<operation>/S (with runId, resourceId in logger attributes)
+// - Start:   CMD:<operation>/S (with resourceId in logger attributes)
 // - Success: CMD:<operation>/EOK (with err, elapsed in logger attributes)
 // - Failure: CMD:<operation>/EFAIL (with err, elapsed in logger attributes)
 //
+// Note: ExitCodeError is treated as EOK since it represents subprocess exit code
+// propagation rather than a command failure.
+//
 // All logs use INFO level (mechanical recording).
+// The runId is inherited from the context logger (set in PersistentPreRunE).
 // See design/v1/Kompox-Logging.ja.md for the full Span pattern specification.
 func withCmdRunLogger(ctx context.Context, operation, resourceID string) (context.Context, func(err error)) {
-	runID, err := naming.NewCompactID()
-	if err != nil {
-		// Fallback to a fixed value if ID generation fails
-		runID = "error"
-	}
-
 	startAt := time.Now()
 
-	// Attach runId, resourceId to logger and return new context
-	logger := logging.FromContext(ctx).With("runId", runID, "resourceId", resourceID)
+	// Attach resourceId to logger and return new context
+	logger := logging.FromContext(ctx).With("resourceId", resourceID)
 	ctx = logging.WithLogger(ctx, logger)
 
 	// Emit start log line
@@ -43,7 +41,12 @@ func withCmdRunLogger(ctx context.Context, operation, resourceID string) (contex
 	cleanup := func(err error) {
 		elapsed := time.Since(startAt).Seconds()
 		var msg, errStr string
-		if err == nil {
+
+		// ExitCodeError is not a command failure; it's subprocess exit code propagation
+		var exitCodeErr ExitCodeError
+		isExitCodeErr := errors.As(err, &exitCodeErr)
+
+		if err == nil || isExitCodeErr {
 			msg = "CMD:" + operation + "/EOK"
 			errStr = ""
 		} else {
@@ -57,7 +60,11 @@ func withCmdRunLogger(ctx context.Context, operation, resourceID string) (contex
 		}
 
 		// Always use INFO level for Span pattern (mechanical recording)
-		logger.Info(ctx, msg, "err", errStr, "elapsed", elapsed)
+		if isExitCodeErr {
+			logger.Info(ctx, msg, "err", errStr, "exitCode", exitCodeErr.Code, "elapsed", elapsed)
+		} else {
+			logger.Info(ctx, msg, "err", errStr, "elapsed", elapsed)
+		}
 	}
 
 	return ctx, cleanup

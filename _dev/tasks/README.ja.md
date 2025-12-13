@@ -16,7 +16,7 @@ language: ja
 
 | ID | タイトル | ステータス | カテゴリ | 担当 | 更新日 | 言語 |
 |---|---|---|---|---|---|---|
-| [2025-12-13-logging](./2025-12-13-logging.ja.md) | CLI ロギング戦略実装 (K4x-ADR-016) | draft |  |  | 2025-12-13 | ja |
+| [2025-12-13-logging](./2025-12-13-logging.ja.md) | CLI ロギング戦略実装 (K4x-ADR-016) | done |  | yaegashi | 2025-12-13 | ja |
 | [2025-12-12-port-forward](./2025-12-12-port-forward.ja.md) | kompoxops app port-forward コマンド実装 | done |  | yaegashi | 2025-12-12 | ja |
 | [2025-12-12-tunnel](./2025-12-12-tunnel.ja.md) | kompoxops app tunnel コマンド実装 | done |  | yaegashi | 2025-12-12 | ja |
 | [2025-11-13-app-validate](./2025-11-13-app-validate.ja.md) | app validate バリデーション共通化と未割当ディスク警告化 | done |  | yaegashi | 2025-11-14 | ja |
