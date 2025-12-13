@@ -3,7 +3,7 @@ id: Kompox-CLI
 title: Kompox PaaS CLI
 version: v1
 status: synced
-updated: 2025-12-12
+updated: 2025-12-13
 language: ja
 ---
 
@@ -44,6 +44,15 @@ kompoxops admin             管理ツール
 - `--kom-path <PATH>` KOM 格納場所 (ファイルまたはディレクトリ)。複数回指定可能。環境変数 `KOMPOX_KOM_PATH` (OS 依存のパス区切りで複数指定可) でも指定可能。指定したパスが存在しない場合はエラー。
 - `--kom-app <PATH>` Kompox アプリファイル。既定は `./kompoxapp.yml`。環境変数 `KOMPOX_KOM_APP` でも指定可能。
 - `--db-url <URL>` 永続化DBの接続URL。環境変数 `KOMPOX_DB_URL` で指定可能。KOM モードが有効な場合は無視される。
+- `--log-format <FORMAT>` ログ形式: `json` (既定) または `human`。環境変数 `KOMPOX_LOG_FORMAT` でも指定可能。
+- `--log-level <LEVEL>` 最小ログレベル: `DEBUG`, `INFO` (既定), `WARN`, `ERROR`。環境変数 `KOMPOX_LOG_LEVEL` でも指定可能。
+- `--log-output <PATH>` ログ出力先。環境変数 `KOMPOX_LOG_OUTPUT` でも指定可能。
+  - 空/省略: `$KOMPOX_LOG_DIR/kompoxops-YYYYMMDD-HHMMSS-sss.log` に出力 (YYYYMMDD-HHMMSS-sss は UTC タイムスタンプ)
+  - `<path>`: 指定パスに出力 (絶対パスまたは `$KOMPOX_LOG_DIR` 相対)
+  - `-`: stderr に出力
+  - `none`: ログ出力を無効化
+
+注: `-v`, `--verbose`, `--debug` フラグは構造化ログ出力に影響しない。これらは各コマンドが stdout/stderr への出力内容を制御するために独自に解釈する。
 
 ### プロジェクトディレクトリ
 
@@ -52,7 +61,9 @@ kompoxops admin             管理ツール
 ```
 /                          プロジェクトディレクトリ ($KOMPOX_ROOT)
 ├── .kompox/               Kompox ディレクトリ ($KOMPOX_DIR)
+│   ├── .gitignore         Git 除外設定 (初期値: `/logs`)
 │   ├── config.yml         Kompox 設定ファイル
+│   ├── logs/              ログディレクトリ ($KOMPOX_LOG_DIR)
 │   └── kom/               KOM 格納ディレクトリ (komPath)
 │       ├── workspace.yml
 │       ├── provider.yml
@@ -86,6 +97,11 @@ store:
   type: local           # local | rdb | custom
 komPath:
   - kom
+logging:
+  dir: $KOMPOX_DIR/logs   # 既定
+  format: json            # 既定 (json | human)
+  level: INFO             # 既定 (DEBUG | INFO | WARN | ERROR)
+  retentionDays: 7        # 既定
 ```
 
 可視配置の例 (プロジェクト直下に `kom/` を置く):
@@ -230,6 +246,8 @@ kompoxops init [FLAGS]
 2. `-C` で指定されたディレクトリ (未指定時はカレントディレクトリ) に `.kompox/` ディレクトリを作成
 3. `.kompox/config.yml` を作成 (既定の設定を含む)
 4. `.kompox/kom/` ディレクトリを作成 (KOM ファイルの既定配置場所)
+5. `.kompox/logs/` ディレクトリを作成 (ログファイルの出力先)
+6. `.kompox/.gitignore` を作成 (`logs/` を除外)
 
 **フラグ**
 

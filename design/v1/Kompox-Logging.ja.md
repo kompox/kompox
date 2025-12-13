@@ -3,7 +3,7 @@ id: Kompox-Logging
 title: Kompox ロギング仕様
 version: v1
 status: synced
-updated: 2025-10-27
+updated: 2025-12-13
 language: ja
 ---
 
@@ -16,8 +16,77 @@ Kompox プロジェクトにおけるログ出力の標準仕様を定義する�
 - Go 標準の `log/slog` パッケージによる構造化ログを使用
 - 3 種類のログパターン (Event / Span / Step) を使い分け
 - human / json 両方のフォーマットをサポート
+- ファイルベースのログ出力戦略 ([K4x-ADR-016])
+  - 既定ではコンソールへのログ出力を行わない
+  - 構造化ログはファイルに自動出力
 - 標準実装パターン
   - Named return value `(err error)` と `defer func() { cleanup(err) }()` の活用
+
+## ログ出力
+
+### 出力先と制御
+
+構造化ログは既定でファイルに出力される。コンソール (stderr) への出力は明示的に設定した場合のみ行われる。
+
+**CLI フラグ**
+
+| フラグ | 説明 |
+|--------|------|
+| `--log-format <FORMAT>` | ログ形式: `json` (既定) または `human` |
+| `--log-level <LEVEL>` | 最小ログレベル: `DEBUG`, `INFO` (既定), `WARN`, `ERROR` |
+| `--log-output <PATH>` | ログ出力先 (下表参照) |
+
+**`--log-output` の値**
+
+| 値 | 動作 |
+|----|------|
+| (空/省略) | `$KOMPOX_LOG_DIR/kompoxops-YYYYMMDD-HHMMSS-sss.log` に出力 |
+| `<path>` | 指定パスに出力 (絶対パスまたは `$KOMPOX_LOG_DIR` 相対) |
+| `-` | stderr に出力 |
+| `none` | ログ出力を無効化 |
+
+**環境変数**
+
+| 変数 | 説明 |
+|------|------|
+| `KOMPOX_LOG_DIR` | ログディレクトリ (既定: `$KOMPOX_DIR/logs`) |
+| `KOMPOX_LOG_FORMAT` | ログ形式 (既定: `json`) |
+| `KOMPOX_LOG_LEVEL` | ログレベル (既定: `INFO`) |
+| `KOMPOX_LOG_OUTPUT` | ログ出力先 |
+
+注: `-v`, `--verbose`, `--debug` フラグは構造化ログ出力に影響しない。これらは各コマンドが stdout/stderr への出力内容を制御するために独自に解釈する。
+
+### ファイル出力
+
+| 項目 | 仕様 |
+|------|------|
+| 既定ディレクトリ | `$KOMPOX_DIR/logs/` |
+| 形式 | JSON Lines (機械処理可能) |
+| レベル | INFO 以上 |
+| ファイル命名 | `kompoxops-YYYYMMDD-HHMMSS-sss.log` |
+| タイムゾーン | UTC |
+| 保持期間 | 7 日間 (既定) |
+
+ファイル名の例: `kompoxops-20251213-095105-123.log` (2025年12月13日 09:51:05.123 UTC)
+
+各 CLI 呼び出しごとに新しいログファイルを作成する。これにより並列実行時のログ混在を防止する。
+
+### エラー終了時の動作
+
+異常終了時、CLI は人間が読める形式のエラーメッセージを stderr に出力し、ログファイルのフルパスを含める:
+
+```
+Error: deployment failed: manifest validation error
+See log file for details: /path/to/project/.kompox/logs/kompoxops-20251213-095105-123.log
+```
+
+これにより、verbose モードを有効にしなくても詳細トレースを参照できる。
+
+### ログファイルの保持
+
+- 保持期間を超えたファイルは CLI 起動時に削除される
+- 実行ごとにユニークなファイルを作成 (単一実行内でのローテーションはなし)
+- ミリ秒精度のタイムスタンプにより並列実行時も安全
 
 ## ログフォーマット
 
@@ -25,8 +94,8 @@ Kompox プロジェクトにおけるログ出力の標準仕様を定義する�
 
 `--log-format` フラグまたは `KOMPOX_LOG_FORMAT` 環境変数で指定:
 
-- `human` (既定): 人間が読みやすいテキスト形式
-- `json`: 機械処理に適した JSON Lines 形式
+- `json` (既定): 機械処理に適した JSON Lines 形式
+- `human`: 人間が読みやすいテキスト形式
 
 ### human フォーマット
 
@@ -311,11 +380,13 @@ func withCmdRunLogger(ctx context.Context, operation, resourceID string) (contex
 
 ## 参考
 
+- [K4x-ADR-016] - CLI ロギング戦略
 - [2025-10-24-logging.ja.md] - 実装タスク
 - [cmd/kompoxops/logging.go] - コマンドレイヤー実装
 - [adapters/drivers/provider/aks/logging.go] - ドライバーレイヤー実装
 - [internal/logging] - ロギングパッケージ
 
+[K4x-ADR-016]: ../adr/K4x-ADR-016.md
 [2025-10-24-logging.ja.md]: ../../_dev/tasks/2025-10-24-logging.ja.md
 [cmd/kompoxops/logging.go]: ../../cmd/kompoxops/logging.go
 [adapters/drivers/provider/aks/logging.go]: ../../adapters/drivers/provider/aks/logging.go

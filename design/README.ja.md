@@ -1,7 +1,7 @@
 ---
 id: README
 title: Kompox 設計ドキュメント目次
-updated: 2025-12-12
+updated: 2025-12-13
 language: ja
 ---
 
@@ -19,10 +19,10 @@ language: ja
 | [Kompox-KOM](./v1/Kompox-KOM.ja.md) | Kompox KOM configuration | ja | v1 | synced | 2025-11-03 |
 | [Kompox-KubeClient](./v1/Kompox-KubeClient.ja.md) | Kompox Kube Client ガイド | ja | v1 | out-of-sync | 2025-09-26 |
 | [Kompox-KubeConverter](./v1/Kompox-KubeConverter.ja.md) | Kompox Kube Converter ガイド | ja | v1 | synced | 2025-10-12 |
-| [Kompox-CLI](./v1/Kompox-CLI.ja.md) | Kompox PaaS CLI | ja | v1 | synced | 2025-12-12 |
+| [Kompox-CLI](./v1/Kompox-CLI.ja.md) | Kompox PaaS CLI | ja | v1 | synced | 2025-12-13 |
 | [Kompox-Resources](./v1/Kompox-Resources.ja.md) | Kompox PaaS Resources | ja | v1 | archived | 2025-10-12 |
 | [Kompox-ProviderDriver](./v1/Kompox-ProviderDriver.ja.md) | Kompox Provider Driver ガイド | ja | v1 | synced | 2025-10-12 |
-| [Kompox-Logging](./v1/Kompox-Logging.ja.md) | Kompox ロギング仕様 | ja | v1 | synced | 2025-10-27 |
+| [Kompox-Logging](./v1/Kompox-Logging.ja.md) | Kompox ロギング仕様 | ja | v1 | synced | 2025-12-13 |
 | [Kompox-Spec-Draft](./v1/Kompox-Spec-Draft.ja.md) | Kompox 仕様ドラフト | ja | v1 | archived | 2025-10-12 |
 
 **ステータスの意味:**
@@ -64,6 +64,7 @@ language: ja
 | [K4x-ADR-013](./adr/K4x-ADR-013.md) | Resource protection policy for Cluster operations | en |  | accepted | - |
 | [K4x-ADR-014](./adr/K4x-ADR-014.md) | Introduce Volume Types | en |  | accepted | - |
 | [K4x-ADR-015](./adr/K4x-ADR-015.md) | Introduce Kompox CLI Env with Git-like discovery | en |  | accepted | - |
+| [K4x-ADR-016](./adr/K4x-ADR-016.md) | CLI Logging Strategy | en |  | proposed | - |
 
 **ステータスの意味:**
 
