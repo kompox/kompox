@@ -279,7 +279,7 @@ func (s *Sink) ToModels(ctx context.Context, repos Repositories, kompoxAppFilePa
 		if app.Spec.NetworkPolicy != nil && len(app.Spec.NetworkPolicy.IngressRules) > 0 {
 			domainIngressRules := make([]model.AppNetworkPolicyIngressRule, 0, len(app.Spec.NetworkPolicy.IngressRules))
 			for i, rule := range app.Spec.NetworkPolicy.IngressRules {
-				// Validate that the rule is not empty and that ports are not allowed from all sources
+				// Validate rule is not empty and enforce security: ports must specify allowed sources
 				if len(rule.From) == 0 && len(rule.Ports) == 0 {
 					return fmt.Errorf("app %q: networkPolicy.ingressRules[%d] is empty (must specify 'from' or 'ports')", app.ObjectMeta.Name, i)
 				}
