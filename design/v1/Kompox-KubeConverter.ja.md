@@ -729,10 +729,63 @@ Deployment.spec.template.spec.nodeSelector に `kompox.dev/node-pool: <pool>` �
 アクセスの制御は Namespace ベースで行う。
 
 - Ingress
+  - 同一 Namespace 内の Pod 間通信は常に許可
   - クラスタのシステム Namespace (kube-system) や Ingress Controller (traefik) Namespace からの接続は受け付ける
-  - その他のアプリ Namespace からの接続はブロックする。
+  - App.spec.networkPolicy.ingressRules で指定した追加の許可元からの接続を受け付ける
+  - その他のアプリ Namespace からの接続はブロックする
 - Egress
-  - 設定なし。基本的にそのまま送信する。
+  - 設定なし。基本的にそのまま送信する
+
+App.spec.networkPolicy スキーマ (KOM)
+
+```yaml
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: <appName>
+spec:
+  networkPolicy:
+    ingressRules:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: monitoring
+        ports:
+          - protocol: TCP
+            port: 9090
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                environment: production
+        ports:
+          - protocol: TCP
+            port: 8080
+          - protocol: UDP
+            port: 8081
+```
+
+- ingressRules: 既定の許可ルールに追加で許可する Ingress ルールのリスト (省略可)
+- ingressRules[].from: 許可する送信元のリスト (配列)
+  - namespaceSelector: Kubernetes LabelSelector で Namespace を指定
+    - matchLabels: ラベルのキーと値のマッピング
+    - matchExpressions: ラベル選択式のリスト (高度な選択、省略可)
+- ingressRules[].ports: 許可するポートのリスト (配列、省略時は全ポート許可)
+  - protocol: TCP / UDP / SCTP (省略時は TCP)
+  - port: ポート番号
+
+変換規則
+
+- 既定の許可ルール (同一 Namespace, kube-system, ingress controller namespace) は常に出力される
+- App.spec.networkPolicy.ingressRules の各エントリは NetworkPolicy の spec.ingress に追加される
+- 各ルールの from と ports は K8s NetworkPolicy の仕様に 1:1 で写像される
+- ports が省略された場合は、そのルールで全ポートが許可される (NetworkPolicy 標準動作)
+- protocol が省略された場合は TCP とする
+
+注意事項
+
+- 追加ルールで ports を省略すると、そのルールの送信元から全ポートの接続が許可される
+- 広い許可ルールを追加すると、想定外のアクセスが許可される可能性があるため注意する
+- namespaceSelector は kubernetes.io/metadata.name を使った name ベースの指定に限定しない
 
 ### Service Account
 
@@ -868,6 +921,15 @@ spec:
       size: 64Gi
   deployment:
     zone: "1"
+  networkPolicy:
+    ingressRules:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: monitoring
+        ports:
+          - protocol: TCP
+            port: 9090
 ```
 
 ### Kubernetes Manifest
@@ -912,12 +974,14 @@ spec:
             matchExpressions:
               - key: kubernetes.io/metadata.name
                 operator: In
-                values: ["kube-system"]
+                values: ["kube-system", "traefik"]
+    - from:
         - namespaceSelector:
-            matchExpressions:
-              - key: kubernetes.io/metadata.name
-                operator: In
-                values: ["traefik"]
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+      ports:
+        - protocol: TCP
+          port: 9090
 ---
 apiVersion: v1
 kind: ServiceAccount
