@@ -279,9 +279,12 @@ func (s *Sink) ToModels(ctx context.Context, repos Repositories, kompoxAppFilePa
 		if app.Spec.NetworkPolicy != nil && len(app.Spec.NetworkPolicy.IngressRules) > 0 {
 			domainIngressRules := make([]model.AppNetworkPolicyIngressRule, 0, len(app.Spec.NetworkPolicy.IngressRules))
 			for i, rule := range app.Spec.NetworkPolicy.IngressRules {
-				// Validate that the rule is not empty (has either From or Ports)
+				// Validate that the rule is not empty and that ports are not allowed from all sources
 				if len(rule.From) == 0 && len(rule.Ports) == 0 {
 					return fmt.Errorf("app %q: networkPolicy.ingressRules[%d] is empty (must specify 'from' or 'ports')", app.ObjectMeta.Name, i)
+				}
+				if len(rule.Ports) > 0 && len(rule.From) == 0 {
+					return fmt.Errorf("app %q: networkPolicy.ingressRules[%d] must specify 'from' when 'ports' are set", app.ObjectMeta.Name, i)
 				}
 
 				domainRule := model.AppNetworkPolicyIngressRule{
@@ -306,9 +309,22 @@ func (s *Sink) ToModels(ctx context.Context, repos Repositories, kompoxAppFilePa
 					if len(from.NamespaceSelector.MatchExpressions) > 0 {
 						domainSelector.MatchExpressions = make([]model.LabelSelectorRequirement, len(from.NamespaceSelector.MatchExpressions))
 						for k, expr := range from.NamespaceSelector.MatchExpressions {
+							// Validate operator
+							op := string(expr.Operator)
+							if op != "In" && op != "NotIn" && op != "Exists" && op != "DoesNotExist" {
+								return fmt.Errorf("app %q: networkPolicy.ingressRules[%d].from[%d].namespaceSelector.matchExpressions[%d].operator must be one of: In, NotIn, Exists, DoesNotExist (got %q)", app.ObjectMeta.Name, i, j, k, op)
+							}
+							// Validate values cardinality for operator
+							if (op == "Exists" || op == "DoesNotExist") && len(expr.Values) > 0 {
+								return fmt.Errorf("app %q: networkPolicy.ingressRules[%d].from[%d].namespaceSelector.matchExpressions[%d]: operator %q must have no values", app.ObjectMeta.Name, i, j, k, op)
+							}
+							if (op == "In" || op == "NotIn") && len(expr.Values) == 0 {
+								return fmt.Errorf("app %q: networkPolicy.ingressRules[%d].from[%d].namespaceSelector.matchExpressions[%d]: operator %q must have at least one value", app.ObjectMeta.Name, i, j, k, op)
+							}
+
 							domainSelector.MatchExpressions[k] = model.LabelSelectorRequirement{
 								Key:      expr.Key,
-								Operator: string(expr.Operator),
+								Operator: op,
 								Values:   expr.Values,
 							}
 						}
@@ -319,12 +335,19 @@ func (s *Sink) ToModels(ctx context.Context, repos Repositories, kompoxAppFilePa
 					})
 				}
 
-				for _, port := range rule.Ports {
+				for j, port := range rule.Ports {
 					// Default protocol to TCP if empty (CRD also has this default)
 					protocol := port.Protocol
 					if protocol == "" {
 						protocol = "TCP"
+					} else if protocol != "TCP" && protocol != "UDP" && protocol != "SCTP" {
+						return fmt.Errorf("app %q: networkPolicy.ingressRules[%d].ports[%d].protocol must be TCP, UDP, or SCTP (got %q)", app.ObjectMeta.Name, i, j, protocol)
 					}
+
+					if port.Port < 1 || port.Port > 65535 {
+						return fmt.Errorf("app %q: networkPolicy.ingressRules[%d].ports[%d].port must be between 1 and 65535 (got %d)", app.ObjectMeta.Name, i, j, port.Port)
+					}
+
 					domainRule.Ports = append(domainRule.Ports, model.AppNetworkPolicyPort{
 						Protocol: protocol,
 						Port:     port.Port,

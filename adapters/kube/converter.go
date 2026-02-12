@@ -764,12 +764,17 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 			for _, from := range rule.From {
 				// Convert domain LabelSelector to k8s LabelSelector
 				if from.NamespaceSelector != nil {
-					k8sSelector := &metav1.LabelSelector{
-						MatchLabels: from.NamespaceSelector.MatchLabels,
+					nsSel := from.NamespaceSelector
+					// Skip empty namespace selectors to avoid unintended allow-all
+					if len(nsSel.MatchLabels) == 0 && len(nsSel.MatchExpressions) == 0 {
+						continue
 					}
-					if len(from.NamespaceSelector.MatchExpressions) > 0 {
-						k8sSelector.MatchExpressions = make([]metav1.LabelSelectorRequirement, len(from.NamespaceSelector.MatchExpressions))
-						for i, expr := range from.NamespaceSelector.MatchExpressions {
+					k8sSelector := &metav1.LabelSelector{
+						MatchLabels: nsSel.MatchLabels,
+					}
+					if len(nsSel.MatchExpressions) > 0 {
+						k8sSelector.MatchExpressions = make([]metav1.LabelSelectorRequirement, len(nsSel.MatchExpressions))
+						for i, expr := range nsSel.MatchExpressions {
 							k8sSelector.MatchExpressions[i] = metav1.LabelSelectorRequirement{
 								Key:      expr.Key,
 								Operator: metav1.LabelSelectorOperator(expr.Operator),

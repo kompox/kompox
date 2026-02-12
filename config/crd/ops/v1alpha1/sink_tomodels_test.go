@@ -1088,6 +1088,283 @@ spec:
 				}
 			},
 		},
+		{
+			name: "app with networkPolicy - ports without from should fail",
+			yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: netpol-ws
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: netpol-prv
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv
+spec:
+  driver: k3s
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: netpol-cls
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: netpol-app
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls/app/netpol-app
+spec:
+  compose: "services:\n  web:\n    image: nginx\n"
+  networkPolicy:
+    ingressRules:
+      - ports:
+          - protocol: TCP
+            port: 8080
+`,
+			wantErr: true,
+			validate: func(t *testing.T, repos Repositories) {},
+		},
+		{
+			name: "app with networkPolicy - invalid protocol should fail",
+			yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: netpol-ws
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: netpol-prv
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv
+spec:
+  driver: k3s
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: netpol-cls
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: netpol-app
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls/app/netpol-app
+spec:
+  compose: "services:\n  web:\n    image: nginx\n"
+  networkPolicy:
+    ingressRules:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                app: test
+        ports:
+          - protocol: INVALID
+            port: 8080
+`,
+			wantErr: true,
+			validate: func(t *testing.T, repos Repositories) {},
+		},
+		{
+			name: "app with networkPolicy - port out of range should fail",
+			yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: netpol-ws
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: netpol-prv
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv
+spec:
+  driver: k3s
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: netpol-cls
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: netpol-app
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls/app/netpol-app
+spec:
+  compose: "services:\n  web:\n    image: nginx\n"
+  networkPolicy:
+    ingressRules:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                app: test
+        ports:
+          - protocol: TCP
+            port: 70000
+`,
+			wantErr: true,
+			validate: func(t *testing.T, repos Repositories) {},
+		},
+		{
+			name: "app with networkPolicy - invalid matchExpression operator should fail",
+			yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: netpol-ws
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: netpol-prv
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv
+spec:
+  driver: k3s
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: netpol-cls
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: netpol-app
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls/app/netpol-app
+spec:
+  compose: "services:\n  web:\n    image: nginx\n"
+  networkPolicy:
+    ingressRules:
+      - from:
+          - namespaceSelector:
+              matchExpressions:
+                - key: environment
+                  operator: Invalid
+                  values: ["prod"]
+        ports:
+          - protocol: TCP
+            port: 8080
+`,
+			wantErr: true,
+			validate: func(t *testing.T, repos Repositories) {},
+		},
+		{
+			name: "app with networkPolicy - Exists operator with values should fail",
+			yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: netpol-ws
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: netpol-prv
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv
+spec:
+  driver: k3s
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: netpol-cls
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: netpol-app
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls/app/netpol-app
+spec:
+  compose: "services:\n  web:\n    image: nginx\n"
+  networkPolicy:
+    ingressRules:
+      - from:
+          - namespaceSelector:
+              matchExpressions:
+                - key: environment
+                  operator: Exists
+                  values: ["prod"]
+        ports:
+          - protocol: TCP
+            port: 8080
+`,
+			wantErr: true,
+			validate: func(t *testing.T, repos Repositories) {},
+		},
+		{
+			name: "app with networkPolicy - In operator without values should fail",
+			yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: netpol-ws
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: netpol-prv
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv
+spec:
+  driver: k3s
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: netpol-cls
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: netpol-app
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls/app/netpol-app
+spec:
+  compose: "services:\n  web:\n    image: nginx\n"
+  networkPolicy:
+    ingressRules:
+      - from:
+          - namespaceSelector:
+              matchExpressions:
+                - key: environment
+                  operator: In
+        ports:
+          - protocol: TCP
+            port: 8080
+`,
+			wantErr: true,
+			validate: func(t *testing.T, repos Repositories) {},
+		},
 	}
 
 	for _, tt := range tests {

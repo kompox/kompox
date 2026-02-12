@@ -260,6 +260,8 @@ type AppNetworkPolicyPort struct {
 	// +kubebuilder:default=TCP
 	Protocol string `json:"protocol,omitzero"`
 	// Port is the port number.
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=65535
 	Port int `json:"port"`
 }
 
