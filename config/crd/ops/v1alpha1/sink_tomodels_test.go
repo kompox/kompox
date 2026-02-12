@@ -724,6 +724,120 @@ spec:
 				}
 			},
 		},
+		{
+			name: "app with networkPolicy - ingress rules with namespaceSelector and ports",
+			yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: netpol-ws
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: netpol-prv
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv
+spec:
+  driver: k3s
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: netpol-cls
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: netpol-app
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls/app/netpol-app
+spec:
+  compose: "services:\n  web:\n    image: nginx\n"
+  networkPolicy:
+    ingressRules:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: monitoring
+        ports:
+          - protocol: TCP
+            port: 9090
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                environment: production
+        ports:
+          - protocol: TCP
+            port: 8080
+          - protocol: UDP
+            port: 8081
+`,
+			wantErr: false,
+			validate: func(t *testing.T, repos Repositories) {
+				apps, _ := repos.App.List(context.Background())
+				if len(apps) != 1 {
+					t.Fatalf("expected 1 app, got %d", len(apps))
+				}
+				app := apps[0]
+
+				// Validate networkPolicy
+				if len(app.NetworkPolicy.IngressRules) != 2 {
+					t.Fatalf("expected 2 ingress rules, got %d", len(app.NetworkPolicy.IngressRules))
+				}
+
+				// First rule
+				rule1 := app.NetworkPolicy.IngressRules[0]
+				if len(rule1.From) != 1 {
+					t.Errorf("expected 1 from peer in first rule, got %d", len(rule1.From))
+				}
+				if rule1.From[0].NamespaceSelector == nil {
+					t.Fatal("expected namespaceSelector in first rule")
+				}
+				if rule1.From[0].NamespaceSelector.MatchLabels["kubernetes.io/metadata.name"] != "monitoring" {
+					t.Errorf("expected monitoring namespace, got %v", rule1.From[0].NamespaceSelector.MatchLabels)
+				}
+				if len(rule1.Ports) != 1 {
+					t.Errorf("expected 1 port in first rule, got %d", len(rule1.Ports))
+				}
+				if rule1.Ports[0].Protocol != "TCP" {
+					t.Errorf("expected TCP protocol, got %s", rule1.Ports[0].Protocol)
+				}
+				if rule1.Ports[0].Port != 9090 {
+					t.Errorf("expected port 9090, got %d", rule1.Ports[0].Port)
+				}
+
+				// Second rule
+				rule2 := app.NetworkPolicy.IngressRules[1]
+				if len(rule2.From) != 1 {
+					t.Errorf("expected 1 from peer in second rule, got %d", len(rule2.From))
+				}
+				if rule2.From[0].NamespaceSelector == nil {
+					t.Fatal("expected namespaceSelector in second rule")
+				}
+				if rule2.From[0].NamespaceSelector.MatchLabels["environment"] != "production" {
+					t.Errorf("expected production environment, got %v", rule2.From[0].NamespaceSelector.MatchLabels)
+				}
+				if len(rule2.Ports) != 2 {
+					t.Errorf("expected 2 ports in second rule, got %d", len(rule2.Ports))
+				}
+				if rule2.Ports[0].Protocol != "TCP" {
+					t.Errorf("expected TCP protocol for first port, got %s", rule2.Ports[0].Protocol)
+				}
+				if rule2.Ports[0].Port != 8080 {
+					t.Errorf("expected port 8080 for first port, got %d", rule2.Ports[0].Port)
+				}
+				if rule2.Ports[1].Protocol != "UDP" {
+					t.Errorf("expected UDP protocol for second port, got %s", rule2.Ports[1].Protocol)
+				}
+				if rule2.Ports[1].Port != 8081 {
+					t.Errorf("expected port 8081 for second port, got %d", rule2.Ports[1].Port)
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {
