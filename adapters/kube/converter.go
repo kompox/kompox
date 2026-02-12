@@ -750,6 +750,44 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 			},
 		})
 	}
+
+	// Build ingress rules list
+	ingressRules := []netv1.NetworkPolicyIngressRule{{From: fromPeers}}
+
+	// Add user-defined ingress rules from App.NetworkPolicy
+	for _, rule := range c.App.NetworkPolicy.IngressRules {
+		npRule := netv1.NetworkPolicyIngressRule{}
+
+		// Convert From peers
+		if len(rule.From) > 0 {
+			npRule.From = make([]netv1.NetworkPolicyPeer, 0, len(rule.From))
+			for _, from := range rule.From {
+				peer := netv1.NetworkPolicyPeer{}
+				if from.NamespaceSelector != nil {
+					peer.NamespaceSelector = from.NamespaceSelector
+				}
+				npRule.From = append(npRule.From, peer)
+			}
+		}
+
+		// Convert Ports
+		if len(rule.Ports) > 0 {
+			npRule.Ports = make([]netv1.NetworkPolicyPort, 0, len(rule.Ports))
+			for _, port := range rule.Ports {
+				protocol := corev1.Protocol(port.Protocol)
+				if protocol == "" {
+					protocol = corev1.ProtocolTCP
+				}
+				npRule.Ports = append(npRule.Ports, netv1.NetworkPolicyPort{
+					Protocol: &protocol,
+					Port:     &intstr.IntOrString{Type: intstr.Int, IntVal: int32(port.Port)},
+				})
+			}
+		}
+
+		ingressRules = append(ingressRules, npRule)
+	}
+
 	var npObj *netv1.NetworkPolicy
 	{
 		npObj = &netv1.NetworkPolicy{
@@ -757,7 +795,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 			Spec: netv1.NetworkPolicySpec{
 				PodSelector: metav1.LabelSelector{},
 				PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeIngress},
-				Ingress:     []netv1.NetworkPolicyIngressRule{{From: fromPeers}},
+				Ingress:     ingressRules,
 			},
 		}
 	}

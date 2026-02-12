@@ -275,6 +275,36 @@ func (s *Sink) ToModels(ctx context.Context, repos Repositories, kompoxAppFilePa
 			}
 		}
 
+		// Convert NetworkPolicy if present
+		if app.Spec.NetworkPolicy != nil && len(app.Spec.NetworkPolicy.IngressRules) > 0 {
+			ingressRules := make([]model.AppNetworkPolicyIngressRule, 0, len(app.Spec.NetworkPolicy.IngressRules))
+			for _, rule := range app.Spec.NetworkPolicy.IngressRules {
+				domainRule := model.AppNetworkPolicyIngressRule{
+					From:  make([]model.AppNetworkPolicyPeer, 0, len(rule.From)),
+					Ports: make([]model.AppNetworkPolicyPort, 0, len(rule.Ports)),
+				}
+				for _, from := range rule.From {
+					domainRule.From = append(domainRule.From, model.AppNetworkPolicyPeer{
+						NamespaceSelector: from.NamespaceSelector,
+					})
+				}
+				for _, port := range rule.Ports {
+					protocol := port.Protocol
+					if protocol == "" {
+						protocol = "TCP"
+					}
+					domainRule.Ports = append(domainRule.Ports, model.AppNetworkPolicyPort{
+						Protocol: protocol,
+						Port:     port.Port,
+					})
+				}
+				ingressRules = append(ingressRules, domainRule)
+			}
+			domainApp.NetworkPolicy = model.AppNetworkPolicy{
+				IngressRules: ingressRules,
+			}
+		}
+
 		if err := repos.App.Create(ctx, domainApp); err != nil {
 			return fmt.Errorf("failed to create app %q: %w", app.ObjectMeta.Name, err)
 		}

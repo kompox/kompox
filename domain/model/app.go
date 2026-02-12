@@ -3,21 +3,24 @@ package model
 import (
 	"fmt"
 	"time"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // App represents an application deployed to a cluster.
 type App struct {
-	ID         string
-	Name       string
-	ClusterID  string // references Cluster
-	Compose    string
-	Ingress    AppIngress
-	Volumes    []AppVolume
-	Deployment AppDeployment
-	Resources  map[string]string
-	Settings   map[string]string
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	ID            string
+	Name          string
+	ClusterID     string // references Cluster
+	Compose       string
+	Ingress       AppIngress
+	Volumes       []AppVolume
+	Deployment    AppDeployment
+	NetworkPolicy AppNetworkPolicy
+	Resources     map[string]string
+	Settings      map[string]string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 
 	// RefBase defines the base reference for resolving relative file/URL paths in Compose.
 	// - "" (empty): external references are prohibited (external KOM origin)
@@ -58,6 +61,28 @@ type AppDeployment struct {
 	// Zone specifies the availability zone for deployment.
 	// Only sets nodeSelector when specified.
 	Zone string
+}
+
+// AppNetworkPolicy defines network policy configuration for the app.
+type AppNetworkPolicy struct {
+	IngressRules []AppNetworkPolicyIngressRule
+}
+
+// AppNetworkPolicyIngressRule defines an ingress rule.
+type AppNetworkPolicyIngressRule struct {
+	From  []AppNetworkPolicyPeer
+	Ports []AppNetworkPolicyPort
+}
+
+// AppNetworkPolicyPeer defines a network peer selector.
+type AppNetworkPolicyPeer struct {
+	NamespaceSelector *metav1.LabelSelector
+}
+
+// AppNetworkPolicyPort defines a port and protocol.
+type AppNetworkPolicyPort struct {
+	Protocol string // TCP, UDP, or SCTP
+	Port     int
 }
 
 // FindVolume returns the AppVolume for the given volume name.

@@ -184,6 +184,8 @@ type AppSpec struct {
 	Volumes []AppVolumeSpec `json:"volumes,omitzero"`
 	// Deployment defines deployment configuration for the app.
 	Deployment *AppDeploymentSpec `json:"deployment,omitzero"`
+	// NetworkPolicy defines network policy configuration for the app.
+	NetworkPolicy *AppNetworkPolicySpec `json:"networkPolicy,omitzero"`
 	// Resources stores resource-related configuration.
 	Resources map[string]string `json:"resources,omitzero"`
 	// Settings stores app-level configuration.
@@ -229,6 +231,36 @@ type AppDeploymentSpec struct {
 	Pool string `json:"pool,omitzero"`
 	// Zone specifies the availability zone for deployment.
 	Zone string `json:"zone,omitzero"`
+}
+
+// AppNetworkPolicySpec defines network policy configuration for the app.
+type AppNetworkPolicySpec struct {
+	// IngressRules defines additional ingress rules to allow.
+	IngressRules []AppNetworkPolicyIngressRule `json:"ingressRules,omitzero"`
+}
+
+// AppNetworkPolicyIngressRule defines an ingress rule.
+type AppNetworkPolicyIngressRule struct {
+	// From defines the sources allowed by this rule.
+	From []AppNetworkPolicyPeer `json:"from,omitzero"`
+	// Ports defines the ports allowed by this rule.
+	Ports []AppNetworkPolicyPort `json:"ports,omitzero"`
+}
+
+// AppNetworkPolicyPeer defines a network peer selector.
+type AppNetworkPolicyPeer struct {
+	// NamespaceSelector selects namespaces by label.
+	NamespaceSelector *metav1.LabelSelector `json:"namespaceSelector,omitzero"`
+}
+
+// AppNetworkPolicyPort defines a port and protocol.
+type AppNetworkPolicyPort struct {
+	// Protocol is the network protocol (TCP, UDP, SCTP). Defaults to TCP.
+	// +kubebuilder:validation:Enum=TCP;UDP;SCTP;""
+	// +kubebuilder:default=TCP
+	Protocol string `json:"protocol,omitzero"`
+	// Port is the port number.
+	Port int `json:"port"`
 }
 
 // AppStatus defines the observed state of App.
