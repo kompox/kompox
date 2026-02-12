@@ -1,7 +1,7 @@
 ---
 id: README
 title: 開発者向けタスク索引
-updated: 2025-12-13
+updated: 2026-02-12
 language: ja
 ---
 
@@ -11,6 +11,12 @@ language: ja
 
 - 開発者向けガイド: [GUIDE.ja.md](./GUIDE.ja.md)
 - English version: [README.en.md](./README.en.md)
+
+## 2026 年
+
+| ID | タイトル | ステータス | カテゴリ | 担当 | 更新日 | 言語 |
+|---|---|---|---|---|---|---|
+| [2026-02-12-kom-doc-migration](./2026-02-12-kom-doc-migration.ja.md) | kompoxops.yml ドキュメント廃止と KOM ベース化 | active |  | yaegashi | 2026-02-12 | ja |
 
 ## 2025 年
 

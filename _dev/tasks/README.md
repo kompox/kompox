@@ -1,7 +1,7 @@
 ---
 id: README
 title: Developer Tasks Index
-updated: 2025-12-13
+updated: 2026-02-12
 language: en
 ---
 
@@ -11,6 +11,12 @@ This index lists short, action-oriented developer tasks found in this folder. Ta
 
 - Developer's guide: [GUIDE.en.md](./GUIDE.en.md)
 - 日本語版: [README.ja.md](./README.ja.md)
+
+## 2026
+
+| ID | Title | Status | Category | Owner | Updated | Language |
+|---|---|---|---|---|---|---|
+| [2026-02-12-kom-doc-migration](./2026-02-12-kom-doc-migration.ja.md) | kompoxops.yml ドキュメント廃止と KOM ベース化 | active |  | yaegashi | 2026-02-12 | ja |
 
 ## 2025
 

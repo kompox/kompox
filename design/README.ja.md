@@ -1,7 +1,7 @@
 ---
 id: README
 title: Kompox 設計ドキュメント目次
-updated: 2025-12-13
+updated: 2026-02-12
 language: ja
 ---
 
@@ -64,7 +64,7 @@ language: ja
 | [K4x-ADR-013](./adr/K4x-ADR-013.md) | Resource protection policy for Cluster operations | en |  | accepted | - |
 | [K4x-ADR-014](./adr/K4x-ADR-014.md) | Introduce Volume Types | en |  | accepted | - |
 | [K4x-ADR-015](./adr/K4x-ADR-015.md) | Introduce Kompox CLI Env with Git-like discovery | en |  | accepted | - |
-| [K4x-ADR-016](./adr/K4x-ADR-016.md) | CLI Logging Strategy | en |  | proposed | - |
+| [K4x-ADR-016](./adr/K4x-ADR-016.md) | CLI Logging Strategy | en |  | accepted | - |
 
 **ステータスの意味:**
 
