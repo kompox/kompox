@@ -81,7 +81,7 @@ type AppNetworkPolicyPeer struct {
 
 // AppNetworkPolicyPort defines a port and protocol.
 type AppNetworkPolicyPort struct {
-	Protocol string // TCP, UDP, or SCTP
+	Protocol string // TCP, UDP, or SCTP (defaults to TCP if empty)
 	Port     int
 }
 

@@ -774,6 +774,8 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		if len(rule.Ports) > 0 {
 			npRule.Ports = make([]netv1.NetworkPolicyPort, 0, len(rule.Ports))
 			for _, port := range rule.Ports {
+				// Protocol should already be defaulted by CRD and sink_tomodels,
+				// but we defensively handle empty values for safety
 				protocol := corev1.Protocol(port.Protocol)
 				if protocol == "" {
 					protocol = corev1.ProtocolTCP
