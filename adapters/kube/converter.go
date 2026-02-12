@@ -762,11 +762,26 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		if len(rule.From) > 0 {
 			npRule.From = make([]netv1.NetworkPolicyPeer, 0, len(rule.From))
 			for _, from := range rule.From {
-				peer := netv1.NetworkPolicyPeer{}
+				// Convert domain LabelSelector to k8s LabelSelector
 				if from.NamespaceSelector != nil {
-					peer.NamespaceSelector = from.NamespaceSelector
+					k8sSelector := &metav1.LabelSelector{
+						MatchLabels: from.NamespaceSelector.MatchLabels,
+					}
+					if len(from.NamespaceSelector.MatchExpressions) > 0 {
+						k8sSelector.MatchExpressions = make([]metav1.LabelSelectorRequirement, len(from.NamespaceSelector.MatchExpressions))
+						for i, expr := range from.NamespaceSelector.MatchExpressions {
+							k8sSelector.MatchExpressions[i] = metav1.LabelSelectorRequirement{
+								Key:      expr.Key,
+								Operator: metav1.LabelSelectorOperator(expr.Operator),
+								Values:   expr.Values,
+							}
+						}
+					}
+					peer := netv1.NetworkPolicyPeer{
+						NamespaceSelector: k8sSelector,
+					}
+					npRule.From = append(npRule.From, peer)
 				}
-				npRule.From = append(npRule.From, peer)
 			}
 		}
 
@@ -785,6 +800,12 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 					Port:     &intstr.IntOrString{Type: intstr.Int, IntVal: int32(port.Port)},
 				})
 			}
+		}
+
+		// Skip empty rules that would allow all sources on all ports
+		// (validation in sink_tomodels should prevent this, but defensive check)
+		if len(npRule.From) == 0 && len(npRule.Ports) == 0 {
+			continue
 		}
 
 		ingressRules = append(ingressRules, npRule)

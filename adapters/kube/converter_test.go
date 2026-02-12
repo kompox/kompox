@@ -14,7 +14,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	netv1 "k8s.io/api/networking/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -1454,7 +1453,7 @@ services:
 				{
 					From: []model.AppNetworkPolicyPeer{
 						{
-							NamespaceSelector: &metav1.LabelSelector{
+							NamespaceSelector: &model.LabelSelector{
 								MatchLabels: map[string]string{
 									"kubernetes.io/metadata.name": "monitoring",
 								},
@@ -1468,7 +1467,7 @@ services:
 				{
 					From: []model.AppNetworkPolicyPeer{
 						{
-							NamespaceSelector: &metav1.LabelSelector{
+							NamespaceSelector: &model.LabelSelector{
 								MatchLabels: map[string]string{
 									"environment": "production",
 								},
@@ -1576,5 +1575,229 @@ services:
 	if rule2.Ports[1].Port.IntVal != 8081 {
 		t.Errorf("expected port 8081 for second port, got %d", rule2.Ports[1].Port.IntVal)
 	}
+}
+
+func TestNetworkPolicyEdgeCases(t *testing.T) {
+	ctx := context.Background()
+
+	svc := &model.Workspace{Name: "testsvc"}
+	prv := &model.Provider{Name: "testprv", Driver: "test"}
+	cls := &model.Cluster{
+		Name: "testcls",
+		Ingress: &model.ClusterIngress{
+			Namespace:  "traefik",
+			Controller: "traefik",
+			Domain:     "example.com",
+		},
+	}
+
+	t.Run("ports omitted allows all ports", func(t *testing.T) {
+		app := &model.App{
+			Name: "netpolapp",
+			Compose: `
+services:
+  web:
+    image: nginx:latest
+`,
+			NetworkPolicy: model.AppNetworkPolicy{
+				IngressRules: []model.AppNetworkPolicyIngressRule{
+					{
+						From: []model.AppNetworkPolicyPeer{
+							{
+								NamespaceSelector: &model.LabelSelector{
+									MatchLabels: map[string]string{
+										"app": "monitoring",
+									},
+								},
+							},
+						},
+						// Ports intentionally omitted - should allow all ports
+					},
+				},
+			},
+		}
+
+		c := NewConverter(svc, prv, cls, app, "app")
+		_, err := c.Convert(ctx)
+		if err != nil {
+			t.Fatalf("Convert failed: %v", err)
+		}
+
+		_, err = c.Build()
+		if err != nil {
+			t.Fatalf("Build failed: %v", err)
+		}
+
+		objects := c.AllObjects()
+		var netpol *netv1.NetworkPolicy
+		for _, obj := range objects {
+			if np, ok := obj.(*netv1.NetworkPolicy); ok {
+				netpol = np
+				break
+			}
+		}
+
+		if netpol == nil {
+			t.Fatal("NetworkPolicy not found")
+		}
+
+		// Should have 2 rules: default + custom
+		if len(netpol.Spec.Ingress) != 2 {
+			t.Fatalf("expected 2 ingress rules, got %d", len(netpol.Spec.Ingress))
+		}
+
+		// Custom rule should have no ports (allows all)
+		customRule := netpol.Spec.Ingress[1]
+		if len(customRule.Ports) != 0 {
+			t.Errorf("expected 0 ports in custom rule (allows all), got %d", len(customRule.Ports))
+		}
+		if len(customRule.From) != 1 {
+			t.Errorf("expected 1 from peer, got %d", len(customRule.From))
+		}
+	})
+
+	t.Run("protocol defaults to TCP", func(t *testing.T) {
+		app := &model.App{
+			Name: "netpolapp",
+			Compose: `
+services:
+  web:
+    image: nginx:latest
+`,
+			NetworkPolicy: model.AppNetworkPolicy{
+				IngressRules: []model.AppNetworkPolicyIngressRule{
+					{
+						From: []model.AppNetworkPolicyPeer{
+							{
+								NamespaceSelector: &model.LabelSelector{
+									MatchLabels: map[string]string{
+										"app": "test",
+									},
+								},
+							},
+						},
+						Ports: []model.AppNetworkPolicyPort{
+							{Port: 8080}, // Protocol omitted, should default to TCP
+						},
+					},
+				},
+			},
+		}
+
+		c := NewConverter(svc, prv, cls, app, "app")
+		_, err := c.Convert(ctx)
+		if err != nil {
+			t.Fatalf("Convert failed: %v", err)
+		}
+
+		_, err = c.Build()
+		if err != nil {
+			t.Fatalf("Build failed: %v", err)
+		}
+
+		objects := c.AllObjects()
+		var netpol *netv1.NetworkPolicy
+		for _, obj := range objects {
+			if np, ok := obj.(*netv1.NetworkPolicy); ok {
+				netpol = np
+				break
+			}
+		}
+
+		if netpol == nil {
+			t.Fatal("NetworkPolicy not found")
+		}
+
+		customRule := netpol.Spec.Ingress[1]
+		if len(customRule.Ports) != 1 {
+			t.Fatalf("expected 1 port, got %d", len(customRule.Ports))
+		}
+
+		if *customRule.Ports[0].Protocol != corev1.ProtocolTCP {
+			t.Errorf("expected TCP protocol (default), got %s", *customRule.Ports[0].Protocol)
+		}
+	})
+
+	t.Run("matchExpressions supported", func(t *testing.T) {
+		app := &model.App{
+			Name: "netpolapp",
+			Compose: `
+services:
+  web:
+    image: nginx:latest
+`,
+			NetworkPolicy: model.AppNetworkPolicy{
+				IngressRules: []model.AppNetworkPolicyIngressRule{
+					{
+						From: []model.AppNetworkPolicyPeer{
+							{
+								NamespaceSelector: &model.LabelSelector{
+									MatchExpressions: []model.LabelSelectorRequirement{
+										{
+											Key:      "environment",
+											Operator: "In",
+											Values:   []string{"prod", "staging"},
+										},
+									},
+								},
+							},
+						},
+						Ports: []model.AppNetworkPolicyPort{
+							{Protocol: "TCP", Port: 9090},
+						},
+					},
+				},
+			},
+		}
+
+		c := NewConverter(svc, prv, cls, app, "app")
+		_, err := c.Convert(ctx)
+		if err != nil {
+			t.Fatalf("Convert failed: %v", err)
+		}
+
+		_, err = c.Build()
+		if err != nil {
+			t.Fatalf("Build failed: %v", err)
+		}
+
+		objects := c.AllObjects()
+		var netpol *netv1.NetworkPolicy
+		for _, obj := range objects {
+			if np, ok := obj.(*netv1.NetworkPolicy); ok {
+				netpol = np
+				break
+			}
+		}
+
+		if netpol == nil {
+			t.Fatal("NetworkPolicy not found")
+		}
+
+		customRule := netpol.Spec.Ingress[1]
+		if len(customRule.From) != 1 {
+			t.Fatalf("expected 1 from peer, got %d", len(customRule.From))
+		}
+
+		selector := customRule.From[0].NamespaceSelector
+		if selector == nil {
+			t.Fatal("expected namespaceSelector")
+		}
+
+		if len(selector.MatchExpressions) != 1 {
+			t.Fatalf("expected 1 matchExpression, got %d", len(selector.MatchExpressions))
+		}
+
+		expr := selector.MatchExpressions[0]
+		if expr.Key != "environment" {
+			t.Errorf("expected key 'environment', got %s", expr.Key)
+		}
+		if string(expr.Operator) != "In" {
+			t.Errorf("expected operator 'In', got %s", expr.Operator)
+		}
+		if len(expr.Values) != 2 {
+			t.Errorf("expected 2 values, got %d", len(expr.Values))
+		}
+	})
 }
 

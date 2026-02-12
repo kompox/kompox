@@ -3,8 +3,6 @@ package model
 import (
 	"fmt"
 	"time"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // App represents an application deployed to a cluster.
@@ -76,7 +74,20 @@ type AppNetworkPolicyIngressRule struct {
 
 // AppNetworkPolicyPeer defines a network peer selector.
 type AppNetworkPolicyPeer struct {
-	NamespaceSelector *metav1.LabelSelector
+	NamespaceSelector *LabelSelector
+}
+
+// LabelSelector represents a label selector for matching resources.
+type LabelSelector struct {
+	MatchLabels      map[string]string
+	MatchExpressions []LabelSelectorRequirement
+}
+
+// LabelSelectorRequirement represents a label selector requirement.
+type LabelSelectorRequirement struct {
+	Key      string
+	Operator string // In, NotIn, Exists, DoesNotExist
+	Values   []string
 }
 
 // AppNetworkPolicyPort defines a port and protocol.

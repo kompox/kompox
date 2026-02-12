@@ -838,6 +838,256 @@ spec:
 				}
 			},
 		},
+		{
+			name: "app with networkPolicy - empty rule should fail",
+			yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: netpol-ws
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: netpol-prv
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv
+spec:
+  driver: k3s
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: netpol-cls
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: netpol-app
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls/app/netpol-app
+spec:
+  compose: "services:\n  web:\n    image: nginx\n"
+  networkPolicy:
+    ingressRules:
+      - {}
+`,
+			wantErr: true,
+			validate: func(t *testing.T, repos Repositories) {},
+		},
+		{
+			name: "app with networkPolicy - nil namespaceSelector should fail",
+			yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: netpol-ws
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: netpol-prv
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv
+spec:
+  driver: k3s
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: netpol-cls
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: netpol-app
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls/app/netpol-app
+spec:
+  compose: "services:\n  web:\n    image: nginx\n"
+  networkPolicy:
+    ingressRules:
+      - from:
+          - {}
+        ports:
+          - protocol: TCP
+            port: 9090
+`,
+			wantErr: true,
+			validate: func(t *testing.T, repos Repositories) {},
+		},
+		{
+			name: "app with networkPolicy - empty namespaceSelector should fail",
+			yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: netpol-ws
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: netpol-prv
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv
+spec:
+  driver: k3s
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: netpol-cls
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: netpol-app
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls/app/netpol-app
+spec:
+  compose: "services:\n  web:\n    image: nginx\n"
+  networkPolicy:
+    ingressRules:
+      - from:
+          - namespaceSelector: {}
+        ports:
+          - protocol: TCP
+            port: 9090
+`,
+			wantErr: true,
+			validate: func(t *testing.T, repos Repositories) {},
+		},
+		{
+			name: "app with networkPolicy - protocol defaulting",
+			yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: netpol-ws
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: netpol-prv
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv
+spec:
+  driver: k3s
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: netpol-cls
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: netpol-app
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls/app/netpol-app
+spec:
+  compose: "services:\n  web:\n    image: nginx\n"
+  networkPolicy:
+    ingressRules:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                app: test
+        ports:
+          - port: 8080
+`,
+			wantErr: false,
+			validate: func(t *testing.T, repos Repositories) {
+				apps, _ := repos.App.List(context.Background())
+				if len(apps) != 1 {
+					t.Fatalf("expected 1 app, got %d", len(apps))
+				}
+				app := apps[0]
+
+				if len(app.NetworkPolicy.IngressRules) != 1 {
+					t.Fatalf("expected 1 ingress rule, got %d", len(app.NetworkPolicy.IngressRules))
+				}
+
+				rule := app.NetworkPolicy.IngressRules[0]
+				if len(rule.Ports) != 1 {
+					t.Fatalf("expected 1 port, got %d", len(rule.Ports))
+				}
+
+				if rule.Ports[0].Protocol != "TCP" {
+					t.Errorf("expected protocol to default to TCP, got %s", rule.Ports[0].Protocol)
+				}
+			},
+		},
+		{
+			name: "app with networkPolicy - ports omitted allows all ports",
+			yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: netpol-ws
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: netpol-prv
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv
+spec:
+  driver: k3s
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: netpol-cls
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: netpol-app
+  annotations:
+    ops.kompox.dev/id: /ws/netpol-ws/prv/netpol-prv/cls/netpol-cls/app/netpol-app
+spec:
+  compose: "services:\n  web:\n    image: nginx\n"
+  networkPolicy:
+    ingressRules:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                app: test
+`,
+			wantErr: false,
+			validate: func(t *testing.T, repos Repositories) {
+				apps, _ := repos.App.List(context.Background())
+				if len(apps) != 1 {
+					t.Fatalf("expected 1 app, got %d", len(apps))
+				}
+				app := apps[0]
+
+				if len(app.NetworkPolicy.IngressRules) != 1 {
+					t.Fatalf("expected 1 ingress rule, got %d", len(app.NetworkPolicy.IngressRules))
+				}
+
+				rule := app.NetworkPolicy.IngressRules[0]
+				if len(rule.Ports) != 0 {
+					t.Errorf("expected 0 ports (allows all), got %d", len(rule.Ports))
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {
