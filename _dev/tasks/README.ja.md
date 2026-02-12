@@ -17,6 +17,7 @@ language: ja
 | ID | タイトル | ステータス | カテゴリ | 担当 | 更新日 | 言語 |
 |---|---|---|---|---|---|---|
 | [2026-02-12-kom-doc-migration](./2026-02-12-kom-doc-migration.ja.md) | kompoxops.yml ドキュメント廃止と KOM ベース化 | done |  | yaegashi | 2026-02-12 | ja |
+| [2026-02-12-network-policy](./2026-02-12-network-policy.ja.md) | NetworkPolicy リソース出力拡張 | active |  |  | 2026-02-12 | ja |
 
 ## 2025 年
 

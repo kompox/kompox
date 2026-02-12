@@ -17,6 +17,7 @@ This index lists short, action-oriented developer tasks found in this folder. Ta
 | ID | Title | Status | Category | Owner | Updated | Language |
 |---|---|---|---|---|---|---|
 | [2026-02-12-kom-doc-migration](./2026-02-12-kom-doc-migration.ja.md) | kompoxops.yml ドキュメント廃止と KOM ベース化 | done |  | yaegashi | 2026-02-12 | ja |
+| [2026-02-12-network-policy](./2026-02-12-network-policy.ja.md) | NetworkPolicy リソース出力拡張 | active |  |  | 2026-02-12 | ja |
 
 ## 2025
 
