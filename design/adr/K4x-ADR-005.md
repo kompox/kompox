@@ -49,7 +49,7 @@ Adopt Compose standard `configs`/`secrets` as the only way to express single-fil
 
 3) Volumes policy (simplified and deterministic)
 - `volumes` bind mounts are directory-only:
-  - Relative bind `./sub/dir:/mount` → PVC subPath mount using `app.volumes[0]` with `subPath=sub/dir`
+  - Relative bind `./sub/dir:/mount` → PVC subPath mount using `App.spec.volumes[0]` with `subPath=sub/dir`
   - Absolute bind `/host:/mount` → error
   - If a bind refers to a single file (detected by comparing with declared configs/secrets targets), treat as a configuration error:
     - When the same `target` is present in `services.<svc>.configs` or `services.<svc>.secrets`, ignore the conflicting `volumes` entry and emit a warning (for docker compose compatibility).

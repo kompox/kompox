@@ -11,7 +11,7 @@ supersededBy: []
 
 ## Context
 
-- In Kompox, ingress hostnames are defined in `kompoxops.yml` via `app.ingress.rules[].hosts` and become accessible once the app is deployed to a cluster with an ingress controller. Historically, users needed to manually configure their DNS zone to map these hostnames to the cluster ingress endpoint IP address.
+- In Kompox, ingress hostnames are defined in `kompoxops.yml` via `App.spec.ingress.rules[].hosts` and become accessible once the app is deployed to a cluster with an ingress controller. Historically, users needed to manually configure their DNS zone to map these hostnames to the cluster ingress endpoint IP address.
 - This manual step is error-prone, time-consuming, and complicates automation. Some providers support first-class DNS services that we can leverage to reduce operational toil.
 - We want to introduce an optional capability to apply DNS records for ingress endpoints automatically, while keeping provider-specific DNS integration encapsulated in each provider driver.
 - Requirements and constraints:

@@ -17,7 +17,7 @@ Kompox はマルチクラウドに対応した設計となっていますが、�
 完了
 
 - [x] `kompoxops` CLI 基本実装
-  - [x] `kompoxops.yml` 設定ファイルの定義
+  - [x] `kompoxops.yml` 設定ファイルの定義 (互換用の単一ファイルモード)
   - [x] クロスプラットフォーム CI/CD (GoReleaser)
 - [x] Kubernetes 基本実装
   - [x] Docker Compose → Kubernetes Manifest 変換
@@ -74,7 +74,7 @@ Kubernetesはステートレスアプリの運用基盤として普及しまし�
 
 Kompoxはこれらの課題を解決し、ステートフルワークロードの運用をスケールさせることを目指します。
 
-- **シンプルな定義ファイル:** `compose.yml` の資産を活かしつつ、`kompoxops.yml` というシンプルなファイルでアプリケーションとインフラを定義できます。
+- **シンプルな定義ファイル:** `compose.yml` の資産を活かしつつ、`kompoxapp.yml` と KOM (Workspace/Provider/Cluster/App) でアプリケーションとインフラを定義できます。
 - **クラウド差異の吸収:** Provider Driverアーキテクチャにより、AKS (Azure), EKS (AWS), GKE (Google), OKE (OCI) といった各クラウドにおける RWO ボリュームやスナップショット機能の差異を吸収します。
 - **容易なデータ管理:** クラウドネイティブなスナップショット機能を活用し、バックアップ・リストアや、障害発生時のアベイラビリティゾーン (AZ)・リージョン・クラウド間マイグレーションを容易にします。
 - **一貫した操作性:** `kompoxops` CLIツールを通じて、ローカル開発環境から本番クラウド環境まで、一貫したコマンドでアプリケーションのデプロイや管理を行えます。
@@ -114,7 +114,9 @@ $ docker compose up -d
  ✔ Container aks-e2e-gitea-gitea-1     Started        0.3d
 ```
 
-Azure Kubernetes Service (AKS) 向けの設定ファイル [kompoxops.yml](./tests/aks-e2e-gitea/kompoxops.yml.in) を用意し `kompoxops` CLI ツールを使うことで、次のことができます。
+AKS 向けの KOM 設定(例: `kompoxapp.yml` と Workspace/Provider/Cluster/App の YAML)を用意し `kompoxops` CLI ツールを使うことで、次のことができます。
+
+注: `kompoxops.yml` 単一ファイルモードは互換用途として残っていますが、廃止予定のため新規利用は推奨しません。
 
 - AKS クラスタをプロビジョン (認証は Azure CLI によるものを使用)
 - クラスタに Ingress Controller (traefik) や共通 Kubernetes リソースをインストール
@@ -122,18 +124,41 @@ Azure Kubernetes Service (AKS) 向けの設定ファイル [kompoxops.yml](./tes
 - compose.yml から変換した Kubernetes Manifest をデプロイしてアプリを公開
 
 ```yaml
-version: v1
-workspace:
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Defaults
+spec:
+  komPath:
+    - ./kom
+  appId: /ws/aks-e2e-gitea-20250925-060355/prv/aks1/cls/cluster1/app/app1
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
   name: aks-e2e-gitea-20250925-060355
-provider:
+  annotations:
+    ops.kompox.dev/id: /ws/aks-e2e-gitea-20250925-060355
+spec: {}
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
   name: aks1
+  annotations:
+    ops.kompox.dev/id: /ws/aks-e2e-gitea-20250925-060355/prv/aks1
+spec:
   driver: aks
   settings:
     AZURE_AUTH_METHOD: azure_cli
     AZURE_SUBSCRIPTION_ID: 9473abf6-f25e-420e-b3f2-128c1c7b46f2
     AZURE_LOCATION: eastus
-cluster:
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
   name: cluster1
+  annotations:
+    ops.kompox.dev/id: /ws/aks-e2e-gitea-20250925-060355/prv/aks1/cls/cluster1
+spec:
   existing: false
   ingress:
     certEmail: yaegashi@live.jp
@@ -147,14 +172,20 @@ cluster:
     AZURE_AKS_SYSTEM_VM_DISK_TYPE: Ephemeral
     AZURE_AKS_SYSTEM_VM_DISK_SIZE_GB: 64
     AZURE_AKS_SYSTEM_VM_PRIORITY: Regular
-    AZURE_AKS_SYSTEM_VM_ZONES: 
+    AZURE_AKS_SYSTEM_VM_ZONES:
     AZURE_AKS_USER_VM_SIZE: Standard_D2ds_v4
     AZURE_AKS_USER_VM_DISK_TYPE: Ephemeral
     AZURE_AKS_USER_VM_DISK_SIZE_GB: 64
     AZURE_AKS_USER_VM_PRIORITY: Regular
     AZURE_AKS_USER_VM_ZONES: 1
-app:
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
   name: app1
+  annotations:
+    ops.kompox.dev/id: /ws/aks-e2e-gitea-20250925-060355/prv/aks1/cls/cluster1/app/app1
+spec:
   compose: file:compose.yml
   ingress:
     certResolver: staging
@@ -204,7 +235,7 @@ $ ./kompoxops cluster status
 }
 
 # クラスタに compose.yml から変換した Kubernetes Manifest をデプロイ
-# app.volumes で定義した Azure 管理ディスクが自動的に作成され RWO PV としてマウントされます
+# App.spec.volumes で定義した Azure 管理ディスクが自動的に作成され RWO PV としてマウントされます
 $ kompoxops app deploy --bootstrap-disks
 2025/09/25 06:12:20 INFO bootstrap disks before deploy app=app1
 2025/09/25 06:12:24 INFO ensuring resource group subscription=9473abf6-f25e-420e-b3f2-128c1c7b46f2 location=eastus resource_group=k4x-50vf7y_app_app1_13o40q tags="map[kompox-app-id-hash:13o40q kompox-app-name:app1 kompox-provider-name:aks1 kompox-service-name:aks-e2e-gitea-20250925-060355 managed-by:kompox]"

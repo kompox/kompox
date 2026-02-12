@@ -1,7 +1,7 @@
 ---
 id: 2026-02-12-kom-doc-migration
 title: kompoxops.yml ドキュメント廃止と KOM ベース化
-status: active
+status: done
 updated: 2026-02-12
 language: ja
 owner: yaegashi
@@ -21,12 +21,15 @@ owner: yaegashi
   - [Kompox-KubeConverter.ja.md] の Example Input を KOM に置き換え
   - [README.md] / [README.ja.md] の主要説明を KOM/kompoxapp.yml ベースへ更新
   - [Kompox-CLI.ja.md] の `kompoxops` 概要を KOM モード中心へ整合
+  - [Kompox-KubeClient.ja.md] を含む関連設計文書のフィールド参照表記(`App.spec.*`/`Cluster.spec.*`)を統一
+  - [K4x-ADR-004.md] / [K4x-ADR-005.md] の関連記述を同表記へ整合
   - [config/crd/ops/v1alpha1/README.md] の注釈キー表記などを実装/設計に合わせて整合
-  - `kompoxops.yml` を前提にした古い設計文書には Notice を追加(ただし archived 前提)
+  - YAML サンプルの配列インデントを可読性重視で統一
 - Out:
   - CLI の挙動変更(警告追加、既定値変更、単一ファイルモード削除など)
   - E2E テストテンプレートの移行(kompoxops.yml.in -> KOM 形式など)
   - 仕様の破壊的変更(KOM スキーマや変換ロジックの変更)
+  - archived 文書([Kompox-Spec-Draft.ja.md])への Notice 追加(ユーザー指示により未実施)
 
 ## 仕様サマリ
 
@@ -39,21 +42,28 @@ owner: yaegashi
 
 ## 計画(チェックリスト)
 
-- [ ] [Kompox-KubeConverter.ja.md] の `### kompoxops.yml` を KOM 例に置換
-  - [ ] Workspace/Provider/Cluster/App を multi-document YAML で提示
-  - [ ] `metadata.annotations["ops.kompox.dev/id"]` (Resource ID) を用いた例に統一
-  - [ ] 以降の説明で `kompoxops.yml` 前提の文言を KOM 前提へ修正
-- [ ] [README.md] と [README.ja.md] を KOM/kompoxapp.yml 前提へ更新
-  - [ ] `kompoxops.yml` を primary として紹介しない
-  - [ ] 互換としての単一ファイルモードは短い注記に留める
-- [ ] [Kompox-CLI.ja.md] の冒頭説明を KOM 中心へ整合
-  - [ ] `kompoxops` の説明を「KOM を読み込んで動作する CLI」へ変更
-  - [ ] 単一ファイルモードは「廃止予定」として位置付けを維持
-- [ ] [config/crd/ops/v1alpha1/README.md] の記載を `ops.kompox.dev/id` ベースに整合
-  - [ ] `ops.kompox.dev/path` など誤解を招く表現があれば整理
-  - [ ] `doc-path` / `doc-index` などの説明を必要最小限で追記
+- [x] [Kompox-KubeConverter.ja.md] の `### kompoxops.yml` を KOM 例に置換
+  - [x] Workspace/Provider/Cluster/App を multi-document YAML で提示
+  - [x] `metadata.annotations["ops.kompox.dev/id"]` (Resource ID) を用いた例に統一
+  - [x] 以降の説明で `kompoxops.yml` 前提の文言を KOM 前提へ修正
+- [x] [README.md] と [README.ja.md] を KOM/kompoxapp.yml 前提へ更新
+  - [x] `kompoxops.yml` を primary として紹介しない
+  - [x] 互換としての単一ファイルモードは短い注記に留める
+- [x] [Kompox-CLI.ja.md] の冒頭説明を KOM 中心へ整合
+  - [x] `kompoxops` の説明を「KOM を読み込んで動作する CLI」へ変更
+  - [x] 単一ファイルモードは「廃止予定」として位置付けを維持
+- [x] [config/crd/ops/v1alpha1/README.md] の記載を `ops.kompox.dev/id` ベースに整合
+  - [x] `ops.kompox.dev/path` など誤解を招く表現があれば整理
+  - [x] `doc-path` / `doc-index` などの説明を必要最小限で追記
+- [x] 関連設計文書のフィールド参照を `App.spec.*` / `Cluster.spec.*` に統一
+  - [x] [Kompox-KubeConverter.ja.md] のスキーマ節と周辺説明を統一
+  - [x] [Kompox-CLI.ja.md] の運用説明文中の旧表記を統一
+  - [x] [Kompox-KubeClient.ja.md] の旧表記を統一
+  - [x] [K4x-ADR-004.md] / [K4x-ADR-005.md] の関連記述を統一
+- [x] YAML サンプルの配列インデントを統一
+  - [x] [Kompox-KubeConverter.ja.md] の `volumes:` 直下配列インデントを統一
 - [ ] 古い設計文書(archived)の `kompoxops.yml` 前提箇所に Notice を追加
-  - [ ] [Kompox-Spec-Draft.ja.md] など、誤読を防ぐための冒頭注記
+  - [ ] [Kompox-Spec-Draft.ja.md] への冒頭注記(ユーザー指示により実施しない)
 
 ## テスト
 
@@ -79,20 +89,30 @@ owner: yaegashi
 ## 進捗
 
 - 2026-02-12: タスク作成
+- 2026-02-12: ドキュメント移行を実施し、KOM/kompoxapp.yml を主経路として整合。`kompoxops.yml` は deprecated/legacy 文脈へ集約。`make gen-index` 実行済み。
+- 2026-02-12: `App.spec.*` / `Cluster.spec.*` 表記統一を [Kompox-KubeConverter.ja.md] 以外へ拡張([Kompox-CLI.ja.md], [Kompox-KubeClient.ja.md], [K4x-ADR-004.md], [K4x-ADR-005.md])。
+- 2026-02-12: [Kompox-KubeConverter.ja.md] の YAML 配列インデントを統一。
+- 2026-02-12: [Kompox-Spec-Draft.ja.md] の変更は不要との指示に従い復元。
 
 ## 参考
 
 - [Kompox-KubeConverter.ja.md]
 - [Kompox-KOM.ja.md]
 - [Kompox-CLI.ja.md]
+- [Kompox-KubeClient.ja.md]
 - [README.md]
 - [README.ja.md]
 - [config/crd/ops/v1alpha1/README.md]
+- [K4x-ADR-004.md]
+- [K4x-ADR-005.md]
 
 [Kompox-KubeConverter.ja.md]: ../../design/v1/Kompox-KubeConverter.ja.md
 [Kompox-KOM.ja.md]: ../../design/v1/Kompox-KOM.ja.md
 [Kompox-CLI.ja.md]: ../../design/v1/Kompox-CLI.ja.md
+[Kompox-KubeClient.ja.md]: ../../design/v1/Kompox-KubeClient.ja.md
 [Kompox-Spec-Draft.ja.md]: ../../design/v1/Kompox-Spec-Draft.ja.md
 [README.md]: ../../README.md
 [README.ja.md]: ../../README.ja.md
 [config/crd/ops/v1alpha1/README.md]: ../../config/crd/ops/v1alpha1/README.md
+[K4x-ADR-004.md]: ../../design/adr/K4x-ADR-004.md
+[K4x-ADR-005.md]: ../../design/adr/K4x-ADR-005.md

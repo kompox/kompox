@@ -3,7 +3,7 @@ id: Kompox-KubeConverter
 title: Kompox Kube Converter ガイド
 version: v1
 status: synced
-updated: 2025-10-12
+updated: 2026-02-12
 language: ja
 ---
 
@@ -59,7 +59,7 @@ Kompox では Kubernetes Server-Side Apply の Field Manager を用いてフィ�
 
 変換時に次のようなコンポーネント名 `<componentName>` を指定する。
 
-- `app` (アプリ: app.compose により記述される)
+- `app` (アプリ: App.spec.compose により記述される)
 - `box` (Kompox Box: kompoxops box deploy でデプロイする)
 
 リソース命名規則
@@ -77,9 +77,9 @@ Kompox では Kubernetes Server-Side Apply の Field Manager を用いてフィ�
 - Deployment/Service(ingress): `<appName>-<componentName>`
   - Namespace内のリソースで一意性が担保されているためハッシュを含まない
 - Service(headless): `<containerName>`
-  - app.compose.services により作られるコンテナの名前を使用する
+  - App.spec.compose.services により作られるコンテナの名前を使用する
   - Service(ingress) 名前衝突回避: `<appName>-app` または `<appName>-box` で始まる名前はエラーとする
-  - Namespace内では単一のappしかデプロイできないのでapp.compose.servicesによる名前衝突はない
+  - Namespace内では単一のappしかデプロイできないので App.spec.compose.services による名前衝突はない
 - ConfigMap/Secret: 命名は「ConfigMap/Secret リソース」節の命名表を参照
 - Ingress:
   - デフォルトドメイン用: `<appName>-<componentName>-default`
@@ -156,19 +156,19 @@ HASH = BASEのSHA256バイト列を256bitのLSB first bigintとして扱い36進
 `<spHASH>` (ワークスペース・プロバイダハッシュ)
 
 ```
-BASE = workspace.name + ":" + provider.name
+BASE = Workspace.metadata.name + ":" + Provider.metadata.name
 ```
 
 `<inHASH>` (クラスタ依存アプリハッシュ)
 
 ```
-BASE = workspace.name + ":" + provider.name + ":" + cluster.name + ":" + app.name
+BASE = Workspace.metadata.name + ":" + Provider.metadata.name + ":" + Cluster.metadata.name + ":" + App.metadata.name
 ```
 
 `<idHASH>` (クラスタ非依存アプリハッシュ)
 
 ```
-BASE = workspace.name + ":" + provider.name + ":" + app.name
+BASE = Workspace.metadata.name + ":" + Provider.metadata.name + ":" + App.metadata.name
 ```
 
 `<volHASH>` (クラウドディスクリソースハッシュ)
@@ -203,15 +203,20 @@ BASE = Pod template が参照するすべての ConfigMap/Secret リソースの
 - Snapshot 名: DNS-1123 ラベル、長さ 1..24
 - 注: プロバイダドライバは基盤プラットフォームの制約に合わせて、上記より厳しい制限を追加で行うことがある。
 
-app.volumes スキーマ
+App.spec.volumes スキーマ (KOM)
 
 ```yaml
-app.volumes:
-  - name: <name>
-    size: <size>
-    type: <type>  # optional: "disk" (default) or "files"
-    options:
-      <key>: <value>
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: <appName>
+spec:
+  volumes:
+    - name: <name>
+      size: <size>
+      type: <type>  # optional: "disk" (default) or "files"
+      options:
+        <key>: <value>
 ```
 
 - name: DNS-1123 ラベル、長さ 1..16、正規表現: `^[a-z0-9]([-a-z0-9]{0,14}[a-z0-9])?$`
@@ -240,12 +245,12 @@ Compose の `services.<service>.volumes` は compose-go によりパースされ
 |種類|形式|Kompoxでの取り扱い|
 |-|-|-|
 |Abs path bind|`/sub/path:/mount/path`|エラー|
-|Rel path bind|`./sub/path:/mount/path`|app.volumes[0] を参照し `/sub/path` を `/mount/path` にマウント|
-|Root path volume|`name:/mount/path`|app.volumes[name] を参照し `/` を `/mount/path` にマウント|
-|Sub path volume|`name/sub/path:/mount/path`|app.volumes[name] を参照し `/sub/path` を `/mount/path` にマウント|
+|Rel path bind|`./sub/path:/mount/path`|`App.spec.volumes[0]` を参照し `/sub/path` を `/mount/path` にマウント|
+|Root path volume|`name:/mount/path`|`App.spec.volumes[name]` を参照し `/` を `/mount/path` にマウント|
+|Sub path volume|`name/sub/path:/mount/path`|`App.spec.volumes[name]` を参照し `/sub/path` を `/mount/path` にマウント|
 
 参照する volume が見つからない場合はエラーとする。
-app.volumes が空でも自動的に作成するようなことはしない。
+`App.spec.volumes` が空でも自動的に作成するようなことはしない。
 
 `sub/path` の正規化や `/mount/path` の重複チェックは compose-go により行われる。
 
@@ -260,33 +265,36 @@ initContainers により各 volume の sub path ディレクトリを自動作�
   - `Type` で場合分けして `name` と `subPath` を決定
     - `bind`
       - `Source` が `/` で始まる場合はエラー (Abs path bind)
-      - `name={app.volumes[0].name}` `subPath={Source}` (Rel path bind)
+      - `name={App.spec.volumes[0].name}` `subPath={Source}` (Rel path bind)
     - `volume`
       - `Source` に `/` が含まれる場合: `name={Source:最初の"/"より前}` `subPath={Source:最初の"/"より後}` (Sub path volume)
       - `Source` に `/` が含まれない場合: `name={Source}` `subPath={空}` (Root path volume)
     - それ以外
       - エラー
-  - `app.volumes[name]` が存在しない場合はエラー
+  - `App.spec.volumes[name]` が存在しない場合はエラー
 
 設定例
 
 ```yaml
-app:
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
   name: app1
+spec:
   compose:
     services:
       app:
         image: app
         volumes:
-        - /abs/path:/mnt/abs     # error
-        - ./sub/path:/mnt/rel    # mount default:/sub/path on /mnt/rel
-        - data:/mnt/root         # mount data:/ on /mnt/root
-        - data/sub/path:/mnt/sub # mount data:/sub/path on /mnt/sub
+          - /abs/path:/mnt/abs     # error
+          - ./sub/path:/mnt/rel    # mount default:/sub/path on /mnt/rel
+          - data:/mnt/root         # mount data:/ on /mnt/root
+          - data/sub/path:/mnt/sub # mount data:/sub/path on /mnt/sub
   volumes:
-  - name: default  # PV/PVC k4x-<spHASH>-default-<idHASH>-<volHASH>
-    size: 32Gi
-  - name: data     # PV/PVC k4x-<spHASH>-data-<idHASH>-<volHASH>
-    size: 32Gi
+    - name: default  # PV/PVC k4x-<spHASH>-default-<idHASH>-<volHASH>
+      size: 32Gi
+    - name: data     # PV/PVC k4x-<spHASH>-data-<idHASH>-<volHASH>
+      size: 32Gi
 ```
 
 ### entrypoint/command
@@ -439,7 +447,7 @@ Compose 標準の `configs`/`secrets` を単一ファイルの注入に用いる
     - ここで `<configName>`/`<secretName>` はトップレベル `configs`/`secrets` のエントリ名(DNS-1123 準拠)。
 
 - volumes ポリシー(ディレクトリ専用)
-  - 相対 bind: `./sub/dir:/mount` は `app.volumes[0]` を参照し `subPath=sub/dir` として PVC サブパスでマウント。
+  - 相対 bind: `./sub/dir:/mount` は `App.spec.volumes[0]` を参照し `subPath=sub/dir` として PVC サブパスでマウント。
   - 絶対 bind: `/host:/mount` はエラー。
   - 単一ファイル bind の検出:
     - bind source が実際に存在し、かつファイルの場合 → エラー（解決策を提示: "単一ファイルは configs/secrets を使用"）
@@ -597,12 +605,16 @@ Compose の ports 指定の仕様
 - `hostPort:containerPort` の形式のみサポートする。
 - 複数のサービスが同じ `containerPort` を使用する設定は明示的なエラーとする (コンテナは同一Podで稼働するため)。
 
-app.ingress スキーマ
+App.spec.ingress スキーマ (KOM)
 
 ```yaml
-app:
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: <appName>
+spec:
   ingress:
-    certResolver: staging | production (デフォルト: {cluster.ingress.certResolver})
+    certResolver: staging | production (デフォルト: {Cluster.spec.ingress.certResolver})
     rules:
       - name: <portName>
         port: <hostPort:int>
@@ -613,21 +625,21 @@ app:
 - port: Compose `hostPort` のいずれか。未定義ならエラー。
 - 同一 port を複数エントリが参照することは禁止 (エラー)。
 - hosts: 各要素 DNS-1123 subdomain。エントリ内重複は 1 回目のみ採用し警告。異なるエントリ間で同一 FQDN 再出現はエラー。
-- app.ingress.rules が空 (または未指定) の場合 Ingress を生成しない。
+- App.spec.ingress.rules が空 (または未指定) の場合 Ingress を生成しない。
 
 Service 生成の仕様
-- `ports` は app.ingress.rules の定義順。
+- `ports` は App.spec.ingress.rules の定義順。
 - `port` = `hostPort`, `targetPort` = 対応する `containerPort`。
 - 複数サービス (Compose) が同一 containerPort を公開 (ports に含める) する構成はエラー。
 
 デフォルトドメイン Ingress 生成の仕様
-- `app.ingress.rules` が空配列ではなく、かつ `cluster.ingress.domain` が空文字列でないときのみ生成
+- `App.spec.ingress.rules` が空配列ではなく、かつ `Cluster.spec.ingress.domain` が空文字列でないときのみ生成
 - 名前は `<appName>-<componentName>-default`
 - ingressClassName は `traefik`
 - `rules`
-  - `app.ingress.rules` の各エントリに対して1つを出力
-  - `host` は `<appName>-idHASH-<port>.{cluster.ingress.domain}`
-  - ここで `<port>` は `app.ingress.rules.port`(Compose の `hostPort`)
+  - `App.spec.ingress.rules` の各エントリに対して1つを出力
+  - `host` は `<appName>-idHASH-<port>.{Cluster.spec.ingress.domain}`
+  - ここで `<port>` は `App.spec.ingress.rules.port`(Compose の `hostPort`)
     - 例: `main(8080→80)` は `app1-idHASH-8080.ops.kompox.dev`、`admin(8081→8080)` は `app1-idHASH-8081.ops.kompox.dev`
   - `path: /` および `pathType: Prefix`
 - annotations 設定(certresolver を設定せず静的 TLS 証明書を使用する)
@@ -637,22 +649,22 @@ traefik.ingress.kubernetes.io/router.tls: "true"
 ```
 
 カスタムドメイン Ingress 生成の仕様
-- `app.ingress.rules` が空配列でないときのみ生成
+- `App.spec.ingress.rules` が空配列でないときのみ生成
 - 名前は `<appName>-<componentName>-custom`
 - ingressClassName は `traefik`
 - `rules`
-  - `app.ingress.rules` の `hosts` 配列の各要素ごとに1つを出力
+  - `App.spec.ingress.rules` の `hosts` 配列の各要素ごとに1つを出力
   - `path: /` および `pathType: Prefix`
 - annotations 設定(certresolver を設定して ACME TLS 証明書を使用する)
 ```yaml
 traefik.ingress.kubernetes.io/router.entrypoints: websecure
 traefik.ingress.kubernetes.io/router.tls: "true"
-traefik.ingress.kubernetes.io/router.tls.certresolver: {app.ingress.certResolver}
+traefik.ingress.kubernetes.io/router.tls.certresolver: {App.spec.ingress.certResolver}
 ```
 
 カスタムドメインホスト名の制約
-- `cluster.ingress.domain` で指定したドメイン以下のホスト名を指定するとエラー
-- `app.ingress.rules` の同一エントリ内の重複は警告、異なるエントリ間の重複はエラー
+- `Cluster.spec.ingress.domain` で指定したドメイン以下のホスト名を指定するとエラー
+- `App.spec.ingress.rules` の同一エントリ内の重複は警告、異なるエントリ間の重複はエラー
 
 参考: Traefik Helm values.yaml 設定
 ```yaml
@@ -666,12 +678,12 @@ additionalArguments:
   # production
   - --certificatesresolvers.production.acme.tlschallenge=true
   - --certificatesresolvers.production.acme.caserver=https://acme-v02.api.letsencrypt.org/directory
-  - --certificatesresolvers.production.acme.email={cluster.ingress.certEmail}
+  - --certificatesresolvers.production.acme.email={Cluster.spec.ingress.certEmail}
   - --certificatesresolvers.production.acme.storage=/data/acme-production.json
   # staging
   - --certificatesresolvers.staging.acme.tlschallenge=true
   - --certificatesresolvers.staging.acme.caserver=https://acme-staging-v02.api.letsencrypt.org/directory
-  - --certificatesresolvers.staging.acme.email={cluster.ingress.certEmail}
+  - --certificatesresolvers.staging.acme.email={Cluster.spec.ingress.certEmail}
   - --certificatesresolvers.staging.acme.storage=/data/acme-staging.json
 ```
 
@@ -692,10 +704,14 @@ additionalArguments:
 
 ### Deployment
 
-app.deployment スキーマ
+App.spec.deployment スキーマ (KOM)
 
 ```yaml
-app:
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: <appName>
+spec:
   deployment:
     pool: <pool>
     zone: <zone>
@@ -740,16 +756,36 @@ Deployment.spec.template.spec.nodeSelector に `kompox.dev/node-pool: <pool>` �
 
 ## 例1
 
-### kompoxops.yml
+### KOM (Workspace/Provider/Cluster/App)
+
+入力は KOM の multi-document YAML を主経路とする。`kompoxops.yml` 単一ファイルモードは互換用(廃止予定)として扱う。
 
 ```yaml
-version: v1
-workspace:
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
   name: ops
-provider:
+  annotations:
+    ops.kompox.dev/id: /ws/ops
+spec: {}
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
   name: aks1
-cluster:
+  annotations:
+    ops.kompox.dev/id: /ws/ops/prv/aks1
+spec:
+  driver: aks
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
   name: cluster1
+  annotations:
+    ops.kompox.dev/id: /ws/ops/prv/aks1/cls/cluster1
+spec:
   ingress:
     controller: traefik
     namespace: traefik
@@ -761,8 +797,14 @@ cluster:
         source: https://kv-foo.vault.azure.net/secrets/cert1
       - name: bar-cert2
         source: https://kv-bar.vault.azure.net/secrets/cert2
-app:
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
   name: app1
+  annotations:
+    ops.kompox.dev/id: /ws/ops/prv/aks1/cls/cluster1/app/app1
+spec:
   compose:
     services:
       app:

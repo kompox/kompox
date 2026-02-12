@@ -3,7 +3,7 @@ id: Kompox-KubeClient
 title: Kompox Kube Client ガイド
 version: v1
 status: out-of-sync
-updated: 2025-09-26
+updated: 2026-02-12
 language: ja
 ---
 
@@ -153,7 +153,7 @@ tls:
   3. `configs` を `tls.certificates` 形式の YAML に Marshal し、`certs.yaml` を `additionalConfigFiles` に格納。
 - 実装の要所:
   - `deployment.podLabels.azure.workload.identity/use = true` は kube 側で既定付与。
-  - `cluster.Ingress.CertEmail` が ACME 用に利用されるため、運用時は必ず設定。
+  - `Cluster.spec.ingress.certEmail` が ACME 用に利用されるため、運用時は必ず設定。
 
 ---
 

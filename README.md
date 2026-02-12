@@ -16,7 +16,7 @@ While Kompox is designed for multi-cloud support, we are currently focusing on M
 
 Kompox addresses the complexity of running stateful workloads on Kubernetes by providing:
 
-- **Simple configuration**: Leverage your existing `compose.yml` assets with a simple `kompoxops.yml` configuration file
+- **Simple configuration**: Use `kompoxapp.yml` + KOM (Workspace/Provider/Cluster/App) while reusing existing `compose.yml` assets
 - **Cloud abstraction**: Provider Driver architecture that abstracts differences between cloud platforms (AKS, EKS, GKE, OKE)
 - **Easy data management**: Cloud-native snapshot capabilities for backup, restore, and cross-zone/region/cloud migration
 - **Consistent operations**: Unified CLI experience from local development to production cloud environments
@@ -24,6 +24,8 @@ Kompox addresses the complexity of running stateful workloads on Kubernetes by p
 ## Quick Example
 
 Transform your Docker Compose application (e.g., Gitea with PostgreSQL) into a production-ready Kubernetes deployment with persistent storage, ingress, and TLS certificates - all with simple CLI commands:
+
+Primary CLI input mode is KOM (`kompoxapp.yml` + Workspace/Provider/Cluster/App manifests). In this mode, app/cluster settings are represented as `App.spec.*` and `Cluster.spec.*` fields. Legacy single-file `kompoxops.yml` mode remains for compatibility and is deprecated for new setups.
 
 ```bash
 # Provision AKS cluster

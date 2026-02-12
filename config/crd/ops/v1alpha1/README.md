@@ -55,7 +55,9 @@ type Box struct {
 ```
 
 **Key Fields:**
-- `metadata.annotations["ops.kompox.dev/path"]`: Shorthand for parent path (e.g., `ws/prv/cls`)
+- `metadata.annotations["ops.kompox.dev/id"]`: Resource ID / FQN (e.g., `/ws/ws1/prv/prv1/cls/cls1/app/app1`)
+- `metadata.annotations["ops.kompox.dev/doc-path"]`: Source document path (set by loader)
+- `metadata.annotations["ops.kompox.dev/doc-index"]`: 1-based document index within a file (set by loader)
 - `metadata.name`: Resource name (must conform to DNS-1123 label constraints)
 
 ### FQN (Fully Qualified Name) (fqn.go)
@@ -115,7 +117,8 @@ for _, doc := range docs {
 - Recursively scans `.yml` / `.yaml` files
 - Supports multi-document YAML (`---` separator)
 - Only processes documents with `apiVersion: ops.kompox.dev/v1alpha1`
-- Automatically builds FQN from `metadata.annotations["ops.kompox.dev/path"]`
+- Parses and validates `metadata.annotations["ops.kompox.dev/id"]` as FQN
+- Sets `ops.kompox.dev/doc-path` and `ops.kompox.dev/doc-index` annotations for loaded documents
 - Validates DNS-1123 label constraints
 
 ### 2. Validation
@@ -326,6 +329,8 @@ apiVersion: ops.kompox.dev/v1alpha1
 kind: Workspace
 metadata:
   name: myworkspace
+    annotations:
+        ops.kompox.dev/id: /ws/myworkspace
 spec:
   displayName: "My Workspace"
 
@@ -335,7 +340,7 @@ kind: Provider
 metadata:
   name: azprovider
   annotations:
-    ops.kompox.dev/path: "myworkspace"  # Parent Workspace
+        ops.kompox.dev/id: /ws/myworkspace/prv/azprovider
 spec:
   type: azure
   subscriptionID: "12345678-1234-1234-1234-123456789abc"
@@ -346,7 +351,7 @@ kind: Cluster
 metadata:
   name: devcluster
   annotations:
-    ops.kompox.dev/path: "myworkspace/azprovider"  # Parent Provider
+        ops.kompox.dev/id: /ws/myworkspace/prv/azprovider/cls/devcluster
 spec:
   resourceGroup: "rg-dev"
   location: "japaneast"
@@ -358,7 +363,7 @@ kind: App
 metadata:
   name: webapp
   annotations:
-    ops.kompox.dev/path: "myworkspace/azprovider/devcluster"  # Parent Cluster
+        ops.kompox.dev/id: /ws/myworkspace/prv/azprovider/cls/devcluster/app/webapp
 spec:
   composePath: "./docker-compose.yml"
   namespace: "default"

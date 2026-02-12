@@ -3,7 +3,7 @@ id: Kompox-CLI
 title: Kompox PaaS CLI
 version: v1
 status: synced
-updated: 2025-12-13
+updated: 2026-02-12
 language: ja
 ---
 
@@ -15,7 +15,7 @@ language: ja
 
 |コマンド名|説明|
 |-|-|
-|kompoxops|Kompox 仕様のクラウドリソースデプロイ・運用ツール<br>Kompox PaaS とは独立した設定ファイル `kompoxops.yml` を読み取って動作する CLI|
+|kompoxops|Kompox 仕様のクラウドリソースデプロイ・運用ツール<br>KOM (`kompoxapp.yml` + Workspace/Provider/Cluster/App) を主経路として読み取って動作する CLI (単一ファイル `kompoxops.yml` は互換用の廃止予定モード)|
 |kompoxsvc|Kompox PaaS REST API サーバと管理ツール<br>REST API サーバは `kompoxsvc server` で起動するコンテナWebアプリ|
 |kompox|Kompox PaaS REST API クライアント CLI|
 
@@ -24,6 +24,8 @@ language: ja
 ### kompoxops Overview
 
 kompoxops は Kompox PaaS 準拠のデプロイツールである。
+
+既定の入力モードは KOM モードであり、`kompoxapp.yml` を起点に Workspace/Provider/Cluster/App を読み込む。単一ファイルモード (`kompoxops.yml`) は互換のため残るが廃止予定である。
 
 ```
 kompoxops init              Kompox CLI Env の初期化 (.kompox/ ディレクトリと設定ファイルの作成)
@@ -459,7 +461,7 @@ Compose の検証と K8s マニフェスト生成を行います。`--out-compos
 
 オプション:
 
-- `--bootstrap-disks` 全 app.volumes で Assigned ディスクが 0 件の場合に限り、各ボリューム 1 件ずつ新規ディスクを自動作成してからデプロイを続行する。部分的に一部ボリュームのみ未初期化 (Assigned=0) / 他は 1 件以上 Assigned の混在状態や、未割当ディスクのみが残っている不整合状態はエラー。UseCase 側で WARN/ERROR Issue を再評価し、WARN が残っている場合は apply を行わない。
+- `--bootstrap-disks` 全 `App.spec.volumes` で Assigned ディスクが 0 件の場合に限り、各ボリューム 1 件ずつ新規ディスクを自動作成してからデプロイを続行する。部分的に一部ボリュームのみ未初期化 (Assigned=0) / 他は 1 件以上 Assigned の混在状態や、未割当ディスクのみが残っている不整合状態はエラー。UseCase 側で WARN/ERROR Issue を再評価し、WARN が残っている場合は apply を行わない。
 - `--update-dns` デプロイ完了後に DNS レコードを自動的に更新する。`kompoxops dns deploy` 相当の処理を実行する (ベストエフォートモード)。
 
 ディスク初期化挙動 (概要):
@@ -537,7 +539,7 @@ kompoxops app destroy --update-dns
 
 備考
 - `namespace` はアプリの実リソースが存在する Kubernetes Namespace を示します。
-- `ingress_hosts` には `app.ingress.rules.hosts` で指定したカスタムドメインに加え、`cluster.ingress.domain` が設定されている場合は `<appName>-<idHASH>-<port>.<domain>` の自動生成ドメインが含まれます。
+- `ingress_hosts` には `App.spec.ingress.rules.hosts` で指定したカスタムドメインに加え、`Cluster.spec.ingress.domain` が設定されている場合は `<appName>-<idHASH>-<port>.<domain>` の自動生成ドメインが含まれます。
 
 #### kompoxops app exec
 
@@ -875,11 +877,11 @@ kompoxops dns destroy -A app1 --component mycomponent
 
 ### kompoxops disk
 
-app.volumes で定義された論理ボリュームに属するディスク (ボリュームインスタンス) を操作する。
+`App.spec.volumes` で定義された論理ボリュームに属するディスク (ボリュームインスタンス) を操作する。
 
 ```
 kompoxops disk list   --app-id <appID> --vol-name <volName>                     ディスク一覧表示
-kompoxops disk create --app-id <appID> --vol-name <volName> [-N <name>] [-S <source>] [--zone <zone>] [--options <json>] [--bootstrap] 新しいディスク作成 (サイズは app.volumes 定義を使用)
+kompoxops disk create --app-id <appID> --vol-name <volName> [-N <name>] [-S <source>] [--zone <zone>] [--options <json>] [--bootstrap] 新しいディスク作成 (サイズは `App.spec.volumes` 定義を使用)
 kompoxops disk assign --app-id <appID> --vol-name <volName> -N <name>          指定ディスクを <volName> の Assigned に設定 (他は自動的に Unassign)
 kompoxops disk delete --app-id <appID> --vol-name <volName> -N <name>          指定ディスク削除 (Assigned 中はエラー)
 ```
@@ -896,13 +898,13 @@ kompoxops disk delete --app-id <appID> --vol-name <volName> -N <name>          �
 create 専用オプション
 
 - `--source | -S` ディスクの作成元を示す任意文字列。CLI/UseCase は解釈・検証・正規化を一切行わず、そのまま Provider Driver に透過的に渡す。受理形式は Driver の仕様に従う。最低限の共通語彙として `disk:<name>` (Kompox 管理ディスク) と `snapshot:<name>` (Kompox 管理スナップショット) を予約する。省略時は空文字が渡り、Driver の既定挙動(例: 空ディスク作成)に委ねる。
-- `--zone | -Z` アベイラビリティゾーンを指定 (app.deployment.zone をオーバーライド)
-- `--options | -O` ボリュームオプションをJSON形式で指定 (app.volumes.options をオーバーライド/マージ)
+- `--zone | -Z` アベイラビリティゾーンを指定 (`App.spec.deployment.zone` をオーバーライド)
+- `--options | -O` ボリュームオプションをJSON形式で指定 (`App.spec.volumes.options` をオーバーライド/マージ)
 - `--bootstrap` 全ボリュームについて Assigned ディスクが 1 件も存在しない場合に限り、各ボリューム 1 件ずつ新規作成する一括初期化モード。`--vol-name` と同時指定不可。
 
 仕様
 
-- `<volName>` は app.volumes に存在しない場合エラー。
+- `<volName>` は `App.spec.volumes` に存在しない場合エラー。
 - create: ディスク名は自動生成 (例: ULID 等) または `--name`/`--disk-name` 指定 (存在重複はエラー)。
 - ディスク名は最大 24 文字。`--name`/`--disk-name` 指定時に 24 文字を超える値はエラー。自動生成名も 24 文字以内。
 - ディスク名は Kubernetes の DNS-1123 ラベル準拠であること: 小文字英数字とハイフンのみ、先頭と末尾は英数字、正規表現は `^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`。
@@ -935,13 +937,13 @@ vol-202312  false     32Gi   9ab1c02 (az)  2023-12-31T09:00Z    2024-01-10T12:05
 
 #### kompoxops disk create
 
-新しいボリュームインスタンスを作成します (サイズは app.volumes 定義)。
+新しいボリュームインスタンスを作成します (サイズは `App.spec.volumes` 定義)。
 
 オプション:
 - `--name | -N`: 明示的なディスク名を指定 (省略時は Driver が自動生成)。`--disk-name` は同義。最大 24 文字。
 - `--source | -S`: ディスク作成元を示す任意文字列。CLI は解釈・検証・正規化を行わず、そのまま Driver に渡す。(予約語: `disk:`/`snapshot:`、省略時は空文字を渡し Driver に委任)
-- `--zone | -Z`: デプロイメントゾーンを指定。app.deployment.zone の設定をオーバーライドします。
-- `--options | -O`: ボリュームオプションをJSON形式で指定。app.volumes.options の設定をオーバーライド/マージします。
+- `--zone | -Z`: デプロイメントゾーンを指定。`App.spec.deployment.zone` の設定をオーバーライドします。
+- `--options | -O`: ボリュームオプションをJSON形式で指定。`App.spec.volumes.options` の設定をオーバーライド/マージします。
 - `--bootstrap`: 全ボリューム未初期化時に 1 件ずつ一括作成。`--vol-name` と同時指定不可。
 
 Source の扱い (パススルー):
@@ -990,7 +992,7 @@ kompoxops disk create -V myvolume -S daily-20250927
 
 ### kompoxops snapshot
 
-app.volumes で定義された論理ボリュームに属するスナップショットを操作する。
+`App.spec.volumes` で定義された論理ボリュームに属するスナップショットを操作する。
 
 スナップショットからのディスク作成は `kompoxops disk create -S` を使用する。
 
@@ -1091,7 +1093,7 @@ Kompox Box のリソースをデプロイします (冪等)。
 
 - `--image IMG` ランナーのコンテナイメージ (既定: `ghcr.io/kompox/kompox/box`)
 - `-V, --volume volName:diskName:/mount/path` マウント指定 (複数指定可能)
-  - `volName` は `app.volumes` のボリューム名
+  - `volName` は `App.spec.volumes` のボリューム名
   - `diskName` はそのボリューム配下の既存ディスク名
   - `/mount/path` はコンテナ内の絶対パス
 - `-c, --command TOKEN` エントリポイント (複数指定でトークン分割、image の ENTRYPOINT を上書き)
