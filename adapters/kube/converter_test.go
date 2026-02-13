@@ -1425,3 +1425,379 @@ services:
 		})
 	}
 }
+
+func TestNetworkPolicyWithIngressRules(t *testing.T) {
+	ctx := context.Background()
+
+	svc := &model.Workspace{Name: "testsvc"}
+	prv := &model.Provider{Name: "testprv", Driver: "test"}
+	cls := &model.Cluster{
+		Name: "testcls",
+		Ingress: &model.ClusterIngress{
+			Namespace:  "traefik",
+			Controller: "traefik",
+			Domain:     "example.com",
+		},
+	}
+
+	// App with custom NetworkPolicy rules
+	app := &model.App{
+		Name: "netpolapp",
+		Compose: `
+services:
+  web:
+    image: nginx:latest
+`,
+		NetworkPolicy: model.AppNetworkPolicy{
+			IngressRules: []model.AppNetworkPolicyIngressRule{
+				{
+					From: []model.AppNetworkPolicyPeer{
+						{
+							NamespaceSelector: &model.LabelSelector{
+								MatchLabels: map[string]string{
+									"kubernetes.io/metadata.name": "monitoring",
+								},
+							},
+						},
+					},
+					Ports: []model.AppNetworkPolicyPort{
+						{Protocol: "TCP", Port: 9090},
+					},
+				},
+				{
+					From: []model.AppNetworkPolicyPeer{
+						{
+							NamespaceSelector: &model.LabelSelector{
+								MatchLabels: map[string]string{
+									"environment": "production",
+								},
+							},
+						},
+					},
+					Ports: []model.AppNetworkPolicyPort{
+						{Protocol: "TCP", Port: 8080},
+						{Protocol: "UDP", Port: 8081},
+					},
+				},
+			},
+		},
+	}
+
+	c := NewConverter(svc, prv, cls, app, "app")
+	_, err := c.Convert(ctx)
+	if err != nil {
+		t.Fatalf("Convert failed: %v", err)
+	}
+
+	_, err = c.Build()
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
+
+	objects := c.AllObjects()
+
+	// Find NetworkPolicy
+	var netpol *netv1.NetworkPolicy
+	for _, obj := range objects {
+		if np, ok := obj.(*netv1.NetworkPolicy); ok {
+			netpol = np
+			break
+		}
+	}
+
+	if netpol == nil {
+		t.Fatal("NetworkPolicy not found")
+	}
+
+	// Validate basic properties
+	if netpol.Name != "netpolapp" {
+		t.Errorf("expected NetworkPolicy name 'netpolapp', got %q", netpol.Name)
+	}
+
+	// Validate ingress rules count: 1 default + 2 user-defined = 3 total
+	if len(netpol.Spec.Ingress) != 3 {
+		t.Fatalf("expected 3 ingress rules (1 default + 2 custom), got %d", len(netpol.Spec.Ingress))
+	}
+
+	// First rule is the default (same-namespace + kube-system + traefik)
+	defaultRule := netpol.Spec.Ingress[0]
+	if len(defaultRule.From) != 2 {
+		t.Errorf("expected 2 peers in default rule (pod selector + namespace selector), got %d", len(defaultRule.From))
+	}
+	if len(defaultRule.Ports) != 0 {
+		t.Errorf("expected 0 ports in default rule (allow all), got %d", len(defaultRule.Ports))
+	}
+
+	// Second rule is the first user-defined rule (monitoring namespace, TCP 9090)
+	rule1 := netpol.Spec.Ingress[1]
+	if len(rule1.From) != 1 {
+		t.Fatalf("expected 1 peer in first custom rule, got %d", len(rule1.From))
+	}
+	if rule1.From[0].NamespaceSelector == nil {
+		t.Fatal("expected namespaceSelector in first custom rule")
+	}
+	if rule1.From[0].NamespaceSelector.MatchLabels["kubernetes.io/metadata.name"] != "monitoring" {
+		t.Errorf("expected monitoring namespace, got %v", rule1.From[0].NamespaceSelector.MatchLabels)
+	}
+	if len(rule1.Ports) != 1 {
+		t.Fatalf("expected 1 port in first custom rule, got %d", len(rule1.Ports))
+	}
+	if *rule1.Ports[0].Protocol != corev1.ProtocolTCP {
+		t.Errorf("expected TCP protocol, got %s", *rule1.Ports[0].Protocol)
+	}
+	if rule1.Ports[0].Port.IntVal != 9090 {
+		t.Errorf("expected port 9090, got %d", rule1.Ports[0].Port.IntVal)
+	}
+
+	// Third rule is the second user-defined rule (production environment, TCP 8080 + UDP 8081)
+	rule2 := netpol.Spec.Ingress[2]
+	if len(rule2.From) != 1 {
+		t.Fatalf("expected 1 peer in second custom rule, got %d", len(rule2.From))
+	}
+	if rule2.From[0].NamespaceSelector == nil {
+		t.Fatal("expected namespaceSelector in second custom rule")
+	}
+	if rule2.From[0].NamespaceSelector.MatchLabels["environment"] != "production" {
+		t.Errorf("expected production environment, got %v", rule2.From[0].NamespaceSelector.MatchLabels)
+	}
+	if len(rule2.Ports) != 2 {
+		t.Fatalf("expected 2 ports in second custom rule, got %d", len(rule2.Ports))
+	}
+	if *rule2.Ports[0].Protocol != corev1.ProtocolTCP {
+		t.Errorf("expected TCP protocol for first port, got %s", *rule2.Ports[0].Protocol)
+	}
+	if rule2.Ports[0].Port.IntVal != 8080 {
+		t.Errorf("expected port 8080 for first port, got %d", rule2.Ports[0].Port.IntVal)
+	}
+	if *rule2.Ports[1].Protocol != corev1.ProtocolUDP {
+		t.Errorf("expected UDP protocol for second port, got %s", *rule2.Ports[1].Protocol)
+	}
+	if rule2.Ports[1].Port.IntVal != 8081 {
+		t.Errorf("expected port 8081 for second port, got %d", rule2.Ports[1].Port.IntVal)
+	}
+}
+
+func TestNetworkPolicyEdgeCases(t *testing.T) {
+	ctx := context.Background()
+
+	svc := &model.Workspace{Name: "testsvc"}
+	prv := &model.Provider{Name: "testprv", Driver: "test"}
+	cls := &model.Cluster{
+		Name: "testcls",
+		Ingress: &model.ClusterIngress{
+			Namespace:  "traefik",
+			Controller: "traefik",
+			Domain:     "example.com",
+		},
+	}
+
+	t.Run("ports omitted allows all ports", func(t *testing.T) {
+		app := &model.App{
+			Name: "netpolapp",
+			Compose: `
+services:
+  web:
+    image: nginx:latest
+`,
+			NetworkPolicy: model.AppNetworkPolicy{
+				IngressRules: []model.AppNetworkPolicyIngressRule{
+					{
+						From: []model.AppNetworkPolicyPeer{
+							{
+								NamespaceSelector: &model.LabelSelector{
+									MatchLabels: map[string]string{
+										"app": "monitoring",
+									},
+								},
+							},
+						},
+						// Ports intentionally omitted - should allow all ports
+					},
+				},
+			},
+		}
+
+		c := NewConverter(svc, prv, cls, app, "app")
+		_, err := c.Convert(ctx)
+		if err != nil {
+			t.Fatalf("Convert failed: %v", err)
+		}
+
+		_, err = c.Build()
+		if err != nil {
+			t.Fatalf("Build failed: %v", err)
+		}
+
+		objects := c.AllObjects()
+		var netpol *netv1.NetworkPolicy
+		for _, obj := range objects {
+			if np, ok := obj.(*netv1.NetworkPolicy); ok {
+				netpol = np
+				break
+			}
+		}
+
+		if netpol == nil {
+			t.Fatal("NetworkPolicy not found")
+		}
+
+		// Should have 2 rules: default + custom
+		if len(netpol.Spec.Ingress) != 2 {
+			t.Fatalf("expected 2 ingress rules, got %d", len(netpol.Spec.Ingress))
+		}
+
+		// Custom rule should have no ports (allows all)
+		customRule := netpol.Spec.Ingress[1]
+		if len(customRule.Ports) != 0 {
+			t.Errorf("expected 0 ports in custom rule (allows all), got %d", len(customRule.Ports))
+		}
+		if len(customRule.From) != 1 {
+			t.Errorf("expected 1 from peer, got %d", len(customRule.From))
+		}
+	})
+
+	t.Run("protocol defaults to TCP", func(t *testing.T) {
+		app := &model.App{
+			Name: "netpolapp",
+			Compose: `
+services:
+  web:
+    image: nginx:latest
+`,
+			NetworkPolicy: model.AppNetworkPolicy{
+				IngressRules: []model.AppNetworkPolicyIngressRule{
+					{
+						From: []model.AppNetworkPolicyPeer{
+							{
+								NamespaceSelector: &model.LabelSelector{
+									MatchLabels: map[string]string{
+										"app": "test",
+									},
+								},
+							},
+						},
+						Ports: []model.AppNetworkPolicyPort{
+							{Port: 8080}, // Protocol omitted, should default to TCP
+						},
+					},
+				},
+			},
+		}
+
+		c := NewConverter(svc, prv, cls, app, "app")
+		_, err := c.Convert(ctx)
+		if err != nil {
+			t.Fatalf("Convert failed: %v", err)
+		}
+
+		_, err = c.Build()
+		if err != nil {
+			t.Fatalf("Build failed: %v", err)
+		}
+
+		objects := c.AllObjects()
+		var netpol *netv1.NetworkPolicy
+		for _, obj := range objects {
+			if np, ok := obj.(*netv1.NetworkPolicy); ok {
+				netpol = np
+				break
+			}
+		}
+
+		if netpol == nil {
+			t.Fatal("NetworkPolicy not found")
+		}
+
+		customRule := netpol.Spec.Ingress[1]
+		if len(customRule.Ports) != 1 {
+			t.Fatalf("expected 1 port, got %d", len(customRule.Ports))
+		}
+
+		if *customRule.Ports[0].Protocol != corev1.ProtocolTCP {
+			t.Errorf("expected TCP protocol (default), got %s", *customRule.Ports[0].Protocol)
+		}
+	})
+
+	t.Run("matchExpressions supported", func(t *testing.T) {
+		app := &model.App{
+			Name: "netpolapp",
+			Compose: `
+services:
+  web:
+    image: nginx:latest
+`,
+			NetworkPolicy: model.AppNetworkPolicy{
+				IngressRules: []model.AppNetworkPolicyIngressRule{
+					{
+						From: []model.AppNetworkPolicyPeer{
+							{
+								NamespaceSelector: &model.LabelSelector{
+									MatchExpressions: []model.LabelSelectorRequirement{
+										{
+											Key:      "environment",
+											Operator: "In",
+											Values:   []string{"prod", "staging"},
+										},
+									},
+								},
+							},
+						},
+						Ports: []model.AppNetworkPolicyPort{
+							{Protocol: "TCP", Port: 9090},
+						},
+					},
+				},
+			},
+		}
+
+		c := NewConverter(svc, prv, cls, app, "app")
+		_, err := c.Convert(ctx)
+		if err != nil {
+			t.Fatalf("Convert failed: %v", err)
+		}
+
+		_, err = c.Build()
+		if err != nil {
+			t.Fatalf("Build failed: %v", err)
+		}
+
+		objects := c.AllObjects()
+		var netpol *netv1.NetworkPolicy
+		for _, obj := range objects {
+			if np, ok := obj.(*netv1.NetworkPolicy); ok {
+				netpol = np
+				break
+			}
+		}
+
+		if netpol == nil {
+			t.Fatal("NetworkPolicy not found")
+		}
+
+		customRule := netpol.Spec.Ingress[1]
+		if len(customRule.From) != 1 {
+			t.Fatalf("expected 1 from peer, got %d", len(customRule.From))
+		}
+
+		selector := customRule.From[0].NamespaceSelector
+		if selector == nil {
+			t.Fatal("expected namespaceSelector")
+		}
+
+		if len(selector.MatchExpressions) != 1 {
+			t.Fatalf("expected 1 matchExpression, got %d", len(selector.MatchExpressions))
+		}
+
+		expr := selector.MatchExpressions[0]
+		if expr.Key != "environment" {
+			t.Errorf("expected key 'environment', got %s", expr.Key)
+		}
+		if string(expr.Operator) != "In" {
+			t.Errorf("expected operator 'In', got %s", expr.Operator)
+		}
+		if len(expr.Values) != 2 {
+			t.Errorf("expected 2 values, got %d", len(expr.Values))
+		}
+	})
+}
+

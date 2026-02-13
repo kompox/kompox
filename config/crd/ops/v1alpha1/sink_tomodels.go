@@ -275,6 +275,91 @@ func (s *Sink) ToModels(ctx context.Context, repos Repositories, kompoxAppFilePa
 			}
 		}
 
+		// Convert NetworkPolicy if present
+		if app.Spec.NetworkPolicy != nil && len(app.Spec.NetworkPolicy.IngressRules) > 0 {
+			domainIngressRules := make([]model.AppNetworkPolicyIngressRule, 0, len(app.Spec.NetworkPolicy.IngressRules))
+			for i, rule := range app.Spec.NetworkPolicy.IngressRules {
+				// Validate rule is not empty and enforce security: ports must specify allowed sources
+				if len(rule.From) == 0 && len(rule.Ports) == 0 {
+					return fmt.Errorf("app %q: networkPolicy.ingressRules[%d] is empty (must specify 'from' or 'ports')", app.ObjectMeta.Name, i)
+				}
+				if len(rule.Ports) > 0 && len(rule.From) == 0 {
+					return fmt.Errorf("app %q: networkPolicy.ingressRules[%d] must specify 'from' when 'ports' are set", app.ObjectMeta.Name, i)
+				}
+
+				domainRule := model.AppNetworkPolicyIngressRule{
+					From:  make([]model.AppNetworkPolicyPeer, 0, len(rule.From)),
+					Ports: make([]model.AppNetworkPolicyPort, 0, len(rule.Ports)),
+				}
+
+				for j, from := range rule.From {
+					// Validate that namespaceSelector is not nil
+					if from.NamespaceSelector == nil {
+						return fmt.Errorf("app %q: networkPolicy.ingressRules[%d].from[%d] must have namespaceSelector", app.ObjectMeta.Name, i, j)
+					}
+					// Validate that namespaceSelector is not empty (has matchLabels or matchExpressions)
+					if len(from.NamespaceSelector.MatchLabels) == 0 && len(from.NamespaceSelector.MatchExpressions) == 0 {
+						return fmt.Errorf("app %q: networkPolicy.ingressRules[%d].from[%d].namespaceSelector is empty (must have matchLabels or matchExpressions)", app.ObjectMeta.Name, i, j)
+					}
+
+					// Convert k8s LabelSelector to domain LabelSelector
+					domainSelector := &model.LabelSelector{
+						MatchLabels: from.NamespaceSelector.MatchLabels,
+					}
+					if len(from.NamespaceSelector.MatchExpressions) > 0 {
+						domainSelector.MatchExpressions = make([]model.LabelSelectorRequirement, len(from.NamespaceSelector.MatchExpressions))
+						for k, expr := range from.NamespaceSelector.MatchExpressions {
+							// Validate operator
+							op := string(expr.Operator)
+							if op != "In" && op != "NotIn" && op != "Exists" && op != "DoesNotExist" {
+								return fmt.Errorf("app %q: networkPolicy.ingressRules[%d].from[%d].namespaceSelector.matchExpressions[%d].operator must be one of: In, NotIn, Exists, DoesNotExist (got %q)", app.ObjectMeta.Name, i, j, k, op)
+							}
+							// Validate values cardinality for operator
+							if (op == "Exists" || op == "DoesNotExist") && len(expr.Values) > 0 {
+								return fmt.Errorf("app %q: networkPolicy.ingressRules[%d].from[%d].namespaceSelector.matchExpressions[%d]: operator %q must have no values", app.ObjectMeta.Name, i, j, k, op)
+							}
+							if (op == "In" || op == "NotIn") && len(expr.Values) == 0 {
+								return fmt.Errorf("app %q: networkPolicy.ingressRules[%d].from[%d].namespaceSelector.matchExpressions[%d]: operator %q must have at least one value", app.ObjectMeta.Name, i, j, k, op)
+							}
+
+							domainSelector.MatchExpressions[k] = model.LabelSelectorRequirement{
+								Key:      expr.Key,
+								Operator: op,
+								Values:   expr.Values,
+							}
+						}
+					}
+
+					domainRule.From = append(domainRule.From, model.AppNetworkPolicyPeer{
+						NamespaceSelector: domainSelector,
+					})
+				}
+
+				for j, port := range rule.Ports {
+					// Default protocol to TCP if empty (CRD also has this default)
+					protocol := port.Protocol
+					if protocol == "" {
+						protocol = "TCP"
+					} else if protocol != "TCP" && protocol != "UDP" && protocol != "SCTP" {
+						return fmt.Errorf("app %q: networkPolicy.ingressRules[%d].ports[%d].protocol must be TCP, UDP, or SCTP (got %q)", app.ObjectMeta.Name, i, j, protocol)
+					}
+
+					if port.Port < 1 || port.Port > 65535 {
+						return fmt.Errorf("app %q: networkPolicy.ingressRules[%d].ports[%d].port must be between 1 and 65535 (got %d)", app.ObjectMeta.Name, i, j, port.Port)
+					}
+
+					domainRule.Ports = append(domainRule.Ports, model.AppNetworkPolicyPort{
+						Protocol: protocol,
+						Port:     port.Port,
+					})
+				}
+				domainIngressRules = append(domainIngressRules, domainRule)
+			}
+			domainApp.NetworkPolicy = model.AppNetworkPolicy{
+				IngressRules: domainIngressRules,
+			}
+		}
+
 		if err := repos.App.Create(ctx, domainApp); err != nil {
 			return fmt.Errorf("failed to create app %q: %w", app.ObjectMeta.Name, err)
 		}

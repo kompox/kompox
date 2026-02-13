@@ -750,6 +750,72 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 			},
 		})
 	}
+
+	// Build ingress rules list
+	ingressRules := []netv1.NetworkPolicyIngressRule{{From: fromPeers}}
+
+	// Add user-defined ingress rules from App.NetworkPolicy
+	for _, rule := range c.App.NetworkPolicy.IngressRules {
+		npRule := netv1.NetworkPolicyIngressRule{}
+
+		// Convert From peers
+		if len(rule.From) > 0 {
+			npRule.From = make([]netv1.NetworkPolicyPeer, 0, len(rule.From))
+			for _, from := range rule.From {
+				// Convert domain LabelSelector to k8s LabelSelector
+				if from.NamespaceSelector != nil {
+					nsSel := from.NamespaceSelector
+					// Skip empty namespace selectors to avoid unintended allow-all
+					if len(nsSel.MatchLabels) == 0 && len(nsSel.MatchExpressions) == 0 {
+						continue
+					}
+					k8sSelector := &metav1.LabelSelector{
+						MatchLabels: nsSel.MatchLabels,
+					}
+					if len(nsSel.MatchExpressions) > 0 {
+						k8sSelector.MatchExpressions = make([]metav1.LabelSelectorRequirement, len(nsSel.MatchExpressions))
+						for i, expr := range nsSel.MatchExpressions {
+							k8sSelector.MatchExpressions[i] = metav1.LabelSelectorRequirement{
+								Key:      expr.Key,
+								Operator: metav1.LabelSelectorOperator(expr.Operator),
+								Values:   expr.Values,
+							}
+						}
+					}
+					peer := netv1.NetworkPolicyPeer{
+						NamespaceSelector: k8sSelector,
+					}
+					npRule.From = append(npRule.From, peer)
+				}
+			}
+		}
+
+		// Convert Ports
+		if len(rule.Ports) > 0 {
+			npRule.Ports = make([]netv1.NetworkPolicyPort, 0, len(rule.Ports))
+			for _, port := range rule.Ports {
+				// Protocol should already be defaulted by CRD and sink_tomodels,
+				// but we defensively handle empty values for safety
+				protocol := corev1.Protocol(port.Protocol)
+				if protocol == "" {
+					protocol = corev1.ProtocolTCP
+				}
+				npRule.Ports = append(npRule.Ports, netv1.NetworkPolicyPort{
+					Protocol: &protocol,
+					Port:     &intstr.IntOrString{Type: intstr.Int, IntVal: int32(port.Port)},
+				})
+			}
+		}
+
+		// Skip empty rules that would allow all sources on all ports
+		// (validation in sink_tomodels should prevent this, but defensive check)
+		if len(npRule.From) == 0 && len(npRule.Ports) == 0 {
+			continue
+		}
+
+		ingressRules = append(ingressRules, npRule)
+	}
+
 	var npObj *netv1.NetworkPolicy
 	{
 		npObj = &netv1.NetworkPolicy{
@@ -757,7 +823,7 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 			Spec: netv1.NetworkPolicySpec{
 				PodSelector: metav1.LabelSelector{},
 				PolicyTypes: []netv1.PolicyType{netv1.PolicyTypeIngress},
-				Ingress:     []netv1.NetworkPolicyIngressRule{{From: fromPeers}},
+				Ingress:     ingressRules,
 			},
 		}
 	}
