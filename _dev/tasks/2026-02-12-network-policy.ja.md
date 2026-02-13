@@ -1,8 +1,8 @@
 ---
 id: 2026-02-12-network-policy
 title: NetworkPolicy リソース出力拡張
-status: active
-updated: 2026-02-12
+status: done
+updated: 2026-02-13
 language: ja
 owner:
 ---
@@ -65,20 +65,20 @@ spec:
 
 ## 計画 (チェックリスト)
 
-- [ ] ドキュメント
-  - [ ] [Kompox-KubeConverter.ja.md] の NetworkPolicy セクションを更新
-  - [ ] KOM の App.spec スキーマ例を追加
-  - [ ] 例の manifest を更新 (追加許可ルールを含める)
-- [ ] スキーマ/モデル
-  - [ ] `config/crd/ops/v1alpha1/types.go`: AppSpec に networkPolicy.ingressRules 設定を追加
-  - [ ] selector 型の表現 (matchLabels, matchExpressions) を確定
-  - [ ] `domain/model/app.go`: app の NetworkPolicy 設定を保持できるように拡張
-- [ ] 変換
-  - [ ] `config/crd/ops/v1alpha1/sink_tomodels.go`: App.spec の設定を domain model に取り込む
-  - [ ] `adapters/kube/converter.go`: NetworkPolicy の ingress rules に selector と ports を反映
-- [ ] テスト
-  - [ ] KOM -> domain model 変換テストを追加/更新
-  - [ ] kube converter の NetworkPolicy 出力テストを追加/更新
+- [x] ドキュメント
+  - [x] [Kompox-KubeConverter.ja.md] の NetworkPolicy セクションを更新
+  - [x] KOM の App.spec スキーマ例を追加
+  - [x] 例の manifest を更新 (追加許可ルールを含める)
+- [x] スキーマ/モデル
+  - [x] `config/crd/ops/v1alpha1/types.go`: AppSpec に networkPolicy.ingressRules 設定を追加
+  - [x] selector 型の表現 (matchLabels, matchExpressions) を確定
+  - [x] `domain/model/app.go`: app の NetworkPolicy 設定を保持できるように拡張
+- [x] 変換
+  - [x] `config/crd/ops/v1alpha1/sink_tomodels.go`: App.spec の設定を domain model に取り込む
+  - [x] `adapters/kube/converter.go`: NetworkPolicy の ingress rules に selector と ports を反映
+- [x] テスト
+  - [x] KOM -> domain model 変換テストを追加/更新
+  - [x] kube converter の NetworkPolicy 出力テストを追加/更新
 
 ## テスト
 
@@ -105,6 +105,7 @@ spec:
 
 - 2026-02-12: タスク作成
 - 2026-02-12: 許可ポート (protocol, port) と namespaceSelector 対応をスコープに追加
+- 2026-02-13: 最新コミット d37f46469eb5b5d4d16f456c39980f884eff3f51 を確認。ドキュメント・スキーマ/モデル・変換・テストの実装が完了し、ステータスを done に更新
 
 ## 参考
 
