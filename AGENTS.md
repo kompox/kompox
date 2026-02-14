@@ -21,6 +21,8 @@ All documents are maintained in markdown files under the `design` directory, org
 
 Each document type has an index (README.md). Some types also have guides (GUIDE.md and GUIDE.ja.md) with instructions and templates.
 
+In addition, `make gen-index` generates `design/index.json` as the machine-readable hub index, which contains the full document list and cross-reference graph for all indexed design documents.
+
 |Type|Index|Guide|Description|
 |-|-|-|-|
 |ADR|[README.md](./design/adr/README.md)|[GUIDE.md](./design/adr/GUIDE.md)|Architectural Decision Records (ADRs) for design decisions|
