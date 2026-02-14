@@ -1,0 +1,18 @@
+{
+  "category": "v2",
+  "updated": "2025-09-26T00:00:00Z",
+  "docCount": 1,
+  "docs": [
+    {
+      "category": "v2",
+      "id": "Kompox-PaaS-Roadmap",
+      "language": "ja",
+      "references": [],
+      "relPath": "design/v2/Kompox-PaaS-Roadmap.ja.md",
+      "status": "draft",
+      "title": "Kompox PaaS Roadmap",
+      "updated": "2025-09-26T00:00:00Z",
+      "version": "v2"
+    }
+  ]
+}

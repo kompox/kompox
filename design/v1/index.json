@@ -1,0 +1,168 @@
+{
+  "category": "v1",
+  "updated": "2026-02-12T00:00:00Z",
+  "docCount": 11,
+  "docs": [
+    {
+      "category": "v1",
+      "id": "Kompox-Arch-Implementation",
+      "language": "ja",
+      "references": [],
+      "relPath": "design/v1/Kompox-Arch-Implementation.ja.md",
+      "status": "synced",
+      "title": "Kompox Implementation Architecture",
+      "updated": "2025-10-12T00:00:00Z",
+      "version": "v1"
+    },
+    {
+      "category": "v1",
+      "id": "Kompox-CLI",
+      "language": "ja",
+      "references": [
+        "K4x-ADR-015",
+        "Kompox-KOM.ja.md"
+      ],
+      "relPath": "design/v1/Kompox-CLI.ja.md",
+      "status": "synced",
+      "title": "Kompox PaaS CLI",
+      "updated": "2026-02-12T00:00:00Z",
+      "version": "v1"
+    },
+    {
+      "category": "v1",
+      "id": "Kompox-CRD",
+      "language": "ja",
+      "references": [
+        "Kompox-KOM.ja.md"
+      ],
+      "relPath": "design/v1/Kompox-CRD.ja.md",
+      "status": "archived",
+      "title": "Kompox CRD-style configuration",
+      "updated": "2025-10-18T00:00:00Z",
+      "version": "v1"
+    },
+    {
+      "category": "v1",
+      "id": "Kompox-KOM",
+      "language": "ja",
+      "references": [
+        "2025-10-15-kom.ja.md",
+        "2025-10-17-defaults.ja.md",
+        "2025-10-18-refbase.ja.md",
+        "K4x-ADR-009",
+        "K4x-ADR-010",
+        "K4x-ADR-011",
+        "K4x-ADR-012",
+        "Kompox-CLI.ja.md",
+        "config/crd/ops/v1alpha1/README.md"
+      ],
+      "relPath": "design/v1/Kompox-KOM.ja.md",
+      "status": "synced",
+      "title": "Kompox KOM configuration",
+      "updated": "2025-11-03T00:00:00Z",
+      "version": "v1"
+    },
+    {
+      "category": "v1",
+      "id": "Kompox-KubeClient",
+      "language": "ja",
+      "references": [],
+      "relPath": "design/v1/Kompox-KubeClient.ja.md",
+      "status": "out-of-sync",
+      "title": "Kompox Kube Client ガイド",
+      "updated": "2026-02-12T00:00:00Z",
+      "version": "v1"
+    },
+    {
+      "category": "v1",
+      "id": "Kompox-KubeConverter",
+      "language": "ja",
+      "references": [
+        "K4x-ADR-003",
+        "K4x-ADR-005",
+        "K4x-ADR-014",
+        "Kompox-ProviderDriver-AKS.ja.md"
+      ],
+      "relPath": "design/v1/Kompox-KubeConverter.ja.md",
+      "status": "synced",
+      "title": "Kompox Kube Converter ガイド",
+      "updated": "2026-02-12T00:00:00Z",
+      "version": "v1"
+    },
+    {
+      "category": "v1",
+      "id": "Kompox-Logging",
+      "language": "ja",
+      "references": [
+        "2025-10-24-logging.ja.md",
+        "K4x-ADR-016",
+        "adapters/drivers/provider/aks/logging.go",
+        "cmd/kompoxops/logging.go",
+        "internal/logging"
+      ],
+      "relPath": "design/v1/Kompox-Logging.ja.md",
+      "status": "synced",
+      "title": "Kompox ロギング仕様",
+      "updated": "2025-12-13T00:00:00Z",
+      "version": "v1"
+    },
+    {
+      "category": "v1",
+      "id": "Kompox-ProviderDriver-AKS",
+      "language": "ja",
+      "references": [
+        "2025-09-27-disk-snapshot-unify.ja.md",
+        "2025-09-28-disk-snapshot-cli-flags.ja.md",
+        "2025-10-07-aks-dns.ja.md",
+        "2025-10-23-aks-cr.ja.md",
+        "K4x-ADR-003",
+        "K4x-ADR-004",
+        "K4x-ADR-014",
+        "Kompox-KOM.ja.md",
+        "Kompox-ProviderDriver.ja.md"
+      ],
+      "relPath": "design/v1/Kompox-ProviderDriver-AKS.ja.md",
+      "status": "synced",
+      "title": "AKS Provider Driver 実装ガイド",
+      "updated": "2025-10-29T00:00:00Z",
+      "version": "v1"
+    },
+    {
+      "category": "v1",
+      "id": "Kompox-ProviderDriver",
+      "language": "ja",
+      "references": [
+        "K4x-ADR-002",
+        "K4x-ADR-003",
+        "K4x-ADR-004"
+      ],
+      "relPath": "design/v1/Kompox-ProviderDriver.ja.md",
+      "status": "synced",
+      "title": "Kompox Provider Driver ガイド",
+      "updated": "2025-10-12T00:00:00Z",
+      "version": "v1"
+    },
+    {
+      "category": "v1",
+      "id": "Kompox-Resources",
+      "language": "ja",
+      "references": [],
+      "relPath": "design/v1/Kompox-Resources.ja.md",
+      "status": "archived",
+      "title": "Kompox PaaS Resources",
+      "updated": "2025-10-12T00:00:00Z",
+      "version": "v1"
+    },
+    {
+      "category": "v1",
+      "id": "Kompox-Spec-Draft",
+      "language": "ja",
+      "references": [],
+      "relPath": "design/v1/Kompox-Spec-Draft.ja.md",
+      "status": "archived",
+      "title": "Kompox 仕様ドラフト",
+      "updated": "2025-10-12T00:00:00Z",
+      "version": "v1"
+    }
+  ]
+}

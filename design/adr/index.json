@@ -1,0 +1,336 @@
+{
+  "category": "adr",
+  "updated": "2026-02-14T18:23:37Z",
+  "docCount": 18,
+  "docs": [
+    {
+      "category": "adr",
+      "id": "K4x-ADR-001",
+      "language": "en",
+      "references": [],
+      "relPath": "design/adr/K4x-ADR-001.md",
+      "status": "proposed",
+      "supersededBy": [],
+      "supersedes": [],
+      "title": "Implement Kompox PaaS as a Kubernetes Operator",
+      "updated": "2025-09-26T00:00:00Z",
+      "version": ""
+    },
+    {
+      "category": "adr",
+      "id": "K4x-ADR-002",
+      "language": "en",
+      "references": [],
+      "relPath": "design/adr/K4x-ADR-002.md",
+      "status": "accepted",
+      "supersededBy": [],
+      "supersedes": [],
+      "title": "Unify snapshot restore into disk create",
+      "updated": "2025-09-27T00:00:00Z",
+      "version": ""
+    },
+    {
+      "category": "adr",
+      "id": "K4x-ADR-003",
+      "language": "en",
+      "references": [],
+      "relPath": "design/adr/K4x-ADR-003.md",
+      "status": "accepted",
+      "supersededBy": [],
+      "supersedes": [],
+      "title": "Unify Disk/Snapshot CLI flags and adopt opaque Source contract",
+      "updated": "2025-09-28T00:00:00Z",
+      "version": ""
+    },
+    {
+      "category": "adr",
+      "id": "K4x-ADR-004",
+      "language": "en",
+      "references": [
+        "2025-09-30-cluster-dns",
+        "2025-10-01-cluster-dns",
+        "2025-10-07-aks-dns"
+      ],
+      "relPath": "design/adr/K4x-ADR-004.md",
+      "status": "accepted",
+      "supersededBy": [],
+      "supersedes": [],
+      "title": "Cluster ingress endpoint DNS auto-update",
+      "updated": "2025-09-30T00:00:00Z",
+      "version": ""
+    },
+    {
+      "category": "adr",
+      "id": "K4x-ADR-005",
+      "language": "en",
+      "references": [
+        "2025-10-10-configs-secrets",
+        "Docker Configs",
+        "Docker Secrets",
+        "K4x-ADR-003",
+        "KubeConverter-ja"
+      ],
+      "relPath": "design/adr/K4x-ADR-005.md",
+      "status": "accepted",
+      "supersededBy": [],
+      "supersedes": [],
+      "title": "Support Compose configs/secrets and make bind volumes directory-only",
+      "updated": "2025-10-10T00:00:00Z",
+      "version": ""
+    },
+    {
+      "category": "adr",
+      "id": "K4x-ADR-006",
+      "language": "en",
+      "references": [
+        "2025-10-12-workspace",
+        "Kompox-Arch-Implementation-ja",
+        "Kompox-Spec-Draft-ja"
+      ],
+      "relPath": "design/adr/K4x-ADR-006.md",
+      "status": "accepted",
+      "supersededBy": [],
+      "supersedes": [],
+      "title": "Rename domain model Service to Workspace",
+      "updated": "2025-10-12T00:00:00Z",
+      "version": ""
+    },
+    {
+      "category": "adr",
+      "id": "K4x-ADR-007",
+      "language": "en",
+      "references": [
+        "2025-10-12-workspace.ja.md",
+        "2025-10-13-crd-p1.ja.md",
+        "2025-10-13-crd-p2.ja.md",
+        "K4x-ADR-008",
+        "Kompox-CLI.ja.md",
+        "Kompox-CRD.ja.md",
+        "Kompox-KubeConverter.ja.md",
+        "config/crd/ops/v1alpha1/README.md"
+      ],
+      "relPath": "design/adr/K4x-ADR-007.md",
+      "status": "accepted",
+      "supersededBy": [
+        "K4x-ADR-009"
+      ],
+      "supersedes": [],
+      "title": "Introduce CRD-style configuration",
+      "updated": "2025-10-13T00:00:00Z",
+      "version": ""
+    },
+    {
+      "category": "adr",
+      "id": "K4x-ADR-008",
+      "language": "en",
+      "references": [
+        "K4x-ADR-007",
+        "K4x-ADR-009",
+        "Kompox-CRD.ja.md",
+        "_dev/tasks/2025-10-13-crd-p1.ja.md",
+        "_dev/tasks/2025-10-13-crd-p2.ja.md",
+        "config/crd/ops/v1alpha1/README.md"
+      ],
+      "relPath": "design/adr/K4x-ADR-008.md",
+      "status": "proposed",
+      "supersededBy": [
+        "K4x-ADR-017"
+      ],
+      "supersedes": [],
+      "title": "Introduce Box as a first-class ops kind",
+      "updated": "2025-10-13T00:00:00Z",
+      "version": ""
+    },
+    {
+      "category": "adr",
+      "id": "K4x-ADR-009",
+      "language": "en",
+      "references": [
+        "K4x-ADR-007",
+        "K4x-ADR-008",
+        "Kompox-CRD.ja.md",
+        "_dev/tasks/2025-10-13-crd-p1.ja.md",
+        "_dev/tasks/2025-10-13-crd-p2.ja.md"
+      ],
+      "relPath": "design/adr/K4x-ADR-009.md",
+      "status": "proposed",
+      "supersededBy": [],
+      "supersedes": [
+        "K4x-ADR-007"
+      ],
+      "title": "Kompox Ops Manifest Schema",
+      "updated": "2025-10-15T00:00:00Z",
+      "version": ""
+    },
+    {
+      "category": "adr",
+      "id": "K4x-ADR-010",
+      "language": "en",
+      "references": [
+        "Kompox-CRD.ja.md",
+        "Kompox-KOM.ja.md",
+        "_dev/tasks/2025-10-17-defaults.ja.md"
+      ],
+      "relPath": "design/adr/K4x-ADR-010.md",
+      "status": "accepted",
+      "supersededBy": [],
+      "supersedes": [],
+      "title": "Rename CRD to KOM",
+      "updated": "2025-10-17T00:00:00Z",
+      "version": ""
+    },
+    {
+      "category": "adr",
+      "id": "K4x-ADR-011",
+      "language": "en",
+      "references": [
+        "K4x-ADR-007",
+        "K4x-ADR-009",
+        "Kompox-KOM.ja.md",
+        "Kompox-KubeConverter.ja.md",
+        "_dev/tasks/2025-10-17-defaults.ja.md"
+      ],
+      "relPath": "design/adr/K4x-ADR-011.md",
+      "status": "accepted",
+      "supersededBy": [],
+      "supersedes": [],
+      "title": "Introduce Defaults pseudo-resource for KOM ingestion",
+      "updated": "2025-10-17T00:00:00Z",
+      "version": ""
+    },
+    {
+      "category": "adr",
+      "id": "K4x-ADR-012",
+      "language": "en",
+      "references": [
+        "2025-10-17-defaults.ja.md",
+        "2025-10-18-refbase.ja.md",
+        "CLI loader",
+        "Kompox-CLI.ja.md",
+        "domain model App",
+        "kompoxopscfg converter",
+        "kube compose loader",
+        "kube converter",
+        "tests",
+        "v1alpha1 loader and sink",
+        "v1alpha1 validation"
+      ],
+      "relPath": "design/adr/K4x-ADR-012.md",
+      "status": "accepted",
+      "supersededBy": [],
+      "supersedes": [],
+      "title": "Introduce App.RefBase for external references",
+      "updated": "2025-10-18T00:00:00Z",
+      "version": ""
+    },
+    {
+      "category": "adr",
+      "id": "K4x-ADR-013",
+      "language": "en",
+      "references": [
+        "2025-10-23-protection.ja.md",
+        "Azure-Management-Locks",
+        "K4x-ADR-012",
+        "Kompox-Arch-Implementation.ja.md",
+        "Kompox-CRD.ja.md"
+      ],
+      "relPath": "design/adr/K4x-ADR-013.md",
+      "status": "accepted",
+      "supersededBy": [],
+      "supersedes": [],
+      "title": "Resource protection policy for Cluster operations",
+      "updated": "2025-10-23T00:00:00Z",
+      "version": ""
+    },
+    {
+      "category": "adr",
+      "id": "K4x-ADR-014",
+      "language": "en",
+      "references": [
+        "Kompox-KubeConverter.ja.md",
+        "Kompox-ProviderDriver-AKS.ja.md"
+      ],
+      "relPath": "design/adr/K4x-ADR-014.md",
+      "status": "accepted",
+      "supersededBy": [],
+      "supersedes": [],
+      "title": "Introduce Volume Types",
+      "updated": "2025-10-23T00:00:00Z",
+      "version": ""
+    },
+    {
+      "category": "adr",
+      "id": "K4x-ADR-015",
+      "language": "en",
+      "references": [
+        "2025-11-03-kompox-cli-env.ja.md",
+        "K4x-ADR-009",
+        "K4x-ADR-011",
+        "K4x-ADR-012",
+        "Kompox-CLI.ja.md",
+        "Kompox-KOM.ja.md"
+      ],
+      "relPath": "design/adr/K4x-ADR-015.md",
+      "status": "accepted",
+      "supersededBy": [],
+      "supersedes": [],
+      "title": "Introduce Kompox CLI Env with Git-like discovery",
+      "updated": "2025-11-03T00:00:00Z",
+      "version": ""
+    },
+    {
+      "category": "adr",
+      "id": "K4x-ADR-016",
+      "language": "en",
+      "references": [
+        "K4x-ADR-015",
+        "Kompox-CLI.ja.md",
+        "Kompox-Logging.ja.md"
+      ],
+      "relPath": "design/adr/K4x-ADR-016.md",
+      "status": "accepted",
+      "supersededBy": [],
+      "supersedes": [],
+      "title": "CLI Logging Strategy",
+      "updated": "2025-12-13T00:00:00Z",
+      "version": ""
+    },
+    {
+      "category": "adr",
+      "id": "K4x-ADR-017",
+      "language": "en",
+      "references": [
+        "2026aa-kompox-box-update.ja.md",
+        "K4x-ADR-008",
+        "K4x-ADR-009"
+      ],
+      "relPath": "design/adr/K4x-ADR-017.md",
+      "status": "proposed",
+      "supersededBy": [],
+      "supersedes": [
+        "K4x-ADR-008"
+      ],
+      "title": "Define App/Box model, Compose mapping, and CLI selectors",
+      "updated": "2026-02-14T00:00:00Z",
+      "version": ""
+    },
+    {
+      "category": "adr",
+      "id": "K4x-ADR-018",
+      "language": "en",
+      "references": [
+        "20260214a-new-design-docs",
+        "design/README.md",
+        "design/adr/GUIDE.md",
+        "design/gen/README.md"
+      ],
+      "relPath": "design/adr/K4x-ADR-018.md",
+      "status": "accepted",
+      "supersededBy": [],
+      "supersedes": [],
+      "title": "Establish doc governance and dual index artifacts (Markdown + JSON)",
+      "updated": "2026-02-14T18:23:37Z",
+      "version": ""
+    }
+  ]
+}

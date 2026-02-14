@@ -2,7 +2,7 @@
 id: K4x-ADR-018
 title: Establish doc governance and dual index artifacts (Markdown + JSON)
 status: accepted
-updated: 2026-02-14T17:24:38Z
+updated: 2026-02-14T18:23:37Z
 language: en
 supersedes: []
 supersededBy: []
@@ -37,8 +37,11 @@ Without a canonical JSON index, each tool must parse many markdown files indepen
   - `design/<category>/index.json`
 - Hub-level aggregated JSON index:
   - `design/index.json`
+- Archived tasks JSON index:
+  - `_dev/tasks/index.json`
 
-Both outputs are generated from front matter collected under `design/<category>/` with the same inclusion/exclusion rules used by the Markdown index generator.
+The first two outputs are generated from front matter collected under `design/<category>/` with the same inclusion/exclusion rules used by the Markdown index generator.
+The archived tasks output is generated from `_dev/tasks/*.ja.md`.
 
 ### Baseline JSON fields
 
@@ -54,6 +57,11 @@ Each indexed document should contain, at minimum:
 - `references` (doc-id-oriented references when resolvable)
 
 Optional fields may be added in a backward-compatible way.
+
+In addition, each JSON index should contain top-level:
+- `docCount`
+
+For archived tasks, document `category` is `old-tasks`.
 
 ## Alternatives Considered
 

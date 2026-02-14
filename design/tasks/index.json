@@ -1,0 +1,62 @@
+{
+  "category": "tasks",
+  "updated": "2026-02-14T18:53:03Z",
+  "docCount": 3,
+  "docs": [
+    {
+      "category": "tasks",
+      "id": "20260214a-new-design-docs",
+      "language": "ja",
+      "owner": null,
+      "references": [
+        "K4x-ADR-017",
+        "design/README.md",
+        "design/gen/README.md",
+        "design/gen/main.go"
+      ],
+      "relPath": "design/tasks/2026/02/14/20260214a-new-design-docs.ja.md",
+      "status": "done",
+      "title": "Design doc indexes 再設計",
+      "updated": "2026-02-14T00:00:00Z",
+      "version": ""
+    },
+    {
+      "category": "tasks",
+      "id": "20260214b-box-kom-loader",
+      "language": "ja",
+      "owner": "yaegashi",
+      "plans": [
+        "2026aa-kompox-box-update"
+      ],
+      "references": [
+        "2026aa-kompox-box-update",
+        "K4x-ADR-017",
+        "Kompox-KOM",
+        "cmd/kompoxops/kom_loader.go",
+        "config/crd/ops/v1alpha1/types.go"
+      ],
+      "relPath": "design/tasks/2026/02/14/20260214b-box-kom-loader.ja.md",
+      "status": "done",
+      "title": "Box KOM 定義とロード時バリデーション",
+      "updated": "2026-02-14T15:51:24Z",
+      "version": ""
+    },
+    {
+      "category": "tasks",
+      "id": "20260214c-adr018-doc-index-json",
+      "language": "ja",
+      "owner": "yaegashi",
+      "plans": [],
+      "references": [
+        "K4x-ADR-018",
+        "design/gen/README.md",
+        "design/tasks/README.md"
+      ],
+      "relPath": "design/tasks/2026/02/14/20260214c-adr018-doc-index-json.ja.md",
+      "status": "done",
+      "title": "K4x-ADR-018 実装（design index JSON 生成）",
+      "updated": "2026-02-14T18:53:03Z",
+      "version": ""
+    }
+  ]
+}

@@ -19,9 +19,9 @@
 | [K4x-ADR-015](./K4x-ADR-015.md) | Introduce Kompox CLI Env with Git-like discovery | 2025-11-03T00:00:00Z | accepted |
 | [K4x-ADR-016](./K4x-ADR-016.md) | CLI Logging Strategy | 2025-12-13T00:00:00Z | accepted |
 | [K4x-ADR-017](./K4x-ADR-017.md) | Define App/Box model, Compose mapping, and CLI selectors | 2026-02-14T00:00:00Z | proposed |
-| [K4x-ADR-018](./K4x-ADR-018.md) | Establish doc governance and dual index artifacts (Markdown + JSON) | 2026-02-14T17:24:38Z | accepted |
+| [K4x-ADR-018](./K4x-ADR-018.md) | Establish doc governance and dual index artifacts (Markdown + JSON) | 2026-02-14T18:23:37Z | accepted |
 
-Updated: 2026-02-14T17:24:38Z
+Updated: 2026-02-14T18:23:37Z
 
 ---
 

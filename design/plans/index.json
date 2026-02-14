@@ -1,0 +1,30 @@
+{
+  "category": "plans",
+  "updated": "2026-02-14T00:00:00Z",
+  "docCount": 1,
+  "docs": [
+    {
+      "category": "plans",
+      "id": "2026aa-kompox-box-update",
+      "language": "ja",
+      "references": [
+        "20260214b-box-kom-loader",
+        "Compose specification",
+        "K4x-ADR-008",
+        "K4x-ADR-009",
+        "Kompox-CLI",
+        "Kompox-KubeConverter",
+        "Kubernetes NetworkPolicy",
+        "ops/v1alpha1 types.go"
+      ],
+      "relPath": "design/plans/2026/2026aa-kompox-box-update.ja.md",
+      "status": "draft",
+      "tasks": [
+        "20260214b-box-kom-loader"
+      ],
+      "title": "Kompox Box Update",
+      "updated": "2026-02-14T00:00:00Z",
+      "version": "v1"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "category": "pub",
+  "updated": "2025-10-01T00:00:00Z",
+  "docCount": 2,
+  "docs": [
+    {
+      "category": "pub",
+      "id": "Kompox-Pub-CNDW2025",
+      "language": "ja",
+      "references": [
+        "1"
+      ],
+      "relPath": "design/pub/Kompox-Pub-CNDW2025.ja.md",
+      "status": "rejected",
+      "title": "CloudNative Days Winter 2025",
+      "updated": "2025-10-01T00:00:00Z",
+      "version": ""
+    },
+    {
+      "category": "pub",
+      "id": "Kompox-Pub-k8snovice38",
+      "language": "ja",
+      "references": [],
+      "relPath": "design/pub/Kompox-Pub-k8snovice38.ja.md",
+      "status": "delivered",
+      "title": "Kubernetes Novice Tokyo #38",
+      "updated": "2025-09-26T00:00:00Z",
+      "version": ""
+    }
+  ]
+}
