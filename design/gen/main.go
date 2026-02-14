@@ -29,121 +29,150 @@ type Doc struct {
 	RelPath string `yaml:"-"`
 }
 
-// Group represents a set of documents bucketed by an inferred key (first directory segment).
-type Group struct {
-	Key  string
-	Docs []Doc
-}
-
-// IndexData is the template data root.
+// IndexData is the template data root for each category index.
 type IndexData struct {
 	Title    string
-	Language string
+	Category string
 	Updated  string
-	Groups   []Group
+	Docs     []Doc
+}
+
+// CategoryTemplate maps a category to its template file.
+type CategoryTemplate struct {
+	Category     string
+	TemplatePath string
 }
 
 func main() {
 	var (
-		designDir = flag.String("design-dir", ".", "Root directory to scan for design markdown files")
-		output    = flag.String("output", "", "Output index markdown path (defaults to README[.<lang>].md under design-dir)")
-		tplPath   = flag.String("template", "", "Go text template path for index generation (defaults to gen/README.<lang>.md under design-dir)")
-		lang      = flag.String("lang", "en", "UI language (used for UI labels)")
-		noFilter  = flag.Bool("no-lang-filter", true, "Include all languages by default (set to false to filter by -lang)")
+		designDir = flag.String("design-dir", ".", "Design directory root")
 	)
 	flag.Parse()
 
-	// Normalize options for relative execution.
 	if strings.TrimSpace(*designDir) == "" {
 		*designDir = "."
 	}
-	langLower := strings.ToLower(strings.TrimSpace(*lang))
-	if langLower == "" {
-		langLower = "en"
-		*lang = "en"
-	}
 
-	if strings.TrimSpace(*tplPath) == "" {
-		candidate := defaultTemplatePath(*designDir, langLower)
-		if _, err := os.Stat(candidate); err != nil {
-			// Fallback to English template if language-specific one is absent.
-			candidate = filepath.Join(*designDir, "gen", "README.en.md")
-			if _, err := os.Stat(candidate); err != nil {
-				// Final fallback: Japanese template.
-				candidate = filepath.Join(*designDir, "gen", "README.ja.md")
-			}
-		}
-		*tplPath = candidate
-	}
-
-	if strings.TrimSpace(*output) == "" {
-		*output = defaultOutputPath(*designDir, langLower)
-	}
-
-	docs, err := scanDocs(*designDir, *lang, *output, *tplPath, !*noFilter)
+	categoryTemplates, err := discoverCategoryTemplates(filepath.Join(*designDir, "gen"))
 	if err != nil {
 		exitErr(err)
 	}
-	tplBytes, err := os.ReadFile(*tplPath)
-	if err != nil {
-		exitErr(fmt.Errorf("read template: %w", err))
+	if len(categoryTemplates) == 0 {
+		exitErr(fmt.Errorf("no category templates found under %s", filepath.Join(*designDir, "gen", "*", "README.md")))
 	}
-	tpl, err := template.New(filepath.Base(*tplPath)).Parse(string(tplBytes))
-	if err != nil {
-		exitErr(fmt.Errorf("parse template: %w", err))
-	}
-
-	// Determine group order from a named template block if present (template-defined), otherwise default.
-	order := evalGroupOrder(tpl)
-	groups := groupDocs(docs, order)
 
 	now := time.Now().Format("2006-01-02")
-	data := IndexData{
-		Title:    "Kompox Design Docs Index",
-		Language: *lang,
-		Updated:  now,
-		Groups:   groups,
+
+	for _, ct := range categoryTemplates {
+		outDir := filepath.Join(*designDir, ct.Category)
+		if err := os.MkdirAll(outDir, 0o755); err != nil {
+			exitErr(fmt.Errorf("ensure category dir (%s): %w", ct.Category, err))
+		}
+		outputPath := filepath.Join(outDir, "README.md")
+
+		docs, err := scanCategoryDocs(outDir)
+		if err != nil {
+			exitErr(fmt.Errorf("scan category docs (%s): %w", ct.Category, err))
+		}
+
+		if strings.EqualFold(ct.Category, "adr") {
+			sort.SliceStable(docs, func(i, j int) bool {
+				ni := adrNumberFromDoc(docs[i])
+				nj := adrNumberFromDoc(docs[j])
+				if ni == nj {
+					return docs[i].RelPath < docs[j].RelPath
+				}
+				return ni < nj
+			})
+		} else {
+			sort.SliceStable(docs, func(i, j int) bool {
+				return docs[i].RelPath < docs[j].RelPath
+			})
+		}
+
+		data := IndexData{
+			Title:    fmt.Sprintf("Kompox Design %s Index", strings.ToUpper(ct.Category)),
+			Category: ct.Category,
+			Updated:  now,
+			Docs:     docs,
+		}
+
+		if err := renderTemplateToFile(ct.TemplatePath, outputPath, data); err != nil {
+			exitErr(fmt.Errorf("render category index (%s): %w", ct.Category, err))
+		}
+	}
+}
+
+func discoverCategoryTemplates(genDir string) ([]CategoryTemplate, error) {
+	entries, err := os.ReadDir(genDir)
+	if err != nil {
+		return nil, fmt.Errorf("read gen dir: %w", err)
+	}
+
+	var out []CategoryTemplate
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		category := entry.Name()
+		tplPath := filepath.Join(genDir, category, "README.md")
+		if _, err := os.Stat(tplPath); err != nil {
+			continue
+		}
+		out = append(out, CategoryTemplate{
+			Category:     category,
+			TemplatePath: tplPath,
+		})
+	}
+
+	sort.SliceStable(out, func(i, j int) bool {
+		return out[i].Category < out[j].Category
+	})
+
+	return out, nil
+}
+
+func renderTemplateToFile(templatePath, outputPath string, data any) error {
+	if strings.TrimSpace(templatePath) == "" {
+		return errors.New("template path is required")
+	}
+
+	tplBytes, readErr := os.ReadFile(templatePath)
+	if readErr != nil {
+		return fmt.Errorf("read template: %w", readErr)
+	}
+	tpl, err := template.New(filepath.Base(templatePath)).Parse(string(tplBytes))
+	if err != nil {
+		return fmt.Errorf("parse template: %w", err)
 	}
 
 	var buf bytes.Buffer
 	if err := tpl.Execute(&buf, data); err != nil {
-		exitErr(fmt.Errorf("execute template: %w", err))
+		return fmt.Errorf("execute template: %w", err)
 	}
-	if err := os.MkdirAll(filepath.Dir(*output), 0o755); err != nil {
-		exitErr(fmt.Errorf("ensure output dir: %w", err))
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
+		return fmt.Errorf("ensure output dir: %w", err)
 	}
-	if err := os.WriteFile(*output, buf.Bytes(), 0o644); err != nil {
-		exitErr(fmt.Errorf("write output: %w", err))
+	if err := os.WriteFile(outputPath, buf.Bytes(), 0o644); err != nil {
+		return fmt.Errorf("write output: %w", err)
 	}
+
+	return nil
 }
 
-func defaultTemplatePath(designDir, lang string) string {
-	if lang == "en" {
-		return filepath.Join(designDir, "gen", "README.en.md")
-	}
-	return filepath.Join(designDir, "gen", fmt.Sprintf("README.%s.md", lang))
-}
-
-func defaultOutputPath(designDir, lang string) string {
-	if lang == "en" {
-		return filepath.Join(designDir, "README.md")
-	}
-	return filepath.Join(designDir, fmt.Sprintf("README.%s.md", lang))
-}
-
-func scanDocs(root, lang, outputPath, tplPath string, filterByLang bool) ([]Doc, error) {
+func scanCategoryDocs(categoryDir string) ([]Doc, error) {
 	var docs []Doc
 
-	absOut, _ := filepath.Abs(outputPath)
-	absTpl, _ := filepath.Abs(tplPath)
+	if _, err := os.Stat(categoryDir); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return docs, nil
+		}
+		return nil, err
+	}
 
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(categoryDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
-		}
-		// Skip generator and templates directories.
-		if d.IsDir() && (d.Name() == "gen" || d.Name() == "templates") {
-			return filepath.SkipDir
 		}
 		if d.IsDir() {
 			return nil
@@ -152,45 +181,35 @@ func scanDocs(root, lang, outputPath, tplPath string, filterByLang bool) ([]Doc,
 			return nil
 		}
 
-		// Skip generated index files (README*.md) from being treated as documents.
 		base := strings.ToLower(d.Name())
 		if base == "readme.md" || strings.HasPrefix(base, "readme.") || strings.HasPrefix(base, "index.") {
 			return nil
 		}
-
-		abs, _ := filepath.Abs(path)
-		// Skip output and template files.
-		if abs == absOut || abs == absTpl {
+		if base == "guide.md" || strings.HasPrefix(base, "guide.") {
 			return nil
 		}
 
-		doc, ok, err := parseFrontMatter(path)
-		if err != nil {
-			return fmt.Errorf("parse front matter for %s: %w", path, err)
+		doc, ok, parseErr := parseFrontMatter(path)
+		if parseErr != nil {
+			return fmt.Errorf("parse front matter for %s: %w", path, parseErr)
 		}
 		if !ok {
-			// No front matter; skip.
 			return nil
 		}
-		// Filter by language when requested and the document declares a language.
-		if filterByLang {
-			if strings.TrimSpace(doc.Language) != "" && strings.TrimSpace(strings.ToLower(doc.Language)) != strings.ToLower(lang) {
-				return nil
-			}
-		}
-		// Exclude meta docs from index.
-		if strings.EqualFold(doc.Version, "meta") {
+		if strings.EqualFold(strings.TrimSpace(doc.Version), "meta") {
 			return nil
 		}
 
-		rel, err := filepath.Rel(root, path)
-		if err != nil {
-			return err
+		rel, relErr := filepath.Rel(categoryDir, path)
+		if relErr != nil {
+			return relErr
 		}
 		rel = strings.ReplaceAll(rel, string(filepath.Separator), "/")
 		doc.RelPath = "./" + rel
 
-		// Fill missing display fields and normalize date.
+		if strings.TrimSpace(doc.ID) == "" {
+			doc.ID = strings.TrimSuffix(d.Name(), filepath.Ext(d.Name()))
+		}
 		if strings.TrimSpace(doc.Title) == "" {
 			doc.Title = titleFromFilename(d.Name())
 		}
@@ -203,15 +222,6 @@ func scanDocs(root, lang, outputPath, tplPath string, filterByLang bool) ([]Doc,
 		return nil, err
 	}
 
-	// Stable sort by title within entire set; grouping will preserve this order.
-	sort.SliceStable(docs, func(i, j int) bool {
-		ti := strings.ToLower(docs[i].Title)
-		tj := strings.ToLower(docs[j].Title)
-		if ti == tj {
-			return docs[i].RelPath < docs[j].RelPath
-		}
-		return ti < tj
-	})
 	return docs, nil
 }
 
@@ -244,63 +254,6 @@ func parseFrontMatter(path string) (Doc, bool, error) {
 		return Doc{}, false, err
 	}
 	return doc, true, nil
-}
-
-func groupDocs(docs []Doc, orderKeys []string) []Group {
-	// Bucket documents by folder-based key inferred from RelPath.
-	buckets := map[string][]Doc{}
-	for _, d := range docs {
-		key := inferGroupKeyFromPath(d.RelPath)
-		buckets[key] = append(buckets[key], d)
-	}
-
-	// Use order passed from template; fallback to a sensible default.
-	if len(orderKeys) == 0 {
-		orderKeys = []string{"v1", "v2", "adr", "pub", "other"}
-	}
-
-	used := map[string]bool{}
-	var groups []Group
-	for _, key := range orderKeys {
-		if docs := buckets[key]; len(docs) > 0 {
-			// Apply per-group sorting rules before appending.
-			if strings.EqualFold(key, "adr") {
-				sort.SliceStable(docs, func(i, j int) bool {
-					ni := adrNumberFromDoc(docs[i])
-					nj := adrNumberFromDoc(docs[j])
-					if ni == nj {
-						return docs[i].RelPath < docs[j].RelPath
-					}
-					return ni < nj
-				})
-			}
-			groups = append(groups, Group{Key: key, Docs: docs})
-			used[key] = true
-		}
-	}
-	// Append any remaining buckets in alphabetical order.
-	var rest []string
-	for k := range buckets {
-		if !used[k] {
-			rest = append(rest, k)
-		}
-	}
-	sort.Strings(rest)
-	for _, k := range rest {
-		ds := buckets[k]
-		if strings.EqualFold(k, "adr") {
-			sort.SliceStable(ds, func(i, j int) bool {
-				ni := adrNumberFromDoc(ds[i])
-				nj := adrNumberFromDoc(ds[j])
-				if ni == nj {
-					return ds[i].RelPath < ds[j].RelPath
-				}
-				return ni < nj
-			})
-		}
-		groups = append(groups, Group{Key: k, Docs: ds})
-	}
-	return groups
 }
 
 // adrNumberFromDoc extracts the numeric ADR id (e.g., 6 from "K4x-ADR-006").
@@ -347,40 +300,6 @@ func adrNumberFromString(s string) (int, bool) {
 		return 0, false
 	}
 	return n, true
-}
-
-// inferGroupKeyFromPath returns first directory segment as a grouping key.
-func inferGroupKeyFromPath(rel string) string {
-	rp := strings.TrimPrefix(strings.ToLower(rel), "./")
-	parts := strings.SplitN(rp, "/", 2)
-	if len(parts) == 0 || strings.TrimSpace(parts[0]) == "" {
-		return "other"
-	}
-	// Return the first segment as key; templates define names/order. Unknowns fall back to 'other' only if empty.
-	return parts[0]
-}
-
-// evalGroupOrder executes a named sub-template "groupOrder" if present and
-// returns its content as a comma-separated list of keys (lowercased, trimmed).
-func evalGroupOrder(t *template.Template) []string {
-	sub := t.Lookup("groupOrder")
-	if sub == nil {
-		return nil
-	}
-	var buf bytes.Buffer
-	if err := sub.Execute(&buf, nil); err != nil {
-		return nil
-	}
-	s := trimBOM(buf.String())
-	parts := strings.Split(s, ",")
-	var out []string
-	for _, p := range parts {
-		k := strings.ToLower(strings.TrimSpace(p))
-		if k != "" {
-			out = append(out, k)
-		}
-	}
-	return out
 }
 
 func titleFromFilename(name string) string {

@@ -50,12 +50,9 @@ TEST_DIR := tests/aks-e2e-basic
 test-integration test-e2e e2e:
 	bash _dev/bin/setup-test.sh $(TEST_DIR)
 
-# Generate indexes for design and maintainer tasks (en/ja)
+# Generate indexes for design and maintainer tasks
 gen-index:
-	go run ./design/gen -design-dir design -lang en
-	go run ./design/gen -design-dir design -lang ja
-	go run ./_dev/tasks/gen -tasks-dir _dev/tasks -lang en
-	go run ./_dev/tasks/gen -tasks-dir _dev/tasks -lang ja
+	go run ./design/gen -design-dir design
 
 .PHONY: docs-setup docs-serve docs-build docs-deploy-edge docs-deploy-version
 
