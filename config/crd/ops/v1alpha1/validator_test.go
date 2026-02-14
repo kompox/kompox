@@ -385,7 +385,7 @@ func TestValidator_Box_InvalidComponentMismatch(t *testing.T) {
 	}
 }
 
-func TestValidator_Box_ComposeBoxWithImage(t *testing.T) {
+func TestValidator_Box_ComposeBoxWithCommand(t *testing.T) {
 	documents := []Document{
 		{Kind: "Workspace", FQN: "/ws/ws1", Object: &Workspace{}},
 		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}},
