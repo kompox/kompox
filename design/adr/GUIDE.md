@@ -52,6 +52,8 @@ Notes:
 - Capture alternatives considered and trade-offs succinctly
 - Call out constraints: security, compliance, provider limitations, backwards-compatibility
 - Provide links to related specs, tasks, and code
+- This rule applies only to markdown documents that have front matter `id:`.
+- `README.md`, `README.ja.md`, `GUIDE.md`, and `GUIDE.ja.md` are out of scope.
 
 ## Template
 

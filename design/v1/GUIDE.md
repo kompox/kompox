@@ -54,6 +54,8 @@ Required
 - Prefer stable contracts, invariants, and examples over internal implementation notes
 - Keep it skimmable: use headings and tables for key interfaces and inputs/outputs
 - If a section is driven by a decision, link to the ADR (do not restate the ADR)
+- This rule applies only to markdown documents that have front matter `id:`.
+- `README.md`, `README.ja.md`, `GUIDE.md`, and `GUIDE.ja.md` are out of scope.
 
 ## Template
 

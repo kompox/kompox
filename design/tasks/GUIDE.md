@@ -32,6 +32,10 @@ This folder contains short task documents that help maintainers implement change
 
 Tip: Record decisions in ADRs, and link from the task to ADR/spec to avoid duplication.
 
+References rule
+- This rule applies only to markdown documents that have front matter `id:`.
+- `README.md`, `README.ja.md`, `GUIDE.md`, and `GUIDE.ja.md` are out of scope.
+
 ## Front matter (YAML) schema
 
 Required
@@ -43,8 +47,13 @@ Required
 
 Optional
 - owner (string): GitHub handle or name
+- plans (string[]): Referenced plan doc-ids for this task (for example, `2026aa-kompox-box-update`)
 - supersedes (string|string[]): Task id(s) this task replaces
 - supersededBy (string): Task id that replaces this task
+
+Cross-reference rule
+- In task docs, list referenced plan doc-ids in `plans`.
+- Use doc-id values (no filename extension).
 
 Status values (recommended)
 - draft: Newly created or being edited
@@ -64,6 +73,7 @@ status: draft
 updated: 2026-02-14T00:00:00Z
 language: en
 owner:
+plans: []
 supersedes: []
 supersededBy:
 ---

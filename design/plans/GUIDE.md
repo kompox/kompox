@@ -7,7 +7,7 @@ This directory contains plan documents used when making large changes that requi
 Plans remain in the repository after the work is completed as a reference.
 
 Example:
-- [2026aa-kompox-box-update.ja.md]
+- [2026aa-kompox-box-update]
 
 ## Scope and purpose
 
@@ -49,7 +49,11 @@ Required
 
 Optional
 - version (string): Version label (for example, `v1`)
-- tasks (string[]): Related task IDs (for example, `20260214a-new-design-docs`)
+- tasks (string[]): Task doc-ids implemented under this plan (for example, `20260214a-new-design-docs`)
+
+Cross-reference rule
+- In plan docs, list task doc-ids in `tasks`.
+- Use doc-id values (no filename extension).
 
 ## Status lifecycle
 
@@ -65,6 +69,8 @@ Optional
 - Prefer explicit rules and concrete examples over implied behavior
 - Call out backwards-compatibility and migration notes when behavior changes
 - Keep the plan stable and readable after completion
+- This rule applies only to markdown documents that have front matter `id:`.
+- `README.md`, `README.ja.md`, `GUIDE.md`, and `GUIDE.ja.md` are out of scope.
 
 ## Template
 
@@ -136,8 +142,8 @@ tasks: []
 
 - [GUIDE.ja.md]
 - [README.md]
-- [2026aa-kompox-box-update.ja.md]
+- [2026aa-kompox-box-update]
 
 [GUIDE.ja.md]: ./GUIDE.ja.md
 [README.md]: ./README.md
-[2026aa-kompox-box-update.ja.md]: ./2026/2026aa-kompox-box-update.ja.md
+[2026aa-kompox-box-update]: ./2026/2026aa-kompox-box-update.ja.md

@@ -122,7 +122,7 @@ language: ja
 
 - YYYY-MM-DD: 1〜3 を PR #<num> で実装 などの短い記述
 
-## 参考
+## 参照
 
 - design/adr/K4x-ADR-00X.md
 - design/v1/<Spec>.md

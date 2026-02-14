@@ -7,7 +7,7 @@ English: [GUIDE.md]
 計画が完了し design docs が更新されたあとも、plan files は参考のため残します。
 
 事例:
-- [2026aa-kompox-box-update.ja.md]
+- [2026aa-kompox-box-update]
 
 ## 目的と使いどころ
 
@@ -49,7 +49,11 @@ Plans は日本語/英語のどちらでもよいです。拡張子で言語を�
 
 任意
 - version (string): 版ラベル (例: `v1`)
-- tasks (string[]): 関連するタスク ID のリスト (例: `20260214a-new-design-docs`)
+- tasks (string[]): この plan で実装するタスクの doc-id のリスト (例: `20260214a-new-design-docs`)
+
+相互参照ルール
+- plan 文書では、実装するタスクの doc-id を `tasks` に列挙する。
+- 値は doc-id を使い、ファイル名拡張子は含めない。
 
 ## status の目安
 
@@ -65,6 +69,8 @@ Plans は日本語/英語のどちらでもよいです。拡張子で言語を�
 - 暗黙の推論より、明示ルールと具体例を優先する
 - 互換性や移行が必要なら Migration notes に書く
 - 完了後も読みやすい形を保つ
+- このルールの対象は、front-matter に `id:` を持つ markdown ドキュメントのみ。
+- `README.md`、`README.ja.md`、`GUIDE.md`、`GUIDE.ja.md` は対象外。
 
 ## テンプレート
 
@@ -120,7 +126,7 @@ tasks: []
 
 - ...
 
-## 参考
+## 参照
 
 - [design/plans/README.md]
 
@@ -132,12 +138,12 @@ tasks: []
 - Makefile のターゲットで [README.md] を再生成できます:
 - `make gen-index`
 
-## 参考
+## 参照
 
 - [GUIDE.md]
 - [README.md]
-- [2026aa-kompox-box-update.ja.md]
+- [2026aa-kompox-box-update]
 
 [GUIDE.md]: ./GUIDE.md
 [README.md]: ./README.md
-[2026aa-kompox-box-update.ja.md]: ./2026/2026aa-kompox-box-update.ja.md
+[2026aa-kompox-box-update]: ./2026/2026aa-kompox-box-update.ja.md

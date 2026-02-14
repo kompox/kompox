@@ -54,6 +54,8 @@ design docs (v1) は日本語/英語のどちらでもよいです。
 - 仕様・契約・不変条件・例を優先し、内部実装メモに寄りすぎない
 - 見出し/表を活用し、後から探しやすい構成にする
 - 判断が ADR にある場合は ADR へリンクし、本文の重複を避ける
+- このルールの対象は、front-matter に `id:` を持つ markdown ドキュメントのみ。
+- `README.md`、`README.ja.md`、`GUIDE.md`、`GUIDE.ja.md` は対象外。
 
 ## テンプレート
 
@@ -94,7 +96,7 @@ language: ja
 
 - ...
 
-## 参考
+## 参照
 
 - [design/v1/README.md]
 
@@ -106,7 +108,7 @@ language: ja
 - [README.md] は生成物です。次で再生成できます:
 - `make gen-index`
 
-## 参考
+## 参照
 
 - [GUIDE.md]
 - [README.md]

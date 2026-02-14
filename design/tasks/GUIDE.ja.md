@@ -31,6 +31,10 @@ English: [GUIDE.md]
 
 ヒント: 判断は ADR に記録し、タスクから ADR/仕様へリンクして重複を避けます。
 
+References ルール
+- このルールの対象は、front-matter に `id:` を持つ markdown ドキュメントのみ。
+- `README.md`、`README.ja.md`、`GUIDE.md`、`GUIDE.ja.md` は対象外。
+
 ## フロントマター (YAML) スキーマ
 
 必須
@@ -42,8 +46,13 @@ English: [GUIDE.md]
 
 任意
 - owner (string): GitHub ハンドルまたは氏名
+- plans (string[]): このタスクが参照する plan の doc-id のリスト (例: `2026aa-kompox-box-update`)
 - supersedes (string|string[]): このタスクが置き換える旧タスク ID (複数可)
 - supersededBy (string): このタスクを置き換える新タスク ID
+
+相互参照ルール
+- task 文書では、参照する plan の doc-id を `plans` に列挙する。
+- 値は doc-id を使い、ファイル名拡張子は含めない。
 
 ステータス値 (推奨)
 - draft: 作成直後/編集中
@@ -63,6 +72,7 @@ status: draft
 updated: 2026-02-14T00:00:00Z
 language: ja
 owner:
+plans: []
 supersedes: []
 supersededBy:
 ---
@@ -104,7 +114,7 @@ supersededBy:
 
 - YYYY-MM-DD: ...
 
-## 参考
+## 参照
 
 - ...
 ```
@@ -114,7 +124,7 @@ supersededBy:
 - Makefile のターゲットで design/tasks/README.md を再生成できます:
 - make gen-index
 
-## 参考
+## 参照
 
 - [GUIDE.md]
 

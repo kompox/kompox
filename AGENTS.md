@@ -34,7 +34,7 @@ Each document begins with YAML front matter.
 
 Common fields (see each type's GUIDE.md for the full schema):
 
-- id: Unique identifier for the document, equal to the filename without the extension
+- id: Unique identifier for the document across the entire repository, equal to the filename without the extension
   - ADRs: `K4x-ADR-NNN` (use sequential numbers for NNN)
   - Design docs: `Kompox-<short-slug>`
   - Plan files: `YYYYaa-<short-slug>` (use `aa`, `ab`, ... to disambiguate multiple plans in the same year)
@@ -53,6 +53,7 @@ Each document should have a "References" section at the end with the following f
 - The References section should list link reference IDs (descriptions are optional).
 - The actual link definitions should follow the list in the References section: `[ref-id]: ../relative/path/to/doc.md`
 - Use `[ref-id]` in the document body to refer to linked documents without restating their content.
+- For document links in Markdown files that define front-matter `id:`, use that `doc-id` as `ref-id` (without extensions like `.md` or `.ja.md`).
 
 For example:
 
