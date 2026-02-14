@@ -43,6 +43,7 @@ References ルール
 - status (enum): 下記「ステータス値」を参照
 - updated (timestamp): UTC の ISO 8601 `YYYY-MM-DDTHH:MM:SSZ`
 - language (enum): ja | en
+- adrs (string[]): このタスクが参照する ADR の doc-id のリスト (例: `K4x-ADR-018`)
 
 任意
 - owner (string): GitHub ハンドルまたは氏名
@@ -51,6 +52,7 @@ References ルール
 - supersededBy (string): このタスクを置き換える新タスク ID
 
 相互参照ルール
+- task 文書では、参照する ADR の doc-id を `adrs` に列挙する。
 - task 文書では、参照する plan の doc-id を `plans` に列挙する。
 - 値は doc-id を使い、ファイル名拡張子は含めない。
 
@@ -72,6 +74,7 @@ status: draft
 updated: 2026-02-14T00:00:00Z
 language: ja
 owner:
+adrs: []
 plans: []
 supersedes: []
 supersededBy:

@@ -46,12 +46,14 @@ Plans は日本語/英語のどちらでもよいです。拡張子で言語を�
 - status (enum): `draft | active | done | canceled | superseded`
 - updated (timestamp): UTC の ISO 8601 `YYYY-MM-DDTHH:MM:SSZ`
 - language (enum): `ja | en`
+- adrs (string[]): この plan が参照する ADR の doc-id のリスト (例: `K4x-ADR-018`)
 
 任意
 - version (string): 版ラベル (例: `v1`)
 - tasks (string[]): この plan で実装するタスクの doc-id のリスト (例: `20260214a-new-design-docs`)
 
 相互参照ルール
+- plan 文書では、参照する ADR の doc-id を `adrs` に列挙する。
 - plan 文書では、実装するタスクの doc-id を `tasks` に列挙する。
 - 値は doc-id を使い、ファイル名拡張子は含めない。
 
@@ -82,6 +84,7 @@ version: v1
 status: draft
 updated: 2026-02-14T00:00:00Z
 language: ja
+adrs: []
 tasks: []
 ---
 

@@ -21,6 +21,8 @@ description: Create a new task file
 3) Apply front-matter rules
   - Set `id` as the task doc-id and keep it unique across the entire repository.
   - Keep `id` aligned with the filename stem.
+  - Set `adrs` as a string array of related ADR doc-ids (use `[]` when none yet).
+  - Keep `plans` as a string array of related plan doc-ids when applicable.
 4) Apply references rules
   - Keep a markdown reference list at the end of the file.
   - For links to markdown documents that define front-matter `id:`, use that doc-id as the reference label (no `.md` / `.ja.md` in labels).

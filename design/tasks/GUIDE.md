@@ -44,6 +44,7 @@ Required
 - status (enum): See Status values below
 - updated (timestamp): UTC timestamp in ISO 8601 `YYYY-MM-DDTHH:MM:SSZ`
 - language (enum): ja | en
+- adrs (string[]): Referenced ADR doc-ids for this task (for example, `K4x-ADR-018`)
 
 Optional
 - owner (string): GitHub handle or name
@@ -52,6 +53,7 @@ Optional
 - supersededBy (string): Task id that replaces this task
 
 Cross-reference rule
+- In task docs, list referenced ADR doc-ids in `adrs`.
 - In task docs, list referenced plan doc-ids in `plans`.
 - Use doc-id values (no filename extension).
 
@@ -73,6 +75,7 @@ status: draft
 updated: 2026-02-14T00:00:00Z
 language: en
 owner:
+adrs: []
 plans: []
 supersedes: []
 supersededBy:

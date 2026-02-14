@@ -19,6 +19,7 @@ description: Create a new ADR file
   - Use the fields defined in [GUIDE.md].
   - Set `id` as the ADR doc-id and keep it unique across the entire repository.
   - Keep `id` aligned with the filename stem.
+  - Add `tasks`/`plans` only when stable related doc-ids are known; otherwise omit them.
 4) Apply references rules
   - Keep a markdown reference list at the end of the file.
   - For links to markdown documents that define front-matter `id:`, use that doc-id as the reference label (no `.md` / `.ja.md` in labels).

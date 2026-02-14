@@ -46,12 +46,14 @@ Required
 - status (enum): `draft | active | done | canceled | superseded`
 - updated (timestamp): UTC timestamp in ISO 8601 `YYYY-MM-DDTHH:MM:SSZ`
 - language (enum): `ja | en`
+- adrs (string[]): Referenced ADR doc-ids for this plan (for example, `K4x-ADR-018`)
 
 Optional
 - version (string): Version label (for example, `v1`)
 - tasks (string[]): Task doc-ids implemented under this plan (for example, `20260214a-new-design-docs`)
 
 Cross-reference rule
+- In plan docs, list referenced ADR doc-ids in `adrs`.
 - In plan docs, list task doc-ids in `tasks`.
 - Use doc-id values (no filename extension).
 
@@ -82,6 +84,7 @@ version: v1
 status: draft
 updated: 2026-02-14T00:00:00Z
 language: en
+adrs: []
 tasks: []
 ---
 

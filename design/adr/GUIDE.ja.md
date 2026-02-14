@@ -18,6 +18,8 @@
   - title
   - status
   - updated（timestamp）: UTC の ISO 8601 `YYYY-MM-DDTHH:MM:SSZ`
+  - tasks（任意）: 関連 task の doc-id
+  - plans（任意）: 関連 plan の doc-id
 
 ## ステータスのライフサイクル
 
@@ -63,6 +65,8 @@ status: proposed | accepted | rejected | deprecated
 updated: 2026-02-14T00:00:00Z
 supersedes: <K4x-ADR-### | [K4x-ADR-###, K4x-ADR-###]>
 supersededBy: <K4x-ADR-### | [K4x-ADR-###, K4x-ADR-###]>
+tasks: <YYYYMMDDa-... | [YYYYMMDDa-..., YYYYMMDDb-...]>
+plans: <YYYYaa-... | [YYYYaa-..., YYYYab-...]>
 ---
 
 ## Context

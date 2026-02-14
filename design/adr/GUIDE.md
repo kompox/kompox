@@ -20,6 +20,8 @@ Language policy: ADRs must always be written in English. Japanese documentation 
   - title
   - status
   - updated (timestamp): UTC timestamp in ISO 8601 `YYYY-MM-DDTHH:MM:SSZ`
+  - tasks (optional): related task doc-id(s)
+  - plans (optional): related plan doc-id(s)
 
 ## Status lifecycle
 
@@ -65,6 +67,8 @@ status: proposed | accepted | rejected | deprecated
 updated: 2026-02-14T00:00:00Z
 supersedes: <K4x-ADR-### | [K4x-ADR-###, K4x-ADR-###]>
 supersededBy: <K4x-ADR-### | [K4x-ADR-###, K4x-ADR-###]>
+tasks: <YYYYMMDDa-... | [YYYYMMDDa-..., YYYYMMDDb-...]>
+plans: <YYYYaa-... | [YYYYaa-..., YYYYab-...]>
 ---
 
 ## Context
