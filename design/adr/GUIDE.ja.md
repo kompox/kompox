@@ -17,7 +17,7 @@
   - id（形式: `K4x-ADR-###`。ファイル名の先頭部と同一）
   - title
   - status
-  - updated（ISO `YYYY-MM-DD`）
+  - updated（timestamp）: UTC の ISO 8601 `YYYY-MM-DDTHH:MM:SSZ`
 
 ## ステータスのライフサイクル
 
@@ -58,7 +58,7 @@ ADR グループでは次のステータス値を使用します:
 id: K4x-ADR-<###>
 title: <Short decision title>
 status: proposed | accepted | rejected | deprecated
-updated: YYYY-MM-DD
+updated: 2026-02-14T00:00:00Z
 supersedes: <K4x-ADR-### | [K4x-ADR-###, K4x-ADR-###]>
 supersededBy: <K4x-ADR-### | [K4x-ADR-###, K4x-ADR-###]>
 ---

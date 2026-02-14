@@ -37,7 +37,7 @@ English: [GUIDE.md]
 - id (string): 一意なタスク ID (推奨: YYYYMMDDa-short-description)
 - title (string): 短いタイトル
 - status (enum): 下記「ステータス値」を参照
-- updated (date): ISO YYYY-MM-DD
+- updated (timestamp): UTC の ISO 8601 `YYYY-MM-DDTHH:MM:SSZ`
 - language (enum): ja | en
 
 任意
@@ -60,7 +60,7 @@ English: [GUIDE.md]
 id: YYYYMMDDa-short-description
 title: 短いタイトル
 status: draft
-updated: YYYY-MM-DD
+updated: 2026-02-14T00:00:00Z
 language: ja
 owner:
 supersedes: []

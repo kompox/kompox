@@ -38,7 +38,7 @@ Required
 - id (string): Unique task id (recommended: YYYYMMDDa-short-description)
 - title (string): Short title
 - status (enum): See Status values below
-- updated (date): ISO YYYY-MM-DD
+- updated (timestamp): UTC timestamp in ISO 8601 `YYYY-MM-DDTHH:MM:SSZ`
 - language (enum): ja | en
 
 Optional
@@ -61,7 +61,7 @@ Status values (recommended)
 id: YYYYMMDDa-short-description
 title: Short title
 status: draft
-updated: YYYY-MM-DD
+updated: 2026-02-14T00:00:00Z
 language: en
 owner:
 supersedes: []
