@@ -5,7 +5,7 @@ status: proposed
 date: 2025-10-13
 language: en
 supersedes: []
-supersededBy: []
+supersededBy: [K4x-ADR-017]
 ---
 # K4x-ADR-008: Introduce Box as a first-class ops kind
 
