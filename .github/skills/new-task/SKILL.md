@@ -1,12 +1,11 @@
 ---
+name: new-task
 description: Create a new task file
-mode: agent
-tools: ['runCommands', 'edit', 'search', 'todos', 'changes', 'fetch']
 ---
 ## Your Task
 
-- Create a new task file in [_dev/tasks].
-  - Standard path: `YYYY-MM-DD-short-description.ja.md`
+- Create a new task file in [design/tasks].
+  - Standard path: `design/tasks/YYYY/MM/DD/YYYYMMDDa-short-description.ja.md`
   - Follow user's instructions if provided.
 - Honor the general instructions: [md] and [ja].
 - Follow the guidelines: [GUIDE.ja.md].
@@ -19,7 +18,7 @@ tools: ['runCommands', 'edit', 'search', 'todos', 'changes', 'fetch']
 
 ## Task File Example
 
-Task file path: `_dev/tasks/2025-10-24-volume-types.ja.md`
+Task file path: `design/tasks/2025/10/24/20251024a-volume-types.ja.md`
 
 ```markdown
 ---
@@ -60,10 +59,10 @@ owner:
 
 - [K4x-ADR-014]
 
-[K4x-ADR-014]: ../../design/adr/K4x-ADR-014.md
+[K4x-ADR-014]: ../../../../../adr/K4x-ADR-014.md
 ```
 
-[_dev/tasks]: ../../_dev/tasks
-[GUIDE.ja.md]: ../../_dev/tasks/GUIDE.ja.md
-[md]: ../instructions/md.instructions.md
-[ja]: ../instructions/ja.instructions.md
+[design/tasks]: ../../../design/tasks
+[GUIDE.ja.md]: ../../../design/tasks/GUIDE.ja.md
+[md]: ../../instructions/md.instructions.md
+[ja]: ../../instructions/ja.instructions.md

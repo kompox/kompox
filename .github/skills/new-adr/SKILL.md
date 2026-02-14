@@ -1,7 +1,6 @@
 ---
+name: new-adr
 description: Create a new ADR file
-mode: agent
-tools: ['runCommands', 'edit', 'search', 'todos', 'changes', 'fetch']
 ---
 ## Your Task
 
@@ -27,7 +26,7 @@ Task file path: `design/adr/K4x-ADR-014.md`
 id: K4x-ADR-014
 title: Introduce New Feature
 status: proposed
-date: 2025-10-23
+updated: 2025-10-23
 language: en
 supersedes: []
 supersededBy: []
@@ -47,7 +46,7 @@ In [K4x-ADR-013], we discussed that ...
 [Kompox-KubeConverter.ja.md]: ../v1/Kompox-KubeConverter.ja.md
 ```
 
-[design/adr]: ../../design/adr
-[README.md]: ../../design/adr/README.md
-[md]: ../instructions/md.instructions.md
-[en]: ../instructions/en.instructions.md
+[design/adr]: ../../../design/adr
+[README.md]: ../../../design/adr/README.md
+[md]: ../../instructions/md.instructions.md
+[en]: ../../instructions/en.instructions.md

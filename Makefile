@@ -30,10 +30,28 @@ release-snapshot:
 release-check:
 	goreleaser check
 
-# Show staged changes in Git
-diff-staged-changes:
-	git status
-	git diff --cached
+# Show staged changes that are not yet committed and suggest next commit message file
+git-diff-cached:
+	@if ! git --no-pager diff --cached --exit-code; then \
+		echo; \
+		last=$$(ls _tmp/git-commit/[0-9]*.txt 2>/dev/null | sort -V | tail -1 | sed 's/.*\///' | sed 's/.txt//' | sed 's/^0*//'); \
+		if [ -n "$$last" ]; then \
+			next=$$(printf "%04d.txt" $$(($$last + 1))); \
+		else \
+			next="0001.txt"; \
+		fi; \
+		echo "Next commit message file: _tmp/git-commit/$$next"; \
+	else \
+		echo "No staged changes to commit."; \
+	fi
+
+# Open the last commit message file in editor for editing and commit
+git-commit-with-editor:
+	git -c core.editor='code --wait' commit -v -e -F $(lastword $(sort $(wildcard _tmp/git-commit/[0-9]*.txt)))
+
+# Show the last commit details and current git status
+git-show:
+	git --no-pager show -1 --name-status --pretty=fuller && git status
 
 # Build adapters/drivers/provider/aks/main.json to embed in AKS driver
 # You need it when you make changes in infra/aks
