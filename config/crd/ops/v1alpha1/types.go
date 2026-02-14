@@ -284,11 +284,40 @@ type Box struct {
 }
 
 // BoxSpec defines the desired state of Box.
-// Currently a placeholder; to be expanded in ADR-008.
+// Box represents either a Compose Box (services from App.spec.compose)
+// or a Standalone Box (independent image-based workload).
+// The type is determined by the presence of spec.image:
+//   - If spec.image is present: Standalone Box
+//   - If spec.image is absent: Compose Box
 type BoxSpec struct {
 	// Component name (componentName) for this box.
-	// If empty, defaults to the app name.
+	// If specified, must match metadata.name.
+	// If empty, componentName is derived from metadata.name.
 	Component string `json:"component,omitzero"`
+
+	// Image specifies the container image for Standalone Box.
+	// If present, this Box is a Standalone Box.
+	// If absent, this Box is a Compose Box.
+	Image string `json:"image,omitzero"`
+
+	// Command overrides the default entrypoint for Standalone Box.
+	// Only valid for Standalone Box (when spec.image is present).
+	Command []string `json:"command,omitzero"`
+
+	// Args provides additional arguments for Standalone Box.
+	// Only valid for Standalone Box (when spec.image is present).
+	Args []string `json:"args,omitzero"`
+
+	// Ingress is reserved for future use and must not be specified.
+	// External exposure is configured via App.spec.ingress.
+	Ingress *BoxIngressSpec `json:"ingress,omitzero"`
+
+	// NetworkPolicy defines network policy configuration for this Box.
+	NetworkPolicy *AppNetworkPolicySpec `json:"networkPolicy,omitzero"`
+}
+
+// BoxIngressSpec is reserved for future use.
+type BoxIngressSpec struct {
 }
 
 // BoxStatus defines the observed state of Box.

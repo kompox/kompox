@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	utilvalidation "k8s.io/apimachinery/pkg/util/validation"
 )
 
 // ValidationError represents a validation error for a document.
@@ -46,11 +48,55 @@ func (r *ValidationResult) HasErrors() bool {
 	return len(r.Errors) > 0
 }
 
+// validateBox validates Box-specific constraints.
+// Returns an error message if validation fails, empty string otherwise.
+func validateBox(box *Box) string {
+	// metadata.name must be a valid DNS-1123 label
+	if errs := utilvalidation.IsDNS1123Label(box.ObjectMeta.Name); len(errs) > 0 {
+		return fmt.Sprintf("metadata.name %q is not a valid DNS-1123 label: %s", box.ObjectMeta.Name, strings.Join(errs, ", "))
+	}
+
+	// metadata.name must not be "app" (reserved word)
+	if box.ObjectMeta.Name == "app" {
+		return `metadata.name "app" is reserved and cannot be used for Box`
+	}
+
+	// spec.component, if specified, must match metadata.name
+	if box.Spec.Component != "" && box.Spec.Component != box.ObjectMeta.Name {
+		return fmt.Sprintf("spec.component %q must match metadata.name %q", box.Spec.Component, box.ObjectMeta.Name)
+	}
+
+	// Determine Box type based on spec.image
+	isStandalone := box.Spec.Image != ""
+
+	if isStandalone {
+		// Standalone Box: spec.image is required (already checked above)
+		// spec.ingress must not be specified (reserved)
+		if box.Spec.Ingress != nil {
+			return "Standalone Box must not specify spec.ingress (reserved for future use)"
+		}
+	} else {
+		// Compose Box: spec.command/args/ingress must not be specified
+		if len(box.Spec.Command) > 0 {
+			return "Compose Box must not specify spec.command"
+		}
+		if len(box.Spec.Args) > 0 {
+			return "Compose Box must not specify spec.args"
+		}
+		if box.Spec.Ingress != nil {
+			return "Compose Box must not specify spec.ingress"
+		}
+	}
+
+	return ""
+}
+
 // Validate validates documents in topological order.
 // It checks:
 //  1. Kind and Resource ID segment count consistency
 //  2. Duplicate Resource IDs within the document set
 //  3. Parent existence (except for Workspace)
+//  4. Box-specific validation (metadata.name constraints, spec consistency)
 //
 // Returns ValidDocuments only if there are no errors.
 func Validate(documents []Document) *ValidationResult {
@@ -107,6 +153,22 @@ func Validate(documents []Document) *ValidationResult {
 					Index:   doc.Index,
 				})
 				continue
+			}
+		}
+
+		// Box-specific validation
+		if doc.Kind == "Box" {
+			if box, ok := doc.Object.(*Box); ok {
+				if errMsg := validateBox(box); errMsg != "" {
+					result.Errors = append(result.Errors, &ValidationError{
+						FQN:     doc.FQN,
+						Kind:    doc.Kind,
+						Message: errMsg,
+						Path:    doc.Path,
+						Index:   doc.Index,
+					})
+					continue
+				}
 			}
 		}
 

@@ -2,6 +2,8 @@ package v1alpha1
 
 import (
 	"testing"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestValidator_Validate_HappyPath(t *testing.T) {
@@ -10,7 +12,9 @@ func TestValidator_Validate_HappyPath(t *testing.T) {
 		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}},
 		{Kind: "Cluster", FQN: "/ws/ws1/prv/prv1/cls/cls1", Object: &Cluster{}},
 		{Kind: "App", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1", Object: &App{}},
-		{Kind: "Box", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/box1", Object: &Box{}},
+		{Kind: "Box", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/box1", Object: &Box{
+			ObjectMeta: metav1.ObjectMeta{Name: "box1"},
+		}},
 	}
 
 	// validator removed
@@ -28,7 +32,9 @@ func TestValidator_Validate_HappyPath(t *testing.T) {
 func TestValidator_Validate_OutOfOrder(t *testing.T) {
 	// Documents in reverse topological order
 	documents := []Document{
-		{Kind: "Box", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/box1", Object: &Box{}},
+		{Kind: "Box", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/box1", Object: &Box{
+			ObjectMeta: metav1.ObjectMeta{Name: "box1"},
+		}},
 		{Kind: "App", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1", Object: &App{}},
 		{Kind: "Cluster", FQN: "/ws/ws1/prv/prv1/cls/cls1", Object: &Cluster{}},
 		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}},
@@ -148,7 +154,9 @@ func TestValidator_Validate_ComplexHierarchy(t *testing.T) {
 		{Kind: "Cluster", FQN: "/ws/ws1/prv/prv2/cls/cls1", Object: &Cluster{}},
 		{Kind: "App", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1", Object: &App{}},
 		{Kind: "App", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app2", Object: &App{}},
-		{Kind: "Box", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/box1", Object: &Box{}},
+		{Kind: "Box", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/box1", Object: &Box{
+			ObjectMeta: metav1.ObjectMeta{Name: "box1"},
+		}},
 	}
 
 	// validator removed
@@ -170,7 +178,9 @@ func TestValidator_Validate_MultipleErrors(t *testing.T) {
 		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}},      // Duplicate
 		{Kind: "Cluster", FQN: "/ws/ws1/prv/prv2/cls/cls1", Object: &Cluster{}},   // Missing parent ws1/prv2
 		{Kind: "App", FQN: "ws1/prv3/cls1/app1", Object: &App{}},      // Missing parent ws1/prv3
-		{Kind: "Box", FQN: "ws1/prv1/cls2/app1/box1", Object: &Box{}}, // Missing parent chain
+		{Kind: "Box", FQN: "ws1/prv1/cls2/app1/box1", Object: &Box{
+			ObjectMeta: metav1.ObjectMeta{Name: "box1"},
+		}}, // Missing parent chain
 	}
 
 	result := Validate(documents)
@@ -192,7 +202,9 @@ func TestValidator_Validate_MultipleErrors(t *testing.T) {
 
 func TestValidator_SortByTopology(t *testing.T) {
 	documents := []Document{
-		{Kind: "Box", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/box1", Object: &Box{}},
+		{Kind: "Box", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/box1", Object: &Box{
+			ObjectMeta: metav1.ObjectMeta{Name: "box1"},
+		}},
 		{Kind: "App", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app2", Object: &App{}},
 		{Kind: "Workspace", FQN: "/ws/ws2", Object: &Workspace{}},
 		{Kind: "Cluster", FQN: "/ws/ws1/prv/prv1/cls/cls1", Object: &Cluster{}},
@@ -264,5 +276,242 @@ func TestValidator_Validate_ClusterSegmentMismatch(t *testing.T) {
 
 	if result.Errors[0].Kind != "Cluster" {
 		t.Errorf("Error kind = %s, want Cluster", result.Errors[0].Kind)
+	}
+}
+
+func TestValidator_Box_ValidComposeBox(t *testing.T) {
+	documents := []Document{
+		{Kind: "Workspace", FQN: "/ws/ws1", Object: &Workspace{}},
+		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}},
+		{Kind: "Cluster", FQN: "/ws/ws1/prv/prv1/cls/cls1", Object: &Cluster{}},
+		{Kind: "App", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1", Object: &App{}},
+		{Kind: "Box", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/web", Object: &Box{
+			ObjectMeta: metav1.ObjectMeta{Name: "web"},
+			Spec:       BoxSpec{},
+		}},
+	}
+
+	result := Validate(documents)
+
+	if result.HasErrors() {
+		t.Errorf("Validate() returned errors: %v", result.Errors)
+	}
+
+	if len(result.ValidDocuments) != 5 {
+		t.Errorf("Validate() returned %d valid documents, want 5", len(result.ValidDocuments))
+	}
+}
+
+func TestValidator_Box_ValidStandaloneBox(t *testing.T) {
+	documents := []Document{
+		{Kind: "Workspace", FQN: "/ws/ws1", Object: &Workspace{}},
+		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}},
+		{Kind: "Cluster", FQN: "/ws/ws1/prv/prv1/cls/cls1", Object: &Cluster{}},
+		{Kind: "App", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1", Object: &App{}},
+		{Kind: "Box", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/runner", Object: &Box{
+			ObjectMeta: metav1.ObjectMeta{Name: "runner"},
+			Spec: BoxSpec{
+				Image:   "ubuntu:22.04",
+				Command: []string{"/bin/bash"},
+				Args:    []string{"-c", "sleep infinity"},
+			},
+		}},
+	}
+
+	result := Validate(documents)
+
+	if result.HasErrors() {
+		t.Errorf("Validate() returned errors: %v", result.Errors)
+	}
+
+	if len(result.ValidDocuments) != 5 {
+		t.Errorf("Validate() returned %d valid documents, want 5", len(result.ValidDocuments))
+	}
+}
+
+func TestValidator_Box_InvalidReservedName(t *testing.T) {
+	documents := []Document{
+		{Kind: "Workspace", FQN: "/ws/ws1", Object: &Workspace{}},
+		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}},
+		{Kind: "Cluster", FQN: "/ws/ws1/prv/prv1/cls/cls1", Object: &Cluster{}},
+		{Kind: "App", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1", Object: &App{}},
+		{Kind: "Box", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/app", Object: &Box{
+			ObjectMeta: metav1.ObjectMeta{Name: "app"},
+			Spec:       BoxSpec{},
+		}},
+	}
+
+	result := Validate(documents)
+
+	if !result.HasErrors() {
+		t.Error("Validate() expected error for reserved name 'app', got none")
+	}
+
+	if len(result.Errors) != 1 {
+		t.Fatalf("Validate() returned %d errors, want 1", len(result.Errors))
+	}
+
+	err := result.Errors[0]
+	if err.Kind != "Box" {
+		t.Errorf("Error kind = %s, want Box", err.Kind)
+	}
+}
+
+func TestValidator_Box_InvalidComponentMismatch(t *testing.T) {
+	documents := []Document{
+		{Kind: "Workspace", FQN: "/ws/ws1", Object: &Workspace{}},
+		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}},
+		{Kind: "Cluster", FQN: "/ws/ws1/prv/prv1/cls/cls1", Object: &Cluster{}},
+		{Kind: "App", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1", Object: &App{}},
+		{Kind: "Box", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/web", Object: &Box{
+			ObjectMeta: metav1.ObjectMeta{Name: "web"},
+			Spec:       BoxSpec{Component: "different"},
+		}},
+	}
+
+	result := Validate(documents)
+
+	if !result.HasErrors() {
+		t.Error("Validate() expected error for component mismatch, got none")
+	}
+
+	if len(result.Errors) != 1 {
+		t.Fatalf("Validate() returned %d errors, want 1", len(result.Errors))
+	}
+
+	err := result.Errors[0]
+	if err.Kind != "Box" {
+		t.Errorf("Error kind = %s, want Box", err.Kind)
+	}
+}
+
+func TestValidator_Box_ComposeBoxWithCommand(t *testing.T) {
+	documents := []Document{
+		{Kind: "Workspace", FQN: "/ws/ws1", Object: &Workspace{}},
+		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}},
+		{Kind: "Cluster", FQN: "/ws/ws1/prv/prv1/cls/cls1", Object: &Cluster{}},
+		{Kind: "App", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1", Object: &App{}},
+		{Kind: "Box", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/web", Object: &Box{
+			ObjectMeta: metav1.ObjectMeta{Name: "web"},
+			Spec: BoxSpec{
+				// No image, should be Compose Box
+				Command: []string{"/bin/bash"}, // But has command - invalid
+			},
+		}},
+	}
+
+	result := Validate(documents)
+
+	if !result.HasErrors() {
+		t.Error("Validate() expected error for Compose Box with command, got none")
+	}
+
+	if len(result.Errors) != 1 {
+		t.Fatalf("Validate() returned %d errors, want 1", len(result.Errors))
+	}
+
+	err := result.Errors[0]
+	if err.Kind != "Box" {
+		t.Errorf("Error kind = %s, want Box", err.Kind)
+	}
+}
+
+func TestValidator_Box_StandaloneBoxWithIngress(t *testing.T) {
+	documents := []Document{
+		{Kind: "Workspace", FQN: "/ws/ws1", Object: &Workspace{}},
+		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}},
+		{Kind: "Cluster", FQN: "/ws/ws1/prv/prv1/cls/cls1", Object: &Cluster{}},
+		{Kind: "App", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1", Object: &App{}},
+		{Kind: "Box", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1/box/runner", Object: &Box{
+			ObjectMeta: metav1.ObjectMeta{Name: "runner"},
+			Spec: BoxSpec{
+				Image:   "ubuntu:22.04",
+				Ingress: &BoxIngressSpec{}, // Invalid: ingress is reserved
+			},
+		}},
+	}
+
+	result := Validate(documents)
+
+	if !result.HasErrors() {
+		t.Error("Validate() expected error for Standalone Box with ingress, got none")
+	}
+
+	if len(result.Errors) != 1 {
+		t.Fatalf("Validate() returned %d errors, want 1", len(result.Errors))
+	}
+
+	err := result.Errors[0]
+	if err.Kind != "Box" {
+		t.Errorf("Error kind = %s, want Box", err.Kind)
+	}
+}
+
+func TestValidator_Box_InvalidDNS1123Label(t *testing.T) {
+	testCases := []struct {
+		name     string
+		boxName  string
+		wantErr  bool
+	}{
+		{
+			name:    "uppercase letters",
+			boxName: "WebServer",
+			wantErr: true,
+		},
+		{
+			name:    "leading hyphen",
+			boxName: "-web",
+			wantErr: true,
+		},
+		{
+			name:    "trailing hyphen",
+			boxName: "web-",
+			wantErr: true,
+		},
+		{
+			name:    "too long",
+			boxName: "this-is-a-very-long-name-that-exceeds-sixty-three-characters-limit",
+			wantErr: true,
+		},
+		{
+			name:    "underscore",
+			boxName: "web_server",
+			wantErr: true,
+		},
+		{
+			name:    "valid with hyphens",
+			boxName: "web-server-01",
+			wantErr: false,
+		},
+		{
+			name:    "valid numeric",
+			boxName: "123",
+			wantErr: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			documents := []Document{
+				{Kind: "Workspace", FQN: "/ws/ws1", Object: &Workspace{}},
+				{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}},
+				{Kind: "Cluster", FQN: "/ws/ws1/prv/prv1/cls/cls1", Object: &Cluster{}},
+				{Kind: "App", FQN: "/ws/ws1/prv/prv1/cls/cls1/app/app1", Object: &App{}},
+				{Kind: "Box", FQN: FQN("/ws/ws1/prv/prv1/cls/cls1/app/app1/box/" + tc.boxName), Object: &Box{
+					ObjectMeta: metav1.ObjectMeta{Name: tc.boxName},
+					Spec:       BoxSpec{},
+				}},
+			}
+
+			result := Validate(documents)
+
+			if tc.wantErr && !result.HasErrors() {
+				t.Errorf("Validate() expected error for name %q, got none", tc.boxName)
+			}
+
+			if !tc.wantErr && result.HasErrors() {
+				t.Errorf("Validate() expected no error for name %q, got: %v", tc.boxName, result.Errors)
+			}
+		})
 	}
 }
