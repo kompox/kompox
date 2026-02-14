@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -19,15 +20,20 @@ import (
 
 // Doc holds front matter and path info for a design document.
 type Doc struct {
-	ID       string `yaml:"id"`
-	Title    string `yaml:"title"`
-	Version  string `yaml:"version"`
-	Status   string `yaml:"status"`
-	Updated  string `yaml:"updated"`
-	Language string `yaml:"language"`
-
-	RelPath string `yaml:"-"`
+	ID          string         `yaml:"id"`
+	Title       string         `yaml:"title"`
+	Version     string         `yaml:"version"`
+	Status      string         `yaml:"status"`
+	Updated     string         `yaml:"updated"`
+	Language    string         `yaml:"language"`
+	Category    string         `yaml:"-"`
+	RelPath     string         `yaml:"-"`
+	RepoRelPath string         `yaml:"-"`
+	References  []string       `yaml:"-"`
+	FrontMatter map[string]any `yaml:"-"`
 }
+
+type JSONDoc map[string]any
 
 // IndexData is the template data root for each category index.
 type IndexData struct {
@@ -43,6 +49,27 @@ type CategoryTemplate struct {
 	TemplatePath string
 }
 
+type CategoryJSONIndex struct {
+	Category string    `json:"category"`
+	Updated  string    `json:"updated"`
+	DocCount int       `json:"docCount"`
+	Docs     []JSONDoc `json:"docs"`
+}
+
+type HubJSONIndex struct {
+	Updated    string             `json:"updated"`
+	DocCount   int                `json:"docCount"`
+	Categories []HubCategoryIndex `json:"categories"`
+	Docs       []JSONDoc          `json:"docs"`
+}
+
+type HubCategoryIndex struct {
+	Category  string `json:"category"`
+	Updated   string `json:"updated"`
+	DocCount  int    `json:"docCount"`
+	IndexPath string `json:"indexPath"`
+}
+
 func main() {
 	var (
 		designDir = flag.String("design-dir", ".", "Design directory root")
@@ -53,6 +80,12 @@ func main() {
 		*designDir = "."
 	}
 
+	designDirAbs, err := filepath.Abs(*designDir)
+	if err != nil {
+		exitErr(fmt.Errorf("resolve design dir abs path: %w", err))
+	}
+	repoRootAbs := filepath.Dir(designDirAbs)
+
 	categoryTemplates, err := discoverCategoryTemplates(filepath.Join(*designDir, "gen"))
 	if err != nil {
 		exitErr(err)
@@ -61,6 +94,12 @@ func main() {
 		exitErr(fmt.Errorf("no category templates found under %s", filepath.Join(*designDir, "gen", "*", "README.md")))
 	}
 
+	var (
+		hubDocs       []Doc
+		hubJSONDocs   []JSONDoc
+		hubCategories []HubCategoryIndex
+	)
+
 	for _, ct := range categoryTemplates {
 		outDir := filepath.Join(*designDir, ct.Category)
 		if err := os.MkdirAll(outDir, 0o755); err != nil {
@@ -68,7 +107,7 @@ func main() {
 		}
 		outputPath := filepath.Join(outDir, "README.md")
 
-		docs, err := scanCategoryDocs(outDir)
+		docs, err := scanCategoryDocs(outDir, repoRootAbs)
 		if err != nil {
 			exitErr(fmt.Errorf("scan category docs (%s): %w", ct.Category, err))
 		}
@@ -98,7 +137,111 @@ func main() {
 		if err := renderTemplateToFile(ct.TemplatePath, outputPath, data); err != nil {
 			exitErr(fmt.Errorf("render category index (%s): %w", ct.Category, err))
 		}
+
+		categoryDocs := make([]Doc, 0, len(docs))
+		categoryJSONDocs := make([]JSONDoc, 0, len(docs))
+		for _, d := range docs {
+			d.Category = ct.Category
+			categoryDocs = append(categoryDocs, d)
+			categoryJSONDocs = append(categoryJSONDocs, toJSONDoc(d))
+			hubDocs = append(hubDocs, d)
+			hubJSONDocs = append(hubJSONDocs, toJSONDoc(d))
+		}
+
+		categoryJSONPath := filepath.Join(outDir, "index.json")
+		categoryJSON := CategoryJSONIndex{
+			Category: ct.Category,
+			Updated:  latestUpdated(categoryDocs),
+			DocCount: len(categoryJSONDocs),
+			Docs:     categoryJSONDocs,
+		}
+		if err := writeJSONToFile(categoryJSONPath, categoryJSON); err != nil {
+			exitErr(fmt.Errorf("write category json index (%s): %w", ct.Category, err))
+		}
+
+		hubCategories = append(hubCategories, HubCategoryIndex{
+			Category:  ct.Category,
+			Updated:   latestUpdated(categoryDocs),
+			DocCount:  len(categoryDocs),
+			IndexPath: filepath.ToSlash(filepath.Join(*designDir, ct.Category, "index.json")),
+		})
 	}
+
+	hubJSON := HubJSONIndex{
+		Updated:    latestUpdated(hubDocs),
+		DocCount:   len(hubJSONDocs),
+		Categories: hubCategories,
+		Docs:       hubJSONDocs,
+	}
+	if err := writeJSONToFile(filepath.Join(*designDir, "index.json"), hubJSON); err != nil {
+		exitErr(fmt.Errorf("write design hub json index: %w", err))
+	}
+
+	devTasksDir := filepath.Join(repoRootAbs, "_dev", "tasks")
+	devTaskDocs, err := scanDevTaskDocs(devTasksDir, repoRootAbs)
+	if err != nil {
+		exitErr(fmt.Errorf("scan _dev/tasks docs: %w", err))
+	}
+	if len(devTaskDocs) > 0 {
+		for i := range devTaskDocs {
+			devTaskDocs[i].Category = "old-tasks"
+			hubDocs = append(hubDocs, devTaskDocs[i])
+			hubJSONDocs = append(hubJSONDocs, toJSONDoc(devTaskDocs[i]))
+		}
+		hubCategories = append(hubCategories, HubCategoryIndex{
+			Category:  "old-tasks",
+			Updated:   latestUpdated(devTaskDocs),
+			DocCount:  len(devTaskDocs),
+			IndexPath: "_dev/tasks/index.json",
+		})
+
+		devTaskIndex := CategoryJSONIndex{
+			Category: "old-tasks",
+			Updated:  latestUpdated(devTaskDocs),
+			DocCount: len(devTaskDocs),
+			Docs:     toJSONDocs(devTaskDocs),
+		}
+		if err := writeJSONToFile(filepath.Join(devTasksDir, "index.json"), devTaskIndex); err != nil {
+			exitErr(fmt.Errorf("write _dev/tasks json index: %w", err))
+		}
+
+		hubJSON.Updated = latestUpdated(hubDocs)
+		hubJSON.DocCount = len(hubJSONDocs)
+		hubJSON.Categories = hubCategories
+		hubJSON.Docs = hubJSONDocs
+		if err := writeJSONToFile(filepath.Join(*designDir, "index.json"), hubJSON); err != nil {
+			exitErr(fmt.Errorf("rewrite design hub json index with _dev/tasks: %w", err))
+		}
+	}
+}
+
+func toJSONDocs(docs []Doc) []JSONDoc {
+	out := make([]JSONDoc, 0, len(docs))
+	for _, d := range docs {
+		out = append(out, toJSONDoc(d))
+	}
+	return out
+}
+
+func toJSONDoc(doc Doc) JSONDoc {
+	m := make(JSONDoc)
+	for k, v := range doc.FrontMatter {
+		m[k] = v
+	}
+	m["id"] = doc.ID
+	m["title"] = doc.Title
+	m["version"] = doc.Version
+	m["status"] = doc.Status
+	m["updated"] = doc.Updated
+	m["language"] = doc.Language
+	m["category"] = doc.Category
+	relPath := doc.RepoRelPath
+	if strings.TrimSpace(relPath) == "" {
+		relPath = doc.RelPath
+	}
+	m["relPath"] = relPath
+	m["references"] = doc.References
+	return m
 }
 
 func discoverCategoryTemplates(genDir string) ([]CategoryTemplate, error) {
@@ -165,8 +308,38 @@ func renderTemplateToFile(templatePath, outputPath string, data any) error {
 	return nil
 }
 
-func scanCategoryDocs(categoryDir string) ([]Doc, error) {
+func writeJSONToFile(outputPath string, data any) error {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(data); err != nil {
+		return fmt.Errorf("encode json: %w", err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
+		return fmt.Errorf("ensure output dir: %w", err)
+	}
+	if prev, err := os.ReadFile(outputPath); err == nil {
+		if bytes.Equal(prev, buf.Bytes()) {
+			return nil
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("read existing output: %w", err)
+	}
+	if err := os.WriteFile(outputPath, buf.Bytes(), 0o644); err != nil {
+		return fmt.Errorf("write output: %w", err)
+	}
+
+	return nil
+}
+
+func scanCategoryDocs(categoryDir, repoRoot string) ([]Doc, error) {
 	var docs []Doc
+	categoryDirAbs, err := filepath.Abs(categoryDir)
+	if err != nil {
+		return nil, err
+	}
 
 	if _, err := os.Stat(categoryDir); err != nil {
 		if errors.Is(err, os.ErrNotExist) {
@@ -175,7 +348,7 @@ func scanCategoryDocs(categoryDir string) ([]Doc, error) {
 		return nil, err
 	}
 
-	err := filepath.WalkDir(categoryDir, func(path string, d fs.DirEntry, err error) error {
+	walkErr := filepath.WalkDir(categoryDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -205,13 +378,93 @@ func scanCategoryDocs(categoryDir string) ([]Doc, error) {
 			return nil
 		}
 
-		rel, relErr := filepath.Rel(categoryDir, path)
+		absPath, absErr := filepath.Abs(path)
+		if absErr != nil {
+			return absErr
+		}
+		rel, relErr := filepath.Rel(repoRoot, absPath)
 		if relErr != nil {
 			return relErr
 		}
 		rel = strings.ReplaceAll(rel, string(filepath.Separator), "/")
-		doc.RelPath = "./" + rel
+		doc.RepoRelPath = rel
 
+		categoryPrefix := strings.TrimSuffix(strings.ReplaceAll(categoryDir, string(filepath.Separator), "/"), "/") + "/"
+		relCategory := strings.TrimPrefix(doc.RepoRelPath, categoryPrefix)
+		if relCategory == doc.RepoRelPath {
+			relCategoryPath, relCategoryErr := filepath.Rel(categoryDirAbs, absPath)
+			if relCategoryErr != nil {
+				return relCategoryErr
+			}
+			relCategory = strings.ReplaceAll(relCategoryPath, string(filepath.Separator), "/")
+		}
+		doc.RelPath = "./" + relCategory
+
+		if strings.TrimSpace(doc.ID) == "" {
+			doc.ID = strings.TrimSuffix(d.Name(), filepath.Ext(d.Name()))
+		}
+		if strings.TrimSpace(doc.Title) == "" {
+			doc.Title = titleFromFilename(d.Name())
+		}
+		doc.Updated = normalizeDate(doc.Updated)
+
+		docs = append(docs, doc)
+		return nil
+	})
+	if walkErr != nil {
+		return nil, walkErr
+	}
+
+	return docs, nil
+}
+
+func scanDevTaskDocs(devTasksDir, repoRoot string) ([]Doc, error) {
+	var docs []Doc
+
+	if _, err := os.Stat(devTasksDir); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return docs, nil
+		}
+		return nil, err
+	}
+
+	err := filepath.WalkDir(devTasksDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+
+		base := strings.ToLower(d.Name())
+		if !strings.HasSuffix(base, ".ja.md") {
+			return nil
+		}
+		if base == "readme.ja.md" || base == "guide.ja.md" || strings.HasPrefix(base, "index.") {
+			return nil
+		}
+
+		doc, ok, parseErr := parseFrontMatter(path)
+		if parseErr != nil {
+			return fmt.Errorf("parse front matter for %s: %w", path, parseErr)
+		}
+		if !ok {
+			return nil
+		}
+
+		absPath, absErr := filepath.Abs(path)
+		if absErr != nil {
+			return absErr
+		}
+		rel, relErr := filepath.Rel(repoRoot, absPath)
+		if relErr != nil {
+			return relErr
+		}
+		rel = strings.ReplaceAll(rel, string(filepath.Separator), "/")
+
+		doc.Category = "old-tasks"
+		doc.RelPath = rel
+		doc.RepoRelPath = rel
 		if strings.TrimSpace(doc.ID) == "" {
 			doc.ID = strings.TrimSuffix(d.Name(), filepath.Ext(d.Name()))
 		}
@@ -226,6 +479,10 @@ func scanCategoryDocs(categoryDir string) ([]Doc, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	sort.SliceStable(docs, func(i, j int) bool {
+		return docs[i].RelPath < docs[j].RelPath
+	})
 
 	return docs, nil
 }
@@ -258,7 +515,39 @@ func parseFrontMatter(path string) (Doc, bool, error) {
 	if err := yaml.Unmarshal([]byte(yamlText), &doc); err != nil {
 		return Doc{}, false, err
 	}
+	var frontMatter map[string]any
+	if err := yaml.Unmarshal([]byte(yamlText), &frontMatter); err != nil {
+		return Doc{}, false, err
+	}
+	doc.FrontMatter = frontMatter
+	doc.References = parseReferenceLabels(lines[end+1:])
 	return doc, true, nil
+}
+
+func parseReferenceLabels(lines []string) []string {
+	labels := make(map[string]struct{})
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "[") {
+			continue
+		}
+		idx := strings.Index(trimmed, "]:")
+		if idx <= 1 {
+			continue
+		}
+		label := strings.TrimSpace(trimmed[1:idx])
+		if label == "" {
+			continue
+		}
+		labels[label] = struct{}{}
+	}
+
+	refs := make([]string, 0, len(labels))
+	for label := range labels {
+		refs = append(refs, label)
+	}
+	sort.Strings(refs)
+	return refs
 }
 
 // adrNumberFromDoc extracts the numeric ADR id (e.g., 6 from "K4x-ADR-006").
