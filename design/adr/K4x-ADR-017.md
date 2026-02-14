@@ -30,7 +30,7 @@ We need a concrete, stable v1 direction for:
   - `--pod`
   - `--container`
 
-Detailed schema, validation rules, NetworkPolicy defaults, ingress distribution rules, and examples are specified in [K4x-Plan-2026aa.ja.md]. This ADR only records the decision to adopt that model and to use that document as the normative design reference for implementation.
+Detailed schema, validation rules, NetworkPolicy defaults, ingress distribution rules, and examples are specified in [2026aa-kompox-box-update.ja.md]. This ADR only records the decision to adopt that model and to use that document as the normative design reference for implementation.
 
 ## Alternatives Considered
 
@@ -49,7 +49,7 @@ Detailed schema, validation rules, NetworkPolicy defaults, ingress distribution 
 
 ## Rollout
 
-- Phase 1: Treat [K4x-Plan-2026aa.ja.md] as the design source of truth for implementation.
+- Phase 1: Treat [2026aa-kompox-box-update.ja.md] as the design source of truth for implementation.
 - Phase 2: Expand BoxSpec from the current placeholder to support the minimal v1 fields needed by the draft.
 - Phase 3: Implement loader-time validation and deterministic Compose services → component mapping.
 - Phase 4: Update Kubernetes conversion so outputs (Deployment/Service/Ingress/NetworkPolicy) are produced per component, including default-deny ingress with baseline allowances.
@@ -63,8 +63,8 @@ Migration notes:
 
 - [K4x-ADR-008]
 - [K4x-ADR-009]
-- [K4x-Plan-2026aa.ja.md]
+- [2026aa-kompox-box-update.ja.md]
 
 [K4x-ADR-008]: ./K4x-ADR-008.md
 [K4x-ADR-009]: ./K4x-ADR-009.md
-[K4x-Plan-2026aa.ja.md]: ../plans/K4x-Plan-2026aa.ja.md
+[2026aa-kompox-box-update.ja.md]: ../plans/2026/2026aa-kompox-box-update.ja.md

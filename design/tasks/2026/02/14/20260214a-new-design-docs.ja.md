@@ -31,7 +31,7 @@ owner:
 ### 対象パス
 
 - ADR: `design/adr/K4x-ADR-NNN.md`
-- Plans: `design/plans/2026/K4x-Plan-2026aa.ja.md`
+- Plans: `design/plans/2026/2026aa-kompox-box-update.ja.md`
 - Tasks: `design/tasks/2026/02/14/20260214a-slug.ja.md`
 - Specs:
   - `design/v1/Kompox-slug.ja.md`

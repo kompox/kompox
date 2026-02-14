@@ -1,5 +1,5 @@
 ---
-id: K4x-Plan-2026aa
+id: 2026aa-kompox-box-update
 title: Kompox Box Update
 version: v1
 status: draft
