@@ -2,9 +2,9 @@
 
 | ID | Title | Updated | Status |
 | --- | --- | --- | --- |
-| [2026aa-kompox-box-update](./2026/2026aa-kompox-box-update.ja.md) | Kompox Box Update | 2026-02-14 | draft |
+| [2026aa-kompox-box-update](./2026/2026aa-kompox-box-update.ja.md) | Kompox Box Update | 2026-02-14T00:00:00Z | draft |
 
-Updated: 2026-02-14
+Updated: 2026-02-14T00:00:00Z
 
 ---
 

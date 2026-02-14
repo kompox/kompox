@@ -61,8 +61,6 @@ func main() {
 		exitErr(fmt.Errorf("no category templates found under %s", filepath.Join(*designDir, "gen", "*", "README.md")))
 	}
 
-	now := time.Now().Format("2006-01-02")
-
 	for _, ct := range categoryTemplates {
 		outDir := filepath.Join(*designDir, ct.Category)
 		if err := os.MkdirAll(outDir, 0o755); err != nil {
@@ -93,7 +91,7 @@ func main() {
 		data := IndexData{
 			Title:    fmt.Sprintf("Kompox Design %s Index", strings.ToUpper(ct.Category)),
 			Category: ct.Category,
-			Updated:  now,
+			Updated:  latestUpdated(docs),
 			Docs:     docs,
 		}
 
@@ -152,6 +150,13 @@ func renderTemplateToFile(templatePath, outputPath string, data any) error {
 	}
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
 		return fmt.Errorf("ensure output dir: %w", err)
+	}
+	if prev, err := os.ReadFile(outputPath); err == nil {
+		if bytes.Equal(prev, buf.Bytes()) {
+			return nil
+		}
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("read existing output: %w", err)
 	}
 	if err := os.WriteFile(outputPath, buf.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("write output: %w", err)
@@ -322,11 +327,52 @@ func normalizeDate(s string) string {
 	}
 	for _, l := range layouts {
 		if t, err := time.Parse(l, s); err == nil {
-			return t.Format("2006-01-02")
+			return t.UTC().Format(time.RFC3339)
 		}
 	}
 	// Keep as-is if unknown format.
 	return s
+}
+
+func latestUpdated(docs []Doc) string {
+	var latest time.Time
+	for _, d := range docs {
+		t, ok := parseUpdatedTime(d.Updated)
+		if !ok {
+			continue
+		}
+		if latest.IsZero() || t.After(latest) {
+			latest = t
+		}
+	}
+	if latest.IsZero() {
+		return "-"
+	}
+	return latest.UTC().Format(time.RFC3339)
+}
+
+func parseUpdatedTime(s string) (time.Time, bool) {
+	s = strings.TrimSpace(s)
+	if s == "" || s == "-" {
+		return time.Time{}, false
+	}
+	if t, err := time.Parse(time.RFC3339, s); err == nil {
+		return t, true
+	}
+	// Backward compatibility for date-only values.
+	if t, err := time.Parse("2006-01-02", s); err == nil {
+		return t.UTC(), true
+	}
+	if t, err := time.Parse("2006/01/02", s); err == nil {
+		return t.UTC(), true
+	}
+	if t, err := time.Parse("2006-1-2", s); err == nil {
+		return t.UTC(), true
+	}
+	if t, err := time.Parse("2006/1/2", s); err == nil {
+		return t.UTC(), true
+	}
+	return time.Time{}, false
 }
 
 func splitLinesLF(s string) []string {

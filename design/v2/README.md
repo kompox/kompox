@@ -2,9 +2,9 @@
 
 | ID | Title | Updated | Status |
 | --- | --- | --- | --- |
-| [Kompox-PaaS-Roadmap](./Kompox-PaaS-Roadmap.ja.md) | Kompox PaaS Roadmap | 2025-09-26 | draft |
+| [Kompox-PaaS-Roadmap](./Kompox-PaaS-Roadmap.ja.md) | Kompox PaaS Roadmap | 2025-09-26T00:00:00Z | draft |
 
-Updated: 2026-02-14
+Updated: 2025-09-26T00:00:00Z
 
 ---
 
