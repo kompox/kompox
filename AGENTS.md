@@ -39,6 +39,7 @@ Common fields (see each type's GUIDE.md for the full schema):
   - Design docs: `Kompox-<short-slug>`
   - Plan files: `YYYYaa-<short-slug>` (use `aa`, `ab`, ... to disambiguate multiple plans in the same year)
   - Task files: `YYYYMMDDa-<short-slug>` (use `a`, `b`, ... to disambiguate multiple tasks on the same date)
+  - User may refer to plans by `YYYYaa` and tasks by `YYYYMMDDa` when the short slug is not important.
 - title: Title of the document
 - status: Document status (see GUIDE.md)
 - updated: Last updated timestamp (UTC, ISO 8601: YYYY-MM-DDTHH:MM:SSZ)
