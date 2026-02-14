@@ -5,6 +5,8 @@ version: v1
 status: draft
 updated: 2026-02-14
 language: ja
+tasks:
+  - 20260214b-box-kom-loader
 ---
 
 # Plan: Kompox Box Update
@@ -506,18 +508,21 @@ spec:
 - Box を定義しない場合の既定挙動は現行 v1 の "component=app に集約" を維持する。
 - Box を追加した場合のみ topology が変化するため、段階的に Box 導入が可能である。
 
-## 参考
+## 参照
 
-- [Kompox-KubeConverter.ja.md]
-- [Kompox-CLI.ja.md]
+- Tasks:
+  - [20260214b-box-kom-loader]
+- [Kompox-KubeConverter]
+- [Kompox-CLI]
 - [K4x-ADR-008]
 - [K4x-ADR-009]
 - [ops/v1alpha1 types.go]
 - [Kubernetes NetworkPolicy]
 - [Compose specification]
 
-[Kompox-KubeConverter.ja.md]: ./Kompox-KubeConverter.ja.md
-[Kompox-CLI.ja.md]: ./Kompox-CLI.ja.md
+[20260214b-box-kom-loader]: ../tasks/2026/02/14/20260214b-box-kom-loader.ja.md
+[Kompox-KubeConverter]: ./Kompox-KubeConverter.ja.md
+[Kompox-CLI]: ./Kompox-CLI.ja.md
 [K4x-ADR-008]: ../adr/K4x-ADR-008.md
 [K4x-ADR-009]: ../adr/K4x-ADR-009.md
 [ops/v1alpha1 types.go]: ../../config/crd/ops/v1alpha1/types.go

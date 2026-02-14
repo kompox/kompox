@@ -2,15 +2,17 @@
 id: 20260214b-box-kom-loader
 title: Box KOM 定義とロード時バリデーション
 status: done
-updated: 2026-02-14T15:06:50Z
+updated: 2026-02-14T15:51:24Z
 language: ja
 owner: yaegashi
+plans:
+  - 2026aa-kompox-box-update
 ---
 # Task: Box KOM 定義とロード時バリデーション
 
 ## 目的
 
-- [2026aa-kompox-box-update.ja.md] の Phase 1〜3 のうち、既存機能に影響を出さない範囲で Box の「定義」「読み込み」「バリデーション」を実装する。
+- [2026aa-kompox-box-update] の Phase 1〜3 のうち、既存機能に影響を出さない範囲で Box の「定義」「読み込み」「バリデーション」を実装する。
 - App に Box が存在しない場合は、現行の挙動(=単一 component `app`)が変わらないことを保証する。
 
 ## スコープ/非スコープ
@@ -39,17 +41,17 @@ owner: yaegashi
 
 ## 計画 (チェックリスト)
 
-- [ ] `config/crd/ops/v1alpha1/types.go` の `BoxSpec` を placeholder から v1 最小へ拡張
-- [ ] Box のロード時バリデーションを追加
-  - [ ] `metadata.name` の制約(DNS-1123, `app` 禁止)
-  - [ ] `spec.component` がある場合の一致制約
-  - [ ] `spec.image` の有無による Compose/Standalone の形状チェック
+- [x] `config/crd/ops/v1alpha1/types.go` の `BoxSpec` を placeholder から v1 最小へ拡張
+- [x] Box のロード時バリデーションを追加
+  - [x] `metadata.name` の制約(DNS-1123, `app` 禁止)
+  - [x] `spec.component` がある場合の一致制約
+  - [x] `spec.image` の有無による Compose/Standalone の形状チェック
     - Compose Box: `image/command/args/ingress` を禁止
     - Standalone Box: `image` 必須、`ingress` は禁止(予約)
-- [ ] `cmd/kompoxops/kom_loader.go` の KOM 初期化で、Box を含む入力をロード・検証できることを確認
-- [ ] テストを追加/更新
-  - [ ] `config/crd/ops/v1alpha1` の loader/validator テストに Box の正常系/異常系を追加
-  - [ ] 既存 E2E(KOM ローダー系)に Box を混ぜても既存パスが壊れないこと
+- [x] `cmd/kompoxops/kom_loader.go` の KOM 初期化で、Box を含む入力をロード・検証できることを確認
+- [x] テストを追加/更新
+  - [x] `config/crd/ops/v1alpha1` の loader/validator テストに Box の正常系/異常系を追加
+  - [x] 既存 E2E(KOM ローダー系)に Box を混ぜても既存パスが壊れないこと
 
 ## テスト
 
@@ -63,7 +65,7 @@ owner: yaegashi
 
 - Box が存在しない App の挙動/既存テストが変化しない。
 - Box が存在する場合、ロード時に明確で再現性のあるエラーメッセージで不正入力を検出できる。
-- 仕様の一次参照は [2026aa-kompox-box-update.ja.md] とし、実装がそれと矛盾しない。
+- 仕様の一次参照は [2026aa-kompox-box-update] とし、実装がそれと矛盾しない。
 
 ## メモ
 
@@ -78,17 +80,23 @@ owner: yaegashi
   - Box バリデーション追加（metadata.name, spec.component, Box 種別）
   - テスト追加（正常系・異常系）
   - 既存テスト全て通過確認
+- 2026-02-14: 達成状況を再確認してタスク反映
+  - 計画チェックリストを完了に更新
+  - 根拠確認: `types.go` / `validator.go` / `validator_test.go` / `kom_loader_test.go`
+  - 再検証: `go test ./config/crd/ops/v1alpha1 ./cmd/kompoxops` が成功
 
-## 参考
+## 参照
 
 - [K4x-ADR-017]
-- [2026aa-kompox-box-update.ja.md]
-- [Kompox-KOM.ja.md]
+- [2026aa-kompox-box-update]
+- [Kompox-KOM]
 - [config/crd/ops/v1alpha1/types.go]
 - [cmd/kompoxops/kom_loader.go]
+- Plans:
+  - [2026aa-kompox-box-update]
 
 [K4x-ADR-017]: ../../../../adr/K4x-ADR-017.md
-[2026aa-kompox-box-update.ja.md]: ../../../../plans/2026/2026aa-kompox-box-update.ja.md
-[Kompox-KOM.ja.md]: ../../../../v1/Kompox-KOM.ja.md
+[2026aa-kompox-box-update]: ../../../../plans/2026/2026aa-kompox-box-update.ja.md
+[Kompox-KOM]: ../../../../v1/Kompox-KOM.ja.md
 [config/crd/ops/v1alpha1/types.go]: ../../../../../config/crd/ops/v1alpha1/types.go
 [cmd/kompoxops/kom_loader.go]: ../../../../../cmd/kompoxops/kom_loader.go

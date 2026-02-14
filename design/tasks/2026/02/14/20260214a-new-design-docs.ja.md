@@ -137,7 +137,7 @@ owner:
 - 2026-02-14: `design/gen/README.md` にインデックス生成仕様を英語で記載
 - 2026-02-14: `design/README.md` を静的ハブに切り替え、ジェネレーターが上書きしないことを確認
 
-## 参考
+## 参照
 
 - [design/gen/main.go]
 - [design/gen/README.md]
