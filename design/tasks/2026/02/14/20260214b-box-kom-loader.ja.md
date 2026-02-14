@@ -1,8 +1,8 @@
 ---
 id: 20260214b-box-kom-loader
 title: Box KOM 定義とロード時バリデーション
-status: draft
-updated: 2026-02-14T13:30:32Z
+status: done
+updated: 2026-02-14T15:06:50Z
 language: ja
 owner: yaegashi
 ---
@@ -73,6 +73,11 @@ owner: yaegashi
 ## 進捗
 
 - 2026-02-14: タスク作成
+- 2026-02-14: 実装完了
+  - BoxSpec を拡張（image, command, args, ingress, networkPolicy）
+  - Box バリデーション追加（metadata.name, spec.component, Box 種別）
+  - テスト追加（正常系・異常系）
+  - 既存テスト全て通過確認
 
 ## 参考
 

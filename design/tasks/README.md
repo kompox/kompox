@@ -3,9 +3,9 @@
 | ID | Title | Updated | Status |
 | --- | --- | --- | --- |
 | [20260214a-new-design-docs](./2026/02/14/20260214a-new-design-docs.ja.md) | Design doc indexes 再設計 | 2026-02-14T00:00:00Z | done |
-| [20260214b-box-kom-loader](./2026/02/14/20260214b-box-kom-loader.ja.md) | Box KOM 定義とロード時バリデーション | 2026-02-14T13:30:32Z | draft |
+| [20260214b-box-kom-loader](./2026/02/14/20260214b-box-kom-loader.ja.md) | Box KOM 定義とロード時バリデーション | 2026-02-14T15:06:50Z | done |
 
-Updated: 2026-02-14T13:30:32Z
+Updated: 2026-02-14T15:06:50Z
 
 ---
 
