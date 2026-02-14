@@ -2,7 +2,7 @@
 id: K4x-ADR-011
 title: Introduce Defaults pseudo-resource for KOM ingestion
 status: accepted
-date: 2025-10-17
+updated: 2025-10-17
 language: en
 supersedes: []
 supersededBy: []

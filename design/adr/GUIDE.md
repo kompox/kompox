@@ -19,7 +19,7 @@ Language policy: ADRs must always be written in English. Japanese documentation 
   - id (format: `K4x-ADR-###`, same as filename stem)
   - title
   - status
-  - date (ISO `YYYY-MM-DD`)
+  - updated (ISO `YYYY-MM-DD`)
 
 ## Status lifecycle
 
@@ -60,7 +60,7 @@ Notes:
 id: K4x-ADR-<###>
 title: <Short decision title>
 status: proposed | accepted | rejected | deprecated
-date: YYYY-MM-DD
+updated: YYYY-MM-DD
 supersedes: <K4x-ADR-### | [K4x-ADR-###, K4x-ADR-###]>
 supersededBy: <K4x-ADR-### | [K4x-ADR-###, K4x-ADR-###]>
 ---

@@ -2,7 +2,7 @@
 id: K4x-ADR-017
 title: Define App/Box model, Compose mapping, and CLI selectors
 status: proposed
-date: 2026-02-14
+updated: 2026-02-14
 language: en
 supersedes: [K4x-ADR-008]
 supersededBy: []

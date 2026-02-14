@@ -1,6 +1,4 @@
-# V1 Specs Index
-
-Updated: 2026-02-14
+# Design Docs (v1) Index
 
 | ID | Title | Updated | Status |
 | --- | --- | --- | --- |
@@ -16,8 +14,13 @@ Updated: 2026-02-14
 | [Kompox-Resources](./Kompox-Resources.ja.md) | Kompox PaaS Resources | 2025-10-12 | archived |
 | [Kompox-Spec-Draft](./Kompox-Spec-Draft.ja.md) | Kompox 仕様ドラフト | 2025-10-12 | archived |
 
-**Status definitions:**
+Updated: 2026-02-14
 
+---
+
+Design docs (v1 - current) are comprehensive specifications that describe the design and implementation details of features and components. They are intended to be living documents that evolve with the project. Use the YAML front matter fields to ensure consistent indexing.
+
+Status legend:
 - draft: No implementation yet or still under discussion
 - synced: Implementation exists and document reflects it correctly
 - out-of-sync: Implementation exists but document needs updates

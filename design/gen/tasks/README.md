@@ -1,9 +1,5 @@
 # Tasks Index
 
-Updated: {{ .Updated }}
-
-This index lists short, action-oriented developer tasks found in this folder.
-
 | ID | Title | Updated | Status |
 | --- | --- | --- | --- |
 {{- if .Docs }}
@@ -14,15 +10,26 @@ This index lists short, action-oriented developer tasks found in this folder.
 | - | No documents | - | - |
 {{- end }}
 
+Updated: {{ .Updated }}
+
 ---
 
+Tasks are intentionally short and specific. Decisions should be captured in ADRs and specifications. Use the YAML front matter fields to ensure consistent indexing.
+
+Old tasks (prior to 2026-02-14) have been archived in [_dev/tasks] for historical reference. They are not included in the main index to keep it focused on current and future work.
+
 Status legend:
+- draft: Not started yet
 - active: Work in progress
 - blocked: Waiting on dependency or decision
 - done: Completed; kept for history
-- canceled: Stopped intentionally
-- superseded: Replaced by a newer task
+- canceled: Stopped intentionally (kept for history)
+- superseded: Replaced by a newer task (kept for history)
 
-Notes:
-- Tasks are intentionally short and specific. Decisions should be captured in ADRs and specifications.
-- Use the YAML front matter fields to ensure consistent indexing.
+Guides:
+- [GUIDE.md] (English)
+- [GUIDE.ja.md] (Japanese)
+
+[_dev/tasks]: ../../_dev/tasks
+[GUIDE.md]: ./GUIDE.md
+[GUIDE.ja.md]: ./GUIDE.ja.md

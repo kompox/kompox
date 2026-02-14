@@ -2,7 +2,7 @@
 id: K4x-ADR-002
 title: Unify snapshot restore into disk create
 status: accepted
-date: 2025-09-27
+updated: 2025-09-27
 language: en
 supersedes: []
 supersededBy: []

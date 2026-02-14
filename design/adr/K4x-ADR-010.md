@@ -2,7 +2,7 @@
 id: K4x-ADR-010
 title: Rename CRD to KOM
 status: accepted
-date: 2025-10-17
+updated: 2025-10-17
 language: en
 supersedes: []
 supersededBy: []

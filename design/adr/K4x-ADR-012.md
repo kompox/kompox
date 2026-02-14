@@ -2,7 +2,7 @@
 id: K4x-ADR-012
 title: Introduce App.RefBase for external references
 status: accepted
-date: 2025-10-18
+updated: 2025-10-18
 language: en
 supersedes: []
 supersededBy: []

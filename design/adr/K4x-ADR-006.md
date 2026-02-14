@@ -2,7 +2,7 @@
 id: K4x-ADR-006
 title: Rename domain model Service to Workspace
 status: accepted
-date: 2025-10-12
+updated: 2025-10-12
 language: en
 supersedes: []
 supersededBy: []

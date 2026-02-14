@@ -2,7 +2,7 @@
 id: K4x-ADR-015
 title: Introduce Kompox CLI Env with Git-like discovery
 status: accepted
-date: 2025-11-03
+updated: 2025-11-03
 language: en
 supersedes: []
 supersededBy: []

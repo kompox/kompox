@@ -2,7 +2,7 @@
 id: K4x-ADR-014
 title: Introduce Volume Types
 status: accepted
-date: 2025-10-23
+updated: 2025-10-23
 language: en
 supersedes: []
 supersededBy: []
