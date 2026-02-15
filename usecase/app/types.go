@@ -8,6 +8,7 @@ import (
 // Repos holds repositories needed for app use cases.
 type Repos struct {
 	App       domain.AppRepository
+	Box       domain.BoxRepository
 	Workspace domain.WorkspaceRepository
 	Provider  domain.ProviderRepository
 	Cluster   domain.ClusterRepository

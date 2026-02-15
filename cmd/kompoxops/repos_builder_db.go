@@ -80,6 +80,7 @@ func buildReposFromDB(cmd *cobra.Command) (*domain.Repositories, error) {
 			Provider:  store.ProviderRepository,
 			Cluster:   store.ClusterRepository,
 			App:       store.AppRepository,
+			Box:       store.BoxRepository,
 		}
 		reposCacheMu.Lock()
 		reposCache[dbURL] = repos
@@ -99,6 +100,7 @@ func buildReposFromDB(cmd *cobra.Command) (*domain.Repositories, error) {
 			Provider:  rdb.NewProviderRepository(db),
 			Cluster:   rdb.NewClusterRepository(db),
 			App:       rdb.NewAppRepository(db),
+			Box:       rdb.NewBoxRepository(db),
 		}, nil
 
 	default:

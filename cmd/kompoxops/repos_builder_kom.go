@@ -20,6 +20,7 @@ func buildReposFromKOM(ctx context.Context, sink *komv1.Sink, kompoxAppFilePath 
 		Provider:  store.ProviderRepository,
 		Cluster:   store.ClusterRepository,
 		App:       store.AppRepository,
+		Box:       store.BoxRepository,
 	}
 
 	// Convert KOM sink to domain models
@@ -33,5 +34,6 @@ func buildReposFromKOM(ctx context.Context, sink *komv1.Sink, kompoxAppFilePath 
 		Provider:  store.ProviderRepository,
 		Cluster:   store.ClusterRepository,
 		App:       store.AppRepository,
+		Box:       store.BoxRepository,
 	}, nil
 }

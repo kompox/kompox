@@ -94,6 +94,27 @@ func (m *mockAppRepo) List(ctx context.Context) ([]*model.App, error) {
 	return m.apps, nil
 }
 
+type mockBoxRepo struct {
+	boxes     []*model.Box
+	createErr error
+}
+
+func (m *mockBoxRepo) Create(ctx context.Context, box *model.Box) error {
+	if m.createErr != nil {
+		return m.createErr
+	}
+	// Honor pre-set ID (FQN), only auto-generate when empty
+	if box.ID == "" {
+		box.ID = "box-" + box.Name
+	}
+	m.boxes = append(m.boxes, box)
+	return nil
+}
+
+func (m *mockBoxRepo) List(ctx context.Context) ([]*model.Box, error) {
+	return m.boxes, nil
+}
+
 func TestSink_ToModels(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -1365,6 +1386,80 @@ spec:
 			wantErr: true,
 			validate: func(t *testing.T, repos Repositories) {},
 		},
+		{
+			name: "app with standalone box",
+			yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: box-ws
+  annotations:
+    ops.kompox.dev/id: /ws/box-ws
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: box-prv
+  annotations:
+    ops.kompox.dev/id: /ws/box-ws/prv/box-prv
+spec:
+  driver: k3s
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: box-cls
+  annotations:
+    ops.kompox.dev/id: /ws/box-ws/prv/box-prv/cls/box-cls
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: box-app
+  annotations:
+    ops.kompox.dev/id: /ws/box-ws/prv/box-prv/cls/box-cls/app/box-app
+spec:
+  compose: "services:\n  web:\n    image: nginx\n"
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Box
+metadata:
+  name: runner
+  annotations:
+    ops.kompox.dev/id: /ws/box-ws/prv/box-prv/cls/box-cls/app/box-app/box/runner
+spec:
+  component: runner
+  image: ghcr.io/kompox/kompox/box:latest
+  command: ["sleep"]
+  args: ["infinity"]
+`,
+			wantErr: false,
+			validate: func(t *testing.T, repos Repositories) {
+				boxes, _ := repos.Box.List(context.Background())
+				if len(boxes) != 1 {
+					t.Fatalf("expected 1 box, got %d", len(boxes))
+				}
+				box := boxes[0]
+				if box.Name != "runner" {
+					t.Errorf("expected box name 'runner', got %q", box.Name)
+				}
+				if box.Component != "runner" {
+					t.Errorf("expected component 'runner', got %q", box.Component)
+				}
+				if box.Image != "ghcr.io/kompox/kompox/box:latest" {
+					t.Errorf("expected image 'ghcr.io/kompox/kompox/box:latest', got %q", box.Image)
+				}
+				if len(box.Command) != 1 || box.Command[0] != "sleep" {
+					t.Errorf("expected command ['sleep'], got %v", box.Command)
+				}
+				if len(box.Args) != 1 || box.Args[0] != "infinity" {
+					t.Errorf("expected args ['infinity'], got %v", box.Args)
+				}
+				// Validate parent App ID is correctly set
+				if box.AppID != "/ws/box-ws/prv/box-prv/cls/box-cls/app/box-app" {
+					t.Errorf("expected app ID '/ws/box-ws/prv/box-prv/cls/box-cls/app/box-app', got %q", box.AppID)
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -1401,6 +1496,7 @@ spec:
 				Provider:  &mockProviderRepo{},
 				Cluster:   &mockClusterRepo{},
 				App:       &mockAppRepo{},
+				Box:       &mockBoxRepo{},
 			}
 
 			// Execute ToModels (empty kompoxAppFilePath for tests)
