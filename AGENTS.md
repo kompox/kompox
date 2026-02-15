@@ -1,8 +1,19 @@
 # Guidelines for Agents
 
-## Makefile targets (recommended)
+## Makefile targets
 
-If available, prefer these targets over running raw `go` commands (no user intervention needed):
+Use Makefile targets instead of raw `go` commands when applicable.
+
+Required:
+
+```bash
+make git-hooks-setup
+```
+
+- Standalone coding agents (non-chat/autonomous agents such as GitHub Copilot coding agent, Codex CLI, and Claude Code) must run `make git-hooks-setup` once at the beginning of each task session in this repository.
+- This ensures `core.hooksPath=.githooks` is active and pre-commit checks (including `gofmt`) are enforced before commits.
+
+Recommended:
 
 ```bash
 make build

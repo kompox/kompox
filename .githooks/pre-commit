@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+mapfile -t files < <(git diff --cached --name-only --diff-filter=ACMR -- '*.go')
+
+if [[ ${#files[@]} -eq 0 ]]; then
+  exit 0
+fi
+
+bad_files=()
+for file in "${files[@]}"; do
+  tmp_orig="$(mktemp)"
+  tmp_fmt="$(mktemp)"
+  trap 'rm -f "$tmp_orig" "$tmp_fmt"' RETURN
+
+  git show ":$file" >"$tmp_orig"
+  gofmt <"$tmp_orig" >"$tmp_fmt"
+
+  if ! cmp -s "$tmp_orig" "$tmp_fmt"; then
+    bad_files+=("$file")
+  fi
+
+  rm -f "$tmp_orig" "$tmp_fmt"
+  trap - RETURN
+done
+
+if [[ ${#bad_files[@]} -gt 0 ]]; then
+  echo "ERROR: gofmt check failed for staged Go files:" >&2
+  for file in "${bad_files[@]}"; do
+    echo "  - $file" >&2
+  done
+  echo >&2
+  echo "Run: gofmt -w <files> && git add <files>" >&2
+  exit 1
+fi
+
+exit 0

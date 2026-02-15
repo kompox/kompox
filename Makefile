@@ -1,4 +1,4 @@
-.PHONY: build test cmd bicep docker release release-snapshot release-check tidy diff-staged-changes test-integration-1 gen-index
+.PHONY: build test cmd bicep docker release release-snapshot release-check tidy diff-staged-changes test-integration-1 gen-index git-hooks-setup
 # Run full tests
 test:
 	go test ./...
@@ -71,6 +71,13 @@ test-integration test-e2e e2e:
 # Generate indexes for design and maintainer tasks
 gen-index:
 	go run ./design/gen -design-dir design
+
+# Configure git to use repository-managed hooks
+git-hooks-setup:
+	mkdir -p .githooks
+	chmod +x .githooks/*
+	git config core.hooksPath .githooks
+	@echo "Configured core.hooksPath=.githooks"
 
 .PHONY: docs-setup docs-serve docs-build docs-deploy-edge docs-deploy-version
 
