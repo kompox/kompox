@@ -2,7 +2,7 @@
 id: 20260215d-app-kubectl-command
 title: "kompoxops app kubectl コマンド実装"
 status: active
-updated: 2026-02-15T12:41:59Z
+updated: 2026-02-15T17:30:11Z
 language: ja
 owner: yaegashi
 adrs: []
@@ -40,22 +40,30 @@ supersededBy:
   - 既存 kubeconfig に対象 context が存在し、かつその context の default namespace が対象 App namespace と一致する場合は skip
 - merge 実行:
   - skip できない場合、または `--refresh-kubeconfig` 指定時は
-  - `kompoxops cluster kubeconfig --merge --kubeconfig $KOMPOX_DIR/kubeconfig --context <appName>-<inHASH> --namespace <appNamespace> --force`
+  - `kompoxops cluster --cluster-id <clusterFQN> kubeconfig --merge --kubeconfig $KOMPOX_DIR/kubeconfig --context <appName>-<inHASH> --namespace <appNamespace> --force`
+  - short option: `-R` (`--refresh-kubeconfig` のエイリアス)
 - `--set-current`:
   - 使用しない
+- ログ出力:
+  - `app kubectl` の診断ログは `msg="CMD:app.kubectl"` を使用する
+  - 任意の診断情報は `desc` 属性に記録する
 - 失敗時挙動:
   - `cluster kubeconfig` / `kubectl` いずれも失敗時はそのまま失敗終了
   - 終了コードはそのまま返す
 
 ## 計画 (チェックリスト)
 
-- [ ] `cmd/kompoxops` に `app kubectl` サブコマンドを追加し、`--` 必須の引数パースを実装する。
-- [ ] App 解決処理から `<appName>-<inHASH>` と App namespace を導出する。
-- [ ] kubeconfig 読み取りで skip 判定 (context 存在 + namespace 一致) を実装する。
-- [ ] `--refresh-kubeconfig` フラグを追加し、強制 merge を実装する。
-- [ ] `kubectl --context <appName>-<inHASH>` 実行と exit code 透過を実装する。
+- [x] `cmd/kompoxops` に `app kubectl` サブコマンドを追加し、`--` 必須の引数パースを実装する。
+- [x] App 解決処理から `<appName>-<inHASH>` と App namespace を導出する。
+- [x] kubeconfig 読み取りで skip 判定 (context 存在 + namespace 一致) を実装する。
+- [x] `--refresh-kubeconfig` フラグを追加し、強制 merge を実装する。
+  - [x] short option `-R` を追加する。
+- [x] `kubectl --context <appName>-<inHASH>` 実行と exit code 透過を実装する。
+- [x] `app kubectl` の診断ログを `msg=CMD:app.kubectl` / `desc=<detail>` へ統一する。
 - [ ] `design/v1/Kompox-CLI.ja.md` に `app kubectl` の仕様・使用例を追記する。
 - [ ] `cmd/kompoxops` のテストを追加し、主要分岐 (skip/refresh/failure) を検証する。
+  - [x] kubeconfig skip 判定のユニットテストを追加する。
+  - [ ] refresh/failure 分岐のユニットテストを追加する。
 
 ## テスト
 
@@ -74,6 +82,7 @@ supersededBy:
 - context 名が `<appName>-<inHASH>` で作成/更新される。
 - context+namespace 一致時は `cluster kubeconfig --merge` を実行しない。
 - `--refresh-kubeconfig` 指定時は一致していても merge を実行する。
+- `cluster kubeconfig` 起動時は必ず `--cluster-id <clusterFQN>` を付与し、対象クラスタの取り違えを防ぐ。
 - `--set-current` を変更しない。
 - `kubectl` 失敗時に同じ終了コードを返す。
 
@@ -87,6 +96,15 @@ supersededBy:
 ## 進捗
 
 - 2026-02-15T12:41:59Z タスクファイル作成
+- 2026-02-15T17:25:00Z 追加仕様と実装状況を反映
+  - `app kubectl` 実装完了（`--` 必須、context/namespace 自動導出、skip 判定、`--refresh-kubeconfig`）
+  - short option `-R` を追加
+  - ログ仕様を `msg=CMD:app.kubectl` + `desc` 属性へ統一
+  - `cmd/kompoxops/cmd_app_kubectl_test.go` を追加（skip 判定の検証）
+  - 未完了: CLI ドキュメント追記、refresh/failure 分岐の追加テスト
+- 2026-02-15T17:30:11Z 仕様補足を追記
+  - `cluster kubeconfig` 起動コマンド例に `--cluster-id <clusterFQN>` を追加
+  - 受け入れ条件に `--cluster-id` 必須を明記
 
 ## 参照
 

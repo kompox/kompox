@@ -3,9 +3,12 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -13,6 +16,7 @@ import (
 	"github.com/kompox/kompox/adapters/kube"
 	"github.com/kompox/kompox/domain"
 	"github.com/kompox/kompox/internal/logging"
+	"github.com/kompox/kompox/internal/naming"
 	"github.com/kompox/kompox/internal/terminal"
 	"github.com/kompox/kompox/usecase/app"
 	"github.com/kompox/kompox/usecase/dns"
@@ -23,6 +27,7 @@ import (
 	netv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 var flagAppName string
@@ -40,7 +45,7 @@ func newCmdApp() *cobra.Command {
 	// Persistent flag shared across subcommands
 	cmd.PersistentFlags().StringVarP(&flagAppID, "app-id", "A", "", "App ID (FQN: ws/prv/cls/app)")
 	cmd.PersistentFlags().StringVar(&flagAppName, "app-name", "", "App name (backward compatibility, use --app-id)")
-	cmd.AddCommand(newCmdAppValidate(), newCmdAppDeploy(), newCmdAppDestroy(), newCmdAppStatus(), newCmdAppExec(), newCmdAppLogs(), newCmdAppTunnel())
+	cmd.AddCommand(newCmdAppValidate(), newCmdAppDeploy(), newCmdAppDestroy(), newCmdAppStatus(), newCmdAppExec(), newCmdAppLogs(), newCmdAppTunnel(), newCmdAppKubectl())
 	return cmd
 }
 
@@ -535,4 +540,202 @@ func newCmdAppLogs() *cobra.Command {
 	cmd.Flags().Int64Var(&tail, "tail", 200, "Number of lines from the end of the logs to show (0 to show all)")
 	cmd.Flags().StringVarP(&container, "container", "c", "", "Container name (optional)")
 	return cmd
+}
+
+func newCmdAppKubectl() *cobra.Command {
+	const msgSym = "CMD:app.kubectl"
+
+	var namespaceOverride string
+	var refreshKubeconfig bool
+
+	cmd := &cobra.Command{
+		Use:                "kubectl -- <kubectl args...>",
+		Short:              "Run kubectl for the app context",
+		Args:               cobra.ArbitraryArgs,
+		SilenceUsage:       true,
+		SilenceErrors:      true,
+		DisableSuggestions: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if cmd.ArgsLenAtDash() < 0 {
+				return fmt.Errorf("'--' is required before kubectl arguments")
+			}
+			if len(args) == 0 {
+				return fmt.Errorf("kubectl arguments are required after --")
+			}
+
+			appUC, err := buildAppUseCase(cmd)
+			if err != nil {
+				return err
+			}
+
+			ctx := cmd.Context()
+			logger := logging.FromContext(ctx)
+			appID, err := resolveAppID(ctx, appUC.Repos.App, nil)
+			if err != nil {
+				return err
+			}
+
+			getOut, err := appUC.Get(ctx, &app.GetInput{AppID: appID})
+			if err != nil {
+				return fmt.Errorf("failed to get app: %w", err)
+			}
+			targetApp := getOut.App
+			if targetApp == nil {
+				return fmt.Errorf("app not found: %s", appID)
+			}
+
+			clusterObj, err := appUC.Repos.Cluster.Get(ctx, targetApp.ClusterID)
+			if err != nil || clusterObj == nil {
+				return fmt.Errorf("failed to get cluster %s: %w", targetApp.ClusterID, err)
+			}
+			providerObj, err := appUC.Repos.Provider.Get(ctx, clusterObj.ProviderID)
+			if err != nil || providerObj == nil {
+				return fmt.Errorf("failed to get provider %s: %w", clusterObj.ProviderID, err)
+			}
+			if providerObj.WorkspaceID == "" {
+				return fmt.Errorf("provider %s has empty workspace id", providerObj.ID)
+			}
+			workspaceObj, err := appUC.Repos.Workspace.Get(ctx, providerObj.WorkspaceID)
+			if err != nil || workspaceObj == nil {
+				return fmt.Errorf("failed to get workspace %s: %w", providerObj.WorkspaceID, err)
+			}
+
+			hashes := naming.NewHashes(workspaceObj.Name, providerObj.Name, clusterObj.Name, targetApp.Name)
+			contextName := fmt.Sprintf("%s-%s", targetApp.Name, hashes.AppInstance)
+			namespaceName := hashes.Namespace
+			if namespaceOverride != "" {
+				namespaceName = namespaceOverride
+			}
+
+			env := getKompoxEnv(ctx)
+			if env == nil || env.KompoxDir == "" {
+				return fmt.Errorf("kompox environment is not initialized")
+			}
+			kubeconfigPath := filepath.Join(env.KompoxDir, "kubeconfig")
+			logger.Debug(ctx, msgSym,
+				"desc", "resolved runtime values",
+				"kubeconfig", kubeconfigPath,
+				"context", contextName,
+				"namespace", namespaceName,
+				"refreshKubeconfig", refreshKubeconfig,
+			)
+
+			if !refreshKubeconfig {
+				matched, err := kubeconfigContextNamespaceMatches(kubeconfigPath, contextName, namespaceName)
+				if err != nil {
+					return err
+				}
+				logger.Debug(ctx, msgSym, "desc", "kubeconfig cache check", "matched", matched)
+				if !matched {
+					if err := runClusterKubeconfigMerge(cmd, msgSym, clusterObj.ID, kubeconfigPath, contextName, namespaceName); err != nil {
+						return err
+					}
+				} else {
+					logger.Debug(ctx, msgSym, "desc", "skip cluster kubeconfig merge; context+namespace already match")
+				}
+			} else {
+				logger.Debug(ctx, msgSym, "desc", "cluster kubeconfig merge forced by flag", "flag", "--refresh-kubeconfig")
+				if err := runClusterKubeconfigMerge(cmd, msgSym, clusterObj.ID, kubeconfigPath, contextName, namespaceName); err != nil {
+					return err
+				}
+			}
+
+			kubectlPath, err := exec.LookPath("kubectl")
+			if err != nil {
+				return fmt.Errorf("kubectl not found in PATH: %w", err)
+			}
+
+			kubectlArgs := append([]string{"--context", contextName}, args...)
+			run := exec.CommandContext(ctx, kubectlPath, kubectlArgs...)
+			run.Stdin = cmd.InOrStdin()
+			run.Stdout = cmd.OutOrStdout()
+			run.Stderr = cmd.ErrOrStderr()
+			run.Env = append(os.Environ(), "KUBECONFIG="+kubeconfigPath)
+			logger.Debug(ctx, msgSym,
+				"desc", "launch kubectl",
+				"path", kubectlPath,
+				"args", kubectlArgs,
+				"kubeconfig", kubeconfigPath,
+			)
+
+			if err := runExternalCommand(run); err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&namespaceOverride, "namespace", "", "Override namespace for the app context")
+	cmd.Flags().BoolVarP(&refreshKubeconfig, "refresh-kubeconfig", "R", false, "Force refresh by running cluster kubeconfig merge")
+	return cmd
+}
+
+func kubeconfigContextNamespaceMatches(kubeconfigPath, contextName, namespaceName string) (bool, error) {
+	if kubeconfigPath == "" {
+		return false, fmt.Errorf("kubeconfig path is required")
+	}
+	cfg, err := clientcmd.LoadFromFile(kubeconfigPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to load kubeconfig %s: %w", kubeconfigPath, err)
+	}
+	ctx := cfg.Contexts[contextName]
+	if ctx == nil {
+		return false, nil
+	}
+	if ctx.Namespace != namespaceName {
+		return false, nil
+	}
+	return true, nil
+}
+
+func runClusterKubeconfigMerge(cmd *cobra.Command, msgSym, clusterID, kubeconfigPath, contextName, namespaceName string) error {
+	ctx := cmd.Context()
+	logger := logging.FromContext(ctx)
+
+	exePath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("failed to resolve executable path: %w", err)
+	}
+	args := []string{
+		"cluster",
+		"--cluster-id", clusterID,
+		"kubeconfig",
+		"--merge",
+		"--kubeconfig", kubeconfigPath,
+		"--context", contextName,
+		"--namespace", namespaceName,
+		"--force",
+	}
+	logger.Debug(ctx, msgSym,
+		"desc", "launch cluster kubeconfig merge",
+		"path", exePath,
+		"args", args,
+		"kubeconfig", kubeconfigPath,
+		"context", contextName,
+		"namespace", namespaceName,
+	)
+
+	run := exec.CommandContext(ctx, exePath, args...)
+	run.Stdin = cmd.InOrStdin()
+	run.Stdout = cmd.OutOrStdout()
+	run.Stderr = cmd.ErrOrStderr()
+	run.Env = os.Environ()
+	if err := runExternalCommand(run); err != nil {
+		return fmt.Errorf("failed to refresh kubeconfig: %w", err)
+	}
+	return nil
+}
+
+func runExternalCommand(cmd *exec.Cmd) error {
+	if err := cmd.Run(); err != nil {
+		var exitErr *exec.ExitError
+		if errors.As(err, &exitErr) {
+			return ExitCodeError{Code: exitErr.ExitCode()}
+		}
+		return err
+	}
+	return nil
 }
