@@ -545,11 +545,10 @@ func newCmdAppLogs() *cobra.Command {
 func newCmdAppKubectl() *cobra.Command {
 	const msgSym = "CMD:app.kubectl"
 
-	var namespaceOverride string
 	var refreshKubeconfig bool
 
 	cmd := &cobra.Command{
-		Use:                "kubectl -- <kubectl args...>",
+		Use:                "kubectl [-R] -- <kubectl args...>",
 		Short:              "Run kubectl for the app context",
 		Args:               cobra.ArbitraryArgs,
 		SilenceUsage:       true,
@@ -603,9 +602,6 @@ func newCmdAppKubectl() *cobra.Command {
 			hashes := naming.NewHashes(workspaceObj.Name, providerObj.Name, clusterObj.Name, targetApp.Name)
 			contextName := fmt.Sprintf("%s-%s", targetApp.Name, hashes.AppInstance)
 			namespaceName := hashes.Namespace
-			if namespaceOverride != "" {
-				namespaceName = namespaceOverride
-			}
 
 			env := getKompoxEnv(ctx)
 			if env == nil || env.KompoxDir == "" {
@@ -626,7 +622,7 @@ func newCmdAppKubectl() *cobra.Command {
 					return err
 				}
 				logger.Debug(ctx, msgSym, "desc", "kubeconfig cache check", "matched", matched)
-				if !matched {
+				if shouldRunKubeconfigMerge(refreshKubeconfig, matched) {
 					if err := runClusterKubeconfigMerge(cmd, msgSym, clusterObj.ID, kubeconfigPath, contextName, namespaceName); err != nil {
 						return err
 					}
@@ -665,7 +661,6 @@ func newCmdAppKubectl() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&namespaceOverride, "namespace", "", "Override namespace for the app context")
 	cmd.Flags().BoolVarP(&refreshKubeconfig, "refresh-kubeconfig", "R", false, "Force refresh by running cluster kubeconfig merge")
 	return cmd
 }
@@ -689,6 +684,10 @@ func kubeconfigContextNamespaceMatches(kubeconfigPath, contextName, namespaceNam
 		return false, nil
 	}
 	return true, nil
+}
+
+func shouldRunKubeconfigMerge(refreshKubeconfig, matched bool) bool {
+	return refreshKubeconfig || !matched
 }
 
 func runClusterKubeconfigMerge(cmd *cobra.Command, msgSym, clusterID, kubeconfigPath, contextName, namespaceName string) error {

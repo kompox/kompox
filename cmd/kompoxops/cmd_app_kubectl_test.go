@@ -1,6 +1,8 @@
 package main
 
 import (
+	"errors"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -51,5 +53,44 @@ func TestKubeconfigContextNamespaceMatches(t *testing.T) {
 	}
 	if matched {
 		t.Fatalf("expected mismatch when context is missing")
+	}
+}
+
+func TestShouldRunKubeconfigMerge(t *testing.T) {
+	tests := []struct {
+		name              string
+		refreshKubeconfig bool
+		matched           bool
+		want              bool
+	}{
+		{name: "skip when matched and no refresh", refreshKubeconfig: false, matched: true, want: false},
+		{name: "run when not matched", refreshKubeconfig: false, matched: false, want: true},
+		{name: "run when refresh requested and matched", refreshKubeconfig: true, matched: true, want: true},
+		{name: "run when refresh requested and not matched", refreshKubeconfig: true, matched: false, want: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := shouldRunKubeconfigMerge(tt.refreshKubeconfig, tt.matched)
+			if got != tt.want {
+				t.Fatalf("shouldRunKubeconfigMerge(%v, %v) = %v, want %v", tt.refreshKubeconfig, tt.matched, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRunExternalCommand_ExitCodePropagation(t *testing.T) {
+	cmd := exec.Command("bash", "-lc", "exit 23")
+	err := runExternalCommand(cmd)
+	if err == nil {
+		t.Fatalf("expected error, got nil")
+	}
+
+	var codeErr ExitCodeError
+	if !errors.As(err, &codeErr) {
+		t.Fatalf("expected ExitCodeError, got %T: %v", err, err)
+	}
+	if codeErr.Code != 23 {
+		t.Fatalf("expected exit code 23, got %d", codeErr.Code)
 	}
 }

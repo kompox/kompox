@@ -1,5 +1,5 @@
 {
-  "updated": "2026-02-15T12:41:59Z",
+  "updated": "2026-02-15T18:03:18Z",
   "docCount": 64,
   "categories": [
     {
@@ -22,7 +22,7 @@
     },
     {
       "category": "tasks",
-      "updated": "2026-02-15T12:41:59Z",
+      "updated": "2026-02-15T18:03:18Z",
       "docCount": 7,
       "indexPath": "design/tasks/index.json"
     },
@@ -556,11 +556,11 @@
         "Kompox-KubeConverter"
       ],
       "relPath": "design/tasks/2026/02/15/20260215d-app-kubectl-command.ja.md",
-      "status": "active",
+      "status": "done",
       "supersededBy": null,
       "supersedes": [],
       "title": "kompoxops app kubectl コマンド実装",
-      "updated": "2026-02-15T12:41:59Z",
+      "updated": "2026-02-15T18:03:18Z",
       "version": ""
     },
     {

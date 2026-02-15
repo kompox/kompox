@@ -413,6 +413,7 @@ kompoxops app deploy        --app-id <appID> [--bootstrap-disks]
 kompoxops app destroy       --app-id <appID>
 kompoxops app status        --app-id <appID>
 kompoxops app exec          --app-id <appID> -- <command> [args...]
+kompoxops app kubectl       --app-id <appID> [-R] -- <kubectl args...>
 kompoxops app tunnel        --app-id <appID> -p PORT... [-- command [args...]]   (aliases: port-forward, pf)
 kompoxops app logs          --app-id <appID>
 ```
@@ -573,6 +574,45 @@ kompoxops app exec -it -- bash
 
 # コンテナ名を指定してログを確認
 kompoxops app exec -t -c app -- sh -c 'tail -n 100 /var/log/app.log'
+```
+
+#### kompoxops app kubectl
+
+アプリ単位の Kubernetes context を自動解決して `kubectl` を実行します。
+
+使用法:
+
+```
+kompoxops app kubectl -A <appName> [-R] -- <kubectl args...>
+```
+
+オプション:
+
+- `-R, --refresh-kubeconfig` context と namespace が一致していても kubeconfig を強制更新
+
+挙動:
+
+- `--` は必須。`--` 以降をそのまま `kubectl` 引数として渡す。
+- `KUBECONFIG=$KOMPOX_DIR/kubeconfig` を使用して実行する。
+- context 名は `<appName>-<inHASH>` を使用する。
+- `app kubectl` における default namespace は常に App namespace (`<appName>-<idHASH>` から導出) に固定される。
+- App namespace 以外を対象にする場合は、`--` 以降の `kubectl` 引数で `-n <namespace>` を明示する。
+- 既存 kubeconfig に同 context があり namespace も一致する場合、`cluster kubeconfig --merge` はスキップする。
+- スキップできない場合、または `-R` 指定時は次を実行して更新する。
+  - `kompoxops cluster --cluster-id <clusterFQN> kubeconfig --merge --kubeconfig $KOMPOX_DIR/kubeconfig --context <appName>-<inHASH> --namespace <appNamespace> --force`
+- `kubectl` と内部 `cluster kubeconfig` 実行の終了コードは透過して返す。
+
+例:
+
+```bash
+# 既存 context を再利用して Pod 一覧
+kompoxops app kubectl -- get pod
+
+# kubeconfig を強制更新して実行
+kompoxops app kubectl -R -- get pod -o wide
+
+# App namespace 以外を対象にする場合は kubectl 側で namespace を明示
+kompoxops app kubectl -- -n custom-ns get svc
 ```
 
 #### kompoxops app tunnel

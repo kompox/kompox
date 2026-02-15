@@ -1,8 +1,8 @@
 ---
 id: 20260215d-app-kubectl-command
 title: "kompoxops app kubectl コマンド実装"
-status: active
-updated: 2026-02-15T17:30:11Z
+status: done
+updated: 2026-02-15T18:03:18Z
 language: ja
 owner: yaegashi
 adrs: []
@@ -36,6 +36,9 @@ supersededBy:
   - `<appName>-<inHASH>` (`app.kubernetes.io/instance` と同値)
 - kubeconfig:
   - 常に `$KOMPOX_DIR/kubeconfig` を使用
+- default namespace:
+  - `app kubectl` の default namespace は常に App namespace に固定する
+  - App namespace 以外を対象にする場合は `kubectl` 引数で `-n <namespace>` を明示する
 - merge 実行のスキップ条件:
   - 既存 kubeconfig に対象 context が存在し、かつその context の default namespace が対象 App namespace と一致する場合は skip
 - merge 実行:
@@ -50,6 +53,8 @@ supersededBy:
 - 失敗時挙動:
   - `cluster kubeconfig` / `kubectl` いずれも失敗時はそのまま失敗終了
   - 終了コードはそのまま返す
+- `--namespace`:
+  - `app kubectl` では提供しない（廃止）
 
 ## 計画 (チェックリスト)
 
@@ -60,10 +65,10 @@ supersededBy:
   - [x] short option `-R` を追加する。
 - [x] `kubectl --context <appName>-<inHASH>` 実行と exit code 透過を実装する。
 - [x] `app kubectl` の診断ログを `msg=CMD:app.kubectl` / `desc=<detail>` へ統一する。
-- [ ] `design/v1/Kompox-CLI.ja.md` に `app kubectl` の仕様・使用例を追記する。
-- [ ] `cmd/kompoxops` のテストを追加し、主要分岐 (skip/refresh/failure) を検証する。
+- [x] `design/v1/Kompox-CLI.ja.md` に `app kubectl` の仕様・使用例を追記する。
+- [x] `cmd/kompoxops` のテストを追加し、主要分岐 (skip/refresh/failure) を検証する。
   - [x] kubeconfig skip 判定のユニットテストを追加する。
-  - [ ] refresh/failure 分岐のユニットテストを追加する。
+  - [x] refresh/failure 分岐のユニットテストを追加する。
 
 ## テスト
 
@@ -85,6 +90,8 @@ supersededBy:
 - `cluster kubeconfig` 起動時は必ず `--cluster-id <clusterFQN>` を付与し、対象クラスタの取り違えを防ぐ。
 - `--set-current` を変更しない。
 - `kubectl` 失敗時に同じ終了コードを返す。
+- `app kubectl` に `--namespace` フラグは存在しない。
+- `app kubectl` の default namespace は常に App namespace である。
 
 ## メモ
 
@@ -105,6 +112,14 @@ supersededBy:
 - 2026-02-15T17:30:11Z 仕様補足を追記
   - `cluster kubeconfig` 起動コマンド例に `--cluster-id <clusterFQN>` を追加
   - 受け入れ条件に `--cluster-id` 必須を明記
+- 2026-02-15T17:39:36Z 残タスク完了
+  - `design/v1/Kompox-CLI.ja.md` に `app kubectl` の仕様・オプション・挙動・使用例を追記
+  - `cmd/kompoxops/cmd_app_kubectl_test.go` に refresh/skip 判定と failure(終了コード透過)のユニットテストを追加
+  - タスク状態を `done` に更新
+- 2026-02-15T18:03:18Z 安全性方針に合わせて仕様を更新
+  - `app kubectl` の `--namespace` を廃止
+  - default namespace を App namespace 固定に明記
+  - App namespace 以外は `kubectl -n <namespace>` 明示運用に統一
 
 ## 参照
 
