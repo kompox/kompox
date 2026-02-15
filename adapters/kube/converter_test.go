@@ -2003,3 +2003,99 @@ t.Errorf("expected annotation %s=%q, got %q", AnnotationK4xProviderDriver, "k3s"
 }
 })
 }
+
+// TestNetworkPolicyNoEmptyPeer is a regression test for issue 20260215b.
+// It verifies that the default NetworkPolicy rule does not contain an empty peer `{}`.
+// Instead, same-namespace communication should be expressed with an explicit namespaceSelector.
+func TestNetworkPolicyNoEmptyPeer(t *testing.T) {
+ctx := context.Background()
+
+svc := &model.Workspace{Name: "testsvc"}
+prv := &model.Provider{Name: "testprv", Driver: "test"}
+cls := &model.Cluster{
+Name: "testcls",
+Ingress: &model.ClusterIngress{
+Namespace:  "traefik",
+Controller: "traefik",
+Domain:     "example.com",
+},
+}
+app := &model.App{
+Name: "testapp",
+Compose: `
+services:
+  web:
+    image: nginx:latest
+`,
+}
+
+c := NewConverter(svc, prv, cls, app, "app")
+_, err := c.Convert(ctx)
+if err != nil {
+t.Fatalf("Convert failed: %v", err)
+}
+
+_, err = c.Build()
+if err != nil {
+t.Fatalf("Build failed: %v", err)
+}
+
+objects := c.AllObjects()
+
+// Find NetworkPolicy
+var netpol *netv1.NetworkPolicy
+for _, obj := range objects {
+if np, ok := obj.(*netv1.NetworkPolicy); ok {
+netpol = np
+break
+}
+}
+
+if netpol == nil {
+t.Fatal("NetworkPolicy not found")
+}
+
+// Validate that there is at least one ingress rule (the default rule)
+if len(netpol.Spec.Ingress) == 0 {
+t.Fatal("expected at least one ingress rule")
+}
+
+defaultRule := netpol.Spec.Ingress[0]
+
+// Validate that all peers in the default rule have a namespaceSelector
+// This ensures we don't have empty peers like `{}`
+for i, peer := range defaultRule.From {
+if peer.NamespaceSelector == nil {
+t.Errorf("peer %d in default rule has no namespaceSelector (would serialize as empty peer '{}')", i)
+}
+// Verify that the namespaceSelector is not completely empty
+if peer.NamespaceSelector != nil {
+if len(peer.NamespaceSelector.MatchLabels) == 0 && len(peer.NamespaceSelector.MatchExpressions) == 0 {
+t.Errorf("peer %d has empty namespaceSelector (no matchLabels or matchExpressions)", i)
+}
+}
+}
+
+// Verify that the first peer explicitly selects the current namespace
+if len(defaultRule.From) > 0 {
+firstPeer := defaultRule.From[0]
+if firstPeer.NamespaceSelector == nil {
+t.Fatal("first peer should have namespaceSelector for same-namespace communication")
+}
+// Check that it references the current namespace
+foundCurrentNs := false
+for _, expr := range firstPeer.NamespaceSelector.MatchExpressions {
+if expr.Key == "kubernetes.io/metadata.name" {
+for _, val := range expr.Values {
+if val == c.Namespace {
+foundCurrentNs = true
+break
+}
+}
+}
+}
+if !foundCurrentNs {
+t.Errorf("first peer should explicitly select current namespace %q", c.Namespace)
+}
+}
+}

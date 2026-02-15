@@ -726,11 +726,18 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 
 	// Build NetworkPolicy peers
 	var fromPeers []netv1.NetworkPolicyPeer
-	// Same-namespace communication
-	fromPeers = append(fromPeers, netv1.NetworkPolicyPeer{PodSelector: &metav1.LabelSelector{}})
+	// Same-namespace communication: explicitly select pods in the current namespace
+	fromPeers = append(fromPeers, netv1.NetworkPolicyPeer{
+		PodSelector: &metav1.LabelSelector{},
+		NamespaceSelector: &metav1.LabelSelector{
+			MatchExpressions: []metav1.LabelSelectorRequirement{
+				{Key: "kubernetes.io/metadata.name", Operator: metav1.LabelSelectorOpIn, Values: []string{nsName}},
+			},
+		},
+	})
 	// Namespace selectors for kube-system and optional ingress namespace
 	var nsValues []string
-	seenNs := map[string]struct{}{}
+	seenNs := map[string]struct{}{nsName: {}} // track nsName to avoid duplication
 	for _, n := range []string{"kube-system", ingressNs} {
 		if n == "" {
 			continue
