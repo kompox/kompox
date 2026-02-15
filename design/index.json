@@ -1,5 +1,5 @@
 {
-  "updated": "2026-02-15T08:22:48Z",
+  "updated": "2026-02-15T09:34:13Z",
   "docCount": 62,
   "categories": [
     {
@@ -22,7 +22,7 @@
     },
     {
       "category": "tasks",
-      "updated": "2026-02-15T08:22:48Z",
+      "updated": "2026-02-15T09:34:13Z",
       "docCount": 5,
       "indexPath": "design/tasks/index.json"
     },
@@ -523,7 +523,7 @@
       "relPath": "design/tasks/2026/02/15/20260215b-networkpolicy-empty-peer.ja.md",
       "status": "draft",
       "title": "NetworkPolicy の from: {} 出力修正",
-      "updated": "2026-02-15T08:22:48Z",
+      "updated": "2026-02-15T09:34:13Z",
       "version": ""
     },
     {

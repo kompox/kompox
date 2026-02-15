@@ -2,7 +2,7 @@
 id: 20260215b-networkpolicy-empty-peer
 title: "NetworkPolicy の from: {} 出力修正"
 status: draft
-updated: 2026-02-15T08:22:48Z
+updated: 2026-02-15T09:34:13Z
 language: ja
 owner: yaegashi
 adrs: []
@@ -43,6 +43,14 @@ plans: []
 - スモーク:
   - `go test ./...`
 
+## 問題の再現方法
+
+- フィクスチャ配置: `tests/fixtures/20260215b-networkpolicy-empty-peer`
+- 再現コマンド:
+  - `kompoxops -C ./tests/fixtures/20260215b-networkpolicy-empty-peer app validate --out-manifest -`
+- 確認ポイント:
+  - 出力される `NetworkPolicy.spec.ingress[].from` に `- {}` が含まれる。
+
 ## 受け入れ条件
 
 - 生成される NetworkPolicy に `from: - {}` が含まれない。
@@ -59,6 +67,8 @@ plans: []
 ## 進捗
 
 - 2026-02-15T08:22:48Z タスク作成
+- 2026-02-15T09:26:59Z 再現フィクスチャを `tests/fixtures/app-validate/networkpolicy-empty-peer` へ移動し、再現方法を追記
+- 2026-02-15T09:34:13Z フィクスチャ配置を doc-id ベースの `tests/fixtures/20260215b-networkpolicy-empty-peer` へ変更
 
 ## 参照
 
