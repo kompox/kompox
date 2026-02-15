@@ -23,16 +23,27 @@ This folder contains short task documents that help maintainers implement change
   - Example: design/tasks/2026/02/14/20260214a-new-design-docs.ja.md
 - Keep short-description as short as practical.
 
-## Lightweight workflow
+## Workflow
 
 1) Create a new task file using the template below
-2) Update it during work (status, updated, checklist)
+2) Update it during work (status, updated, checklist, progress)
 3) When finished, set status: done and keep the file for history
    - If replaced, set status: superseded and add a link to the successor task
 
 Tip: Record decisions in ADRs, and link from the task to ADR/spec to avoid duplication.
 
-References rule
+Timestamp command (for `updated` and `Progress`)
+- Generate timestamps each time via shell command (as listed in AGENTS.md).
+- Bash: `date -u +"%Y-%m-%dT%H:%M:%SZ"`
+- PowerShell: `(Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss'Z'")`
+
+Progress section writing rules
+- Use bullet items with a UTC ISO 8601 timestamp prefix: `YYYY-MM-DDTHH:MM:SSZ`.
+- For single-line entries, write `TIMESTAMP` + space + message (no colon after timestamp).
+- Generate each progress timestamp each time you add an entry, using the commands in "Timestamp command (for `updated` and `Progress`)".
+- As a rule, do not edit past entries; append new entries only.
+
+References section writing rules
 - This rule applies only to markdown documents that have front matter `id:`.
 - `README.md`, `README.ja.md`, `GUIDE.md`, and `GUIDE.ja.md` are out of scope.
 
@@ -43,6 +54,7 @@ Required
 - title (string): Short title
 - status (enum): See Status values below
 - updated (timestamp): UTC timestamp in ISO 8601 `YYYY-MM-DDTHH:MM:SSZ`
+  - Generate `updated` each time you modify it, using the commands in "Timestamp command (for `updated` and `Progress`)".
 - language (enum): ja | en
 - adrs (string[]): Referenced ADR doc-ids for this task (for example, `K4x-ADR-018`)
 
@@ -72,7 +84,7 @@ Status values (recommended)
 id: YYYYMMDDa-short-description
 title: Short title
 status: draft
-updated: 2026-02-14T00:00:00Z
+updated: YYYY-MM-DDTHH:MM:SSZ
 language: en
 owner:
 adrs: []
@@ -116,7 +128,7 @@ supersededBy:
 
 ## Progress
 
-- YYYY-MM-DD: ...
+- YYYY-MM-DDTHH:MM:SSZ Task file created
 
 ## References
 

@@ -22,16 +22,27 @@ English: [GUIDE.md]
   - 例: design/tasks/2026/02/14/20260214a-new-design-docs.ja.md
 - short-description は参照しやすくするため可能な限り短くします。
 
-## ワークフロー (軽量)
+## ワークフロー
 
 1) 下記テンプレートを使って新しいタスクファイルを作る
-2) 作業中は適宜更新 (status, updated, チェックリスト)
+2) 作業中は適宜更新 (status, updated, チェックリスト, 進捗)
 3) 完了したら status: done にしてファイルは残す (履歴のため)
    - 置き換えられた場合は status: superseded にして置換先タスクへのリンクを追加
 
 ヒント: 判断は ADR に記録し、タスクから ADR/仕様へリンクして重複を避けます。
 
-References ルール
+タイムスタンプ生成コマンド (`updated` と `進捗` で共通)
+- タイムスタンプは、記載のたびにシェルコマンドで生成する (AGENTS.md 記載)。
+- Bash: `date -u +"%Y-%m-%dT%H:%M:%SZ"`
+- PowerShell: `(Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss'Z'")`
+
+進捗セクション記載ルール
+- 箇条書きで UTC ISO 8601 タイムスタンプ (`YYYY-MM-DDTHH:MM:SSZ`) に続けて記載する。
+- 1行で書く場合は、タイムスタンプの後にコロンを付けず、スペースの後に本文を書く。
+- 進捗のタイムスタンプは、追記のたびに「タイムスタンプ生成コマンド (`updated` と `進捗` で共通)」に記載のコマンドで生成する。
+- 原則として過去のエントリは変更せず、追記のみを行う。
+
+参照セクション記載ルール
 - このルールの対象は、front-matter に `id:` を持つ markdown ドキュメントのみ。
 - `README.md`、`README.ja.md`、`GUIDE.md`、`GUIDE.ja.md` は対象外。
 
@@ -42,6 +53,7 @@ References ルール
 - title (string): 短いタイトル
 - status (enum): 下記「ステータス値」を参照
 - updated (timestamp): UTC の ISO 8601 `YYYY-MM-DDTHH:MM:SSZ`
+  - `updated` は更新のたびに「タイムスタンプ生成コマンド (`updated` と `進捗` で共通)」に記載のコマンドで生成する。
 - language (enum): ja | en
 - adrs (string[]): このタスクが参照する ADR の doc-id のリスト (例: `K4x-ADR-018`)
 
@@ -71,7 +83,7 @@ References ルール
 id: YYYYMMDDa-short-description
 title: 短いタイトル
 status: draft
-updated: 2026-02-14T00:00:00Z
+updated: YYYY-MM-DDTHH:MM:SSZ
 language: ja
 owner:
 adrs: []
@@ -115,7 +127,7 @@ supersededBy:
 
 ## 進捗
 
-- YYYY-MM-DD: ...
+- YYYY-MM-DDTHH:MM:SSZ タスクファイル作成
 
 ## 参照
 
