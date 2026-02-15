@@ -1,6 +1,6 @@
 {
-  "updated": "2026-02-15T11:02:34Z",
-  "docCount": 63,
+  "updated": "2026-02-15T12:41:59Z",
+  "docCount": 64,
   "categories": [
     {
       "category": "adr",
@@ -22,8 +22,8 @@
     },
     {
       "category": "tasks",
-      "updated": "2026-02-15T11:02:34Z",
-      "docCount": 6,
+      "updated": "2026-02-15T12:41:59Z",
+      "docCount": 7,
       "indexPath": "design/tasks/index.json"
     },
     {
@@ -542,6 +542,25 @@
       "supersedes": [],
       "title": "NetworkPolicy の namespaceSelector 集約",
       "updated": "2026-02-15T11:02:34Z",
+      "version": ""
+    },
+    {
+      "adrs": [],
+      "category": "tasks",
+      "id": "20260215d-app-kubectl-command",
+      "language": "ja",
+      "owner": "yaegashi",
+      "plans": [],
+      "references": [
+        "Kompox-CLI",
+        "Kompox-KubeConverter"
+      ],
+      "relPath": "design/tasks/2026/02/15/20260215d-app-kubectl-command.ja.md",
+      "status": "active",
+      "supersededBy": null,
+      "supersedes": [],
+      "title": "kompoxops app kubectl コマンド実装",
+      "updated": "2026-02-15T12:41:59Z",
       "version": ""
     },
     {
