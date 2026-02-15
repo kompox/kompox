@@ -2,7 +2,7 @@
 id: K4x-ADR-017
 title: Define App/Box model, Compose mapping, and CLI selectors
 status: accepted
-updated: 2026-02-15T03:23:42Z
+updated: 2026-02-15T05:03:16Z
 language: en
 supersedes: [K4x-ADR-008]
 supersededBy: []
@@ -32,6 +32,7 @@ We need a concrete, stable v1 direction for:
   - `--container`
 - Keep Standalone Box lifecycle operations on `kompoxops box` (`deploy`/`destroy`/`status`).
 - Use `kompoxops app` for component-scoped app operations (`tunnel`/`exec`/`logs`/`status`).
+- `kompoxops app deploy` and `kompoxops app destroy` MUST NOT create/delete Standalone Box workloads.
 - Keep `kompoxops box` ergonomics commands (`ssh`/`scp`/`rsync`) as shortcuts over app-level primitives.
 
 Detailed schema, validation rules, NetworkPolicy defaults, ingress distribution rules, and examples are specified in [2026aa-kompox-box-update]. This ADR only records the decision to adopt that model and to use that document as the normative design reference for implementation.
