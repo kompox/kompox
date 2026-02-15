@@ -1801,3 +1801,100 @@ services:
 	})
 }
 
+
+// TestGenerateStandaloneBoxObjects tests standalone box object generation
+func TestGenerateStandaloneBoxObjects(t *testing.T) {
+svc := &model.Workspace{Name: "test-ws"}
+prv := &model.Provider{Name: "test-prv", Driver: "k3s"}
+cls := &model.Cluster{Name: "test-cls"}
+app := &model.App{Name: "test-app", Compose: "services:\n  web:\n    image: nginx\n"}
+
+t.Run("standalone box with basic config", func(t *testing.T) {
+box := &model.Box{
+Name:      "runner",
+Component: "runner",
+Image:     "ghcr.io/kompox/kompox/box:latest",
+Command:   []string{"sleep"},
+Args:      []string{"infinity"},
+}
+
+objs, err := GenerateStandaloneBoxObjects(svc, prv, cls, app, box)
+if err != nil {
+t.Fatalf("GenerateStandaloneBoxObjects failed: %v", err)
+}
+
+if len(objs) < 2 {
+t.Fatalf("expected at least 2 objects (namespace + deployment), got %d", len(objs))
+}
+
+// Check namespace is generated
+var ns *corev1.Namespace
+var deploy *appsv1.Deployment
+for _, obj := range objs {
+switch o := obj.(type) {
+case *corev1.Namespace:
+ns = o
+case *appsv1.Deployment:
+deploy = o
+}
+}
+
+if ns == nil {
+t.Fatal("namespace not found in generated objects")
+}
+if deploy == nil {
+t.Fatal("deployment not found in generated objects")
+}
+
+// Validate deployment
+if deploy.Name != "test-app-runner" {
+t.Errorf("expected deployment name 'test-app-runner', got %q", deploy.Name)
+}
+
+if len(deploy.Spec.Template.Spec.Containers) != 1 {
+t.Fatalf("expected 1 container, got %d", len(deploy.Spec.Template.Spec.Containers))
+}
+
+container := deploy.Spec.Template.Spec.Containers[0]
+if container.Name != "runner" {
+t.Errorf("expected container name 'runner', got %q", container.Name)
+}
+if container.Image != "ghcr.io/kompox/kompox/box:latest" {
+t.Errorf("expected image 'ghcr.io/kompox/kompox/box:latest', got %q", container.Image)
+}
+if len(container.Command) != 1 || container.Command[0] != "sleep" {
+t.Errorf("expected command ['sleep'], got %v", container.Command)
+}
+if len(container.Args) != 1 || container.Args[0] != "infinity" {
+t.Errorf("expected args ['infinity'], got %v", container.Args)
+}
+
+// Validate labels
+if deploy.Labels[LabelAppK8sComponent] != "runner" {
+t.Errorf("expected component label 'runner', got %q", deploy.Labels[LabelAppK8sComponent])
+}
+})
+
+t.Run("non-standalone box should fail", func(t *testing.T) {
+box := &model.Box{
+Name:      "web",
+Component: "web",
+// No Image - this is a Compose Box
+}
+
+_, err := GenerateStandaloneBoxObjects(svc, prv, cls, app, box)
+if err == nil {
+t.Fatal("expected error for non-standalone box, got nil")
+}
+if !strings.Contains(err.Error(), "standalone box") {
+t.Errorf("expected error about standalone box, got: %v", err)
+}
+})
+
+t.Run("nil box should fail", func(t *testing.T) {
+_, err := GenerateStandaloneBoxObjects(svc, prv, cls, app, nil)
+if err == nil {
+t.Fatal("expected error for nil box, got nil")
+}
+})
+}

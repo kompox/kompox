@@ -1378,3 +1378,64 @@ func (c *Converter) AllObjects() []runtime.Object {
 	objs = append(objs, c.DeploymentObjects()...)
 	return objs
 }
+
+// GenerateStandaloneBoxObjects generates Kubernetes objects for a standalone box.
+// This is a simplified path that bypasses Compose processing and creates a minimal Deployment.
+// It reuses the same namespace/labels/hashes as the app converter but with the box's component name.
+func GenerateStandaloneBoxObjects(svc *model.Workspace, prv *model.Provider, cls *model.Cluster, app *model.App, box *model.Box) ([]runtime.Object, error) {
+	if box == nil || !box.IsStandalone() {
+		return nil, fmt.Errorf("box must be a standalone box (with image)")
+	}
+
+	// Use the box's component name
+	componentName := box.ComponentName()
+
+	// Create a temporary converter to reuse naming/hashing logic
+	c := NewConverter(svc, prv, cls, app, componentName)
+	if c == nil {
+		return nil, fmt.Errorf("failed to create converter for box")
+	}
+
+	// Generate namespace object
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   c.Namespace,
+			Labels: c.BaseLabels,
+		},
+	}
+
+	// Generate minimal deployment for the box
+	replicas := int32(1)
+	deployment := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      c.ResourceName,
+			Namespace: c.Namespace,
+			Labels:    c.ComponentLabels,
+		},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &replicas,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: c.Selector,
+			},
+			Template: corev1.PodTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: c.ComponentLabels,
+				},
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{
+							Name:    componentName,
+							Image:   box.Image,
+							Command: box.Command,
+							Args:    box.Args,
+						},
+					},
+					NodeSelector: c.NodeSelector,
+				},
+			},
+		},
+	}
+
+	// Return namespace and deployment (namespace may already exist but that's OK for apply)
+	return []runtime.Object{ns, deployment}, nil
+}
