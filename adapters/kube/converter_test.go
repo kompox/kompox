@@ -1804,12 +1804,12 @@ services:
 
 // TestGenerateStandaloneBoxObjects tests standalone box object generation
 func TestGenerateStandaloneBoxObjects(t *testing.T) {
+t.Run("standalone box with basic config", func(t *testing.T) {
 svc := &model.Workspace{Name: "test-ws"}
 prv := &model.Provider{Name: "test-prv", Driver: "k3s"}
 cls := &model.Cluster{Name: "test-cls"}
 app := &model.App{Name: "test-app", Compose: "services:\n  web:\n    image: nginx\n"}
 
-t.Run("standalone box with basic config", func(t *testing.T) {
 box := &model.Box{
 Name:      "runner",
 Component: "runner",
@@ -1875,7 +1875,51 @@ t.Errorf("expected component label 'runner', got %q", deploy.Labels[LabelAppK8sC
 }
 })
 
+t.Run("box with empty component uses name as fallback", func(t *testing.T) {
+svc := &model.Workspace{Name: "test-ws"}
+prv := &model.Provider{Name: "test-prv", Driver: "k3s"}
+cls := &model.Cluster{Name: "test-cls"}
+app := &model.App{Name: "test-app", Compose: "services:\n  web:\n    image: nginx\n"}
+
+box := &model.Box{
+Name:      "worker",
+Component: "", // Empty component should use Name
+Image:     "ghcr.io/kompox/kompox/box:latest",
+}
+
+objs, err := GenerateStandaloneBoxObjects(svc, prv, cls, app, box)
+if err != nil {
+t.Fatalf("GenerateStandaloneBoxObjects failed: %v", err)
+}
+
+// Find deployment
+var deploy *appsv1.Deployment
+for _, obj := range objs {
+if d, ok := obj.(*appsv1.Deployment); ok {
+deploy = d
+break
+}
+}
+
+if deploy == nil {
+t.Fatal("deployment not found")
+}
+
+// Validate that Name is used as component
+if deploy.Name != "test-app-worker" {
+t.Errorf("expected deployment name 'test-app-worker', got %q", deploy.Name)
+}
+if deploy.Labels[LabelAppK8sComponent] != "worker" {
+t.Errorf("expected component label 'worker', got %q", deploy.Labels[LabelAppK8sComponent])
+}
+})
+
 t.Run("non-standalone box should fail", func(t *testing.T) {
+svc := &model.Workspace{Name: "test-ws"}
+prv := &model.Provider{Name: "test-prv", Driver: "k3s"}
+cls := &model.Cluster{Name: "test-cls"}
+app := &model.App{Name: "test-app", Compose: "services:\n  web:\n    image: nginx\n"}
+
 box := &model.Box{
 Name:      "web",
 Component: "web",
@@ -1892,6 +1936,11 @@ t.Errorf("expected error about standalone box, got: %v", err)
 })
 
 t.Run("nil box should fail", func(t *testing.T) {
+svc := &model.Workspace{Name: "test-ws"}
+prv := &model.Provider{Name: "test-prv", Driver: "k3s"}
+cls := &model.Cluster{Name: "test-cls"}
+app := &model.App{Name: "test-app", Compose: "services:\n  web:\n    image: nginx\n"}
+
 _, err := GenerateStandaloneBoxObjects(svc, prv, cls, app, nil)
 if err == nil {
 t.Fatal("expected error for nil box, got nil")
