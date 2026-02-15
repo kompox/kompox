@@ -2076,26 +2076,40 @@ t.Errorf("peer %d has empty namespaceSelector (no matchLabels or matchExpression
 }
 }
 
-// Verify that the first peer explicitly selects the current namespace
-if len(defaultRule.From) > 0 {
-firstPeer := defaultRule.From[0]
-if firstPeer.NamespaceSelector == nil {
-t.Fatal("first peer should have namespaceSelector for same-namespace communication")
+// Verify that at least one peer explicitly selects the current namespace,
+// regardless of ordering or whether it uses matchLabels or matchExpressions.
+foundSameNamespacePeer := false
+for _, peer := range defaultRule.From {
+if peer.NamespaceSelector == nil {
+continue
 }
-// Check that it references the current namespace
-foundCurrentNs := false
-for _, expr := range firstPeer.NamespaceSelector.MatchExpressions {
-if expr.Key == "kubernetes.io/metadata.name" {
+
+// Check MatchLabels first
+if val, ok := peer.NamespaceSelector.MatchLabels["kubernetes.io/metadata.name"]; ok && val == c.Namespace {
+foundSameNamespacePeer = true
+break
+}
+
+// Fall back to checking MatchExpressions
+for _, expr := range peer.NamespaceSelector.MatchExpressions {
+if expr.Key != "kubernetes.io/metadata.name" {
+continue
+}
 for _, val := range expr.Values {
 if val == c.Namespace {
-foundCurrentNs = true
+foundSameNamespacePeer = true
 break
 }
 }
+if foundSameNamespacePeer {
+break
 }
 }
-if !foundCurrentNs {
-t.Errorf("first peer should explicitly select current namespace %q", c.Namespace)
+if foundSameNamespacePeer {
+break
 }
+}
+if !foundSameNamespacePeer {
+t.Errorf("no peer explicitly selects current namespace %q", c.Namespace)
 }
 }

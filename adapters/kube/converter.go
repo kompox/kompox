@@ -728,7 +728,6 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 	var fromPeers []netv1.NetworkPolicyPeer
 	// Same-namespace communication: explicitly select pods in the current namespace
 	fromPeers = append(fromPeers, netv1.NetworkPolicyPeer{
-		PodSelector: &metav1.LabelSelector{},
 		NamespaceSelector: &metav1.LabelSelector{
 			MatchExpressions: []metav1.LabelSelectorRequirement{
 				{Key: "kubernetes.io/metadata.name", Operator: metav1.LabelSelectorOpIn, Values: []string{nsName}},
