@@ -8,7 +8,6 @@ import (
 	providerdrv "github.com/kompox/kompox/adapters/drivers/provider"
 	"github.com/kompox/kompox/adapters/kube"
 	"github.com/kompox/kompox/domain/model"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -163,20 +162,6 @@ func (u *UseCase) validateApp(ctx context.Context, app *model.App) (*validationR
 		return res, nil
 	}
 
-	// Get boxes for this app
-	boxes, err := u.Repos.Box.ListByAppID(ctx, app.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get boxes for app: %w", err)
-	}
-
-	// Filter standalone boxes (those with spec.image)
-	standaloneBoxes := make([]*model.Box, 0)
-	for _, box := range boxes {
-		if box.IsStandalone() {
-			standaloneBoxes = append(standaloneBoxes, box)
-		}
-	}
-
 	conv := kube.NewConverter(workspace, provider, cluster, app, "app")
 	if conv == nil {
 		res.addIssue(SeverityWarn, "converter_init_failed", "compose conversion failed: converter initialization failed")
@@ -207,23 +192,6 @@ func (u *UseCase) validateApp(ctx context.Context, app *model.App) (*validationR
 	res.addIssuesFromStrings(SeverityInfo, "compose_conversion_warning", warns2)
 	res.Converter = conv
 	res.K8sObjects = conv.AllObjects()
-
-	// Generate manifests for standalone boxes
-	for _, box := range standaloneBoxes {
-		boxObjects, err := kube.GenerateStandaloneBoxObjects(workspace, provider, cluster, app, box)
-		if err != nil {
-			res.addIssue(SeverityWarn, "box_conversion_failed", fmt.Sprintf("standalone box %q conversion failed: %v", box.Name, err))
-			continue
-		}
-		// Add box objects to the list (excluding namespace which was already added)
-		for _, obj := range boxObjects {
-			// Skip namespace as it's already included from app converter
-			if _, isNamespace := obj.(*corev1.Namespace); !isNamespace {
-				res.K8sObjects = append(res.K8sObjects, obj)
-			}
-		}
-	}
-
 	return res, nil
 }
 
