@@ -1,6 +1,6 @@
 {
-  "updated": "2026-02-15T09:34:13Z",
-  "docCount": 62,
+  "updated": "2026-02-15T10:55:56Z",
+  "docCount": 63,
   "categories": [
     {
       "category": "adr",
@@ -22,8 +22,8 @@
     },
     {
       "category": "tasks",
-      "updated": "2026-02-15T09:34:13Z",
-      "docCount": 5,
+      "updated": "2026-02-15T10:55:56Z",
+      "docCount": 6,
       "indexPath": "design/tasks/index.json"
     },
     {
@@ -521,9 +521,27 @@
         "adapters/kube/converter.go"
       ],
       "relPath": "design/tasks/2026/02/15/20260215b-networkpolicy-empty-peer.ja.md",
-      "status": "draft",
+      "status": "done",
       "title": "NetworkPolicy の from: {} 出力修正",
-      "updated": "2026-02-15T09:34:13Z",
+      "updated": "2026-02-15T10:31:09Z",
+      "version": ""
+    },
+    {
+      "adrs": [],
+      "category": "tasks",
+      "id": "20260215c-networkpolicy-consolidate-namespace-selector",
+      "language": "ja",
+      "owner": "yaegashi",
+      "plans": [],
+      "references": [
+        "20260215b-networkpolicy-empty-peer"
+      ],
+      "relPath": "design/tasks/2026/02/15/20260215c-networkpolicy-consolidate-namespace-selector.ja.md",
+      "status": "active",
+      "supersededBy": null,
+      "supersedes": [],
+      "title": "NetworkPolicy の namespaceSelector 集約",
+      "updated": "2026-02-15T10:55:56Z",
       "version": ""
     },
     {
