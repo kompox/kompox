@@ -13,6 +13,7 @@ type Store struct {
 	ProviderRepository  *ProviderRepository
 	ClusterRepository   *ClusterRepository
 	AppRepository       *AppRepository
+	BoxRepository       *BoxRepository
 	ConfigRoot          *kompoxopscfg.Root
 }
 
@@ -23,6 +24,7 @@ func NewStore() *Store {
 		ProviderRepository:  NewProviderRepository(),
 		ClusterRepository:   NewClusterRepository(),
 		AppRepository:       NewAppRepository(),
+		BoxRepository:       NewBoxRepository(),
 	}
 }
 
@@ -71,3 +73,4 @@ var _ domain.WorkspaceRepository = (*WorkspaceRepository)(nil)
 var _ domain.ProviderRepository = (*ProviderRepository)(nil)
 var _ domain.ClusterRepository = (*ClusterRepository)(nil)
 var _ domain.AppRepository = (*AppRepository)(nil)
+var _ domain.BoxRepository = (*BoxRepository)(nil)

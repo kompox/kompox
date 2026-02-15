@@ -88,6 +88,7 @@ func buildTestUseCase(t *testing.T, disks map[string][]*model.VolumeDisk) *UseCa
 	return &UseCase{
 		Repos: &Repos{
 			App:       &singleAppRepo{item: app},
+			Box:       &emptyBoxRepo{},
 			Workspace: &singleWorkspaceRepo{item: workspace},
 			Provider:  &singleProviderRepo{item: provider},
 			Cluster:   &singleClusterRepo{item: cluster},
@@ -112,6 +113,27 @@ func (r *singleAppRepo) Update(context.Context, *model.App) error {
 	return errors.New("not implemented")
 }
 func (r *singleAppRepo) Delete(context.Context, string) error { return errors.New("not implemented") }
+
+type emptyBoxRepo struct{}
+
+func (r *emptyBoxRepo) Create(context.Context, *model.Box) error {
+	return errors.New("not implemented")
+}
+func (r *emptyBoxRepo) Get(context.Context, string) (*model.Box, error) {
+	return nil, model.ErrBoxNotFound
+}
+func (r *emptyBoxRepo) List(context.Context) ([]*model.Box, error) {
+	return []*model.Box{}, nil
+}
+func (r *emptyBoxRepo) ListByAppID(context.Context, string) ([]*model.Box, error) {
+	return []*model.Box{}, nil
+}
+func (r *emptyBoxRepo) Update(context.Context, *model.Box) error {
+	return errors.New("not implemented")
+}
+func (r *emptyBoxRepo) Delete(context.Context, string) error {
+	return errors.New("not implemented")
+}
 
 type singleClusterRepo struct{ item *model.Cluster }
 

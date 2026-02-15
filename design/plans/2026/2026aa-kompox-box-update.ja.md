@@ -3,7 +3,7 @@ id: 2026aa-kompox-box-update
 title: Kompox Box Update
 version: v1
 status: draft
-updated: 2026-02-15T03:29:05Z
+updated: 2026-02-15T05:03:16Z
 language: ja
 owner: yaegashi
 adrs:
@@ -319,6 +319,7 @@ example-web-6b7c8d9f7d-fghij         false   8s
 - App のデプロイと運用を扱う(Compose project を一次入力とする)。
 - App 配下の任意 component に対して、component 単位の汎用運用操作を提供する。
   - 例: `exec` `logs` `tunnel` `status`
+- `kompoxops app deploy` `kompoxops app destroy` は Standalone Box のライフサイクル操作(作成/削除)を対象にしない。
 - component 選択は将来的に `--component` を基本とし、曖昧な場合は `--pod` で決定できる。
 
 `kompoxops box` の役割
@@ -519,6 +520,7 @@ spec:
   - [ ] `spec.image` を持つ Box(Standalone Box)を converter 入力へ反映する。
 - [ ] Phase 5: Standalone Box の deploy/destroy は `kompoxops box` を維持しつつ、`kompoxops app` 側で component 単位の適用/運用を可能にする。
   - [ ] Deployment/Service/NetworkPolicy の component 出力を Standalone Box まで拡張する。
+  - [ ] `kompoxops app deploy/destroy` が Standalone Box の作成/削除を行わない境界を実装・検証する。
   - [ ] Standalone Box のライフサイクル操作は `kompoxops box deploy/destroy` を正規経路として維持する。
   - [ ] App 既定と Box 個別の NetworkPolicy 追加許可を最小実装でマージする。
 - [ ] Phase 6: CLI の単一ターゲット操作を `--component/--pod/--container` へ統一する。
@@ -540,6 +542,7 @@ spec:
 ## 互換性と移行
 
 - Box を定義しない App は、既定 component `app` の単一デプロイを継続する。
+- `kompoxops app deploy/destroy` は Standalone Box の deploy/destroy を実行しない。
 - 移行期間中の Standalone Box 操作は `kompoxops box` を維持し、Compose 由来 component は `kompoxops app` の selector で操作する。
 - Box を定義しない場合の既定挙動は現行 v1 の "component=app に集約" を維持する。
 - Box を追加した場合のみ topology が変化するため、段階的に Box 導入が可能である。

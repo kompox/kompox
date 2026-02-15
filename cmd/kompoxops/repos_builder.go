@@ -41,6 +41,7 @@ func buildAppRepos(cmd *cobra.Command) (*app.Repos, error) {
 		Provider:  repos.Provider,
 		Cluster:   repos.Cluster,
 		App:       repos.App,
+		Box:       repos.Box,
 	}, nil
 }
 

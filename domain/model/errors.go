@@ -11,6 +11,8 @@ var (
 	ErrClusterInvalid    = errors.New("cluster invalid")
 	ErrAppNotFound       = errors.New("app not found")
 	ErrAppInvalid        = errors.New("app invalid")
+	ErrBoxNotFound       = errors.New("box not found")
+	ErrBoxInvalid        = errors.New("box invalid")
 
 	// ErrClusterProtected indicates that the operation is blocked by protection policy.
 	ErrClusterProtected = errors.New("cluster operation blocked by protection policy")

@@ -43,6 +43,16 @@ type AppRepository interface {
 	Delete(ctx context.Context, id string) error
 }
 
+// BoxRepository stores and retrieves Box aggregates.
+type BoxRepository interface {
+	Create(ctx context.Context, b *model.Box) error
+	Get(ctx context.Context, id string) (*model.Box, error)
+	List(ctx context.Context) ([]*model.Box, error)
+	ListByAppID(ctx context.Context, appID string) ([]*model.Box, error)
+	Update(ctx context.Context, b *model.Box) error
+	Delete(ctx context.Context, id string) error
+}
+
 // UnitOfWork coordinates transactional operations.
 type UnitOfWork interface {
 	Do(ctx context.Context, fn func(repos *Repositories) error) error
@@ -54,6 +64,7 @@ type Repositories struct {
 	Provider  ProviderRepository
 	Cluster   ClusterRepository
 	App       AppRepository
+	Box       BoxRepository
 }
 
 var ErrUnitOfWorkNotSupported = errors.New("unit of work not supported (memory)")
