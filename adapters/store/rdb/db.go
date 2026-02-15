@@ -33,5 +33,5 @@ func OpenFromURL(dbURL string) (*gorm.DB, error) {
 
 // AutoMigrate applies schema migrations for all RDB models.
 func AutoMigrate(db *gorm.DB) error {
-	return db.AutoMigrate(&WorkspaceRecord{}, &ProviderRecord{}, &ClusterRecord{}, &AppRecord{})
+	return db.AutoMigrate(&WorkspaceRecord{}, &ProviderRecord{}, &ClusterRecord{}, &AppRecord{}, &BoxRecord{})
 }

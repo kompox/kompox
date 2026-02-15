@@ -25,6 +25,7 @@ type Repositories struct {
 	Provider  ProviderRepository
 	Cluster   ClusterRepository
 	App       AppRepository
+	Box       BoxRepository
 }
 
 // WorkspaceRepository defines operations for workspace persistence.
@@ -49,6 +50,12 @@ type ClusterRepository interface {
 type AppRepository interface {
 	Create(ctx context.Context, app *model.App) error
 	List(ctx context.Context) ([]*model.App, error)
+}
+
+// BoxRepository defines operations for box persistence.
+type BoxRepository interface {
+	Create(ctx context.Context, box *model.Box) error
+	List(ctx context.Context) ([]*model.Box, error)
 }
 
 // parseVolumeSize parses volume size from either int64 (bytes) or string (e.g., "10Gi").
@@ -362,6 +369,117 @@ func (s *Sink) ToModels(ctx context.Context, repos Repositories, kompoxAppFilePa
 
 		if err := repos.App.Create(ctx, domainApp); err != nil {
 			return fmt.Errorf("failed to create app %q: %w", app.ObjectMeta.Name, err)
+		}
+	}
+
+	// Create boxes
+	for _, box := range s.ListBoxes() {
+		fqn, err := ExtractResourceID("Box", box.ObjectMeta.Name, box.ObjectMeta.Annotations)
+		if err != nil {
+			return fmt.Errorf("failed to extract Resource ID for box %q: %w", box.ObjectMeta.Name, err)
+		}
+
+		// Parent app ID is the parent FQN
+		appID := fqn.ParentFQN().String()
+
+		domainBox := &model.Box{
+			ID:        fqn.String(),
+			Name:      box.ObjectMeta.Name,
+			AppID:     appID,
+			Component: box.Spec.Component,
+			Image:     box.Spec.Image,
+			Command:   box.Spec.Command,
+			Args:      box.Spec.Args,
+		}
+
+		// Convert NetworkPolicy if present
+		if box.Spec.NetworkPolicy != nil && len(box.Spec.NetworkPolicy.IngressRules) > 0 {
+			domainIngressRules := make([]model.AppNetworkPolicyIngressRule, 0, len(box.Spec.NetworkPolicy.IngressRules))
+			for i, rule := range box.Spec.NetworkPolicy.IngressRules {
+				// Validate rule is not empty and enforce security: ports must specify allowed sources
+				if len(rule.From) == 0 && len(rule.Ports) == 0 {
+					return fmt.Errorf("box %q: networkPolicy.ingressRules[%d] is empty (must specify 'from' or 'ports')", box.ObjectMeta.Name, i)
+				}
+				if len(rule.Ports) > 0 && len(rule.From) == 0 {
+					return fmt.Errorf("box %q: networkPolicy.ingressRules[%d] must specify 'from' when 'ports' are set", box.ObjectMeta.Name, i)
+				}
+
+				domainRule := model.AppNetworkPolicyIngressRule{
+					From:  make([]model.AppNetworkPolicyPeer, 0, len(rule.From)),
+					Ports: make([]model.AppNetworkPolicyPort, 0, len(rule.Ports)),
+				}
+
+				for j, from := range rule.From {
+					// Validate that namespaceSelector is not nil
+					if from.NamespaceSelector == nil {
+						return fmt.Errorf("box %q: networkPolicy.ingressRules[%d].from[%d] must have namespaceSelector", box.ObjectMeta.Name, i, j)
+					}
+					// Validate that namespaceSelector is not empty (has matchLabels or matchExpressions)
+					if len(from.NamespaceSelector.MatchLabels) == 0 && len(from.NamespaceSelector.MatchExpressions) == 0 {
+						return fmt.Errorf("box %q: networkPolicy.ingressRules[%d].from[%d].namespaceSelector is empty (must have matchLabels or matchExpressions)", box.ObjectMeta.Name, i, j)
+					}
+
+					// Convert k8s LabelSelector to domain LabelSelector
+					domainSelector := &model.LabelSelector{
+						MatchLabels: from.NamespaceSelector.MatchLabels,
+					}
+					if len(from.NamespaceSelector.MatchExpressions) > 0 {
+						domainSelector.MatchExpressions = make([]model.LabelSelectorRequirement, len(from.NamespaceSelector.MatchExpressions))
+						for k, expr := range from.NamespaceSelector.MatchExpressions {
+							// Validate operator
+							op := string(expr.Operator)
+							if op != "In" && op != "NotIn" && op != "Exists" && op != "DoesNotExist" {
+								return fmt.Errorf("box %q: networkPolicy.ingressRules[%d].from[%d].namespaceSelector.matchExpressions[%d].operator must be one of: In, NotIn, Exists, DoesNotExist (got %q)", box.ObjectMeta.Name, i, j, k, op)
+							}
+							// Validate values cardinality for operator
+							if (op == "Exists" || op == "DoesNotExist") && len(expr.Values) > 0 {
+								return fmt.Errorf("box %q: networkPolicy.ingressRules[%d].from[%d].namespaceSelector.matchExpressions[%d]: operator %q must have no values", box.ObjectMeta.Name, i, j, k, op)
+							}
+							if (op == "In" || op == "NotIn") && len(expr.Values) == 0 {
+								return fmt.Errorf("box %q: networkPolicy.ingressRules[%d].from[%d].namespaceSelector.matchExpressions[%d]: operator %q must have at least one value", box.ObjectMeta.Name, i, j, k, op)
+							}
+
+							domainSelector.MatchExpressions[k] = model.LabelSelectorRequirement{
+								Key:      expr.Key,
+								Operator: op,
+								Values:   expr.Values,
+							}
+						}
+					}
+
+					domainRule.From = append(domainRule.From, model.AppNetworkPolicyPeer{
+						NamespaceSelector: domainSelector,
+					})
+				}
+
+				for j, port := range rule.Ports {
+					// Default protocol to TCP if empty (CRD also has this default)
+					protocol := port.Protocol
+					if protocol == "" {
+						protocol = "TCP"
+					} else if protocol != "TCP" && protocol != "UDP" && protocol != "SCTP" {
+						return fmt.Errorf("box %q: networkPolicy.ingressRules[%d].ports[%d].protocol must be one of: TCP, UDP, SCTP (got %q)", box.ObjectMeta.Name, i, j, protocol)
+					}
+					// Validate port is positive
+					if port.Port <= 0 {
+						return fmt.Errorf("box %q: networkPolicy.ingressRules[%d].ports[%d].port must be positive (got %d)", box.ObjectMeta.Name, i, j, port.Port)
+					}
+
+					domainRule.Ports = append(domainRule.Ports, model.AppNetworkPolicyPort{
+						Protocol: protocol,
+						Port:     port.Port,
+					})
+				}
+
+				domainIngressRules = append(domainIngressRules, domainRule)
+			}
+			domainBox.NetworkPolicy = model.BoxNetworkPolicy{
+				IngressRules: domainIngressRules,
+			}
+		}
+
+		if err := repos.Box.Create(ctx, domainBox); err != nil {
+			return fmt.Errorf("failed to create box %q: %w", box.ObjectMeta.Name, err)
 		}
 	}
 

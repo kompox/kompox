@@ -55,3 +55,19 @@ type AppRecord struct {
 }
 
 func (AppRecord) TableName() string { return "apps" }
+
+// BoxRecord persistence model
+type BoxRecord struct {
+	ID            string    `gorm:"primaryKey;type:text;not null"`
+	Name          string    `gorm:"type:text;not null"`
+	AppID         string    `gorm:"type:text;not null"` // references App
+	Component     string    `gorm:"type:text"`
+	Image         string    `gorm:"type:text"`
+	Command       string    `gorm:"type:text"` // JSON encoded []string
+	Args          string    `gorm:"type:text"` // JSON encoded []string
+	NetworkPolicy string    `gorm:"type:text"` // JSON encoded BoxNetworkPolicy
+	CreatedAt     time.Time `gorm:"not null"`
+	UpdatedAt     time.Time `gorm:"not null"`
+}
+
+func (BoxRecord) TableName() string { return "boxes" }
