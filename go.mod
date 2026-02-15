@@ -1,6 +1,6 @@
 module github.com/kompox/kompox
 
-go 1.25.0
+go 1.25
 
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.19.0
