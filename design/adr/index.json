@@ -1,7 +1,7 @@
 {
   "category": "adr",
   "updated": "2026-02-15T05:03:16Z",
-  "docCount": 18,
+  "docCount": 19,
   "docs": [
     {
       "category": "adr",
@@ -333,6 +333,27 @@
       "supersedes": [],
       "title": "Establish doc governance and dual index artifacts (Markdown + JSON)",
       "updated": "2026-02-14T18:23:37Z",
+      "version": ""
+    },
+    {
+      "category": "adr",
+      "id": "K4x-ADR-019",
+      "language": "en",
+      "plans": [
+        "2026ab-k8s-node-pool-support"
+      ],
+      "references": [
+        "2026ab-k8s-node-pool-support",
+        "Kompox-KubeConverter",
+        "Kompox-ProviderDriver",
+        "Kompox-ProviderDriver-AKS"
+      ],
+      "relPath": "design/adr/K4x-ADR-019.md",
+      "status": "proposed",
+      "supersededBy": [],
+      "supersedes": [],
+      "title": "Introduce NodePool abstraction for multi-provider cluster scaling and scheduling",
+      "updated": "2026-02-15T00:00:00Z",
       "version": ""
     }
   ]
