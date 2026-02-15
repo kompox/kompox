@@ -1460,6 +1460,61 @@ spec:
 				}
 			},
 		},
+{
+name: "box with networkPolicy - port out of range high should fail",
+yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: box-ws
+  annotations:
+    ops.kompox.dev/id: /ws/box-ws
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: box-prv
+  annotations:
+    ops.kompox.dev/id: /ws/box-ws/prv/box-prv
+spec:
+  driver: k3s
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: box-cls
+  annotations:
+    ops.kompox.dev/id: /ws/box-ws/prv/box-prv/cls/box-cls
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: box-app
+  annotations:
+    ops.kompox.dev/id: /ws/box-ws/prv/box-prv/cls/box-cls/app/box-app
+spec:
+  compose: "services:\n  web:\n    image: nginx\n"
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Box
+metadata:
+  name: runner
+  annotations:
+    ops.kompox.dev/id: /ws/box-ws/prv/box-prv/cls/box-cls/app/box-app/box/runner
+spec:
+  image: ghcr.io/kompox/kompox/box:latest
+  networkPolicy:
+    ingressRules:
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                test: value
+        ports:
+          - protocol: TCP
+            port: 99999
+`,
+wantErr: true,
+validate: func(t *testing.T, repos Repositories) {},
+},
 	}
 
 	for _, tt := range tests {

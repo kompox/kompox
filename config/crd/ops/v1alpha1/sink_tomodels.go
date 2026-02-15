@@ -460,9 +460,9 @@ func (s *Sink) ToModels(ctx context.Context, repos Repositories, kompoxAppFilePa
 					} else if protocol != "TCP" && protocol != "UDP" && protocol != "SCTP" {
 						return fmt.Errorf("box %q: networkPolicy.ingressRules[%d].ports[%d].protocol must be one of: TCP, UDP, SCTP (got %q)", box.ObjectMeta.Name, i, j, protocol)
 					}
-					// Validate port is positive
-					if port.Port <= 0 {
-						return fmt.Errorf("box %q: networkPolicy.ingressRules[%d].ports[%d].port must be positive (got %d)", box.ObjectMeta.Name, i, j, port.Port)
+					// Validate port is within valid range for Kubernetes (1-65535)
+					if port.Port < 1 || port.Port > 65535 {
+						return fmt.Errorf("box %q: networkPolicy.ingressRules[%d].ports[%d].port must be between 1 and 65535 (got %d)", box.ObjectMeta.Name, i, j, port.Port)
 					}
 
 					domainRule.Ports = append(domainRule.Ports, model.AppNetworkPolicyPort{

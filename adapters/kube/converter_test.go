@@ -1946,4 +1946,60 @@ if err == nil {
 t.Fatal("expected error for nil box, got nil")
 }
 })
+
+t.Run("nil workspace should fail", func(t *testing.T) {
+prv := &model.Provider{Name: "test-prv", Driver: "k3s"}
+cls := &model.Cluster{Name: "test-cls"}
+app := &model.App{Name: "test-app", Compose: "services:\n  web:\n    image: nginx\n"}
+box := &model.Box{
+Name:  "runner",
+Image: "ghcr.io/kompox/kompox/box:latest",
+}
+
+_, err := GenerateStandaloneBoxObjects(nil, prv, cls, app, box)
+if err == nil {
+t.Fatal("expected error for nil workspace, got nil")
+}
+if !strings.Contains(err.Error(), "must be non-nil") {
+t.Errorf("expected error about non-nil, got: %v", err)
+}
+})
+
+t.Run("namespace has required annotations", func(t *testing.T) {
+svc := &model.Workspace{Name: "test-ws"}
+prv := &model.Provider{Name: "test-prv", Driver: "k3s"}
+cls := &model.Cluster{Name: "test-cls"}
+app := &model.App{Name: "test-app", Compose: "services:\n  web:\n    image: nginx\n"}
+box := &model.Box{
+Name:  "runner",
+Image: "ghcr.io/kompox/kompox/box:latest",
+}
+
+objs, err := GenerateStandaloneBoxObjects(svc, prv, cls, app, box)
+if err != nil {
+t.Fatalf("GenerateStandaloneBoxObjects failed: %v", err)
+}
+
+// Find namespace
+var ns *corev1.Namespace
+for _, obj := range objs {
+if n, ok := obj.(*corev1.Namespace); ok {
+ns = n
+break
+}
+}
+
+if ns == nil {
+t.Fatal("namespace not found")
+}
+
+// Validate annotations
+expectedApp := "test-ws/test-prv/test-cls/test-app"
+if ns.Annotations[AnnotationK4xApp] != expectedApp {
+t.Errorf("expected annotation %s=%q, got %q", AnnotationK4xApp, expectedApp, ns.Annotations[AnnotationK4xApp])
+}
+if ns.Annotations[AnnotationK4xProviderDriver] != "k3s" {
+t.Errorf("expected annotation %s=%q, got %q", AnnotationK4xProviderDriver, "k3s", ns.Annotations[AnnotationK4xProviderDriver])
+}
+})
 }

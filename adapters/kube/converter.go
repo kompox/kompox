@@ -1387,20 +1387,28 @@ func GenerateStandaloneBoxObjects(svc *model.Workspace, prv *model.Provider, cls
 		return nil, fmt.Errorf("box must be a standalone box (with image)")
 	}
 
+	if svc == nil || prv == nil || cls == nil || app == nil {
+		return nil, fmt.Errorf("workspace, provider, cluster, and app must be non-nil")
+	}
+
 	// Use the box's component name
 	componentName := box.ComponentName()
+	if componentName == "" {
+		return nil, fmt.Errorf("box component name must be non-empty")
+	}
 
 	// Create a temporary converter to reuse naming/hashing logic
 	c := NewConverter(svc, prv, cls, app, componentName)
-	if c == nil {
-		return nil, fmt.Errorf("failed to create converter for box")
-	}
 
-	// Generate namespace object
+	// Generate namespace object with annotations matching main converter
 	ns := &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   c.Namespace,
 			Labels: c.BaseLabels,
+			Annotations: map[string]string{
+				AnnotationK4xApp:            fmt.Sprintf("%s/%s/%s/%s", svc.Name, prv.Name, cls.Name, app.Name),
+				AnnotationK4xProviderDriver: prv.Driver,
+			},
 		},
 	}
 
