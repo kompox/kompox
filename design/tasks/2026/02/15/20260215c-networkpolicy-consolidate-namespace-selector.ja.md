@@ -1,8 +1,8 @@
 ---
 id: 20260215c-networkpolicy-consolidate-namespace-selector
 title: "NetworkPolicy の namespaceSelector 集約"
-status: active
-updated: 2026-02-15T10:55:56Z
+status: done
+updated: 2026-02-15T11:02:34Z
 language: ja
 owner: yaegashi
 adrs: []
@@ -61,7 +61,7 @@ spec:
     - Ingress
 ```
 
-### 改善後 (集約後の想定)
+### 改善後 (集約後)
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -86,10 +86,10 @@ spec:
 
 ## 計画 (チェックリスト)
 
-- [ ] デフォルト ingress peer の `namespaceSelector` を 1 本へ集約する。
-- [ ] 集約後も重複 namespace を除外する。
-- [ ] 回帰テストを更新し、`from` 集約表現と empty peer 非出力を確認する。
-- [ ] `go test ./adapters/kube -run NetworkPolicy` で回帰確認する。
+- [x] デフォルト ingress peer の `namespaceSelector` を 1 本へ集約する。
+- [x] 集約後も重複 namespace を除外する。
+- [x] 回帰テストを更新し、`from` 集約表現と empty peer 非出力を確認する。
+- [x] `go test ./adapters/kube -run NetworkPolicy` で回帰確認する。
 
 ## テスト
 
@@ -116,6 +116,7 @@ spec:
 
 - 2026-02-15T10:53:30Z タスクファイル作成
 - 2026-02-15T10:55:56Z 20260215b fixture の現行 manifest を採取し、改善前/改善後の NetworkPolicy 比較を追記
+- 2026-02-15T11:02:34Z `adapters/kube/converter.go` で default ingress peer を1本化し、`converter_test.go` の既存/回帰テストを更新、`go test ./adapters/kube -run NetworkPolicy` 成功
 
 ## 参照
 

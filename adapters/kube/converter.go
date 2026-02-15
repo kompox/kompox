@@ -725,18 +725,9 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 	ingressNs := strings.TrimSpace(IngressNamespace(c.Cls))
 
 	// Build NetworkPolicy peers
-	var fromPeers []netv1.NetworkPolicyPeer
-	// Same-namespace communication: explicitly select pods in the current namespace
-	fromPeers = append(fromPeers, netv1.NetworkPolicyPeer{
-		NamespaceSelector: &metav1.LabelSelector{
-			MatchExpressions: []metav1.LabelSelectorRequirement{
-				{Key: "kubernetes.io/metadata.name", Operator: metav1.LabelSelectorOpIn, Values: []string{nsName}},
-			},
-		},
-	})
-	// Namespace selectors for kube-system and optional ingress namespace
-	var nsValues []string
-	seenNs := map[string]struct{}{nsName: {}} // track nsName to avoid duplication
+	// Consolidate default namespace allowances into a single peer for simpler output.
+	nsValues := []string{nsName}
+	seenNs := map[string]struct{}{nsName: {}}
 	for _, n := range []string{"kube-system", ingressNs} {
 		if n == "" {
 			continue
@@ -747,15 +738,13 @@ func (c *Converter) Convert(ctx context.Context) ([]string, error) {
 		seenNs[n] = struct{}{}
 		nsValues = append(nsValues, n)
 	}
-	if len(nsValues) > 0 {
-		fromPeers = append(fromPeers, netv1.NetworkPolicyPeer{
-			NamespaceSelector: &metav1.LabelSelector{
-				MatchExpressions: []metav1.LabelSelectorRequirement{
-					{Key: "kubernetes.io/metadata.name", Operator: metav1.LabelSelectorOpIn, Values: nsValues},
-				},
+	fromPeers := []netv1.NetworkPolicyPeer{{
+		NamespaceSelector: &metav1.LabelSelector{
+			MatchExpressions: []metav1.LabelSelectorRequirement{
+				{Key: "kubernetes.io/metadata.name", Operator: metav1.LabelSelectorOpIn, Values: nsValues},
 			},
-		})
-	}
+		},
+	}}
 
 	// Build ingress rules list
 	ingressRules := []netv1.NetworkPolicyIngressRule{{From: fromPeers}}

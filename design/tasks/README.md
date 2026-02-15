@@ -7,9 +7,9 @@
 | [20260214c-adr018-doc-index-json](./2026/02/14/20260214c-adr018-doc-index-json.ja.md) | K4x-ADR-018 実装（design index JSON 生成） | 2026-02-14T18:53:03Z | done |
 | [20260215a-standalone-box-manifest](./2026/02/15/20260215a-standalone-box-manifest.ja.md) | Standalone Box の K8s Manifest 化 (Phase 4) | 2026-02-15T05:59:42Z | done |
 | [20260215b-networkpolicy-empty-peer](./2026/02/15/20260215b-networkpolicy-empty-peer.ja.md) | NetworkPolicy の from: {} 出力修正 | 2026-02-15T10:31:09Z | done |
-| [20260215c-networkpolicy-consolidate-namespace-selector](./2026/02/15/20260215c-networkpolicy-consolidate-namespace-selector.ja.md) | NetworkPolicy の namespaceSelector 集約 | 2026-02-15T10:55:56Z | active |
+| [20260215c-networkpolicy-consolidate-namespace-selector](./2026/02/15/20260215c-networkpolicy-consolidate-namespace-selector.ja.md) | NetworkPolicy の namespaceSelector 集約 | 2026-02-15T11:02:34Z | done |
 
-Updated: 2026-02-15T10:55:56Z
+Updated: 2026-02-15T11:02:34Z
 
 ---
 

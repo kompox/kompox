@@ -1521,8 +1521,13 @@ services:
 
 	// First rule is the default (same-namespace + kube-system + traefik)
 	defaultRule := netpol.Spec.Ingress[0]
-	if len(defaultRule.From) != 2 {
-		t.Errorf("expected 2 peers in default rule (pod selector + namespace selector), got %d", len(defaultRule.From))
+	if len(defaultRule.From) != 1 {
+		t.Errorf("expected 1 consolidated peer in default rule, got %d", len(defaultRule.From))
+	}
+	if len(defaultRule.From) == 1 {
+		if defaultRule.From[0].NamespaceSelector == nil {
+			t.Error("expected namespaceSelector in default rule")
+		}
 	}
 	if len(defaultRule.Ports) != 0 {
 		t.Errorf("expected 0 ports in default rule (allow all), got %d", len(defaultRule.Ports))
@@ -1801,315 +1806,305 @@ services:
 	})
 }
 
-
 // TestGenerateStandaloneBoxObjects tests standalone box object generation
 func TestGenerateStandaloneBoxObjects(t *testing.T) {
-t.Run("standalone box with basic config", func(t *testing.T) {
-svc := &model.Workspace{Name: "test-ws"}
-prv := &model.Provider{Name: "test-prv", Driver: "k3s"}
-cls := &model.Cluster{Name: "test-cls"}
-app := &model.App{Name: "test-app", Compose: "services:\n  web:\n    image: nginx\n"}
+	t.Run("standalone box with basic config", func(t *testing.T) {
+		svc := &model.Workspace{Name: "test-ws"}
+		prv := &model.Provider{Name: "test-prv", Driver: "k3s"}
+		cls := &model.Cluster{Name: "test-cls"}
+		app := &model.App{Name: "test-app", Compose: "services:\n  web:\n    image: nginx\n"}
 
-box := &model.Box{
-Name:      "runner",
-Component: "runner",
-Image:     "ghcr.io/kompox/kompox/box:latest",
-Command:   []string{"sleep"},
-Args:      []string{"infinity"},
+		box := &model.Box{
+			Name:      "runner",
+			Component: "runner",
+			Image:     "ghcr.io/kompox/kompox/box:latest",
+			Command:   []string{"sleep"},
+			Args:      []string{"infinity"},
+		}
+
+		objs, err := GenerateStandaloneBoxObjects(svc, prv, cls, app, box)
+		if err != nil {
+			t.Fatalf("GenerateStandaloneBoxObjects failed: %v", err)
+		}
+
+		if len(objs) < 2 {
+			t.Fatalf("expected at least 2 objects (namespace + deployment), got %d", len(objs))
+		}
+
+		// Check namespace is generated
+		var ns *corev1.Namespace
+		var deploy *appsv1.Deployment
+		for _, obj := range objs {
+			switch o := obj.(type) {
+			case *corev1.Namespace:
+				ns = o
+			case *appsv1.Deployment:
+				deploy = o
+			}
+		}
+
+		if ns == nil {
+			t.Fatal("namespace not found in generated objects")
+		}
+		if deploy == nil {
+			t.Fatal("deployment not found in generated objects")
+		}
+
+		// Validate deployment
+		if deploy.Name != "test-app-runner" {
+			t.Errorf("expected deployment name 'test-app-runner', got %q", deploy.Name)
+		}
+
+		if len(deploy.Spec.Template.Spec.Containers) != 1 {
+			t.Fatalf("expected 1 container, got %d", len(deploy.Spec.Template.Spec.Containers))
+		}
+
+		container := deploy.Spec.Template.Spec.Containers[0]
+		if container.Name != "runner" {
+			t.Errorf("expected container name 'runner', got %q", container.Name)
+		}
+		if container.Image != "ghcr.io/kompox/kompox/box:latest" {
+			t.Errorf("expected image 'ghcr.io/kompox/kompox/box:latest', got %q", container.Image)
+		}
+		if len(container.Command) != 1 || container.Command[0] != "sleep" {
+			t.Errorf("expected command ['sleep'], got %v", container.Command)
+		}
+		if len(container.Args) != 1 || container.Args[0] != "infinity" {
+			t.Errorf("expected args ['infinity'], got %v", container.Args)
+		}
+
+		// Validate labels
+		if deploy.Labels[LabelAppK8sComponent] != "runner" {
+			t.Errorf("expected component label 'runner', got %q", deploy.Labels[LabelAppK8sComponent])
+		}
+	})
+
+	t.Run("box with empty component uses name as fallback", func(t *testing.T) {
+		svc := &model.Workspace{Name: "test-ws"}
+		prv := &model.Provider{Name: "test-prv", Driver: "k3s"}
+		cls := &model.Cluster{Name: "test-cls"}
+		app := &model.App{Name: "test-app", Compose: "services:\n  web:\n    image: nginx\n"}
+
+		box := &model.Box{
+			Name:      "worker",
+			Component: "", // Empty component should use Name
+			Image:     "ghcr.io/kompox/kompox/box:latest",
+		}
+
+		objs, err := GenerateStandaloneBoxObjects(svc, prv, cls, app, box)
+		if err != nil {
+			t.Fatalf("GenerateStandaloneBoxObjects failed: %v", err)
+		}
+
+		// Find deployment
+		var deploy *appsv1.Deployment
+		for _, obj := range objs {
+			if d, ok := obj.(*appsv1.Deployment); ok {
+				deploy = d
+				break
+			}
+		}
+
+		if deploy == nil {
+			t.Fatal("deployment not found")
+		}
+
+		// Validate that Name is used as component
+		if deploy.Name != "test-app-worker" {
+			t.Errorf("expected deployment name 'test-app-worker', got %q", deploy.Name)
+		}
+		if deploy.Labels[LabelAppK8sComponent] != "worker" {
+			t.Errorf("expected component label 'worker', got %q", deploy.Labels[LabelAppK8sComponent])
+		}
+	})
+
+	t.Run("non-standalone box should fail", func(t *testing.T) {
+		svc := &model.Workspace{Name: "test-ws"}
+		prv := &model.Provider{Name: "test-prv", Driver: "k3s"}
+		cls := &model.Cluster{Name: "test-cls"}
+		app := &model.App{Name: "test-app", Compose: "services:\n  web:\n    image: nginx\n"}
+
+		box := &model.Box{
+			Name:      "web",
+			Component: "web",
+			// No Image - this is a Compose Box
+		}
+
+		_, err := GenerateStandaloneBoxObjects(svc, prv, cls, app, box)
+		if err == nil {
+			t.Fatal("expected error for non-standalone box, got nil")
+		}
+		if !strings.Contains(err.Error(), "standalone box") {
+			t.Errorf("expected error about standalone box, got: %v", err)
+		}
+	})
+
+	t.Run("nil box should fail", func(t *testing.T) {
+		svc := &model.Workspace{Name: "test-ws"}
+		prv := &model.Provider{Name: "test-prv", Driver: "k3s"}
+		cls := &model.Cluster{Name: "test-cls"}
+		app := &model.App{Name: "test-app", Compose: "services:\n  web:\n    image: nginx\n"}
+
+		_, err := GenerateStandaloneBoxObjects(svc, prv, cls, app, nil)
+		if err == nil {
+			t.Fatal("expected error for nil box, got nil")
+		}
+	})
+
+	t.Run("nil workspace should fail", func(t *testing.T) {
+		prv := &model.Provider{Name: "test-prv", Driver: "k3s"}
+		cls := &model.Cluster{Name: "test-cls"}
+		app := &model.App{Name: "test-app", Compose: "services:\n  web:\n    image: nginx\n"}
+		box := &model.Box{
+			Name:  "runner",
+			Image: "ghcr.io/kompox/kompox/box:latest",
+		}
+
+		_, err := GenerateStandaloneBoxObjects(nil, prv, cls, app, box)
+		if err == nil {
+			t.Fatal("expected error for nil workspace, got nil")
+		}
+		if !strings.Contains(err.Error(), "must be non-nil") {
+			t.Errorf("expected error about non-nil, got: %v", err)
+		}
+	})
+
+	t.Run("namespace has required annotations", func(t *testing.T) {
+		svc := &model.Workspace{Name: "test-ws"}
+		prv := &model.Provider{Name: "test-prv", Driver: "k3s"}
+		cls := &model.Cluster{Name: "test-cls"}
+		app := &model.App{Name: "test-app", Compose: "services:\n  web:\n    image: nginx\n"}
+		box := &model.Box{
+			Name:  "runner",
+			Image: "ghcr.io/kompox/kompox/box:latest",
+		}
+
+		objs, err := GenerateStandaloneBoxObjects(svc, prv, cls, app, box)
+		if err != nil {
+			t.Fatalf("GenerateStandaloneBoxObjects failed: %v", err)
+		}
+
+		// Find namespace
+		var ns *corev1.Namespace
+		for _, obj := range objs {
+			if n, ok := obj.(*corev1.Namespace); ok {
+				ns = n
+				break
+			}
+		}
+
+		if ns == nil {
+			t.Fatal("namespace not found")
+		}
+
+		// Validate annotations
+		expectedApp := "test-ws/test-prv/test-cls/test-app"
+		if ns.Annotations[AnnotationK4xApp] != expectedApp {
+			t.Errorf("expected annotation %s=%q, got %q", AnnotationK4xApp, expectedApp, ns.Annotations[AnnotationK4xApp])
+		}
+		if ns.Annotations[AnnotationK4xProviderDriver] != "k3s" {
+			t.Errorf("expected annotation %s=%q, got %q", AnnotationK4xProviderDriver, "k3s", ns.Annotations[AnnotationK4xProviderDriver])
+		}
+	})
 }
 
-objs, err := GenerateStandaloneBoxObjects(svc, prv, cls, app, box)
-if err != nil {
-t.Fatalf("GenerateStandaloneBoxObjects failed: %v", err)
-}
-
-if len(objs) < 2 {
-t.Fatalf("expected at least 2 objects (namespace + deployment), got %d", len(objs))
-}
-
-// Check namespace is generated
-var ns *corev1.Namespace
-var deploy *appsv1.Deployment
-for _, obj := range objs {
-switch o := obj.(type) {
-case *corev1.Namespace:
-ns = o
-case *appsv1.Deployment:
-deploy = o
-}
-}
-
-if ns == nil {
-t.Fatal("namespace not found in generated objects")
-}
-if deploy == nil {
-t.Fatal("deployment not found in generated objects")
-}
-
-// Validate deployment
-if deploy.Name != "test-app-runner" {
-t.Errorf("expected deployment name 'test-app-runner', got %q", deploy.Name)
-}
-
-if len(deploy.Spec.Template.Spec.Containers) != 1 {
-t.Fatalf("expected 1 container, got %d", len(deploy.Spec.Template.Spec.Containers))
-}
-
-container := deploy.Spec.Template.Spec.Containers[0]
-if container.Name != "runner" {
-t.Errorf("expected container name 'runner', got %q", container.Name)
-}
-if container.Image != "ghcr.io/kompox/kompox/box:latest" {
-t.Errorf("expected image 'ghcr.io/kompox/kompox/box:latest', got %q", container.Image)
-}
-if len(container.Command) != 1 || container.Command[0] != "sleep" {
-t.Errorf("expected command ['sleep'], got %v", container.Command)
-}
-if len(container.Args) != 1 || container.Args[0] != "infinity" {
-t.Errorf("expected args ['infinity'], got %v", container.Args)
-}
-
-// Validate labels
-if deploy.Labels[LabelAppK8sComponent] != "runner" {
-t.Errorf("expected component label 'runner', got %q", deploy.Labels[LabelAppK8sComponent])
-}
-})
-
-t.Run("box with empty component uses name as fallback", func(t *testing.T) {
-svc := &model.Workspace{Name: "test-ws"}
-prv := &model.Provider{Name: "test-prv", Driver: "k3s"}
-cls := &model.Cluster{Name: "test-cls"}
-app := &model.App{Name: "test-app", Compose: "services:\n  web:\n    image: nginx\n"}
-
-box := &model.Box{
-Name:      "worker",
-Component: "", // Empty component should use Name
-Image:     "ghcr.io/kompox/kompox/box:latest",
-}
-
-objs, err := GenerateStandaloneBoxObjects(svc, prv, cls, app, box)
-if err != nil {
-t.Fatalf("GenerateStandaloneBoxObjects failed: %v", err)
-}
-
-// Find deployment
-var deploy *appsv1.Deployment
-for _, obj := range objs {
-if d, ok := obj.(*appsv1.Deployment); ok {
-deploy = d
-break
-}
-}
-
-if deploy == nil {
-t.Fatal("deployment not found")
-}
-
-// Validate that Name is used as component
-if deploy.Name != "test-app-worker" {
-t.Errorf("expected deployment name 'test-app-worker', got %q", deploy.Name)
-}
-if deploy.Labels[LabelAppK8sComponent] != "worker" {
-t.Errorf("expected component label 'worker', got %q", deploy.Labels[LabelAppK8sComponent])
-}
-})
-
-t.Run("non-standalone box should fail", func(t *testing.T) {
-svc := &model.Workspace{Name: "test-ws"}
-prv := &model.Provider{Name: "test-prv", Driver: "k3s"}
-cls := &model.Cluster{Name: "test-cls"}
-app := &model.App{Name: "test-app", Compose: "services:\n  web:\n    image: nginx\n"}
-
-box := &model.Box{
-Name:      "web",
-Component: "web",
-// No Image - this is a Compose Box
-}
-
-_, err := GenerateStandaloneBoxObjects(svc, prv, cls, app, box)
-if err == nil {
-t.Fatal("expected error for non-standalone box, got nil")
-}
-if !strings.Contains(err.Error(), "standalone box") {
-t.Errorf("expected error about standalone box, got: %v", err)
-}
-})
-
-t.Run("nil box should fail", func(t *testing.T) {
-svc := &model.Workspace{Name: "test-ws"}
-prv := &model.Provider{Name: "test-prv", Driver: "k3s"}
-cls := &model.Cluster{Name: "test-cls"}
-app := &model.App{Name: "test-app", Compose: "services:\n  web:\n    image: nginx\n"}
-
-_, err := GenerateStandaloneBoxObjects(svc, prv, cls, app, nil)
-if err == nil {
-t.Fatal("expected error for nil box, got nil")
-}
-})
-
-t.Run("nil workspace should fail", func(t *testing.T) {
-prv := &model.Provider{Name: "test-prv", Driver: "k3s"}
-cls := &model.Cluster{Name: "test-cls"}
-app := &model.App{Name: "test-app", Compose: "services:\n  web:\n    image: nginx\n"}
-box := &model.Box{
-Name:  "runner",
-Image: "ghcr.io/kompox/kompox/box:latest",
-}
-
-_, err := GenerateStandaloneBoxObjects(nil, prv, cls, app, box)
-if err == nil {
-t.Fatal("expected error for nil workspace, got nil")
-}
-if !strings.Contains(err.Error(), "must be non-nil") {
-t.Errorf("expected error about non-nil, got: %v", err)
-}
-})
-
-t.Run("namespace has required annotations", func(t *testing.T) {
-svc := &model.Workspace{Name: "test-ws"}
-prv := &model.Provider{Name: "test-prv", Driver: "k3s"}
-cls := &model.Cluster{Name: "test-cls"}
-app := &model.App{Name: "test-app", Compose: "services:\n  web:\n    image: nginx\n"}
-box := &model.Box{
-Name:  "runner",
-Image: "ghcr.io/kompox/kompox/box:latest",
-}
-
-objs, err := GenerateStandaloneBoxObjects(svc, prv, cls, app, box)
-if err != nil {
-t.Fatalf("GenerateStandaloneBoxObjects failed: %v", err)
-}
-
-// Find namespace
-var ns *corev1.Namespace
-for _, obj := range objs {
-if n, ok := obj.(*corev1.Namespace); ok {
-ns = n
-break
-}
-}
-
-if ns == nil {
-t.Fatal("namespace not found")
-}
-
-// Validate annotations
-expectedApp := "test-ws/test-prv/test-cls/test-app"
-if ns.Annotations[AnnotationK4xApp] != expectedApp {
-t.Errorf("expected annotation %s=%q, got %q", AnnotationK4xApp, expectedApp, ns.Annotations[AnnotationK4xApp])
-}
-if ns.Annotations[AnnotationK4xProviderDriver] != "k3s" {
-t.Errorf("expected annotation %s=%q, got %q", AnnotationK4xProviderDriver, "k3s", ns.Annotations[AnnotationK4xProviderDriver])
-}
-})
-}
-
-// TestNetworkPolicyNoEmptyPeer is a regression test for issue 20260215b.
-// It verifies that the default NetworkPolicy rule does not contain an empty peer `{}`.
-// Instead, same-namespace communication should be expressed with an explicit namespaceSelector.
+// TestNetworkPolicyNoEmptyPeer is a regression test for issue 20260215b/20260215c.
+// It verifies that the default NetworkPolicy rule does not contain an empty peer `{}`
+// and that default namespace allowances are consolidated into a single namespaceSelector peer.
 func TestNetworkPolicyNoEmptyPeer(t *testing.T) {
-ctx := context.Background()
+	ctx := context.Background()
 
-svc := &model.Workspace{Name: "testsvc"}
-prv := &model.Provider{Name: "testprv", Driver: "test"}
-cls := &model.Cluster{
-Name: "testcls",
-Ingress: &model.ClusterIngress{
-Namespace:  "traefik",
-Controller: "traefik",
-Domain:     "example.com",
-},
-}
-app := &model.App{
-Name: "testapp",
-Compose: `
+	svc := &model.Workspace{Name: "testsvc"}
+	prv := &model.Provider{Name: "testprv", Driver: "test"}
+	cls := &model.Cluster{
+		Name: "testcls",
+		Ingress: &model.ClusterIngress{
+			Namespace:  "traefik",
+			Controller: "traefik",
+			Domain:     "example.com",
+		},
+	}
+	app := &model.App{
+		Name: "testapp",
+		Compose: `
 services:
   web:
     image: nginx:latest
 `,
-}
+	}
 
-c := NewConverter(svc, prv, cls, app, "app")
-_, err := c.Convert(ctx)
-if err != nil {
-t.Fatalf("Convert failed: %v", err)
-}
+	c := NewConverter(svc, prv, cls, app, "app")
+	_, err := c.Convert(ctx)
+	if err != nil {
+		t.Fatalf("Convert failed: %v", err)
+	}
 
-_, err = c.Build()
-if err != nil {
-t.Fatalf("Build failed: %v", err)
-}
+	_, err = c.Build()
+	if err != nil {
+		t.Fatalf("Build failed: %v", err)
+	}
 
-objects := c.AllObjects()
+	objects := c.AllObjects()
 
-// Find NetworkPolicy
-var netpol *netv1.NetworkPolicy
-for _, obj := range objects {
-if np, ok := obj.(*netv1.NetworkPolicy); ok {
-netpol = np
-break
-}
-}
+	// Find NetworkPolicy
+	var netpol *netv1.NetworkPolicy
+	for _, obj := range objects {
+		if np, ok := obj.(*netv1.NetworkPolicy); ok {
+			netpol = np
+			break
+		}
+	}
 
-if netpol == nil {
-t.Fatal("NetworkPolicy not found")
-}
+	if netpol == nil {
+		t.Fatal("NetworkPolicy not found")
+	}
 
-// Validate that there is at least one ingress rule (the default rule)
-if len(netpol.Spec.Ingress) == 0 {
-t.Fatal("expected at least one ingress rule")
-}
+	// Validate that there is at least one ingress rule (the default rule)
+	if len(netpol.Spec.Ingress) == 0 {
+		t.Fatal("expected at least one ingress rule")
+	}
 
-defaultRule := netpol.Spec.Ingress[0]
+	defaultRule := netpol.Spec.Ingress[0]
+	if len(defaultRule.From) != 1 {
+		t.Fatalf("expected exactly one default ingress peer, got %d", len(defaultRule.From))
+	}
 
-// Validate that all peers in the default rule have a namespaceSelector
-// This ensures we don't have empty peers like `{}`
-for i, peer := range defaultRule.From {
-if peer.NamespaceSelector == nil {
-t.Errorf("peer %d in default rule has no namespaceSelector (would serialize as empty peer '{}')", i)
-}
-// Verify that the namespaceSelector is not completely empty
-if peer.NamespaceSelector != nil {
-if len(peer.NamespaceSelector.MatchLabels) == 0 && len(peer.NamespaceSelector.MatchExpressions) == 0 {
-t.Errorf("peer %d has empty namespaceSelector (no matchLabels or matchExpressions)", i)
-}
-}
-}
+	peer := defaultRule.From[0]
+	if peer.NamespaceSelector == nil {
+		t.Fatal("default ingress peer has no namespaceSelector (would serialize as empty peer '{}')")
+	}
+	if len(peer.NamespaceSelector.MatchLabels) == 0 && len(peer.NamespaceSelector.MatchExpressions) == 0 {
+		t.Fatal("default ingress peer has empty namespaceSelector")
+	}
 
-// Verify that at least one peer explicitly selects the current namespace,
-// regardless of ordering or whether it uses matchLabels or matchExpressions.
-foundSameNamespacePeer := false
-for _, peer := range defaultRule.From {
-if peer.NamespaceSelector == nil {
-continue
-}
+	expectedNamespaces := map[string]struct{}{
+		c.Namespace:           {},
+		"kube-system":         {},
+		IngressNamespace(cls): {},
+	}
+	actualNamespaces := map[string]struct{}{}
 
-// Check MatchLabels first
-if val, ok := peer.NamespaceSelector.MatchLabels["kubernetes.io/metadata.name"]; ok && val == c.Namespace {
-foundSameNamespacePeer = true
-break
-}
+	if val, ok := peer.NamespaceSelector.MatchLabels["kubernetes.io/metadata.name"]; ok && val != "" {
+		actualNamespaces[val] = struct{}{}
+	}
+	for _, expr := range peer.NamespaceSelector.MatchExpressions {
+		if expr.Key != "kubernetes.io/metadata.name" {
+			continue
+		}
+		for _, val := range expr.Values {
+			if val == "" {
+				continue
+			}
+			actualNamespaces[val] = struct{}{}
+		}
+	}
 
-// Fall back to checking MatchExpressions
-for _, expr := range peer.NamespaceSelector.MatchExpressions {
-if expr.Key != "kubernetes.io/metadata.name" {
-continue
-}
-for _, val := range expr.Values {
-if val == c.Namespace {
-foundSameNamespacePeer = true
-break
-}
-}
-if foundSameNamespacePeer {
-break
-}
-}
-if foundSameNamespacePeer {
-break
-}
-}
-if !foundSameNamespacePeer {
-t.Errorf("no peer explicitly selects current namespace %q", c.Namespace)
-}
+	if len(actualNamespaces) != len(expectedNamespaces) {
+		t.Fatalf("expected namespaceSelector to include %d namespaces, got %d (actual=%v)", len(expectedNamespaces), len(actualNamespaces), actualNamespaces)
+	}
+	for ns := range expectedNamespaces {
+		if _, ok := actualNamespaces[ns]; !ok {
+			t.Errorf("namespaceSelector is missing required namespace %q", ns)
+		}
+	}
 }

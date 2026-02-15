@@ -1,5 +1,5 @@
 {
-  "updated": "2026-02-15T10:55:56Z",
+  "updated": "2026-02-15T11:02:34Z",
   "docCount": 63,
   "categories": [
     {
@@ -22,7 +22,7 @@
     },
     {
       "category": "tasks",
-      "updated": "2026-02-15T10:55:56Z",
+      "updated": "2026-02-15T11:02:34Z",
       "docCount": 6,
       "indexPath": "design/tasks/index.json"
     },
@@ -537,11 +537,11 @@
         "20260215b-networkpolicy-empty-peer"
       ],
       "relPath": "design/tasks/2026/02/15/20260215c-networkpolicy-consolidate-namespace-selector.ja.md",
-      "status": "active",
+      "status": "done",
       "supersededBy": null,
       "supersedes": [],
       "title": "NetworkPolicy の namespaceSelector 集約",
-      "updated": "2026-02-15T10:55:56Z",
+      "updated": "2026-02-15T11:02:34Z",
       "version": ""
     },
     {
