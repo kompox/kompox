@@ -1,7 +1,7 @@
 {
   "category": "tasks",
-  "updated": "2026-02-14T18:53:03Z",
-  "docCount": 3,
+  "updated": "2026-02-15T03:29:05Z",
+  "docCount": 4,
   "docs": [
     {
       "category": "tasks",
@@ -56,6 +56,28 @@
       "status": "done",
       "title": "K4x-ADR-018 実装（design index JSON 生成）",
       "updated": "2026-02-14T18:53:03Z",
+      "version": ""
+    },
+    {
+      "adrs": [
+        "K4x-ADR-017"
+      ],
+      "category": "tasks",
+      "id": "20260215a-standalone-box-manifest",
+      "language": "ja",
+      "owner": "yaegashi",
+      "plans": [
+        "2026aa-kompox-box-update"
+      ],
+      "references": [
+        "20260214b-box-kom-loader",
+        "2026aa-kompox-box-update",
+        "K4x-ADR-017"
+      ],
+      "relPath": "design/tasks/2026/02/15/20260215a-standalone-box-manifest.ja.md",
+      "status": "active",
+      "title": "Standalone Box の K8s Manifest 化 (Phase 4)",
+      "updated": "2026-02-15T03:29:05Z",
       "version": ""
     }
   ]

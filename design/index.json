@@ -1,6 +1,6 @@
 {
-  "updated": "2026-02-15T03:23:42Z",
-  "docCount": 60,
+  "updated": "2026-02-15T03:29:05Z",
+  "docCount": 61,
   "categories": [
     {
       "category": "adr",
@@ -10,7 +10,7 @@
     },
     {
       "category": "plans",
-      "updated": "2026-02-15T03:23:42Z",
+      "updated": "2026-02-15T03:29:05Z",
       "docCount": 1,
       "indexPath": "design/plans/index.json"
     },
@@ -22,8 +22,8 @@
     },
     {
       "category": "tasks",
-      "updated": "2026-02-14T18:53:03Z",
-      "docCount": 3,
+      "updated": "2026-02-15T03:29:05Z",
+      "docCount": 4,
       "indexPath": "design/tasks/index.json"
     },
     {
@@ -385,6 +385,7 @@
       "category": "plans",
       "id": "2026aa-kompox-box-update",
       "language": "ja",
+      "owner": "yaegashi",
       "references": [
         "20260214b-box-kom-loader",
         "Compose specification",
@@ -399,10 +400,11 @@
       "relPath": "design/plans/2026/2026aa-kompox-box-update.ja.md",
       "status": "draft",
       "tasks": [
-        "20260214b-box-kom-loader"
+        "20260214b-box-kom-loader",
+        "20260215a-standalone-box-manifest"
       ],
       "title": "Kompox Box Update",
-      "updated": "2026-02-15T03:23:42Z",
+      "updated": "2026-02-15T03:29:05Z",
       "version": "v1"
     },
     {
@@ -482,6 +484,28 @@
       "status": "done",
       "title": "K4x-ADR-018 実装（design index JSON 生成）",
       "updated": "2026-02-14T18:53:03Z",
+      "version": ""
+    },
+    {
+      "adrs": [
+        "K4x-ADR-017"
+      ],
+      "category": "tasks",
+      "id": "20260215a-standalone-box-manifest",
+      "language": "ja",
+      "owner": "yaegashi",
+      "plans": [
+        "2026aa-kompox-box-update"
+      ],
+      "references": [
+        "20260214b-box-kom-loader",
+        "2026aa-kompox-box-update",
+        "K4x-ADR-017"
+      ],
+      "relPath": "design/tasks/2026/02/15/20260215a-standalone-box-manifest.ja.md",
+      "status": "active",
+      "title": "Standalone Box の K8s Manifest 化 (Phase 4)",
+      "updated": "2026-02-15T03:29:05Z",
       "version": ""
     },
     {

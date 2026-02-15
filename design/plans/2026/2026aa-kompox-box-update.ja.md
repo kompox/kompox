@@ -3,12 +3,14 @@ id: 2026aa-kompox-box-update
 title: Kompox Box Update
 version: v1
 status: draft
-updated: 2026-02-15T03:23:42Z
+updated: 2026-02-15T03:29:05Z
 language: ja
+owner: yaegashi
 adrs:
   - K4x-ADR-017
 tasks:
   - 20260214b-box-kom-loader
+  - 20260215a-standalone-box-manifest
 ---
 
 # Plan: Kompox Box Update

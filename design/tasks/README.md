@@ -5,8 +5,9 @@
 | [20260214a-new-design-docs](./2026/02/14/20260214a-new-design-docs.ja.md) | Design doc indexes 再設計 | 2026-02-14T00:00:00Z | done |
 | [20260214b-box-kom-loader](./2026/02/14/20260214b-box-kom-loader.ja.md) | Box KOM 定義とロード時バリデーション | 2026-02-14T15:51:24Z | done |
 | [20260214c-adr018-doc-index-json](./2026/02/14/20260214c-adr018-doc-index-json.ja.md) | K4x-ADR-018 実装（design index JSON 生成） | 2026-02-14T18:53:03Z | done |
+| [20260215a-standalone-box-manifest](./2026/02/15/20260215a-standalone-box-manifest.ja.md) | Standalone Box の K8s Manifest 化 (Phase 4) | 2026-02-15T03:29:05Z | active |
 
-Updated: 2026-02-14T18:53:03Z
+Updated: 2026-02-15T03:29:05Z
 
 ---
 
