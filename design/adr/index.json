@@ -1,6 +1,6 @@
 {
   "category": "adr",
-  "updated": "2026-02-14T18:23:37Z",
+  "updated": "2026-02-15T03:23:42Z",
   "docCount": 18,
   "docs": [
     {
@@ -299,19 +299,22 @@
       "category": "adr",
       "id": "K4x-ADR-017",
       "language": "en",
+      "plans": [
+        "2026aa-kompox-box-update"
+      ],
       "references": [
-        "2026aa-kompox-box-update.ja.md",
+        "2026aa-kompox-box-update",
         "K4x-ADR-008",
         "K4x-ADR-009"
       ],
       "relPath": "design/adr/K4x-ADR-017.md",
-      "status": "proposed",
+      "status": "accepted",
       "supersededBy": [],
       "supersedes": [
         "K4x-ADR-008"
       ],
       "title": "Define App/Box model, Compose mapping, and CLI selectors",
-      "updated": "2026-02-14T00:00:00Z",
+      "updated": "2026-02-15T03:23:42Z",
       "version": ""
     },
     {

@@ -1,11 +1,12 @@
 ---
 id: K4x-ADR-017
 title: Define App/Box model, Compose mapping, and CLI selectors
-status: proposed
-updated: 2026-02-14
+status: accepted
+updated: 2026-02-15T03:23:42Z
 language: en
 supersedes: [K4x-ADR-008]
 supersededBy: []
+plans: [2026aa-kompox-box-update]
 ---
 # K4x-ADR-017: Define App/Box model, Compose mapping, and CLI selectors
 
@@ -29,8 +30,11 @@ We need a concrete, stable v1 direction for:
   - `--component` (default: `app`)
   - `--pod`
   - `--container`
+- Keep Standalone Box lifecycle operations on `kompoxops box` (`deploy`/`destroy`/`status`).
+- Use `kompoxops app` for component-scoped app operations (`tunnel`/`exec`/`logs`/`status`).
+- Keep `kompoxops box` ergonomics commands (`ssh`/`scp`/`rsync`) as shortcuts over app-level primitives.
 
-Detailed schema, validation rules, NetworkPolicy defaults, ingress distribution rules, and examples are specified in [2026aa-kompox-box-update.ja.md]. This ADR only records the decision to adopt that model and to use that document as the normative design reference for implementation.
+Detailed schema, validation rules, NetworkPolicy defaults, ingress distribution rules, and examples are specified in [2026aa-kompox-box-update]. This ADR only records the decision to adopt that model and to use that document as the normative design reference for implementation.
 
 ## Alternatives Considered
 
@@ -49,22 +53,15 @@ Detailed schema, validation rules, NetworkPolicy defaults, ingress distribution 
 
 ## Rollout
 
-- Phase 1: Treat [2026aa-kompox-box-update.ja.md] as the design source of truth for implementation.
-- Phase 2: Expand BoxSpec from the current placeholder to support the minimal v1 fields needed by the draft.
-- Phase 3: Implement loader-time validation and deterministic Compose services → component mapping.
-- Phase 4: Update Kubernetes conversion so outputs (Deployment/Service/Ingress/NetworkPolicy) are produced per component, including default-deny ingress with baseline allowances.
-- Phase 5: Renew CLI targeting for single-target operations using `--component/--pod/--container`, keeping backward-compatible defaults where possible.
-
-Migration notes:
-- Apps without Box resources continue to deploy as a single default component (`app`).
-- Standalone Box operations remain available under `kompoxops box` during the transition; Compose-derived components are primarily targeted via `kompoxops app` selectors.
+- Execution phases and migration sequencing are maintained in [2026aa-kompox-box-update].
+- This ADR intentionally keeps rollout details out of scope to remain stable as a decision record.
 
 ## References
 
 - [K4x-ADR-008]
 - [K4x-ADR-009]
-- [2026aa-kompox-box-update.ja.md]
+- [2026aa-kompox-box-update]
 
 [K4x-ADR-008]: ./K4x-ADR-008.md
 [K4x-ADR-009]: ./K4x-ADR-009.md
-[2026aa-kompox-box-update.ja.md]: ../plans/2026/2026aa-kompox-box-update.ja.md
+[2026aa-kompox-box-update]: ../plans/2026/2026aa-kompox-box-update.ja.md

@@ -1,9 +1,12 @@
 {
   "category": "plans",
-  "updated": "2026-02-14T00:00:00Z",
+  "updated": "2026-02-15T03:23:42Z",
   "docCount": 1,
   "docs": [
     {
+      "adrs": [
+        "K4x-ADR-017"
+      ],
       "category": "plans",
       "id": "2026aa-kompox-box-update",
       "language": "ja",
@@ -12,6 +15,7 @@
         "Compose specification",
         "K4x-ADR-008",
         "K4x-ADR-009",
+        "K4x-ADR-017",
         "Kompox-CLI",
         "Kompox-KubeConverter",
         "Kubernetes NetworkPolicy",
@@ -23,7 +27,7 @@
         "20260214b-box-kom-loader"
       ],
       "title": "Kompox Box Update",
-      "updated": "2026-02-14T00:00:00Z",
+      "updated": "2026-02-15T03:23:42Z",
       "version": "v1"
     }
   ]

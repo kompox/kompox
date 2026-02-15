@@ -1,16 +1,16 @@
 {
-  "updated": "2026-02-14T18:53:03Z",
+  "updated": "2026-02-15T03:23:42Z",
   "docCount": 60,
   "categories": [
     {
       "category": "adr",
-      "updated": "2026-02-14T18:23:37Z",
+      "updated": "2026-02-15T03:23:42Z",
       "docCount": 18,
       "indexPath": "design/adr/index.json"
     },
     {
       "category": "plans",
-      "updated": "2026-02-14T00:00:00Z",
+      "updated": "2026-02-15T03:23:42Z",
       "docCount": 1,
       "indexPath": "design/plans/index.json"
     },
@@ -342,19 +342,22 @@
       "category": "adr",
       "id": "K4x-ADR-017",
       "language": "en",
+      "plans": [
+        "2026aa-kompox-box-update"
+      ],
       "references": [
-        "2026aa-kompox-box-update.ja.md",
+        "2026aa-kompox-box-update",
         "K4x-ADR-008",
         "K4x-ADR-009"
       ],
       "relPath": "design/adr/K4x-ADR-017.md",
-      "status": "proposed",
+      "status": "accepted",
       "supersededBy": [],
       "supersedes": [
         "K4x-ADR-008"
       ],
       "title": "Define App/Box model, Compose mapping, and CLI selectors",
-      "updated": "2026-02-14T00:00:00Z",
+      "updated": "2026-02-15T03:23:42Z",
       "version": ""
     },
     {
@@ -376,6 +379,9 @@
       "version": ""
     },
     {
+      "adrs": [
+        "K4x-ADR-017"
+      ],
       "category": "plans",
       "id": "2026aa-kompox-box-update",
       "language": "ja",
@@ -384,6 +390,7 @@
         "Compose specification",
         "K4x-ADR-008",
         "K4x-ADR-009",
+        "K4x-ADR-017",
         "Kompox-CLI",
         "Kompox-KubeConverter",
         "Kubernetes NetworkPolicy",
@@ -395,7 +402,7 @@
         "20260214b-box-kom-loader"
       ],
       "title": "Kompox Box Update",
-      "updated": "2026-02-14T00:00:00Z",
+      "updated": "2026-02-15T03:23:42Z",
       "version": "v1"
     },
     {

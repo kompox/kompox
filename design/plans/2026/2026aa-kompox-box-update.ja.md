@@ -3,8 +3,10 @@ id: 2026aa-kompox-box-update
 title: Kompox Box Update
 version: v1
 status: draft
-updated: 2026-02-14
+updated: 2026-02-15T03:23:42Z
 language: ja
+adrs:
+  - K4x-ADR-017
 tasks:
   - 20260214b-box-kom-loader
 ---
@@ -313,14 +315,14 @@ example-web-6b7c8d9f7d-fghij         false   8s
 `kompoxops app` の役割
 
 - App のデプロイと運用を扱う(Compose project を一次入力とする)。
-- App 配下の任意 component に対して、汎用的な運用操作を提供する。
+- App 配下の任意 component に対して、component 単位の汎用運用操作を提供する。
   - 例: `exec` `logs` `tunnel` `status`
 - component 選択は将来的に `--component` を基本とし、曖昧な場合は `--pod` で決定できる。
 
 `kompoxops box` の役割
 
-- Standalone Box のライフサイクル管理を扱う(Compose とは独立した作業環境)。
-  - 例: `deploy` `destroy` `status`
+- Standalone Box のライフサイクル管理(Compose とは独立した作業環境)を扱う。
+  - 例: `deploy` `destroy` `status` (正規経路)
 - 作業用途の ergonomics を提供する(app 汎用コマンドの糖衣)。
   - 例: `ssh` `scp` `rsync`
 
@@ -503,19 +505,51 @@ spec:
           - standalone-web.example.com
 ```
 
+## 計画 (チェックリスト)
+
+本セクションは [K4x-ADR-017] の Rollout から移管した実装計画の正本であり、今後は進捗に応じて更新する。
+
+- [x] Phase 1: 本ドキュメントを実装の設計正本として扱う。
+- [x] Phase 2: BoxSpec を placeholder から最小 v1 フィールドへ拡張する。
+- [x] Phase 3: ローダー時バリデーションと、Compose services → component の決定規則を実装する。
+- [ ] Phase 4: Standalone Box を優先して K8s Manifest 化できる状態にする。
+  - [ ] Box を domain model/repository で扱えるようにする。
+  - [ ] `spec.image` を持つ Box(Standalone Box)を converter 入力へ反映する。
+- [ ] Phase 5: Standalone Box の deploy/destroy は `kompoxops box` を維持しつつ、`kompoxops app` 側で component 単位の適用/運用を可能にする。
+  - [ ] Deployment/Service/NetworkPolicy の component 出力を Standalone Box まで拡張する。
+  - [ ] Standalone Box のライフサイクル操作は `kompoxops box deploy/destroy` を正規経路として維持する。
+  - [ ] App 既定と Box 個別の NetworkPolicy 追加許可を最小実装でマージする。
+- [ ] Phase 6: CLI の単一ターゲット操作を `--component/--pod/--container` へ統一する。
+  - [ ] `kompoxops app` 系コマンドで Box component を明示選択できるようにする。
+  - [ ] 既定値 `app` を維持して後方互換を保つ。
+- [ ] Phase 7: Compose Box の services 割り当てを実装する。
+  - [ ] primary service + `network_mode: service:<name>` closure による同居解決を実装する。
+  - [ ] cycle/重複割り当て/primary 不正参照などのエラー検出を実装する。
+- [ ] Phase 8: Ingress ルールの Box 配賦を実装する。
+  - [ ] hostPort から service を一意解決し、所属 component へ配賦する。
+  - [ ] component ごとの Service(ingress)/Ingress 生成を整備する。
+- [ ] Phase 9: NetworkPolicy の component 全面適用を実装する。
+  - [ ] baselineAllow + App + Box の additive マージを全 component へ適用する。
+  - [ ] default-deny 前提と ingress 制御方針(公開可否は ingress/Service 入力)を実装に反映する。
+- [ ] Phase 10: CLI 境界整理と移行完了を実施する。
+  - [ ] Compose Box 運用を `kompoxops app` 側へ寄せ、`kompoxops box` は Standalone Box の deploy/destroy と作業系サブコマンド中心へ整理する。
+  - [ ] 互換モード/移行ガイド/回帰テストを整備し、段階的移行を完了する。
+
 ## 互換性と移行
 
+- Box を定義しない App は、既定 component `app` の単一デプロイを継続する。
+- 移行期間中の Standalone Box 操作は `kompoxops box` を維持し、Compose 由来 component は `kompoxops app` の selector で操作する。
 - Box を定義しない場合の既定挙動は現行 v1 の "component=app に集約" を維持する。
 - Box を追加した場合のみ topology が変化するため、段階的に Box 導入が可能である。
 
 ## 参照
 
-- Tasks:
-  - [20260214b-box-kom-loader]
+- [20260214b-box-kom-loader]
 - [Kompox-KubeConverter]
 - [Kompox-CLI]
 - [K4x-ADR-008]
 - [K4x-ADR-009]
+- [K4x-ADR-017]
 - [ops/v1alpha1 types.go]
 - [Kubernetes NetworkPolicy]
 - [Compose specification]
@@ -525,6 +559,7 @@ spec:
 [Kompox-CLI]: ./Kompox-CLI.ja.md
 [K4x-ADR-008]: ../adr/K4x-ADR-008.md
 [K4x-ADR-009]: ../adr/K4x-ADR-009.md
+[K4x-ADR-017]: ../adr/K4x-ADR-017.md
 [ops/v1alpha1 types.go]: ../../config/crd/ops/v1alpha1/types.go
 [Kubernetes NetworkPolicy]: https://kubernetes.io/docs/concepts/services-networking/network-policies/
 [Compose specification]: https://compose-spec.io/
