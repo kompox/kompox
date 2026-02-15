@@ -12,7 +12,9 @@
     "ghcr.io/devcontainers-extra/features/uv:1": {},
     "ghcr.io/devcontainers-extra/features/apt-packages:1": {
       "packages": "python3"
-    }
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/copilot-cli:1": {}
   },
   "postCreateCommand": "bash -x .devcontainer/install-dev-tools.sh",
   "customizations": {
