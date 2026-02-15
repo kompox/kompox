@@ -1,6 +1,6 @@
 {
-  "updated": "2026-02-15T06:15:05Z",
-  "docCount": 61,
+  "updated": "2026-02-15T08:22:48Z",
+  "docCount": 62,
   "categories": [
     {
       "category": "adr",
@@ -22,8 +22,8 @@
     },
     {
       "category": "tasks",
-      "updated": "2026-02-15T05:59:42Z",
-      "docCount": 4,
+      "updated": "2026-02-15T08:22:48Z",
+      "docCount": 5,
       "indexPath": "design/tasks/index.json"
     },
     {
@@ -507,6 +507,23 @@
       "status": "done",
       "title": "Standalone Box の K8s Manifest 化 (Phase 4)",
       "updated": "2026-02-15T05:59:42Z",
+      "version": ""
+    },
+    {
+      "adrs": [],
+      "category": "tasks",
+      "id": "20260215b-networkpolicy-empty-peer",
+      "language": "ja",
+      "owner": "yaegashi",
+      "plans": [],
+      "references": [
+        "2026-02-12-network-policy",
+        "adapters/kube/converter.go"
+      ],
+      "relPath": "design/tasks/2026/02/15/20260215b-networkpolicy-empty-peer.ja.md",
+      "status": "draft",
+      "title": "NetworkPolicy の from: {} 出力修正",
+      "updated": "2026-02-15T08:22:48Z",
       "version": ""
     },
     {
