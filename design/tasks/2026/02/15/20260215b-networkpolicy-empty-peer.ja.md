@@ -2,7 +2,7 @@
 id: 20260215b-networkpolicy-empty-peer
 title: "NetworkPolicy の from: {} 出力修正"
 status: done
-updated: 2026-02-15T09:57:35Z
+updated: 2026-02-15T10:31:09Z
 language: ja
 owner: yaegashi
 adrs: []
@@ -70,6 +70,7 @@ plans: []
 - 2026-02-15T09:26:59Z 再現フィクスチャを `tests/fixtures/app-validate/networkpolicy-empty-peer` へ移動し、再現方法を追記
 - 2026-02-15T09:34:13Z フィクスチャ配置を doc-id ベースの `tests/fixtures/20260215b-networkpolicy-empty-peer` へ変更
 - 2026-02-15T09:57:35Z 修正完了: `adapters/kube/converter.go` で same-namespace peer に明示的な namespaceSelector を追加、`TestNetworkPolicyNoEmptyPeer` 回帰テストを追加
+- 2026-02-15T10:31:09Z PR レビューフィードバック対応: 冗長な空 PodSelector を削除、回帰テストを peer 順序非依存・MatchLabels/MatchExpressions 両対応に改善
 
 ## 参照
 
