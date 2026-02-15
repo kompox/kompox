@@ -1,6 +1,6 @@
 {
   "category": "tasks",
-  "updated": "2026-02-15T03:29:05Z",
+  "updated": "2026-02-15T05:59:42Z",
   "docCount": 4,
   "docs": [
     {
@@ -75,9 +75,9 @@
         "K4x-ADR-017"
       ],
       "relPath": "design/tasks/2026/02/15/20260215a-standalone-box-manifest.ja.md",
-      "status": "active",
+      "status": "done",
       "title": "Standalone Box の K8s Manifest 化 (Phase 4)",
-      "updated": "2026-02-15T03:29:05Z",
+      "updated": "2026-02-15T05:59:42Z",
       "version": ""
     }
   ]

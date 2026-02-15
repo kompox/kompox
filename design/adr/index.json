@@ -1,6 +1,6 @@
 {
   "category": "adr",
-  "updated": "2026-02-15T03:23:42Z",
+  "updated": "2026-02-15T05:03:16Z",
   "docCount": 18,
   "docs": [
     {
@@ -314,7 +314,7 @@
         "K4x-ADR-008"
       ],
       "title": "Define App/Box model, Compose mapping, and CLI selectors",
-      "updated": "2026-02-15T03:23:42Z",
+      "updated": "2026-02-15T05:03:16Z",
       "version": ""
     },
     {

@@ -3,7 +3,7 @@ id: 2026aa-kompox-box-update
 title: Kompox Box Update
 version: v1
 status: draft
-updated: 2026-02-15T05:03:16Z
+updated: 2026-02-15T06:15:05Z
 language: ja
 owner: yaegashi
 adrs:
@@ -514,10 +514,13 @@ spec:
 
 - [x] Phase 1: 本ドキュメントを実装の設計正本として扱う。
 - [x] Phase 2: BoxSpec を placeholder から最小 v1 フィールドへ拡張する。
+  - [x] [20260214b-box-kom-loader]
 - [x] Phase 3: ローダー時バリデーションと、Compose services → component の決定規則を実装する。
-- [ ] Phase 4: Standalone Box を優先して K8s Manifest 化できる状態にする。
-  - [ ] Box を domain model/repository で扱えるようにする。
-  - [ ] `spec.image` を持つ Box(Standalone Box)を converter 入力へ反映する。
+  - [x] [20260214b-box-kom-loader]
+- [x] Phase 4: Standalone Box を優先して K8s Manifest 化できる状態にする。
+  - [x] [20260215a-standalone-box-manifest]
+  - [x] Box を domain model/repository で扱えるようにする。
+  - [x] `spec.image` を持つ Box(Standalone Box)を converter 入力へ反映する。
 - [ ] Phase 5: Standalone Box の deploy/destroy は `kompoxops box` を維持しつつ、`kompoxops app` 側で component 単位の適用/運用を可能にする。
   - [ ] Deployment/Service/NetworkPolicy の component 出力を Standalone Box まで拡張する。
   - [ ] `kompoxops app deploy/destroy` が Standalone Box の作成/削除を行わない境界を実装・検証する。
@@ -550,6 +553,7 @@ spec:
 ## 参照
 
 - [20260214b-box-kom-loader]
+- [20260215a-standalone-box-manifest]
 - [Kompox-KubeConverter]
 - [Kompox-CLI]
 - [K4x-ADR-008]
@@ -568,3 +572,4 @@ spec:
 [ops/v1alpha1 types.go]: ../../config/crd/ops/v1alpha1/types.go
 [Kubernetes NetworkPolicy]: https://kubernetes.io/docs/concepts/services-networking/network-policies/
 [Compose specification]: https://compose-spec.io/
+[20260215a-standalone-box-manifest]: ../tasks/2026/02/15/20260215a-standalone-box-manifest.ja.md

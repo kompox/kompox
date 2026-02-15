@@ -1,8 +1,8 @@
 ---
 id: 20260215a-standalone-box-manifest
 title: Standalone Box の K8s Manifest 化 (Phase 4)
-status: active
-updated: 2026-02-15T03:29:05Z
+status: done
+updated: 2026-02-15T05:59:42Z
 language: ja
 owner: yaegashi
 adrs:
@@ -35,11 +35,11 @@ plans:
 
 ## Plan (checklist)
 
-- [ ] domain に Box モデル/Repository を追加し、KOM `Sink.ToModels` から取り出せるようにする。
-- [ ] Standalone Box を converter 入力に渡すためのデータ経路を追加する。
-- [ ] Standalone Box の Manifest 生成 (最低限 Deployment + 必要な周辺リソース) を実装する。
-- [ ] Box 未定義 App の既存出力が変わらないことを回帰テストで確認する。
-- [ ] 失敗時エラー (不正 Box 参照など) が再現性あるメッセージになるよう整える。
+- [x] domain に Box モデル/Repository を追加し、KOM `Sink.ToModels` から取り出せるようにする。
+- [x] Standalone Box を converter 入力に渡すためのデータ経路を追加する。
+- [x] Standalone Box の Manifest 生成 (最低限 Deployment + 必要な周辺リソース) を実装する。
+- [x] Box 未定義 App の既存出力が変わらないことを回帰テストで確認する。
+- [x] 失敗時エラー (不正 Box 参照など) が再現性あるメッセージになるよう整える。
 
 ## Tests
 
@@ -65,6 +65,16 @@ plans:
 ## Progress
 
 - 2026-02-15: タスク作成
+- 2026-02-15: Cloud agent による実装
+  - https://github.com/kompox/kompox/pull/6
+- 2026-02-15: 実装完了
+  - Box の domain model/repository と in-memory/RDB 実装を追加
+  - CRD sink から Box を model へ変換する経路を追加
+  - converter に Standalone Box 生成経路を追加
+  - app 側の経路で Standalone Box を生成しない境界を再確認・修正
+- 2026-02-15: 完了反映
+  - 計画チェックリストを完了に更新
+  - front-matter を `status: done` に更新
 
 ## References
 

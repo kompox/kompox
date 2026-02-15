@@ -1,16 +1,16 @@
 {
-  "updated": "2026-02-15T03:29:05Z",
+  "updated": "2026-02-15T06:15:05Z",
   "docCount": 61,
   "categories": [
     {
       "category": "adr",
-      "updated": "2026-02-15T03:23:42Z",
+      "updated": "2026-02-15T05:03:16Z",
       "docCount": 18,
       "indexPath": "design/adr/index.json"
     },
     {
       "category": "plans",
-      "updated": "2026-02-15T03:29:05Z",
+      "updated": "2026-02-15T06:15:05Z",
       "docCount": 1,
       "indexPath": "design/plans/index.json"
     },
@@ -22,7 +22,7 @@
     },
     {
       "category": "tasks",
-      "updated": "2026-02-15T03:29:05Z",
+      "updated": "2026-02-15T05:59:42Z",
       "docCount": 4,
       "indexPath": "design/tasks/index.json"
     },
@@ -357,7 +357,7 @@
         "K4x-ADR-008"
       ],
       "title": "Define App/Box model, Compose mapping, and CLI selectors",
-      "updated": "2026-02-15T03:23:42Z",
+      "updated": "2026-02-15T05:03:16Z",
       "version": ""
     },
     {
@@ -388,6 +388,7 @@
       "owner": "yaegashi",
       "references": [
         "20260214b-box-kom-loader",
+        "20260215a-standalone-box-manifest",
         "Compose specification",
         "K4x-ADR-008",
         "K4x-ADR-009",
@@ -404,7 +405,7 @@
         "20260215a-standalone-box-manifest"
       ],
       "title": "Kompox Box Update",
-      "updated": "2026-02-15T03:29:05Z",
+      "updated": "2026-02-15T06:15:05Z",
       "version": "v1"
     },
     {
@@ -503,9 +504,9 @@
         "K4x-ADR-017"
       ],
       "relPath": "design/tasks/2026/02/15/20260215a-standalone-box-manifest.ja.md",
-      "status": "active",
+      "status": "done",
       "title": "Standalone Box の K8s Manifest 化 (Phase 4)",
-      "updated": "2026-02-15T03:29:05Z",
+      "updated": "2026-02-15T05:59:42Z",
       "version": ""
     },
     {

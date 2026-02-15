@@ -1,6 +1,6 @@
 {
   "category": "plans",
-  "updated": "2026-02-15T03:29:05Z",
+  "updated": "2026-02-15T06:15:05Z",
   "docCount": 1,
   "docs": [
     {
@@ -13,6 +13,7 @@
       "owner": "yaegashi",
       "references": [
         "20260214b-box-kom-loader",
+        "20260215a-standalone-box-manifest",
         "Compose specification",
         "K4x-ADR-008",
         "K4x-ADR-009",
@@ -29,7 +30,7 @@
         "20260215a-standalone-box-manifest"
       ],
       "title": "Kompox Box Update",
-      "updated": "2026-02-15T03:29:05Z",
+      "updated": "2026-02-15T06:15:05Z",
       "version": "v1"
     }
   ]
