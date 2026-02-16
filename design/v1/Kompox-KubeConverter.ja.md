@@ -3,7 +3,7 @@ id: Kompox-KubeConverter
 title: Kompox Kube Converter ガイド
 version: v1
 status: synced
-updated: 2026-02-12
+updated: 2026-02-16T19:02:50Z
 language: ja
 ---
 
@@ -704,7 +704,7 @@ additionalArguments:
 
 ### Deployment
 
-App.spec.deployment スキーマ (KOM)
+#### App.spec.deployment スキーマ (KOM)
 
 ```yaml
 apiVersion: ops.kompox.dev/v1alpha1
@@ -715,12 +715,45 @@ spec:
   deployment:
     pool: <pool>
     zone: <zone>
+    pools: [<pool>, ...]
+    zones: [<zone>, ...]
 ```
+
+#### フィールド仕様
 
 - pool: ノードプールの種類。未指定の場合は `user`。
 Deployment.spec.template.spec.nodeSelector に `kompox.dev/node-pool: <pool>` を設定する。
 - zone: プロバイダドライバがサポートするゾーン名 (例: `"1"`)。
 指定があった場合のみ Deployment.spec.template.spec.nodeSelector に `kompox.dev/node-zone: <zone>` を設定する。
+- pools: 複数ノードプール候補。指定した場合は nodeAffinity(requiredDuringSchedulingIgnoredDuringExecution, `In`) で `kompox.dev/node-pool` に写像する。
+- zones: 複数ゾーン候補。指定した場合は nodeAffinity(requiredDuringSchedulingIgnoredDuringExecution, `In`) で `kompox.dev/node-zone` に写像する。
+- 同時指定制約: `pool` と `pools`、`zone` と `zones` は同時指定不可 (バリデーションエラー)。
+
+#### 将来拡張の予約
+
+- `deployment.selectors` は将来拡張として予約する。
+- 現時点の初期実装では `pool` / `zone` / `pools` / `zones` のみをサポート対象とする。
+- `deployment.selectors` が指定された場合は未サポートとしてバリデーションエラーとする。
+
+#### NodePool 抽象との関係と責務分離
+
+- `deployment.pool` / `deployment.zone` / `deployment.pools` / `deployment.zones` は Provider Driver 契約の NodePool 抽象に対応するアプリ側の指定値である。
+- KubeConverter の責務は、これらを `kompox.dev/node-pool` / `kompox.dev/node-zone` の nodeSelector / nodeAffinity へ写像することに限定される。
+- zone 値のベンダ差異吸収 (例: AKS の数字ゾーン) は provider driver 側の責務であり、KubeConverter はベンダ固有の値変換を行わない。
+- そのため KubeConverter は NodePool の CRUD 実行主体ではなく、スケジューリング意図の伝達境界として機能する。
+
+#### `kompox.dev/node-pool` / `kompox.dev/node-zone` の値規約
+
+- `kompox.dev/node-pool`
+  - 推奨フォーマット: Kubernetes Label Value 互換の非空文字列、長さ 1..63。
+  - 共通語彙: `system` / `user` を予約語彙として扱う。
+  - それ以外の値はユーザ定義 NodePool 名として扱い、KubeConverter はそのまま透過する。
+- `kompox.dev/node-zone`
+  - 推奨フォーマット: Kubernetes Label Value 互換の非空文字列、長さ 1..63。
+  - 推奨共通語彙: `<region>-<zoneIndex>` (例: `japaneast-1`)。
+  - 互換語彙: プロバイダ固有値 (例: AKS の `"1"`) も許容し、変換責務は provider driver 側に置く。
+
+この責務分離は [K4x-ADR-019] と [Kompox-ProviderDriver] の NodePool 契約、および [Kompox-ProviderDriver-AKS] の実装方針と整合する。
 
 ### Network Policy
 
@@ -1481,6 +1514,10 @@ spec:
 [K4x-ADR-003]: ../adr/K4x-ADR-003.md
 [K4x-ADR-005]: ../adr/K4x-ADR-005.md
 [K4x-ADR-014]: ../adr/K4x-ADR-014.md
+[K4x-ADR-019]: ../adr/K4x-ADR-019.md
+
+[Kompox-ProviderDriver]: ./Kompox-ProviderDriver.ja.md
+[Kompox-ProviderDriver-AKS]: ./Kompox-ProviderDriver-AKS.ja.md
 
 <!-- Design References -->
 

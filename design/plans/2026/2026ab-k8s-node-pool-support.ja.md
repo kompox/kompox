@@ -3,7 +3,7 @@ id: 2026ab-k8s-node-pool-support
 title: K8s プラットフォームドライバへの NodePool 対応追加
 version: v1
 status: draft
-updated: 2026-02-16T18:23:28Z
+updated: 2026-02-16T19:06:55Z
 language: ja
 adrs:
   - K4x-ADR-019
@@ -19,13 +19,14 @@ tasks:
 
 - Provider Driver の公開契約に NodePool 管理を追加し、クラスタ作成後の Day2 運用でノードプールを動的に追加・更新・削除できるようにする。
 - AKS で先行して実装可能な最小スコープ(List/Create/Update/Delete)を定義し、他ベンダ(OKE/GKE/EKS)へ展開しやすい抽象を確立する。
-- App 側の `spec.deployment.pool/zone` を維持し、KubeConverter のラベル契約(`kompox.dev/node-pool`, `kompox.dev/node-zone`)と整合する。
+- App 側の `spec.deployment.pool/zone/pools/zones` を初期実装対象として整備し、KubeConverter のラベル契約(`kompox.dev/node-pool`, `kompox.dev/node-zone`)と整合する。
 
 ## 非目的
 
 - 本 plan では全クラウドの同時実装は行わない。
 - K3s のようにクラウド管理プレーンの NodePool リソースがない環境への完全対応は対象外とする。
 - App/KOM の大幅なスキーマ再設計は行わない(既存 `deployment.pool/zone` を前提に最小差分で進める)。
+- `deployment.selectors` の汎用選択式は将来拡張として予約し、本 plan の初期実装スコープでは実装しない。
 
 ## 背景
 
@@ -55,8 +56,9 @@ tasks:
   - EKS は `Node Group` にマッピング。
 - 設定モデルは「共通項目を型付き」「ベンダ拡張は限定的 escape hatch」で整理する。
   - `map[string]string` 単独の主契約化は避ける。
-- KubeConverter 契約は現状維持を基本とし、`kompox.dev/node-pool` を中心に運用する。
+- KubeConverter 契約は `pool/zone` の互換維持に加えて `pools/zones` を初期実装へ取り込み、`kompox.dev/node-pool` を中心に運用する。
   - zone 値のベンダ差異は driver 側の正規化責務として整理する。
+  - `deployment.selectors` は将来拡張として予約し、現時点では未サポート(バリデーションエラー)とする。
 
 ## 計画 (チェックリスト)
 
@@ -71,10 +73,11 @@ tasks:
   - [x] 必須項目/可変項目/非対応項目、冪等性、`not implemented` 境界を明記する。
   - [x] [Kompox-ProviderDriver] に AKS 実装から抽出した全ドライバ共通原則を反映し、境界を整理する。
   - [x] [Kompox-ProviderDriver-AKS] に NodePool メソッド実装 (`NodePoolList/Create/Update/Delete`) の実装準拠記載を追加する。
-- [ ] Phase 3: KubeConverter 契約の責務分離を明確化する。
+- [x] Phase 3: KubeConverter 契約の責務分離を明確化する。
   - [x] Task: [20260216c-nodepool-kubeconverter-spec]
-  - [ ] [Kompox-KubeConverter] に `deployment.pool/zone` と NodePool 抽象の関係を追記する。
-  - [ ] `kompox.dev/node-pool` / `kompox.dev/node-zone` を維持し、zone 正規化責務を driver 側に置くことを明記する。
+  - [x] [Kompox-KubeConverter] に `deployment.pool/zone/pools/zones` と NodePool 抽象の関係を追記する。
+  - [x] `deployment.selectors` を将来拡張として予約し、現時点の未サポート方針を明記する。
+  - [x] `kompox.dev/node-pool` / `kompox.dev/node-zone` を維持し、zone 正規化責務を driver 側に置くことを明記する。
 - [ ] Phase 4: AKS driver の NodePool 実装を追加する。
   - [ ] `adapters/drivers/provider/registry.go` に追加する NodePool メソッド契約に合わせて `adapters/drivers/provider/aks` の `driver` 実装を更新する。
   - [ ] AKS の Agent Pool API を呼び出す実装(`List/Create/Update/Delete`)を追加し、`NodePool` 抽象へマッピングする。
@@ -103,7 +106,8 @@ tasks:
 
 ## Migration notes
 
-- 既存の App `spec.deployment.pool/zone` は互換維持し、初期段階では挙動を変更しない。
+- 既存の App `spec.deployment.pool/zone` は互換維持し、`spec.deployment.pools/zones` を初期実装で追加する。
+- `spec.deployment.selectors` は将来拡張として予約し、現時点で指定された場合はバリデーションエラーとする。
 - 既存 AKS クラスタは、NodePool API 導入後も現行設定(`AZURE_AKS_SYSTEM_*`, `AZURE_AKS_USER_*`)を初期値として扱い、段階的に Day2 管理へ移行する。
 - NodePool 未対応ドライバは明示的 `not implemented` を返し、機能可否を利用側で判定可能にする。
 

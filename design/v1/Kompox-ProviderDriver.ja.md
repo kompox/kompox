@@ -3,7 +3,7 @@ id: Kompox-ProviderDriver
 title: Kompox Provider Driver ガイド
 version: v1
 status: synced
-updated: 2026-02-16T17:40:00Z
+updated: 2026-02-16T18:33:19Z
 language: ja
 ---
 
@@ -420,6 +420,20 @@ func init() {
   - Pod スケジューリングは Kompox ラベル(`kompox.dev/node-pool`, `kompox.dev/node-zone`)を一次契約とする。
   - zone 値の正規化・変換は provider driver の責務とし、Converter 側は入力意図の反映に専念する。
   - DTO は単一の `NodePool` を使用し、Create/Update/List の全メソッドで共通化する。
+
+- NodeSelector ラベル規約 (共通語彙/値/フォーマット)
+  - `kompox.dev/node-pool`
+    - 意味: スケジューリング対象 NodePool の論理名。
+    - 共通語彙: `system` / `user` を予約語彙として扱う。その他の値はユーザ定義 NodePool 名として扱う。
+    - フォーマット: Kubernetes Label Value 互換の非空文字列、長さ 1..63 を推奨する。
+  - `kompox.dev/node-zone`
+    - 意味: スケジューリング対象ゾーンの論理識別子。
+    - 共通語彙 (推奨): `<region>-<zoneIndex>` 形式 (例: `japaneast-1`, `eastus2-3`)。
+    - 互換語彙: プロバイダ固有値 (例: AKS の `"1"`, `"2"`, `"3"`) も許容する。
+    - フォーマット: Kubernetes Label Value 互換の非空文字列、長さ 1..63 を推奨する。
+  - 正規化責務
+    - converter は値を透過し、語彙変換を行わない。
+    - provider driver はクラスタ実体(Node/NodePool)側ラベルとの整合を維持するため、必要に応じてプロバイダ API 値との相互変換を実装する。
 
 - メソッド
   - NodePoolList は NodePool の一覧を返す。オプションでフィルタリング(名前など)をサポートする。

@@ -1,6 +1,6 @@
 {
   "category": "tasks",
-  "updated": "2026-02-16T18:22:47Z",
+  "updated": "2026-02-16T19:06:55Z",
   "docCount": 10,
   "docs": [
     {
@@ -202,9 +202,9 @@
         "design/tasks/README.md"
       ],
       "relPath": "design/tasks/2026/02/16/20260216c-nodepool-kubeconverter-spec.ja.md",
-      "status": "active",
+      "status": "done",
       "title": "NodePool 対応に向けた KubeConverter 契約更新 (Phase 3)",
-      "updated": "2026-02-16T18:22:47Z",
+      "updated": "2026-02-16T19:06:55Z",
       "version": ""
     }
   ]

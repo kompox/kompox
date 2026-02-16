@@ -11,9 +11,9 @@
 | [20260215d-app-kubectl-command](./2026/02/15/20260215d-app-kubectl-command.ja.md) | kompoxops app kubectl コマンド実装 | 2026-02-15T18:03:18Z | done |
 | [20260216a-nodepool-providerdriver-spec](./2026/02/16/20260216a-nodepool-providerdriver-spec.ja.md) | NodePool 対応に向けた ProviderDriver 仕様更新 (Phase 1) | 2026-02-16T15:59:31Z | done |
 | [20260216b-nodepool-aks-spec](./2026/02/16/20260216b-nodepool-aks-spec.ja.md) | NodePool 対応に向けた AKS ProviderDriver 仕様更新 (Phase 2) | 2026-02-16T18:11:54Z | done |
-| [20260216c-nodepool-kubeconverter-spec](./2026/02/16/20260216c-nodepool-kubeconverter-spec.ja.md) | NodePool 対応に向けた KubeConverter 契約更新 (Phase 3) | 2026-02-16T18:22:47Z | active |
+| [20260216c-nodepool-kubeconverter-spec](./2026/02/16/20260216c-nodepool-kubeconverter-spec.ja.md) | NodePool 対応に向けた KubeConverter 契約更新 (Phase 3) | 2026-02-16T19:06:55Z | done |
 
-Updated: 2026-02-16T18:22:47Z
+Updated: 2026-02-16T19:06:55Z
 
 ---
 
