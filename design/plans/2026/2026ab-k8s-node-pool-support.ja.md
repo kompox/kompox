@@ -57,6 +57,7 @@ tasks: []
 ## 計画 (チェックリスト)
 
 - [ ] Phase 1: Provider Driver 契約に NodePool 管理カテゴリを追加する。
+  - [x] Task: [20260216a-nodepool-providerdriver-spec]
   - [ ] [Kompox-ProviderDriver] に `NodePoolList/Create/Update/Delete` を追加する。
   - [ ] `Get` は当面 `List` + 名前解決で吸収する方針を明記する。
 - [ ] Phase 2: AKS 実装方針を Agent Pool API マッピングとして定義する。
@@ -105,6 +106,7 @@ tasks: []
 - [Kompox-KubeConverter]
 - [Kompox-CLI]
 - [K4x-ADR-019]
+- [20260216a-nodepool-providerdriver-spec]
 
 [design/plans/README.md]: ../README.md
 [Kompox-ProviderDriver]: ../../v1/Kompox-ProviderDriver.ja.md
@@ -112,3 +114,4 @@ tasks: []
 [Kompox-KubeConverter]: ../../v1/Kompox-KubeConverter.ja.md
 [Kompox-CLI]: ../../v1/Kompox-CLI.ja.md
 [K4x-ADR-019]: ../../adr/K4x-ADR-019.md
+[20260216a-nodepool-providerdriver-spec]: ../../tasks/2026/02/16/20260216a-nodepool-providerdriver-spec.ja.md

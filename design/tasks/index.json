@@ -1,7 +1,7 @@
 {
   "category": "tasks",
-  "updated": "2026-02-15T18:03:18Z",
-  "docCount": 7,
+  "updated": "2026-02-16T12:41:01Z",
+  "docCount": 8,
   "docs": [
     {
       "category": "tasks",
@@ -132,6 +132,30 @@
       "supersedes": [],
       "title": "kompoxops app kubectl コマンド実装",
       "updated": "2026-02-15T18:03:18Z",
+      "version": ""
+    },
+    {
+      "adrs": [
+        "K4x-ADR-019"
+      ],
+      "category": "tasks",
+      "id": "20260216a-nodepool-providerdriver-spec",
+      "language": "ja",
+      "owner": "yaegashi",
+      "plans": [
+        "2026ab-k8s-node-pool-support"
+      ],
+      "references": [
+        "2026ab-k8s-node-pool-support",
+        "K4x-ADR-019",
+        "Kompox-ProviderDriver",
+        "Kompox-ProviderDriver-AKS",
+        "design/tasks/README.md"
+      ],
+      "relPath": "design/tasks/2026/02/16/20260216a-nodepool-providerdriver-spec.ja.md",
+      "status": "active",
+      "title": "NodePool 対応に向けた ProviderDriver 仕様更新 (Phase 1)",
+      "updated": "2026-02-16T12:41:01Z",
       "version": ""
     }
   ]

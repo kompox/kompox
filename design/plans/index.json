@@ -41,6 +41,7 @@
       "id": "2026ab-k8s-node-pool-support",
       "language": "ja",
       "references": [
+        "20260216a-nodepool-providerdriver-spec",
         "K4x-ADR-019",
         "Kompox-CLI",
         "Kompox-KubeConverter",
