@@ -3,7 +3,7 @@ id: Kompox-ProviderDriver
 title: Kompox Provider Driver ガイド
 version: v1
 status: synced
-updated: 2025-10-12
+updated: 2026-02-16T12:53:22Z
 language: ja
 ---
 
@@ -98,6 +98,25 @@ type Driver interface {
     // Empty fields mean "no opinion" and the caller should omit them from generated manifests rather than
     // substituting provider-specific defaults. This keeps kube layer free from provider assumptions.
     VolumeClass(ctx context.Context, cluster *model.Cluster, app *model.App, vol model.AppVolume) (model.VolumeClass, error)
+
+    // NodePoolList returns a list of node pools for the specified cluster.
+    // Implementations should return pools with associated metadata (name, zones, instance type, autoscaling, etc.).
+    // Supports filtering via opts (e.g., by pool name).
+    NodePoolList(ctx context.Context, cluster *model.Cluster, opts ...model.NodePoolListOption) ([]*model.NodePool, error)
+
+    // NodePoolCreate creates a new node pool in the cluster.
+    // The pool parameter specifies the desired configuration. Implementations must validate required fields
+    // and return created pool metadata including provider-assigned identifiers.
+    NodePoolCreate(ctx context.Context, cluster *model.Cluster, pool model.NodePool, opts ...model.NodePoolCreateOption) (*model.NodePool, error)
+
+    // NodePoolUpdate updates mutable fields of an existing node pool.
+    // Only non-nil pointer fields in pool are applied. Attempting to modify immutable fields should
+    // return a validation error. Implementations determine which fields are mutable.
+    NodePoolUpdate(ctx context.Context, cluster *model.Cluster, pool model.NodePool, opts ...model.NodePoolUpdateOption) (*model.NodePool, error)
+
+    // NodePoolDelete deletes the specified node pool from the cluster.
+    // poolName identifies the pool to delete. NotFound is acceptable for idempotency.
+    NodePoolDelete(ctx context.Context, cluster *model.Cluster, poolName string, opts ...model.NodePoolDeleteOption) error
 }
 ```
 
@@ -242,6 +261,53 @@ func init() {
 - 契約: 空フィールドは「ノーオピニオン」を表す。コール側(kube 層)はその項目をマニフェストに含めない。ドライバ側でプロバイダ固有のデフォルト値を設定してはならない。
 - 推奨: ドライバは既定値の埋め込みを避け、クラスタ/アプリ/ボリューム設定から決まる最小限のみを返す。
 
+### NodePoolList / NodePoolCreate / NodePoolUpdate / NodePoolDelete
+
+- 前提
+  - Kompox は `NodePool` をプロバイダ横断の共通語として扱う。ベンダ固有用語(AKS の Agent Pool、EKS の Node Group など)はドライバ実装側で吸収する。
+  - Pod スケジューリングは Kompox ラベル(`kompox.dev/node-pool`, `kompox.dev/node-zone`)を一次契約とする。
+  - zone 値の正規化・変換は provider driver の責務とし、Converter 側は入力意図の反映に専念する。
+  - DTO は単一の `NodePool` を使用し、Create/Update/List の全メソッドで共通化する。
+
+- メソッド
+  - NodePoolList は NodePool の一覧を返す。オプションでフィルタリング(名前など)をサポートする。
+  - NodePoolCreate は新しい NodePool を作成する。`pool` パラメータで構成を指定し、必須フィールドのバリデーションを行う。
+  - NodePoolUpdate は既存 NodePool の可変フィールドを更新する。`pool` の non-nil ポインタフィールドのみを適用対象とし、不変項目の変更を試みた場合は validation error を返す。
+  - NodePoolDelete は指定した NodePool を削除する。`NotFound` は冪等性のため成功扱いとしてよい。
+
+- DTO 概要(MVP)
+  - `NodePool` の主要フィールドは pointer を基本とし、`Update` では non-nil のみを適用対象とする。
+  - 主要フィールド例: `Name *string`, `ProviderName *string`, `Mode *string` (`system`/`user`), `Labels *map[string]string`, `Zones *[]string`, `InstanceType *string`, `OSDiskType *string`, `OSDiskSizeGiB *int`, `Priority *string` (`regular`/`spot`), `Autoscaling *NodePoolAutoscaling`, `Status *NodePoolStatus`, `Extensions map[string]any`
+  - `NodePoolAutoscaling` 例: `Enabled bool`, `Min int`, `Max int`, `Desired *int`
+  - ベンダ方言のパラメータ名は DTO へ持ち込まず、driver 側で変換する(例: AKS `vmSize` は Kompox `InstanceType` にマッピング)。
+
+- ドライバ実装
+  - Create の必須項目はメソッド側バリデーションで強制する。
+  - Update で immutable 項目が指定された場合は validation error とする。実装がどのフィールドを mutable と扱うかはドライバに委ねられる。
+  - プロバイダが機能自体を持たない場合は `not implemented` エラーを返す(詳細は「エラーモデル」セクションを参照)。
+  - すべての外部呼び出しに `ctx` を伝播し、エラーは `%w` でラップする。
+  - 冪等性を保証する。
+
+## エラーモデル
+
+Provider Driver のエラー処理は、機能の未対応と不正な入力を明確に区別します。
+
+- **Not Implemented (機能未対応)**
+  - プロバイダが機能自体を持たない場合に返すエラー。
+  - 例: NodePool 管理に対応していないプロバイダで NodePoolCreate を呼び出した場合。
+  - Usecase/CLI 層はこれを capability boundary として扱い、transient failure として再試行しない。
+  - 実装: 専用の `ErrNotImplemented` または類似のエラー型を返す。
+
+- **Validation Error (検証エラー)**
+  - プロバイダは機能を持つが、入力パラメータが不正または不可変項目を変更しようとした場合。
+  - 例: NodePoolUpdate で immutable なフィールド(InstanceType など)を変更しようとした場合。
+  - 例: 必須フィールドが欠けている、値が制約を満たさないなど。
+  - Usecase/CLI 層は具体的なエラーメッセージをユーザに返し、入力の修正を促す。
+
+- **原則**
+  - エラーメッセージは具体的でアクション可能な内容とする。
+  - エラーは `fmt.Errorf("...: %w", err)` でラップし、可観測性を保つ。
+
 ## `adapters/kube` の利用例(ドライバ側)
 
 ```go
@@ -294,6 +360,9 @@ if err := inst.EnsureIngressNamespace(ctx, cluster); err != nil {
 - [ ] VolumeSnapshotCreate は snapName と source を受け取る(source は「Source パラメータの仕様」に従う)
 - [ ] diskName と snapName は、ユーザーが指定した場合はその名前を使用し、空文字列の場合はドライバがデフォルト命名規則を適用する
 - [ ] List は CreatedAt 降順(同時刻は Name 昇順)
+- [ ] NodePool の 4 メソッド(List/Create/Update/Delete)を実装し、契約を満たす(未対応プロバイダは `not implemented` を返す)
+- [ ] NodePoolUpdate は non-nil ポインタフィールドのみを適用し、immutable 項目の変更は validation error とする
+- [ ] NodePool DTO はベンダ中立な命名(InstanceType, Priority など)を使用し、ドライバ側でマッピングする
 - [ ] 外部コマンドを使用しない(kubectl/helm 禁止)
 - [ ] ログと UserAgent を設定、シークレットはマスク
 - [ ] 冪等性とコンテキストキャンセルに対応
@@ -311,6 +380,9 @@ if err := inst.EnsureIngressNamespace(ctx, cluster); err != nil {
 - [K4x-ADR-004]: Cluster ingress endpoint DNS auto-update
   Ingress エンドポイントの DNS レコード自動更新機能。実際にデプロイされた Kubernetes Ingress リソースの状態に基づいて DNS を管理する。`ClusterDNSApply` の設計根拠と動作仕様を定義。
 
+- [K4x-ADR-019]: Introduce NodePool abstraction for multi-provider cluster scaling and scheduling
+  Kompox における NodePool 抽象の導入決定。プロバイダ横断の共通語として `NodePool` を採用し、ライフサイクル管理メソッドの契約レベルの方針を定義。
+
 ### 関連ドキュメント
 
 - `design/v1/Kompox-Spec-Draft.ja.md`: プロジェクト概要と目標
@@ -321,3 +393,4 @@ if err := inst.EnsureIngressNamespace(ctx, cluster); err != nil {
 [K4x-ADR-002]: ../adr/K4x-ADR-002.md
 [K4x-ADR-003]: ../adr/K4x-ADR-003.md
 [K4x-ADR-004]: ../adr/K4x-ADR-004.md
+[K4x-ADR-019]: ../adr/K4x-ADR-019.md
