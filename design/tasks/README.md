@@ -9,9 +9,10 @@
 | [20260215b-networkpolicy-empty-peer](./2026/02/15/20260215b-networkpolicy-empty-peer.ja.md) | NetworkPolicy の from: {} 出力修正 | 2026-02-15T10:31:09Z | done |
 | [20260215c-networkpolicy-consolidate-namespace-selector](./2026/02/15/20260215c-networkpolicy-consolidate-namespace-selector.ja.md) | NetworkPolicy の namespaceSelector 集約 | 2026-02-15T11:02:34Z | done |
 | [20260215d-app-kubectl-command](./2026/02/15/20260215d-app-kubectl-command.ja.md) | kompoxops app kubectl コマンド実装 | 2026-02-15T18:03:18Z | done |
-| [20260216a-nodepool-providerdriver-spec](./2026/02/16/20260216a-nodepool-providerdriver-spec.ja.md) | NodePool 対応に向けた ProviderDriver 仕様更新 (Phase 1) | 2026-02-16T15:43:42Z | done |
+| [20260216a-nodepool-providerdriver-spec](./2026/02/16/20260216a-nodepool-providerdriver-spec.ja.md) | NodePool 対応に向けた ProviderDriver 仕様更新 (Phase 1) | 2026-02-16T15:59:31Z | done |
+| [20260216b-nodepool-aks-spec](./2026/02/16/20260216b-nodepool-aks-spec.ja.md) | NodePool 対応に向けた AKS ProviderDriver 仕様更新 (Phase 2) | 2026-02-16T15:59:31Z | active |
 
-Updated: 2026-02-16T15:43:42Z
+Updated: 2026-02-16T15:59:31Z
 
 ---
 

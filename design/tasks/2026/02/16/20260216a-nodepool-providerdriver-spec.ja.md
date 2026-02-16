@@ -2,7 +2,7 @@
 id: 20260216a-nodepool-providerdriver-spec
 title: NodePool 対応に向けた ProviderDriver 仕様更新 (Phase 1)
 status: done
-updated: 2026-02-16T15:43:42Z
+updated: 2026-02-16T15:59:31Z
 language: ja
 owner: yaegashi
 adrs:
@@ -10,25 +10,27 @@ adrs:
 plans:
   - 2026ab-k8s-node-pool-support
 ---
-# Task: NodePool 対応に向けた ProviderDriver 仕様更新 (Phase 1)
+# タスク: NodePool 対応に向けた ProviderDriver 仕様更新 (Phase 1)
 
-## Goal
+本タスクは、Plan [2026ab-k8s-node-pool-support] の Phase 1 を具体化する作業項目です。
+
+## 目的
 
 - [Kompox-ProviderDriver] の公開契約を、NodePool 抽象の導入方針([K4x-ADR-019])に沿って更新する。
 - 本タスクでは設計文書更新のみを行い、実装コードの変更は行わない。
 
-## Scope / Out of scope
+## スコープ / 非スコープ
 
-- In:
+- 対象:
   - [Kompox-ProviderDriver] の Driver インターフェース仕様に NodePool 管理メソッドの分類・契約概要を追加
   - 未対応ドライバの挙動(`not implemented`)と責務境界の記述追加
   - 既存メソッド説明との整合性確認と参照更新
-- Out:
+- 非対象:
   - `adapters/drivers/provider/**` の実装変更
   - AKS driver 実装([Kompox-ProviderDriver-AKS] 側の実装詳細追記を含む)
   - CLI/Converter の実装変更
 
-## Spec summary
+## 仕様サマリ
 
 - `NodePool` を Provider Driver の共通抽象として扱う。
 - 追加対象メソッド(概略): `NodePoolList`, `NodePoolCreate`, `NodePoolUpdate`, `NodePoolDelete`。
@@ -36,7 +38,7 @@ plans:
 - 未対応ドライバは `not implemented` を返す capability 境界として扱う。
 - `要求事項(横断)` を MVP 必須項目と将来検討項目に分割し、各要求を 1 行の簡潔な解説で記述する。
 
-### Proposed signatures (aligned with existing Driver patterns)
+### 提案シグネチャ (既存 Driver パターン準拠)
 
 ```go
 NodePoolList(
@@ -67,7 +69,7 @@ NodePoolDelete(
 ) error
 ```
 
-### Method and DTO mapping
+### メソッドと DTO の対応
 
 | Method | Input DTO | Output DTO | Purpose |
 |---|---|---|---|
@@ -76,7 +78,7 @@ NodePoolDelete(
 | `NodePoolUpdate` | `NodePool`, `NodePoolUpdateOption` | `*NodePool` | Patch mutable fields (non-nil fields only) |
 | `NodePoolDelete` | `NodePoolDeleteOption` | none (`error` only) | Delete pool |
 
-### DTO outline (MVP)
+### DTO 概要 (MVP)
 
 - DTO は単一の `NodePool` を使用し、Create/Update/List の全メソッドで共通化する。
 - `NodePool` の主要フィールドは pointer を基本とし、`Update` では non-nil のみを適用対象とする。
@@ -100,7 +102,7 @@ NodePoolDelete(
   - `Max int`
   - `Desired *int`
 
-## Policy: NodePool abstraction and vendor differences
+## 方針: NodePool 抽象とベンダ差異
 
 - Kompox の公開契約では `NodePool` を共通語として扱い、ベンダ固有用語は driver 実装側で吸収する。
   - AKS: Agent Pool
@@ -117,7 +119,7 @@ NodePoolDelete(
   - provider が機能自体を持たない: `not implemented`
   - provider は機能を持つが対象項目が不正/不可変: validation error
 
-## Plan (checklist)
+## 計画 (チェックリスト)
 
 - [x] [Kompox-ProviderDriver] の現行契約と記述位置を確認する。
 - [x] NodePool 管理カテゴリのメソッド契約(概要)を追記する。
@@ -126,37 +128,37 @@ NodePoolDelete(
 - [x] 既存セクションとの重複・矛盾を解消し、参照リンクを更新する。
 - [x] `make gen-index` を実行してインデックスを更新する。
 
-## Tests
+## テスト
 
-- Unit: なし (docs-only)
-- Smoke:
+- ユニット: なし (docs-only)
+- スモーク:
   - `make gen-index` が成功する。
   - `design/index.json` と `design/tasks/index.json` に task が反映される。
 
-## Acceptance criteria
+## 受け入れ条件
 
 - [Kompox-ProviderDriver] に NodePool 管理メソッドの仕様が追加されている。
 - [K4x-ADR-019] と矛盾しない契約記述になっている。
 - 本タスクの範囲で実装コードが変更されていない。
 
-## Notes
+## 備考
 
-- Risks:
+- リスク:
   - 将来の AKS 実装詳細を先に書きすぎると、設計文書の責務境界が崩れる。
-- Follow-ups:
+- フォローアップ:
   - 次タスクで [Kompox-ProviderDriver-AKS] 側の実装方針詳細とテスト方針を追加する。
 
-## Progress
+## 進捗
 
-- 2026-02-16T12:04:26Z Task file created
-- 2026-02-16T12:12:41Z Added policy section for NodePool abstraction and vendor-difference handling
-- 2026-02-16T12:18:12Z Added proposed method signatures and method/DTO mapping table
-- 2026-02-16T12:31:26Z Updated DTO fields to vendor-neutral names (InstanceType, OSDisk*, Priority) and added AKS mapping note
-- 2026-02-16T12:41:01Z Switched to single NodePool DTO policy (pointer-based fields across methods)
-- 2026-02-16T14:49:38Z Verified cloud agent commit `668752b` and marked this task as done
-- 2026-02-16T15:43:42Z Refined `要求事項(横断)` into MVP-required vs future-consideration groups with concise one-line items
+- 2026-02-16T12:04:26Z タスクファイルを作成
+- 2026-02-16T12:12:41Z NodePool 抽象とベンダ差異吸収方針のセクションを追加
+- 2026-02-16T12:18:12Z 提案メソッドシグネチャとメソッド/DTO 対応表を追加
+- 2026-02-16T12:31:26Z DTO フィールド名をベンダ中立に更新し、AKS マッピング注記を追加
+- 2026-02-16T12:41:01Z 単一 NodePool DTO 方針へ変更 (ポインタベース適用)
+- 2026-02-16T14:49:38Z cloud agent コミット `668752b` を確認し、タスクを done に更新
+- 2026-02-16T15:43:42Z `要求事項(横断)` を MVP 必須/将来検討に再構成し、各項目を 1 行で簡潔化
 
-## References
+## 参照
 
 - [2026ab-k8s-node-pool-support]
 - [K4x-ADR-019]

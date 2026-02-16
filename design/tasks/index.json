@@ -1,7 +1,7 @@
 {
   "category": "tasks",
-  "updated": "2026-02-16T15:43:42Z",
-  "docCount": 8,
+  "updated": "2026-02-16T15:59:31Z",
+  "docCount": 9,
   "docs": [
     {
       "category": "tasks",
@@ -155,7 +155,31 @@
       "relPath": "design/tasks/2026/02/16/20260216a-nodepool-providerdriver-spec.ja.md",
       "status": "done",
       "title": "NodePool 対応に向けた ProviderDriver 仕様更新 (Phase 1)",
-      "updated": "2026-02-16T15:43:42Z",
+      "updated": "2026-02-16T15:59:31Z",
+      "version": ""
+    },
+    {
+      "adrs": [
+        "K4x-ADR-019"
+      ],
+      "category": "tasks",
+      "id": "20260216b-nodepool-aks-spec",
+      "language": "ja",
+      "owner": "yaegashi",
+      "plans": [
+        "2026ab-k8s-node-pool-support"
+      ],
+      "references": [
+        "2026ab-k8s-node-pool-support",
+        "K4x-ADR-019",
+        "Kompox-ProviderDriver",
+        "Kompox-ProviderDriver-AKS",
+        "design/tasks/README.md"
+      ],
+      "relPath": "design/tasks/2026/02/16/20260216b-nodepool-aks-spec.ja.md",
+      "status": "active",
+      "title": "NodePool 対応に向けた AKS ProviderDriver 仕様更新 (Phase 2)",
+      "updated": "2026-02-16T15:59:31Z",
       "version": ""
     }
   ]

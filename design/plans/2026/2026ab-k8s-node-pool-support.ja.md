@@ -63,6 +63,7 @@ tasks: []
   - [x] `Get` は当面 `List` + 名前解決で吸収する方針を明記する。
   - [x] `要求事項(横断)` を MVP 必須項目/将来検討項目に分割し、各項目を簡潔化する。
 - [ ] Phase 2: AKS 実装方針を Agent Pool API マッピングとして定義する。
+  - [x] Task: [20260216b-nodepool-aks-spec]
   - [ ] [Kompox-ProviderDriver-AKS] に AKS Agent Pool CRUD の対応方針を追加する。
   - [ ] 必須項目/可変項目/非対応項目、冪等性、`not implemented` 境界を明記する。
 - [ ] Phase 3: KubeConverter 契約の責務分離を明確化する。
@@ -109,6 +110,7 @@ tasks: []
 - [Kompox-CLI]
 - [K4x-ADR-019]
 - [20260216a-nodepool-providerdriver-spec]
+- [20260216b-nodepool-aks-spec]
 
 [design/plans/README.md]: ../README.md
 [Kompox-ProviderDriver]: ../../v1/Kompox-ProviderDriver.ja.md
@@ -117,3 +119,4 @@ tasks: []
 [Kompox-CLI]: ../../v1/Kompox-CLI.ja.md
 [K4x-ADR-019]: ../../adr/K4x-ADR-019.md
 [20260216a-nodepool-providerdriver-spec]: ../../tasks/2026/02/16/20260216a-nodepool-providerdriver-spec.ja.md
+[20260216b-nodepool-aks-spec]: ../../tasks/2026/02/16/20260216b-nodepool-aks-spec.ja.md
