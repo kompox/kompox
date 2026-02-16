@@ -362,7 +362,8 @@ func (d *driver) nodePoolToAgentPoolProfile(pool model.NodePool) (armcontainerse
 
 	// Mode: system or user -> System or User
 	if pool.Mode != nil {
-		mode := armcontainerservice.AgentPoolMode(strings.Title(strings.ToLower(*pool.Mode)))
+		// Capitalize first letter: "system" -> "System", "user" -> "User"
+		mode := armcontainerservice.AgentPoolMode(capitalizeFirst(*pool.Mode))
 		props.Mode = &mode
 	}
 
@@ -383,7 +384,8 @@ func (d *driver) nodePoolToAgentPoolProfile(pool model.NodePool) (armcontainerse
 
 	// Priority
 	if pool.Priority != nil {
-		priority := armcontainerservice.ScaleSetPriority(strings.Title(strings.ToLower(*pool.Priority)))
+		// Capitalize first letter: "regular" -> "Regular", "spot" -> "Spot"
+		priority := armcontainerservice.ScaleSetPriority(capitalizeFirst(*pool.Priority))
 		props.ScaleSetPriority = &priority
 	}
 
@@ -598,4 +600,17 @@ func equalStringSlices(a, b []string) bool {
 		}
 	}
 	return true
+}
+
+// capitalizeFirst capitalizes the first letter of a string.
+// Example: "system" -> "System", "user" -> "User"
+func capitalizeFirst(s string) string {
+	if s == "" {
+		return s
+	}
+	s = strings.ToLower(s)
+	if len(s) == 1 {
+		return strings.ToUpper(s)
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
 }

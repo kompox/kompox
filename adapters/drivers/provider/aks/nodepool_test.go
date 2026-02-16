@@ -1,6 +1,7 @@
 package aks
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/to"
@@ -235,17 +236,8 @@ func TestValidateImmutableFields(t *testing.T) {
 			if tt.expectError {
 				if err == nil {
 					t.Errorf("expected error containing %q, got nil", tt.errorMsg)
-				} else if tt.errorMsg != "" {
-					found := false
-					for i := 0; i <= len(err.Error())-len(tt.errorMsg); i++ {
-						if err.Error()[i:i+len(tt.errorMsg)] == tt.errorMsg {
-							found = true
-							break
-						}
-					}
-					if !found {
-						t.Errorf("expected error containing %q, got %q", tt.errorMsg, err.Error())
-					}
+				} else if tt.errorMsg != "" && !strings.Contains(err.Error(), tt.errorMsg) {
+					t.Errorf("expected error containing %q, got %q", tt.errorMsg, err.Error())
 				}
 			} else {
 				if err != nil {
