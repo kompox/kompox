@@ -3,11 +3,14 @@ id: 2026ab-k8s-node-pool-support
 title: K8s プラットフォームドライバへの NodePool 対応追加
 version: v1
 status: draft
-updated: 2026-02-16T18:18:48Z
+updated: 2026-02-16T18:23:28Z
 language: ja
 adrs:
   - K4x-ADR-019
-tasks: []
+tasks:
+  - 20260216a-nodepool-providerdriver-spec
+  - 20260216b-nodepool-aks-spec
+  - 20260216c-nodepool-kubeconverter-spec
 ---
 
 # Plan: K8s プラットフォームドライバへの NodePool 対応追加
@@ -69,6 +72,7 @@ tasks: []
   - [x] [Kompox-ProviderDriver] に AKS 実装から抽出した全ドライバ共通原則を反映し、境界を整理する。
   - [x] [Kompox-ProviderDriver-AKS] に NodePool メソッド実装 (`NodePoolList/Create/Update/Delete`) の実装準拠記載を追加する。
 - [ ] Phase 3: KubeConverter 契約の責務分離を明確化する。
+  - [x] Task: [20260216c-nodepool-kubeconverter-spec]
   - [ ] [Kompox-KubeConverter] に `deployment.pool/zone` と NodePool 抽象の関係を追記する。
   - [ ] `kompox.dev/node-pool` / `kompox.dev/node-zone` を維持し、zone 正規化責務を driver 側に置くことを明記する。
 - [ ] Phase 4: AKS driver の NodePool 実装を追加する。
@@ -113,6 +117,7 @@ tasks: []
 - [K4x-ADR-019]
 - [20260216a-nodepool-providerdriver-spec]
 - [20260216b-nodepool-aks-spec]
+- [20260216c-nodepool-kubeconverter-spec]
 
 [design/plans/README.md]: ../README.md
 [Kompox-ProviderDriver]: ../../v1/Kompox-ProviderDriver.ja.md
@@ -122,3 +127,4 @@ tasks: []
 [K4x-ADR-019]: ../../adr/K4x-ADR-019.md
 [20260216a-nodepool-providerdriver-spec]: ../../tasks/2026/02/16/20260216a-nodepool-providerdriver-spec.ja.md
 [20260216b-nodepool-aks-spec]: ../../tasks/2026/02/16/20260216b-nodepool-aks-spec.ja.md
+[20260216c-nodepool-kubeconverter-spec]: ../../tasks/2026/02/16/20260216c-nodepool-kubeconverter-spec.ja.md

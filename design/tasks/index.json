@@ -1,7 +1,7 @@
 {
   "category": "tasks",
-  "updated": "2026-02-16T18:11:54Z",
-  "docCount": 9,
+  "updated": "2026-02-16T18:22:47Z",
+  "docCount": 10,
   "docs": [
     {
       "category": "tasks",
@@ -180,6 +180,31 @@
       "status": "done",
       "title": "NodePool 対応に向けた AKS ProviderDriver 仕様更新 (Phase 2)",
       "updated": "2026-02-16T18:11:54Z",
+      "version": ""
+    },
+    {
+      "adrs": [
+        "K4x-ADR-019"
+      ],
+      "category": "tasks",
+      "id": "20260216c-nodepool-kubeconverter-spec",
+      "language": "ja",
+      "owner": "yaegashi",
+      "plans": [
+        "2026ab-k8s-node-pool-support"
+      ],
+      "references": [
+        "2026ab-k8s-node-pool-support",
+        "K4x-ADR-019",
+        "Kompox-KubeConverter",
+        "Kompox-ProviderDriver",
+        "Kompox-ProviderDriver-AKS",
+        "design/tasks/README.md"
+      ],
+      "relPath": "design/tasks/2026/02/16/20260216c-nodepool-kubeconverter-spec.ja.md",
+      "status": "active",
+      "title": "NodePool 対応に向けた KubeConverter 契約更新 (Phase 3)",
+      "updated": "2026-02-16T18:22:47Z",
       "version": ""
     }
   ]

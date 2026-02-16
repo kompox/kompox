@@ -1,6 +1,6 @@
 {
-  "updated": "2026-02-16T18:18:48Z",
-  "docCount": 68,
+  "updated": "2026-02-16T18:23:28Z",
+  "docCount": 69,
   "categories": [
     {
       "category": "adr",
@@ -10,7 +10,7 @@
     },
     {
       "category": "plans",
-      "updated": "2026-02-16T18:18:48Z",
+      "updated": "2026-02-16T18:23:28Z",
       "docCount": 2,
       "indexPath": "design/plans/index.json"
     },
@@ -22,8 +22,8 @@
     },
     {
       "category": "tasks",
-      "updated": "2026-02-16T18:11:54Z",
-      "docCount": 9,
+      "updated": "2026-02-16T18:22:47Z",
+      "docCount": 10,
       "indexPath": "design/tasks/index.json"
     },
     {
@@ -439,6 +439,7 @@
       "references": [
         "20260216a-nodepool-providerdriver-spec",
         "20260216b-nodepool-aks-spec",
+        "20260216c-nodepool-kubeconverter-spec",
         "K4x-ADR-019",
         "Kompox-CLI",
         "Kompox-KubeConverter",
@@ -448,9 +449,13 @@
       ],
       "relPath": "design/plans/2026/2026ab-k8s-node-pool-support.ja.md",
       "status": "draft",
-      "tasks": [],
+      "tasks": [
+        "20260216a-nodepool-providerdriver-spec",
+        "20260216b-nodepool-aks-spec",
+        "20260216c-nodepool-kubeconverter-spec"
+      ],
       "title": "K8s プラットフォームドライバへの NodePool 対応追加",
-      "updated": "2026-02-16T18:18:48Z",
+      "updated": "2026-02-16T18:23:28Z",
       "version": "v1"
     },
     {
@@ -654,6 +659,31 @@
       "status": "done",
       "title": "NodePool 対応に向けた AKS ProviderDriver 仕様更新 (Phase 2)",
       "updated": "2026-02-16T18:11:54Z",
+      "version": ""
+    },
+    {
+      "adrs": [
+        "K4x-ADR-019"
+      ],
+      "category": "tasks",
+      "id": "20260216c-nodepool-kubeconverter-spec",
+      "language": "ja",
+      "owner": "yaegashi",
+      "plans": [
+        "2026ab-k8s-node-pool-support"
+      ],
+      "references": [
+        "2026ab-k8s-node-pool-support",
+        "K4x-ADR-019",
+        "Kompox-KubeConverter",
+        "Kompox-ProviderDriver",
+        "Kompox-ProviderDriver-AKS",
+        "design/tasks/README.md"
+      ],
+      "relPath": "design/tasks/2026/02/16/20260216c-nodepool-kubeconverter-spec.ja.md",
+      "status": "active",
+      "title": "NodePool 対応に向けた KubeConverter 契約更新 (Phase 3)",
+      "updated": "2026-02-16T18:22:47Z",
       "version": ""
     },
     {
