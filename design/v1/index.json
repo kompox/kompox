@@ -1,6 +1,6 @@
 {
   "category": "v1",
-  "updated": "2026-02-12T00:00:00Z",
+  "updated": "2026-02-16T12:53:22Z",
   "docCount": 11,
   "docs": [
     {
@@ -134,12 +134,13 @@
       "references": [
         "K4x-ADR-002",
         "K4x-ADR-003",
-        "K4x-ADR-004"
+        "K4x-ADR-004",
+        "K4x-ADR-019"
       ],
       "relPath": "design/v1/Kompox-ProviderDriver.ja.md",
       "status": "synced",
       "title": "Kompox Provider Driver ガイド",
-      "updated": "2025-10-12T00:00:00Z",
+      "updated": "2026-02-16T12:53:22Z",
       "version": "v1"
     },
     {
