@@ -1,8 +1,8 @@
 ---
 id: 20260216a-nodepool-providerdriver-spec
 title: NodePool 対応に向けた ProviderDriver 仕様更新 (Phase 1)
-status: active
-updated: 2026-02-16T12:41:01Z
+status: done
+updated: 2026-02-16T15:43:42Z
 language: ja
 owner: yaegashi
 adrs:
@@ -34,6 +34,7 @@ plans:
 - 追加対象メソッド(概略): `NodePoolList`, `NodePoolCreate`, `NodePoolUpdate`, `NodePoolDelete`。
 - `NodePoolGet` は当面導入せず、`List + name filter` 方針とする。
 - 未対応ドライバは `not implemented` を返す capability 境界として扱う。
+- `要求事項(横断)` を MVP 必須項目と将来検討項目に分割し、各要求を 1 行の簡潔な解説で記述する。
 
 ### Proposed signatures (aligned with existing Driver patterns)
 
@@ -118,11 +119,12 @@ NodePoolDelete(
 
 ## Plan (checklist)
 
-- [ ] [Kompox-ProviderDriver] の現行契約と記述位置を確認する。
-- [ ] NodePool 管理カテゴリのメソッド契約(概要)を追記する。
-- [ ] エラーモデル(検証エラーと `not implemented`)の使い分け方針を追記する。
-- [ ] 既存セクションとの重複・矛盾を解消し、参照リンクを更新する。
-- [ ] `make gen-index` を実行してインデックスを更新する。
+- [x] [Kompox-ProviderDriver] の現行契約と記述位置を確認する。
+- [x] NodePool 管理カテゴリのメソッド契約(概要)を追記する。
+- [x] エラーモデル(検証エラーと `not implemented`)の使い分け方針を追記する。
+- [x] `要求事項(横断)` を MVP 必須/将来検討に分割し、各項目を簡潔に整形する。
+- [x] 既存セクションとの重複・矛盾を解消し、参照リンクを更新する。
+- [x] `make gen-index` を実行してインデックスを更新する。
 
 ## Tests
 
@@ -151,6 +153,8 @@ NodePoolDelete(
 - 2026-02-16T12:18:12Z Added proposed method signatures and method/DTO mapping table
 - 2026-02-16T12:31:26Z Updated DTO fields to vendor-neutral names (InstanceType, OSDisk*, Priority) and added AKS mapping note
 - 2026-02-16T12:41:01Z Switched to single NodePool DTO policy (pointer-based fields across methods)
+- 2026-02-16T14:49:38Z Verified cloud agent commit `668752b` and marked this task as done
+- 2026-02-16T15:43:42Z Refined `要求事項(横断)` into MVP-required vs future-consideration groups with concise one-line items
 
 ## References
 

@@ -1,6 +1,6 @@
 {
   "category": "tasks",
-  "updated": "2026-02-16T12:41:01Z",
+  "updated": "2026-02-16T15:43:42Z",
   "docCount": 8,
   "docs": [
     {
@@ -153,9 +153,9 @@
         "design/tasks/README.md"
       ],
       "relPath": "design/tasks/2026/02/16/20260216a-nodepool-providerdriver-spec.ja.md",
-      "status": "active",
+      "status": "done",
       "title": "NodePool 対応に向けた ProviderDriver 仕様更新 (Phase 1)",
-      "updated": "2026-02-16T12:41:01Z",
+      "updated": "2026-02-16T15:43:42Z",
       "version": ""
     }
   ]

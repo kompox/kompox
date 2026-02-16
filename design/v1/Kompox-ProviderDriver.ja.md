@@ -3,7 +3,7 @@ id: Kompox-ProviderDriver
 title: Kompox Provider Driver ガイド
 version: v1
 status: synced
-updated: 2026-02-16T12:53:22Z
+updated: 2026-02-16T15:41:16Z
 language: ja
 ---
 
@@ -120,13 +120,25 @@ type Driver interface {
 }
 ```
 
-要求事項(横断)
-- 冪等性: 同じ入力で複数回実行しても安全。`NotFound` は必要に応じて成功扱い。
-- コンテキスト: `ctx` をすべての外部呼び出しに伝播。タイムアウトは上位層が制御し、ドライバ側は尊重。
-- エラー: `fmt.Errorf("...: %w", err)` で原因をラップし可観測性を保つ。
-- セキュリティ: kubeconfig/証明書/トークンはディスクに書かない(バイト列のまま扱う)。
-- 外部コマンド禁止: `kubectl`/`helm` などの shell-out は避け、Go SDK / client-go を利用。
-- ログ/UA: 構造化ログ。`UserAgent` は `kompoxops/<module>` を付与。
+## 要求事項(横断)
+
+初期段階(MVP)で必須とする要求事項:
+
+- 冪等性: 同じ入力で複数回実行しても安全であること。Delete 系操作の `NotFound` は成功扱いを許容する。
+- エラー分類: 機能未対応は `not implemented`、入力不備や不変項目変更は `validation error` として返し、利用側が確実に判別できること。
+- コンテキスト: `ctx` をすべての外部呼び出しに伝播し、タイムアウト/キャンセルを尊重する。
+- エラー伝播: 失敗は `fmt.Errorf("...: %w", err)` でラップし、原因追跡可能な情報を維持する。
+- セキュリティ: kubeconfig/証明書/トークン/シークレットをログやエラーメッセージへ出力しない。機密情報をディスクへ平文出力しない。
+- 実装方式: `kubectl`/`helm` などの shell-out を避け、Go SDK / client-go を利用する。
+- ログ: [Kompox-Logging] に従い、`log/slog` による構造化ログを出力する。
+- UserAgent: 外部 API 呼び出しには `kompoxops/<module>` を付与し、呼び出し元コンポーネントを識別可能にする。
+
+初期段階で必須としないが、将来の実装で考慮すべき要求事項:
+
+- 再試行方針: transient failure の判定条件、最大試行回数、バックオフ戦略を定義する。
+- 並行実行制御: 同一リソースへの競合更新時の排他/整合ルールを定義する。
+- ページング: List 系 API の件数上限、ページ境界、安定ソート条件を定義する。
+- 監査項目の詳細仕様: 監査ログに残す項目(request id, actor, resource id など)を定義する。
 
 ## レジストリと生成
 
@@ -367,30 +379,31 @@ if err := inst.EnsureIngressNamespace(ctx, cluster); err != nil {
 - [ ] ログと UserAgent を設定、シークレットはマスク
 - [ ] 冪等性とコンテキストキャンセルに対応
 
-## リファレンス
+## 参照
 
-### 関連 ADR(Architecture Decision Records)
+### 関連 ADR
 
-- [K4x-ADR-002]: Unify snapshot restore into disk create
+- [K4x-ADR-002] - Unify snapshot restore into disk create
   スナップショット復元を `disk create` に統合し、単一の `-S/--source` オプションで一貫した UX を実現。
-
-- [K4x-ADR-003]: Unify Disk/Snapshot CLI flags and adopt opaque Source contract
+- [K4x-ADR-003] - Unify Disk/Snapshot CLI flags and adopt opaque Source contract
   Disk/Snapshot コマンドのフラグを統一(`-N/--name`, `-S/--source`)し、`source` パラメータを不透明な文字列として扱う契約を採用。CLI/UseCase 層ではパースせず、ドライバに解釈を委ねる。
-
-- [K4x-ADR-004]: Cluster ingress endpoint DNS auto-update
+- [K4x-ADR-004] - Cluster ingress endpoint DNS auto-update
   Ingress エンドポイントの DNS レコード自動更新機能。実際にデプロイされた Kubernetes Ingress リソースの状態に基づいて DNS を管理する。`ClusterDNSApply` の設計根拠と動作仕様を定義。
-
-- [K4x-ADR-019]: Introduce NodePool abstraction for multi-provider cluster scaling and scheduling
+- [K4x-ADR-019] - Introduce NodePool abstraction for multi-provider cluster scaling and scheduling
   Kompox における NodePool 抽象の導入決定。プロバイダ横断の共通語として `NodePool` を採用し、ライフサイクル管理メソッドの契約レベルの方針を定義。
 
 ### 関連ドキュメント
 
-- `design/v1/Kompox-Spec-Draft.ja.md`: プロジェクト概要と目標
-- `design/v1/Kompox-Arch-Implementation.ja.md`: アーキテクチャガイダンス
-- `design/v1/Kompox-CLI.ja.md`: CLI 仕様
-- `_dev/tasks/`: 実装タスクとタスクガイド
+- [Kompox-Arch-Implementation] - アーキテクチャガイダンス
+- [Kompox-CLI] - CLI 仕様
+- [Kompox-ProviderDriver-AKS] - AKS 固有の実装ガイド
+- [Kompox-Logging] - ロギング仕様
 
 [K4x-ADR-002]: ../adr/K4x-ADR-002.md
 [K4x-ADR-003]: ../adr/K4x-ADR-003.md
 [K4x-ADR-004]: ../adr/K4x-ADR-004.md
 [K4x-ADR-019]: ../adr/K4x-ADR-019.md
+[Kompox-Arch-Implementation]: ./Kompox-Arch-Implementation.ja.md
+[Kompox-CLI]: ./Kompox-CLI.ja.md
+[Kompox-ProviderDriver-AKS]: ./Kompox-ProviderDriver-AKS.ja.md
+[Kompox-Logging]: ./Kompox-Logging.ja.md

@@ -1,6 +1,6 @@
 {
   "category": "plans",
-  "updated": "2026-02-15T19:51:20Z",
+  "updated": "2026-02-16T15:43:42Z",
   "docCount": 2,
   "docs": [
     {
@@ -53,7 +53,7 @@
       "status": "draft",
       "tasks": [],
       "title": "K8s プラットフォームドライバへの NodePool 対応追加",
-      "updated": "2026-02-15T19:51:20Z",
+      "updated": "2026-02-16T15:43:42Z",
       "version": "v1"
     }
   ]

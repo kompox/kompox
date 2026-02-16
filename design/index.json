@@ -1,5 +1,5 @@
 {
-  "updated": "2026-02-16T12:53:22Z",
+  "updated": "2026-02-16T15:43:42Z",
   "docCount": 67,
   "categories": [
     {
@@ -10,7 +10,7 @@
     },
     {
       "category": "plans",
-      "updated": "2026-02-15T19:51:20Z",
+      "updated": "2026-02-16T15:43:42Z",
       "docCount": 2,
       "indexPath": "design/plans/index.json"
     },
@@ -22,13 +22,13 @@
     },
     {
       "category": "tasks",
-      "updated": "2026-02-16T12:41:01Z",
+      "updated": "2026-02-16T15:43:42Z",
       "docCount": 8,
       "indexPath": "design/tasks/index.json"
     },
     {
       "category": "v1",
-      "updated": "2026-02-16T12:53:22Z",
+      "updated": "2026-02-16T15:41:16Z",
       "docCount": 11,
       "indexPath": "design/v1/index.json"
     },
@@ -449,7 +449,7 @@
       "status": "draft",
       "tasks": [],
       "title": "K8s プラットフォームドライバへの NodePool 対応追加",
-      "updated": "2026-02-15T19:51:20Z",
+      "updated": "2026-02-16T15:43:42Z",
       "version": "v1"
     },
     {
@@ -626,9 +626,9 @@
         "design/tasks/README.md"
       ],
       "relPath": "design/tasks/2026/02/16/20260216a-nodepool-providerdriver-spec.ja.md",
-      "status": "active",
+      "status": "done",
       "title": "NodePool 対応に向けた ProviderDriver 仕様更新 (Phase 1)",
-      "updated": "2026-02-16T12:41:01Z",
+      "updated": "2026-02-16T15:43:42Z",
       "version": ""
     },
     {
@@ -763,12 +763,16 @@
         "K4x-ADR-002",
         "K4x-ADR-003",
         "K4x-ADR-004",
-        "K4x-ADR-019"
+        "K4x-ADR-019",
+        "Kompox-Arch-Implementation",
+        "Kompox-CLI",
+        "Kompox-Logging",
+        "Kompox-ProviderDriver-AKS"
       ],
       "relPath": "design/v1/Kompox-ProviderDriver.ja.md",
       "status": "synced",
       "title": "Kompox Provider Driver ガイド",
-      "updated": "2026-02-16T12:53:22Z",
+      "updated": "2026-02-16T15:41:16Z",
       "version": "v1"
     },
     {

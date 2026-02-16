@@ -3,7 +3,7 @@ id: 2026ab-k8s-node-pool-support
 title: K8s プラットフォームドライバへの NodePool 対応追加
 version: v1
 status: draft
-updated: 2026-02-15T19:51:20Z
+updated: 2026-02-16T15:43:42Z
 language: ja
 adrs:
   - K4x-ADR-019
@@ -45,6 +45,7 @@ tasks: []
 - Provider Driver 契約に NodePool 管理カテゴリを追加する。
   - 最小: `NodePoolList`, `NodePoolCreate`, `NodePoolUpdate`, `NodePoolDelete`
   - `Get` は当面 `List` + 名前解決で吸収し、将来拡張余地として扱う。
+- `要求事項(横断)` を MVP 必須項目と将来検討項目に分割し、各要求項目を簡潔な 1 行解説で維持する。
 - ベンダ差異の吸収方針を明記する。
   - 共通契約名は `NodePool`。
   - AKS 実装名は `Agent Pool` としてマッピング。
@@ -56,10 +57,11 @@ tasks: []
 
 ## 計画 (チェックリスト)
 
-- [ ] Phase 1: Provider Driver 契約に NodePool 管理カテゴリを追加する。
+- [x] Phase 1: Provider Driver 契約に NodePool 管理カテゴリを追加する。
   - [x] Task: [20260216a-nodepool-providerdriver-spec]
-  - [ ] [Kompox-ProviderDriver] に `NodePoolList/Create/Update/Delete` を追加する。
-  - [ ] `Get` は当面 `List` + 名前解決で吸収する方針を明記する。
+  - [x] [Kompox-ProviderDriver] に `NodePoolList/Create/Update/Delete` を追加する。
+  - [x] `Get` は当面 `List` + 名前解決で吸収する方針を明記する。
+  - [x] `要求事項(横断)` を MVP 必須項目/将来検討項目に分割し、各項目を簡潔化する。
 - [ ] Phase 2: AKS 実装方針を Agent Pool API マッピングとして定義する。
   - [ ] [Kompox-ProviderDriver-AKS] に AKS Agent Pool CRUD の対応方針を追加する。
   - [ ] 必須項目/可変項目/非対応項目、冪等性、`not implemented` 境界を明記する。
