@@ -1,6 +1,6 @@
 {
-  "updated": "2026-02-16T19:06:55Z",
-  "docCount": 69,
+  "updated": "2026-02-16T19:13:57Z",
+  "docCount": 70,
   "categories": [
     {
       "category": "adr",
@@ -22,8 +22,8 @@
     },
     {
       "category": "tasks",
-      "updated": "2026-02-16T19:06:55Z",
-      "docCount": 10,
+      "updated": "2026-02-16T19:13:57Z",
+      "docCount": 11,
       "indexPath": "design/tasks/index.json"
     },
     {
@@ -440,6 +440,7 @@
         "20260216a-nodepool-providerdriver-spec",
         "20260216b-nodepool-aks-spec",
         "20260216c-nodepool-kubeconverter-spec",
+        "20260216d-nodepool-aks-driver-impl",
         "K4x-ADR-019",
         "Kompox-CLI",
         "Kompox-KubeConverter",
@@ -452,7 +453,8 @@
       "tasks": [
         "20260216a-nodepool-providerdriver-spec",
         "20260216b-nodepool-aks-spec",
-        "20260216c-nodepool-kubeconverter-spec"
+        "20260216c-nodepool-kubeconverter-spec",
+        "20260216d-nodepool-aks-driver-impl"
       ],
       "title": "K8s プラットフォームドライバへの NodePool 対応追加",
       "updated": "2026-02-16T19:06:55Z",
@@ -684,6 +686,30 @@
       "status": "done",
       "title": "NodePool 対応に向けた KubeConverter 契約更新 (Phase 3)",
       "updated": "2026-02-16T19:06:55Z",
+      "version": ""
+    },
+    {
+      "adrs": [
+        "K4x-ADR-019"
+      ],
+      "category": "tasks",
+      "id": "20260216d-nodepool-aks-driver-impl",
+      "language": "ja",
+      "owner": "yaegashi",
+      "plans": [
+        "2026ab-k8s-node-pool-support"
+      ],
+      "references": [
+        "2026ab-k8s-node-pool-support",
+        "K4x-ADR-019",
+        "Kompox-ProviderDriver",
+        "Kompox-ProviderDriver-AKS",
+        "design/tasks/README.md"
+      ],
+      "relPath": "design/tasks/2026/02/16/20260216d-nodepool-aks-driver-impl.ja.md",
+      "status": "active",
+      "title": "AKS Driver の NodePool 実装 (Phase 4)",
+      "updated": "2026-02-16T19:13:57Z",
       "version": ""
     },
     {

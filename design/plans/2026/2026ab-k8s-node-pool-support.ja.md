@@ -11,6 +11,7 @@ tasks:
   - 20260216a-nodepool-providerdriver-spec
   - 20260216b-nodepool-aks-spec
   - 20260216c-nodepool-kubeconverter-spec
+  - 20260216d-nodepool-aks-driver-impl
 ---
 
 # Plan: K8s プラットフォームドライバへの NodePool 対応追加
@@ -79,6 +80,7 @@ tasks:
   - [x] `deployment.selectors` を将来拡張として予約し、現時点の未サポート方針を明記する。
   - [x] `kompox.dev/node-pool` / `kompox.dev/node-zone` を維持し、zone 正規化責務を driver 側に置くことを明記する。
 - [ ] Phase 4: AKS driver の NodePool 実装を追加する。
+  - [x] Task: [20260216d-nodepool-aks-driver-impl]
   - [ ] `adapters/drivers/provider/registry.go` に追加する NodePool メソッド契約に合わせて `adapters/drivers/provider/aks` の `driver` 実装を更新する。
   - [ ] AKS の Agent Pool API を呼び出す実装(`List/Create/Update/Delete`)を追加し、`NodePool` 抽象へマッピングする。
   - [ ] `NodePoolUpdate` の更新可能項目を明示し、未対応項目は `not implemented` / validation error として扱う。
@@ -122,6 +124,7 @@ tasks:
 - [20260216a-nodepool-providerdriver-spec]
 - [20260216b-nodepool-aks-spec]
 - [20260216c-nodepool-kubeconverter-spec]
+- [20260216d-nodepool-aks-driver-impl]
 
 [design/plans/README.md]: ../README.md
 [Kompox-ProviderDriver]: ../../v1/Kompox-ProviderDriver.ja.md
@@ -132,3 +135,4 @@ tasks:
 [20260216a-nodepool-providerdriver-spec]: ../../tasks/2026/02/16/20260216a-nodepool-providerdriver-spec.ja.md
 [20260216b-nodepool-aks-spec]: ../../tasks/2026/02/16/20260216b-nodepool-aks-spec.ja.md
 [20260216c-nodepool-kubeconverter-spec]: ../../tasks/2026/02/16/20260216c-nodepool-kubeconverter-spec.ja.md
+[20260216d-nodepool-aks-driver-impl]: ../../tasks/2026/02/16/20260216d-nodepool-aks-driver-impl.ja.md
