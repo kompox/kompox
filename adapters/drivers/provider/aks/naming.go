@@ -180,3 +180,16 @@ func (d *driver) appStorageAccountName(app *model.App) (string, error) {
 	}
 	return fmt.Sprintf("k4x%s%s", prvHash, appHash), nil
 }
+
+// azureAksClusterName derives the AKS cluster name for a cluster.
+// The cluster name is determined by the ARM template and is typically in the format
+// "aks-{workspaceName}-{providerName}-{clusterName}-{hash}".
+// For now, we use the cluster name directly as the logical identifier.
+func (d *driver) azureAksClusterName(cluster *model.Cluster) (string, error) {
+	if cluster == nil {
+		return "", fmt.Errorf("cluster nil")
+	}
+	// For consistency with the ARM template, use the cluster name
+	// The ARM template generates a name like "aks-{env}" where env is the cluster name
+	return fmt.Sprintf("aks-%s", cluster.Name), nil
+}

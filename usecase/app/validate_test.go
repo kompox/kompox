@@ -276,3 +276,15 @@ func (f *fakeProviderDriver) VolumeSnapshotDelete(context.Context, *model.Cluste
 func (f *fakeProviderDriver) VolumeClass(context.Context, *model.Cluster, *model.App, model.AppVolume) (model.VolumeClass, error) {
 	return f.volumeClass, nil
 }
+func (f *fakeProviderDriver) NodePoolList(context.Context, *model.Cluster, ...model.NodePoolListOption) ([]*model.NodePool, error) {
+	return nil, nil
+}
+func (f *fakeProviderDriver) NodePoolCreate(context.Context, *model.Cluster, model.NodePool, ...model.NodePoolCreateOption) (*model.NodePool, error) {
+	return nil, nil
+}
+func (f *fakeProviderDriver) NodePoolUpdate(context.Context, *model.Cluster, model.NodePool, ...model.NodePoolUpdateOption) (*model.NodePool, error) {
+	return nil, nil
+}
+func (f *fakeProviderDriver) NodePoolDelete(context.Context, *model.Cluster, string, ...model.NodePoolDeleteOption) error {
+	return nil
+}

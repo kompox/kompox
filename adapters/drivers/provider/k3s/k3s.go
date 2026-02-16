@@ -88,6 +88,20 @@ func (d *driver) VolumeClass(ctx context.Context, cluster *model.Cluster, app *m
 	return model.VolumeClass{}, nil
 }
 
+// NodePool operations (not implemented for k3s)
+func (d *driver) NodePoolList(ctx context.Context, cluster *model.Cluster, _ ...model.NodePoolListOption) ([]*model.NodePool, error) {
+	return nil, model.ErrNotSupported
+}
+func (d *driver) NodePoolCreate(ctx context.Context, cluster *model.Cluster, pool model.NodePool, _ ...model.NodePoolCreateOption) (*model.NodePool, error) {
+	return nil, model.ErrNotSupported
+}
+func (d *driver) NodePoolUpdate(ctx context.Context, cluster *model.Cluster, pool model.NodePool, _ ...model.NodePoolUpdateOption) (*model.NodePool, error) {
+	return nil, model.ErrNotSupported
+}
+func (d *driver) NodePoolDelete(ctx context.Context, cluster *model.Cluster, poolName string, _ ...model.NodePoolDeleteOption) error {
+	return model.ErrNotSupported
+}
+
 // init registers the K3s driver.
 func init() {
 	providerdrv.Register("k3s", func(workspace *model.Workspace, provider *model.Provider) (providerdrv.Driver, error) {
