@@ -19,6 +19,21 @@ const (
 	labelNodeZone = "kompox.dev/node-zone"
 )
 
+// getAksClusterName retrieves the actual AKS cluster resource name from deployment outputs.
+func (d *driver) getAksClusterName(ctx context.Context, cluster *model.Cluster) (string, error) {
+	outputs, err := d.azureDeploymentOutputs(ctx, cluster)
+	if err != nil {
+		return "", fmt.Errorf("get deployment outputs: %w", err)
+	}
+
+	aksName, ok := outputs[outputAksClusterName].(string)
+	if !ok {
+		return "", fmt.Errorf("%s not found in deployment outputs", outputAksClusterName)
+	}
+
+	return aksName, nil
+}
+
 // NodePoolList returns a list of node pools for the specified cluster.
 func (d *driver) NodePoolList(ctx context.Context, cluster *model.Cluster, opts ...model.NodePoolListOption) (pools []*model.NodePool, err error) {
 	ctx, cleanup := d.withMethodLogger(ctx, "NodePoolList")
@@ -32,9 +47,9 @@ func (d *driver) NodePoolList(ctx context.Context, cluster *model.Cluster, opts 
 	if err != nil || rgName == "" {
 		return nil, fmt.Errorf("derive cluster resource group: %w", err)
 	}
-	clusterName, err := d.azureAksClusterName(cluster)
+	clusterName, err := d.getAksClusterName(ctx, cluster)
 	if err != nil {
-		return nil, fmt.Errorf("derive cluster name: %w", err)
+		return nil, fmt.Errorf("get AKS cluster name: %w", err)
 	}
 
 	// Create agent pools client
@@ -94,9 +109,9 @@ func (d *driver) NodePoolCreate(ctx context.Context, cluster *model.Cluster, poo
 	if err != nil || rgName == "" {
 		return nil, fmt.Errorf("derive cluster resource group: %w", err)
 	}
-	clusterName, err := d.azureAksClusterName(cluster)
+	clusterName, err := d.getAksClusterName(ctx, cluster)
 	if err != nil {
-		return nil, fmt.Errorf("derive cluster name: %w", err)
+		return nil, fmt.Errorf("get AKS cluster name: %w", err)
 	}
 
 	// Build agent pool profile
@@ -149,9 +164,9 @@ func (d *driver) NodePoolUpdate(ctx context.Context, cluster *model.Cluster, poo
 	if err != nil || rgName == "" {
 		return nil, fmt.Errorf("derive cluster resource group: %w", err)
 	}
-	clusterName, err := d.azureAksClusterName(cluster)
+	clusterName, err := d.getAksClusterName(ctx, cluster)
 	if err != nil {
-		return nil, fmt.Errorf("derive cluster name: %w", err)
+		return nil, fmt.Errorf("get AKS cluster name: %w", err)
 	}
 
 	// Create agent pools client
@@ -207,9 +222,9 @@ func (d *driver) NodePoolDelete(ctx context.Context, cluster *model.Cluster, poo
 	if err != nil || rgName == "" {
 		return fmt.Errorf("derive cluster resource group: %w", err)
 	}
-	clusterName, err := d.azureAksClusterName(cluster)
+	clusterName, err := d.getAksClusterName(ctx, cluster)
 	if err != nil {
-		return fmt.Errorf("derive cluster name: %w", err)
+		return fmt.Errorf("get AKS cluster name: %w", err)
 	}
 
 	// Create agent pools client
@@ -410,12 +425,8 @@ func (d *driver) nodePoolToAgentPoolProfile(pool model.NodePool) (armcontainerse
 		labels[labelNodePool] = to.Ptr(*pool.Name)
 	}
 	if pool.Zones != nil && len(*pool.Zones) > 0 {
-		// Add zone labels for each zone
-		for _, z := range *pool.Zones {
-			// For multi-zone pools, we add the first zone as primary
-			labels[labelNodeZone] = to.Ptr(z)
-			break
-		}
+		// Set node-zone label to the first zone (primary zone for multi-zone pools)
+		labels[labelNodeZone] = to.Ptr((*pool.Zones)[0])
 	}
 	if len(labels) > 0 {
 		props.NodeLabels = labels
@@ -445,9 +456,10 @@ func (d *driver) validateImmutableFields(update model.NodePool, existing *armcon
 	var errs []string
 
 	// Mode is immutable
-	if update.Mode != nil {
+	if update.Mode != nil && props.Mode != nil {
 		existingMode := strings.ToLower(string(*props.Mode))
-		if *update.Mode != existingMode {
+		updateMode := strings.ToLower(*update.Mode)
+		if updateMode != existingMode {
 			errs = append(errs, "Mode is immutable")
 		}
 	}
@@ -512,31 +524,32 @@ func (d *driver) mergeMutableFields(update model.NodePool, existing *armcontaine
 
 	props := merged.Properties
 
-	// Update labels (mutable)
-	if update.Labels != nil {
-		labels := make(map[string]*string)
-		// Start with existing labels
-		if props.NodeLabels != nil {
-			for k, v := range props.NodeLabels {
-				labels[k] = v
-			}
+	// Always ensure Kompox labels are present (derived from existing state)
+	labels := make(map[string]*string)
+	// Start with existing labels
+	if props.NodeLabels != nil {
+		for k, v := range props.NodeLabels {
+			labels[k] = v
 		}
-		// Merge with update
+	}
+	
+	// Merge with update labels if provided
+	if update.Labels != nil {
 		for k, v := range *update.Labels {
 			labels[k] = to.Ptr(v)
 		}
-		// Ensure Kompox labels are present
-		if update.Name != nil {
-			labels[labelNodePool] = to.Ptr(*update.Name)
-		}
-		if update.Zones != nil && len(*update.Zones) > 0 {
-			for _, z := range *update.Zones {
-				labels[labelNodeZone] = to.Ptr(z)
-				break
-			}
-		}
-		props.NodeLabels = labels
 	}
+	
+	// Ensure required Kompox labels are always present
+	if update.Name != nil {
+		labels[labelNodePool] = to.Ptr(*update.Name)
+	}
+	// Derive zone label from existing availability zones
+	if props.AvailabilityZones != nil && len(props.AvailabilityZones) > 0 && props.AvailabilityZones[0] != nil {
+		labels[labelNodeZone] = to.Ptr(d.normalizeAksZoneToKompox(*props.AvailabilityZones[0]))
+	}
+	
+	props.NodeLabels = labels
 
 	// Update autoscaling (mutable)
 	if update.Autoscaling != nil {
