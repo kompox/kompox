@@ -1,5 +1,5 @@
 {
-  "updated": "2026-02-16T15:59:31Z",
+  "updated": "2026-02-16T18:08:08Z",
   "docCount": 68,
   "categories": [
     {
@@ -22,13 +22,13 @@
     },
     {
       "category": "tasks",
-      "updated": "2026-02-16T15:59:31Z",
+      "updated": "2026-02-16T18:08:08Z",
       "docCount": 9,
       "indexPath": "design/tasks/index.json"
     },
     {
       "category": "v1",
-      "updated": "2026-02-16T15:41:16Z",
+      "updated": "2026-02-16T17:50:00Z",
       "docCount": 11,
       "indexPath": "design/v1/index.json"
     },
@@ -653,7 +653,7 @@
       "relPath": "design/tasks/2026/02/16/20260216b-nodepool-aks-spec.ja.md",
       "status": "active",
       "title": "NodePool 対応に向けた AKS ProviderDriver 仕様更新 (Phase 2)",
-      "updated": "2026-02-16T15:59:31Z",
+      "updated": "2026-02-16T18:08:08Z",
       "version": ""
     },
     {
@@ -764,20 +764,17 @@
       "id": "Kompox-ProviderDriver-AKS",
       "language": "ja",
       "references": [
-        "2025-09-27-disk-snapshot-unify.ja.md",
-        "2025-09-28-disk-snapshot-cli-flags.ja.md",
-        "2025-10-07-aks-dns.ja.md",
-        "2025-10-23-aks-cr.ja.md",
         "K4x-ADR-003",
         "K4x-ADR-004",
         "K4x-ADR-014",
-        "Kompox-KOM.ja.md",
-        "Kompox-ProviderDriver.ja.md"
+        "K4x-ADR-019",
+        "Kompox-KOM",
+        "Kompox-ProviderDriver"
       ],
       "relPath": "design/v1/Kompox-ProviderDriver-AKS.ja.md",
       "status": "synced",
       "title": "AKS Provider Driver 実装ガイド",
-      "updated": "2025-10-29T00:00:00Z",
+      "updated": "2026-02-16T17:50:00Z",
       "version": "v1"
     },
     {
@@ -797,7 +794,7 @@
       "relPath": "design/v1/Kompox-ProviderDriver.ja.md",
       "status": "synced",
       "title": "Kompox Provider Driver ガイド",
-      "updated": "2026-02-16T15:41:16Z",
+      "updated": "2026-02-16T17:40:00Z",
       "version": "v1"
     },
     {

@@ -3,7 +3,7 @@ id: Kompox-ProviderDriver
 title: Kompox Provider Driver ガイド
 version: v1
 status: synced
-updated: 2026-02-16T15:41:16Z
+updated: 2026-02-16T17:40:00Z
 language: ja
 ---
 
@@ -139,6 +139,146 @@ type Driver interface {
 - 並行実行制御: 同一リソースへの競合更新時の排他/整合ルールを定義する。
 - ページング: List 系 API の件数上限、ページ境界、安定ソート条件を定義する。
 - 監査項目の詳細仕様: 監査ログに残す項目(request id, actor, resource id など)を定義する。
+
+## 設計原則: ステートレスドライバとクラウドネイティブな状態保持
+
+### 原則
+
+プロバイダドライバは**ローカルのステートストアを持たない**。クラウドで動的に生成されるステートや設定（Managed Identity の Principal ID、クラスタの OIDC Issuer URL など）は、**クラウドリソース自体に self-contained で保持**し、必要時に API で取得する。
+
+ユーザーにステートファイルやバックエンドストレージの設定・管理・バックアップを要求しない。
+
+### 背景
+
+Terraform などの IaC ツールはステートファイルに依存し、ユーザーにリモートバックエンドの設定（S3 + DynamoDB、Azure Blob Storage など）やステートのロック・バックアップ管理を求める。Kompox ではこの運用負荷を排除する。
+
+### 実現方法
+
+各プロバイダドライバは、そのクラウドプラットフォームが提供するネイティブな仕組みを活用して非決定的な値を保持・取得する:
+
+| パターン | 例 | 適用先 |
+|---|---|---|
+| リソースタグ / ラベル | RG タグ, EKS タグ, GKE ラベル, OCI Freeform Tags | 全クラウド共通の推奨方式 |
+| リソース API への直接クエリ | GKE API で Cluster Identity を取得 | GCP |
+| リソース識別子の決定的導出 | GCP SA メールアドレス (`name@project.iam.gserviceaccount.com`) | GCP |
+| ローカルファイル | `/etc/rancher/k3s/k3s.yaml` | K3s |
+
+### 推奨方式: リソースタグ / ラベル
+
+クラウドが動的に生成する非決定的な値（Principal ID、OIDC Issuer URL 等）の保持には、**決定的に特定可能なリソースに付与するタグ / ラベル**を推奨する。すべての主要クラウドがこの仕組みを提供しており、IaC デプロイメント履歴などの副次的レコードに依存するよりもロバストである。
+
+| クラウド | タグ付与先リソース | メタデータ機構 | 値の長さ上限 | 上限タグ数 |
+|---|---|---|---|---|
+| Azure | Resource Group | タグ (key-value) | 256 文字 | 50 個 |
+| AWS | EKS Cluster / CloudFormation Stack | タグ (key-value) | 256 文字 | 50 個 |
+| GCP | GKE Cluster / Project | ラベル (key-value) | 63 文字 | 64 個 |
+| OCI | OKE Cluster / Compartment | Freeform Tags | 256 文字 | 制限緩い |
+| K3s | — | 不要 (クラウドリソースなし) | — | — |
+
+タグ付与先のリソースは、ドライバの命名規則から決定的に特定できるものを選ぶ（Azure なら Resource Group、AWS なら EKS Cluster 等）。
+
+**設計上の特性**:
+
+- タグ付与先リソースが存在する限りステートは不滅であり、IaC 履歴の自動削除や手動削除の影響を受けない
+- タグの読み書きは単一の API 呼び出しで完結し、IaC テンプレートの再デプロイを必要としない
+- UUID (36 文字) はすべてのクラウドの値の長さ上限に収まる
+- GCP のラベルは値が 63 文字に制限されるが、GCP では識別子の多くが決定的に導出可能であり、ラベルに記録する必要性は低い
+
+### 要件
+
+- ドライバのメソッドはすべてステートレスであり、前回の実行結果をローカルに保存しない
+- クラウドが動的に生成する値（UUID、ARN、URL 等）は、そのクラウドのリソースまたはデプロイメント記録から API 経由で取得する
+- ユーザーが管理すべき状態は `kompoxops.yml`（宣言的定義）のみとする
+- ドメイン層およびユースケース層はステートの保持方法に関知しない（ドライバ内部の実装詳細として閉じる）
+
+## 設計原則: 決定的命名
+
+### 原則
+
+ドライバが管理するすべてのクラウドリソースの名前は、**ユーザーが定義した宣言的情報（Workspace 名、Provider 名、Cluster 名、App 名）から決定的に導出**される。乱数や自動生成名に依存しない。
+
+### 背景
+
+ステートレスドライバがクラウドリソースを「再発見」するには、リソース名を入力情報だけから再現できる必要がある。決定的命名はステートレス原則の前提条件であり、ステートファイルを持たないアーキテクチャを成立させる基盤である。
+
+### 要件
+
+- リソース名は Workspace / Provider / Cluster / App の名前とハッシュの組み合わせで構成する
+- 同じ入力に対して常に同じ名前を返す（純粋関数）
+- クラウドプラットフォームの命名制約（長さ上限、使用可能文字）に適合させるトランケーションとハッシュ付与を行う
+- ハッシュはグローバル一意性を確保するために使用し、ヒューマンリーダブルなプレフィックスと組み合わせる
+- 命名ロジックはドライバ内の専用モジュール（例: `naming.go`）に集約する
+
+### 参考: AKS ドライバの命名パターン
+
+| リソース | 命名パターン | 例 |
+|---|---|---|
+| Resource Group | `<prefix>_cls_<clusterName>` + ハッシュ | `k4x-ab12_cls_main` |
+| Managed Disk | `<prefix>_<appHash>_<volName>_<diskName>` | `k4x-ab12_cd34_data_init` |
+| Storage Account | `<prefix><appHash><volHash>` | `k4xab12cd34ef56` |
+
+## 設計原則: ensure パターンによる冪等収束
+
+### 原則
+
+クラウドリソースの作成・更新操作は **`ensure*()` パターン**で実装する: 「あるべき状態を宣言し、現在の状態と収束させる」。これは要求事項の冪等性を実現する具体的な手法である。
+
+### パターン
+
+```
+ensure<Resource><Action>(ctx, desiredState) error
+  1. 現在の状態を取得（Get / List）
+  2. 既に収束済みなら return nil（冪等）
+  3. 不足があれば Create or Update
+  4. 要求状態に達しない場合のみ error を返す
+```
+
+### 要件
+
+- 命名規則: `ensure<Resource><Action>` （例: `ensureResourceGroupCreated`, `ensureRoleAssigned`, `ensureStorageAccountCreated`）
+- 既存リソースが目標状態と一致する場合はスキップし、ログで記録する
+- HTTP 409 Conflict / AlreadyExists は成功扱いとする
+- Force オプションが指定された場合は、既存の成功状態でも再実行する
+
+### ベストエフォート削除
+
+削除操作の一部は**ベストエフォート**として実装する。エラーをログに記録するが、呼び出し元には返さない（戻り値が `void` または error を無視）。これにより、削除フロー全体が部分的な失敗で停止しない。
+
+適用例:
+- デプロイメントレコードの削除
+- RBAC ロール割り当ての削除
+- 論理削除された Key Vault のパージ
+
+## 設計原則: タグベースのリソース所有権
+
+### 原則
+
+ドライバが作成するクラウドリソースには、**Kompox の論理的な所有関係を示すタグ（ラベル）を付与**する。タグは List 操作のフィルタリング、所有権の確認、ステートの記録に使用する。
+
+### 要件
+
+- すべてのクラウドリソースに所有権を示すタグを付与する
+- タグキーは `kompox-` プレフィックスで名前空間を分離する
+- 最低限の共通タグ: Workspace 名、Provider 名、`managed-by: kompox`
+- リソースの粒度に応じて追加タグ（Cluster 名、App 名、Volume 名等）を付与する
+- List 操作ではタグフィルタにより「このスコープに属するリソース」のみを列挙する
+- リソースの論理的状態（例: ディスクの Assigned フラグ）もタグで管理してよい
+
+### 参考: AKS ドライバのタグ体系
+
+| タグキー | 粒度 | 用途 |
+|---|---|---|
+| `kompox-workspace-name` | 全リソース | Workspace への帰属 |
+| `kompox-provider-name` | 全リソース | Provider への帰属 |
+| `kompox-cluster-name` / `kompox-cluster-hash` | Cluster スコープ | Cluster への帰属と一意識別 |
+| `kompox-app-name` / `kompox-app-id-hash` | App スコープ | App への帰属と一意識別 |
+| `kompox-volume` / `kompox-disk-name` / `kompox-snapshot-name` | Volume スコープ | Volume / Disk / Snapshot の識別 |
+| `kompox-disk-assigned` | Disk | Disk の Assign 状態 (`true`/`false`) |
+| `managed-by` | 全リソース | `kompox` による管理を示す |
+
+### ステート記録との関係
+
+タグベースの所有権は「クラウドネイティブな状態保持」原則の具体的な実現手段でもある。所有権タグとステート記録タグを同じ仕組みで管理することで、リソースの帰属確認と非決定的な値の保持を統一的に実現する。
 
 ## レジストリと生成
 
