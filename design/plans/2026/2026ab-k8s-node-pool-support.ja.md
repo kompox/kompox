@@ -3,7 +3,7 @@ id: 2026ab-k8s-node-pool-support
 title: K8s プラットフォームドライバへの NodePool 対応追加
 version: v1
 status: draft
-updated: 2026-02-16T15:43:42Z
+updated: 2026-02-16T18:18:48Z
 language: ja
 adrs:
   - K4x-ADR-019
@@ -62,10 +62,12 @@ tasks: []
   - [x] [Kompox-ProviderDriver] に `NodePoolList/Create/Update/Delete` を追加する。
   - [x] `Get` は当面 `List` + 名前解決で吸収する方針を明記する。
   - [x] `要求事項(横断)` を MVP 必須項目/将来検討項目に分割し、各項目を簡潔化する。
-- [ ] Phase 2: AKS 実装方針を Agent Pool API マッピングとして定義する。
+- [x] Phase 2: AKS 実装方針を Agent Pool API マッピングとして定義する。
   - [x] Task: [20260216b-nodepool-aks-spec]
-  - [ ] [Kompox-ProviderDriver-AKS] に AKS Agent Pool CRUD の対応方針を追加する。
-  - [ ] 必須項目/可変項目/非対応項目、冪等性、`not implemented` 境界を明記する。
+  - [x] [Kompox-ProviderDriver-AKS] に AKS Agent Pool CRUD の対応方針を追加する。
+  - [x] 必須項目/可変項目/非対応項目、冪等性、`not implemented` 境界を明記する。
+  - [x] [Kompox-ProviderDriver] に AKS 実装から抽出した全ドライバ共通原則を反映し、境界を整理する。
+  - [x] [Kompox-ProviderDriver-AKS] に NodePool メソッド実装 (`NodePoolList/Create/Update/Delete`) の実装準拠記載を追加する。
 - [ ] Phase 3: KubeConverter 契約の責務分離を明確化する。
   - [ ] [Kompox-KubeConverter] に `deployment.pool/zone` と NodePool 抽象の関係を追記する。
   - [ ] `kompox.dev/node-pool` / `kompox.dev/node-zone` を維持し、zone 正規化責務を driver 側に置くことを明記する。

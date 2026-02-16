@@ -1,8 +1,8 @@
 ---
 id: 20260216b-nodepool-aks-spec
 title: NodePool 対応に向けた AKS ProviderDriver 仕様更新 (Phase 2)
-status: active
-updated: 2026-02-16T18:08:08Z
+status: done
+updated: 2026-02-16T18:11:54Z
 language: ja
 owner: yaegashi
 adrs:
@@ -51,8 +51,8 @@ plans:
 - [x] mutable/immutable 項目、`not implemented` / validation error の境界を追記する。
 - [x] ラベル(`kompox.dev/node-pool`, `kompox.dev/node-zone`)と zone 正規化責務を追記する。
 - [x] AKS driver 実装から抽出した全ドライバ共通原則を [Kompox-ProviderDriver] に反映する。
-- [ ] [Kompox-ProviderDriver-AKS] に NodePool メソッド実装 (`NodePoolList/Create/Update/Delete`) の記載を追加する。
-- [ ] NodePool メソッド実装記載について、実装準拠 (コード参照可能) の受け入れ観点を追記する。
+- [x] [Kompox-ProviderDriver-AKS] に NodePool メソッド実装 (`NodePoolList/Create/Update/Delete`) の記載を追加する。
+- [x] NodePool メソッド実装記載について、実装準拠 (コード参照可能) の受け入れ観点を追記する。
 - [x] `make gen-index` を実行してインデックスを更新する。
 
 ## テスト
@@ -65,6 +65,8 @@ plans:
 ## 受け入れ条件
 
 - [Kompox-ProviderDriver-AKS] に NodePool ↔ Agent Pool のマッピング方針が記載されている。
+- [Kompox-ProviderDriver-AKS] の NodePool メソッド実装記載に、`List/Create/Update/Delete` の処理手順・入力制約・エラー分類が記載されている。
+- NodePool メソッド実装記載が、AKS SDK 呼び出し点 (`NewListPager` / `BeginCreateOrUpdate` / `BeginDelete`) と整合し、コード参照で追跡できる。
 - [K4x-ADR-019] および [Kompox-ProviderDriver] と矛盾しない。
 - 本タスクの範囲で実装コードが変更されていない。
 
@@ -83,6 +85,7 @@ plans:
 - 2026-02-16T16:15:57Z `Kompox-ProviderDriver-AKS-20260216b.ja.md` を新規作成。現実装を一次情報源として全 14 章を再構成。NodePool マッピング表、mutable/immutable 境界、ソースファイル構成表を追加。`make gen-index` 完了
 - 2026-02-16T17:59:37Z 新旧 AKS 仕様を比較し、旧版の全セクションが 100% カバーされていることを確認。旧 `Kompox-ProviderDriver-AKS.ja.md` を新版で置換。front matter を `id: Kompox-ProviderDriver-AKS`, `status: synced` に更新。タスク完了
 - 2026-02-16T18:08:08Z 後追いで追加した仕様を反映するためタスクを再オープン。AKS 実装から抽出した全ドライバ共通原則を [Kompox-ProviderDriver] に反映済みとして計画へ追加。次アクションとして AKS 側 NodePool メソッド実装記載の追加項目を計画・チェックリストへ追加
+- 2026-02-16T18:11:54Z [Kompox-ProviderDriver-AKS] の NodePool 章に `NodePoolList/Create/Update/Delete` の実装準拠記載 (処理手順・入力制約・エラー分類) を追記。受け入れ条件にコード参照可能な観点を追加し、未完了 2 項目を完了化
 
 ## 参照
 

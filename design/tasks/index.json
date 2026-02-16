@@ -1,6 +1,6 @@
 {
   "category": "tasks",
-  "updated": "2026-02-16T18:08:08Z",
+  "updated": "2026-02-16T18:11:54Z",
   "docCount": 9,
   "docs": [
     {
@@ -177,9 +177,9 @@
         "design/tasks/README.md"
       ],
       "relPath": "design/tasks/2026/02/16/20260216b-nodepool-aks-spec.ja.md",
-      "status": "active",
+      "status": "done",
       "title": "NodePool 対応に向けた AKS ProviderDriver 仕様更新 (Phase 2)",
-      "updated": "2026-02-16T18:08:08Z",
+      "updated": "2026-02-16T18:11:54Z",
       "version": ""
     }
   ]

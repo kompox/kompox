@@ -1,6 +1,6 @@
 {
   "category": "v1",
-  "updated": "2026-02-16T17:50:00Z",
+  "updated": "2026-02-16T18:11:54Z",
   "docCount": 11,
   "docs": [
     {
@@ -121,7 +121,7 @@
       "relPath": "design/v1/Kompox-ProviderDriver-AKS.ja.md",
       "status": "synced",
       "title": "AKS Provider Driver 実装ガイド",
-      "updated": "2026-02-16T17:50:00Z",
+      "updated": "2026-02-16T18:11:54Z",
       "version": "v1"
     },
     {

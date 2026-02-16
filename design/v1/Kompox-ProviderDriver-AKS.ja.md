@@ -3,7 +3,7 @@ id: Kompox-ProviderDriver-AKS
 title: AKS Provider Driver 実装ガイド
 version: v1
 status: synced
-updated: 2026-02-16T17:50:00Z
+updated: 2026-02-16T18:11:54Z
 language: ja
 ---
 
@@ -808,12 +808,53 @@ Azure Resource ID ではなく、Azure Files CSI ドライバー固有の形式�
   - Kompox の zone 値はリージョン付き (`japaneast-1` 等) の可能性あり → ドライバで変換
 - zone 値の正規化・変換は provider driver の責務 ([K4x-ADR-019])
 
-### 13.4 実装方針 (TODO)
+### 13.4 NodePool メソッド実装記載
 
-- `NodePoolList`: `armcontainerservice.AgentPoolsClient.NewListPager()` を使用
-- `NodePoolCreate`: `armcontainerservice.AgentPoolsClient.BeginCreateOrUpdate()` を使用
-- `NodePoolUpdate`: 既存 Agent Pool を取得し、non-nil フィールドのみマージして `BeginCreateOrUpdate()`
-- `NodePoolDelete`: `armcontainerservice.AgentPoolsClient.BeginDelete()` を使用、NotFound は冪等
+本節は、AKS driver に NodePool メソッドを追加する際の実装準拠仕様を定義する。
+
+#### 13.4.1 NodePoolList
+
+- `armcontainerservice.AgentPoolsClient.NewListPager()` で Agent Pool 一覧を取得する。
+- 各 Agent Pool を `model.NodePool` に変換して返却する。
+- 変換時は次を満たす:
+  - `Mode`: `System` / `User` を `system` / `user` に正規化
+  - `Zones`: AKS 数字ゾーン (`"1"` など) を Kompox 形式へ変換
+  - `Labels`: `NodeLabels` をそのまま取り込み、`kompox.dev/node-pool` / `kompox.dev/node-zone` が存在する場合は整合を検証
+- クラスタ未作成・RG 未存在に起因する NotFound は空配列を返す。
+
+#### 13.4.2 NodePoolCreate
+
+- `armcontainerservice.AgentPoolsClient.BeginCreateOrUpdate()` を使用する。
+- `Name` が空の場合は validation error。
+- immutable 項目 (`Mode`, `InstanceType`, `OSDiskType`, `OSDiskSizeGiB`, `Priority`, `Zones`) は作成時のみ受理する。
+- `Autoscaling.Enabled=true` の場合:
+  - `Min` / `Max` は必須
+  - `Desired` は指定されても API リクエストの `Count` には反映しない
+- `Autoscaling.Enabled=false` の場合:
+  - `Desired` を `Count` に反映
+- `kompox.dev/node-pool` / `kompox.dev/node-zone` を NodeLabels に付与する。
+
+#### 13.4.3 NodePoolUpdate
+
+- 対象 Agent Pool を取得し、`BeginCreateOrUpdate()` による upsert で更新する。
+- リクエストは non-nil フィールドのみを既存値へマージする (partial update)。
+- immutable 項目に non-nil 指定がある場合は validation error。
+- mutable 項目の更新:
+  - `Labels`: 差分を反映し、`kompox.dev/node-pool` / `kompox.dev/node-zone` を再計算
+  - `Autoscaling.*`: `EnableAutoScaling`, `MinCount`, `MaxCount`, `Count` を 13.4.2 と同じ規則で更新
+- 変更差分がない場合は API 呼び出しをスキップして現在値を返す (冪等)。
+
+#### 13.4.4 NodePoolDelete
+
+- `armcontainerservice.AgentPoolsClient.BeginDelete()` を使用する。
+- 削除完了は poller で待機する。
+- 対象未存在 (`NotFound`) は成功扱いとする (冪等)。
+
+#### 13.4.5 エラー分類
+
+- 入力不正・契約違反: validation error
+- 機能未対応: `not implemented`
+- Azure API 失敗: provider error として透過
 
 ---
 
