@@ -1,0 +1,52 @@
+name: kompox-gofmt
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  gofmt:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Check gofmt
+        shell: bash
+        run: |
+          set -euo pipefail
+          CHANGED_GO_FILES=""
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE_REF="origin/${{ github.base_ref }}"
+            git fetch origin "${{ github.base_ref }}" --depth=1
+            CHANGED_GO_FILES="$(git diff --name-only --diff-filter=ACMRT "$BASE_REF...HEAD" -- '*.go')"
+          elif [[ "${{ github.event_name }}" == "push" ]]; then
+            CHANGED_GO_FILES="$(git diff --name-only --diff-filter=ACMRT "${{ github.event.before }}" "${{ github.sha }}" -- '*.go')"
+          fi
+
+          if [[ -z "$CHANGED_GO_FILES" ]]; then
+            echo "No changed Go files to check."
+            exit 0
+          fi
+
+          UNFORMATTED="$(echo "$CHANGED_GO_FILES" | xargs -r gofmt -l)"
+          if [[ -n "$UNFORMATTED" ]]; then
+            echo "The following files are not gofmt-formatted:"
+            echo "$UNFORMATTED"
+            echo
+            echo "Run: gofmt -w <files>"
+            exit 1
+          fi

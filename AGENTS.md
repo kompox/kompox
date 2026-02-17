@@ -4,13 +4,14 @@
 
 Use Makefile targets instead of raw `go` commands when applicable.
 
-Required:
+Required (every session):
 
 ```bash
 make git-hooks-setup
 ```
 
-- Standalone coding agents (non-chat/autonomous agents such as GitHub Copilot coding agent, Codex CLI, and Claude Code) must run `make git-hooks-setup` once at the beginning of each task session in this repository.
+- Standalone coding agents (non-chat/autonomous agents such as GitHub Copilot coding agent, Codex CLI, and Claude Code) must run `make git-hooks-setup` at the beginning of **every** task session in this repository.
+- Do not assume a previous session's hook configuration is still active. Re-run this command each new session before making edits or commits.
 - This ensures `core.hooksPath=.githooks` is active and pre-commit checks (including `gofmt`) are enforced before commits.
 
 Recommended:
