@@ -12,7 +12,6 @@ import (
 type nodePoolPortAdapter struct {
 	workspaces domain.WorkspaceRepository
 	providers  domain.ProviderRepository
-	clusters   domain.ClusterRepository
 }
 
 // getDriver fetches driver for given cluster.
@@ -76,6 +75,6 @@ func (a *nodePoolPortAdapter) NodePoolDelete(ctx context.Context, cluster *model
 }
 
 // GetNodePoolPort returns a model.NodePoolPort implemented via provider drivers.
-func GetNodePoolPort(workspaces domain.WorkspaceRepository, providers domain.ProviderRepository, clusters domain.ClusterRepository) model.NodePoolPort {
-	return &nodePoolPortAdapter{workspaces: workspaces, providers: providers, clusters: clusters}
+func GetNodePoolPort(workspaces domain.WorkspaceRepository, providers domain.ProviderRepository) model.NodePoolPort {
+	return &nodePoolPortAdapter{workspaces: workspaces, providers: providers}
 }

@@ -109,6 +109,6 @@ func buildNodePoolUseCase(cmd *cobra.Command) (*nodepool.UseCase, error) {
 	}
 	return &nodepool.UseCase{
 		Repos:        repos,
-		NodePoolPort: providerdrv.GetNodePoolPort(repos.Workspace, repos.Provider, repos.Cluster),
+		NodePoolPort: providerdrv.GetNodePoolPort(repos.Workspace, repos.Provider),
 	}, nil
 }

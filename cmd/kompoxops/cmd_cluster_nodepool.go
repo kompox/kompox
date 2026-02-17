@@ -76,19 +76,19 @@ func newCmdClusterNodePoolList() *cobra.Command {
 
 // nodePoolSpec represents the YAML/JSON input schema for create/update operations.
 type nodePoolSpec struct {
-	Name          string            `yaml:"name" json:"name"`
-	ProviderName  string            `yaml:"providerName,omitempty" json:"providerName,omitempty"`
-	Mode          string            `yaml:"mode,omitempty" json:"mode,omitempty"`
-	Labels        map[string]string `yaml:"labels,omitempty" json:"labels,omitempty"`
-	Zones         []string          `yaml:"zones,omitempty" json:"zones,omitempty"`
-	InstanceType  string            `yaml:"instanceType,omitempty" json:"instanceType,omitempty"`
-	OSDiskType    string            `yaml:"osDiskType,omitempty" json:"osDiskType,omitempty"`
-	OSDiskSizeGiB int               `yaml:"osDiskSizeGiB,omitempty" json:"osDiskSizeGiB,omitempty"`
-	Priority      string            `yaml:"priority,omitempty" json:"priority,omitempty"`
+	Name          string             `yaml:"name" json:"name"`
+	ProviderName  string             `yaml:"providerName,omitempty" json:"providerName,omitempty"`
+	Mode          string             `yaml:"mode,omitempty" json:"mode,omitempty"`
+	Labels        *map[string]string `yaml:"labels,omitempty" json:"labels,omitempty"`
+	Zones         *[]string          `yaml:"zones,omitempty" json:"zones,omitempty"`
+	InstanceType  string             `yaml:"instanceType,omitempty" json:"instanceType,omitempty"`
+	OSDiskType    string             `yaml:"osDiskType,omitempty" json:"osDiskType,omitempty"`
+	OSDiskSizeGiB *int               `yaml:"osDiskSizeGiB,omitempty" json:"osDiskSizeGiB,omitempty"`
+	Priority      string             `yaml:"priority,omitempty" json:"priority,omitempty"`
 	Autoscaling   *struct {
 		Enabled bool `yaml:"enabled" json:"enabled"`
-		Min     int  `yaml:"min,omitempty" json:"min,omitempty"`
-		Max     int  `yaml:"max,omitempty" json:"max,omitempty"`
+		Min     *int `yaml:"min,omitempty" json:"min,omitempty"`
+		Max     *int `yaml:"max,omitempty" json:"max,omitempty"`
 		Desired *int `yaml:"desired,omitempty" json:"desired,omitempty"`
 	} `yaml:"autoscaling,omitempty" json:"autoscaling,omitempty"`
 	Extensions map[string]any `yaml:"extensions,omitempty" json:"extensions,omitempty"`
@@ -108,11 +108,11 @@ func (s *nodePoolSpec) toModelNodePool() model.NodePool {
 	if s.Mode != "" {
 		pool.Mode = &s.Mode
 	}
-	if len(s.Labels) > 0 {
-		pool.Labels = &s.Labels
+	if s.Labels != nil {
+		pool.Labels = s.Labels
 	}
-	if len(s.Zones) > 0 {
-		pool.Zones = &s.Zones
+	if s.Zones != nil {
+		pool.Zones = s.Zones
 	}
 	if s.InstanceType != "" {
 		pool.InstanceType = &s.InstanceType
@@ -120,19 +120,24 @@ func (s *nodePoolSpec) toModelNodePool() model.NodePool {
 	if s.OSDiskType != "" {
 		pool.OSDiskType = &s.OSDiskType
 	}
-	if s.OSDiskSizeGiB > 0 {
-		pool.OSDiskSizeGiB = &s.OSDiskSizeGiB
+	if s.OSDiskSizeGiB != nil {
+		pool.OSDiskSizeGiB = s.OSDiskSizeGiB
 	}
 	if s.Priority != "" {
 		pool.Priority = &s.Priority
 	}
 	if s.Autoscaling != nil {
-		pool.Autoscaling = &model.NodePoolAutoscaling{
+		as := &model.NodePoolAutoscaling{
 			Enabled: s.Autoscaling.Enabled,
-			Min:     s.Autoscaling.Min,
-			Max:     s.Autoscaling.Max,
 			Desired: s.Autoscaling.Desired,
 		}
+		if s.Autoscaling.Min != nil {
+			as.Min = *s.Autoscaling.Min
+		}
+		if s.Autoscaling.Max != nil {
+			as.Max = *s.Autoscaling.Max
+		}
+		pool.Autoscaling = as
 	}
 	return pool
 }

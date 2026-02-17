@@ -241,6 +241,42 @@ func TestUpdate(t *testing.T) {
 			t.Error("expected error for nil input")
 		}
 	})
+
+	t.Run("empty cluster ID", func(t *testing.T) {
+		poolName := "pool1"
+		uc := &UseCase{}
+		_, err := uc.Update(ctx, &UpdateInput{Pool: model.NodePool{Name: &poolName}})
+		if err == nil {
+			t.Error("expected error for empty cluster ID")
+		}
+	})
+
+	t.Run("empty pool name", func(t *testing.T) {
+		uc := &UseCase{}
+		_, err := uc.Update(ctx, &UpdateInput{ClusterID: "ws1/prv1/cls1", Pool: model.NodePool{}})
+		if err == nil {
+			t.Error("expected error for empty pool name")
+		}
+	})
+
+	t.Run("cluster not found", func(t *testing.T) {
+		clusterID := "ws1/prv1/cls1"
+		poolName := "pool1"
+
+		repos := &Repos{
+			Cluster: &mockClusterRepo{
+				getFunc: func(ctx context.Context, id string) (*model.Cluster, error) {
+					return nil, errors.New("cluster not found")
+				},
+			},
+		}
+
+		uc := &UseCase{Repos: repos}
+		_, err := uc.Update(ctx, &UpdateInput{ClusterID: clusterID, Pool: model.NodePool{Name: &poolName}})
+		if err == nil {
+			t.Error("expected error when cluster is not found")
+		}
+	})
 }
 
 func TestDelete(t *testing.T) {
