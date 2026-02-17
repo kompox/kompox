@@ -1,6 +1,6 @@
 {
   "category": "plans",
-  "updated": "2026-02-17T01:57:00Z",
+  "updated": "2026-02-17T02:00:29Z",
   "docCount": 2,
   "docs": [
     {
@@ -45,6 +45,7 @@
         "20260216b-nodepool-aks-spec",
         "20260216c-nodepool-kubeconverter-spec",
         "20260216d-nodepool-aks-driver-impl",
+        "20260217a-nodepool-cli-impl",
         "K4x-ADR-019",
         "Kompox-CLI",
         "Kompox-KubeConverter",
@@ -58,10 +59,11 @@
         "20260216a-nodepool-providerdriver-spec",
         "20260216b-nodepool-aks-spec",
         "20260216c-nodepool-kubeconverter-spec",
-        "20260216d-nodepool-aks-driver-impl"
+        "20260216d-nodepool-aks-driver-impl",
+        "20260217a-nodepool-cli-impl"
       ],
       "title": "K8s プラットフォームドライバへの NodePool 対応追加",
-      "updated": "2026-02-17T01:57:00Z",
+      "updated": "2026-02-17T02:00:29Z",
       "version": "v1"
     }
   ]

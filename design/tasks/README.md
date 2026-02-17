@@ -13,8 +13,9 @@
 | [20260216b-nodepool-aks-spec](./2026/02/16/20260216b-nodepool-aks-spec.ja.md) | NodePool 対応に向けた AKS ProviderDriver 仕様更新 (Phase 2) | 2026-02-16T18:11:54Z | done |
 | [20260216c-nodepool-kubeconverter-spec](./2026/02/16/20260216c-nodepool-kubeconverter-spec.ja.md) | NodePool 対応に向けた KubeConverter 契約更新 (Phase 3) | 2026-02-16T19:06:55Z | done |
 | [20260216d-nodepool-aks-driver-impl](./2026/02/16/20260216d-nodepool-aks-driver-impl.ja.md) | AKS Driver の NodePool 実装 (Phase 4) | 2026-02-17T01:53:54Z | done |
+| [20260217a-nodepool-cli-impl](./2026/02/17/20260217a-nodepool-cli-impl.ja.md) | NodePool CLI 実装 (Phase 5) | 2026-02-17T02:00:29Z | active |
 
-Updated: 2026-02-17T01:53:54Z
+Updated: 2026-02-17T02:00:29Z
 
 ---
 

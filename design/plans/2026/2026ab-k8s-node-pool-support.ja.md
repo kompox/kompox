@@ -3,7 +3,7 @@ id: 2026ab-k8s-node-pool-support
 title: K8s プラットフォームドライバへの NodePool 対応追加
 version: v1
 status: draft
-updated: 2026-02-17T01:57:00Z
+updated: 2026-02-17T02:00:29Z
 language: ja
 adrs:
   - K4x-ADR-019
@@ -12,6 +12,7 @@ tasks:
   - 20260216b-nodepool-aks-spec
   - 20260216c-nodepool-kubeconverter-spec
   - 20260216d-nodepool-aks-driver-impl
+  - 20260217a-nodepool-cli-impl
 ---
 
 # Plan: K8s プラットフォームドライバへの NodePool 対応追加
@@ -86,6 +87,7 @@ tasks:
   - [x] AKS の Agent Pool API を呼び出す実装(`List/Create/Update/Delete`)を追加し、`NodePool` 抽象へマッピングする。
   - [x] `NodePoolUpdate` の更新可能項目を明示し、未対応項目は `not implemented` / validation error として扱う。
 - [ ] Phase 5: CLI の NodePool 操作コマンドを実装する。
+  - [ ] Task: [20260217a-nodepool-cli-impl]
   - [ ] `kompoxops cluster nodepool list --cluster-id <clusterID>` を追加する。
   - [ ] `kompoxops cluster nodepool create --cluster-id <clusterID> ...` を追加する。
   - [ ] `kompoxops cluster nodepool update --cluster-id <clusterID> ...` を追加する。
@@ -125,6 +127,7 @@ tasks:
 - 2026-02-17T01:49:46Z Phase 4 実装完了を確認。`197f66a7983b33cc349ec5e50e4a6b57a12d61d6` にて NodePool 契約拡張、AKS driver 実装(List/Create/Update/Delete)、k3s 未対応スタブ、関連ユニットテストが追加された
 - 2026-02-17T01:49:46Z 検証として `make build` / `make test` が成功し、Phase 4 を完了に更新
 - 2026-02-17T01:57:00Z CLI 実装がテスト前提であることを反映し、`kompoxops cluster nodepool` コマンド実装を Phase 5 に前倒し。後続フェーズを再採番
+- 2026-02-17T02:00:29Z Phase 5 実装タスク [20260217a-nodepool-cli-impl] を追加し、計画へ紐付け
 
 ## 参照
 
@@ -138,6 +141,7 @@ tasks:
 - [20260216b-nodepool-aks-spec]
 - [20260216c-nodepool-kubeconverter-spec]
 - [20260216d-nodepool-aks-driver-impl]
+- [20260217a-nodepool-cli-impl]
 
 [design/plans/README.md]: ../README.md
 [Kompox-ProviderDriver]: ../../v1/Kompox-ProviderDriver.ja.md
@@ -149,3 +153,4 @@ tasks:
 [20260216b-nodepool-aks-spec]: ../../tasks/2026/02/16/20260216b-nodepool-aks-spec.ja.md
 [20260216c-nodepool-kubeconverter-spec]: ../../tasks/2026/02/16/20260216c-nodepool-kubeconverter-spec.ja.md
 [20260216d-nodepool-aks-driver-impl]: ../../tasks/2026/02/16/20260216d-nodepool-aks-driver-impl.ja.md
+[20260217a-nodepool-cli-impl]: ../../tasks/2026/02/17/20260217a-nodepool-cli-impl.ja.md

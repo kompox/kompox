@@ -1,6 +1,6 @@
 {
-  "updated": "2026-02-17T01:57:00Z",
-  "docCount": 70,
+  "updated": "2026-02-17T02:00:29Z",
+  "docCount": 71,
   "categories": [
     {
       "category": "adr",
@@ -10,7 +10,7 @@
     },
     {
       "category": "plans",
-      "updated": "2026-02-17T01:57:00Z",
+      "updated": "2026-02-17T02:00:29Z",
       "docCount": 2,
       "indexPath": "design/plans/index.json"
     },
@@ -22,8 +22,8 @@
     },
     {
       "category": "tasks",
-      "updated": "2026-02-17T01:53:54Z",
-      "docCount": 11,
+      "updated": "2026-02-17T02:00:29Z",
+      "docCount": 12,
       "indexPath": "design/tasks/index.json"
     },
     {
@@ -441,6 +441,7 @@
         "20260216b-nodepool-aks-spec",
         "20260216c-nodepool-kubeconverter-spec",
         "20260216d-nodepool-aks-driver-impl",
+        "20260217a-nodepool-cli-impl",
         "K4x-ADR-019",
         "Kompox-CLI",
         "Kompox-KubeConverter",
@@ -454,10 +455,11 @@
         "20260216a-nodepool-providerdriver-spec",
         "20260216b-nodepool-aks-spec",
         "20260216c-nodepool-kubeconverter-spec",
-        "20260216d-nodepool-aks-driver-impl"
+        "20260216d-nodepool-aks-driver-impl",
+        "20260217a-nodepool-cli-impl"
       ],
       "title": "K8s プラットフォームドライバへの NodePool 対応追加",
-      "updated": "2026-02-17T01:57:00Z",
+      "updated": "2026-02-17T02:00:29Z",
       "version": "v1"
     },
     {
@@ -710,6 +712,30 @@
       "status": "done",
       "title": "AKS Driver の NodePool 実装 (Phase 4)",
       "updated": "2026-02-17T01:53:54Z",
+      "version": ""
+    },
+    {
+      "adrs": [
+        "K4x-ADR-019"
+      ],
+      "category": "tasks",
+      "id": "20260217a-nodepool-cli-impl",
+      "language": "ja",
+      "owner": "yaegashi",
+      "plans": [
+        "2026ab-k8s-node-pool-support"
+      ],
+      "references": [
+        "2026ab-k8s-node-pool-support",
+        "K4x-ADR-019",
+        "Kompox-CLI",
+        "Kompox-ProviderDriver",
+        "design/tasks/README.md"
+      ],
+      "relPath": "design/tasks/2026/02/17/20260217a-nodepool-cli-impl.ja.md",
+      "status": "active",
+      "title": "NodePool CLI 実装 (Phase 5)",
+      "updated": "2026-02-17T02:00:29Z",
       "version": ""
     },
     {
