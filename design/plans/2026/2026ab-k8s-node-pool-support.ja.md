@@ -3,7 +3,7 @@ id: 2026ab-k8s-node-pool-support
 title: K8s プラットフォームドライバへの NodePool 対応追加
 version: v1
 status: draft
-updated: 2026-02-17T02:00:29Z
+updated: 2026-02-17T04:50:15Z
 language: ja
 adrs:
   - K4x-ADR-019
@@ -62,6 +62,9 @@ tasks:
   - zone 値のベンダ差異は driver 側の正規化責務として整理する。
   - `deployment.selectors` は将来拡張として予約し、現時点では未サポート(バリデーションエラー)とする。
 - CLI 契約は別フェーズとして `kompoxops cluster nodepool` 系コマンド (`list/create/update/delete`) を追加し、driver NodePool API への操作経路を提供する。
+- Phase 5 実装では `create/update` を `--file` 必須の YAML/JSON 入力方式とし、YAML を正・JSON を互換入力として扱う。
+- Phase 5 実装では `usecase/nodepool` の公開 DTO に JSON タグ (`snake_case`) を追加し、UseCase DTO 規約との整合を確保する。
+- NodePool の file spec (`nodePoolSpec`) は pointer フィールドを利用し、未指定と zero-value を区別して update 時の部分更新意図を保持する。
 
 ## 計画 (チェックリスト)
 
@@ -86,18 +89,19 @@ tasks:
   - [x] `adapters/drivers/provider/registry.go` に追加する NodePool メソッド契約に合わせて `adapters/drivers/provider/aks` の `driver` 実装を更新する。
   - [x] AKS の Agent Pool API を呼び出す実装(`List/Create/Update/Delete`)を追加し、`NodePool` 抽象へマッピングする。
   - [x] `NodePoolUpdate` の更新可能項目を明示し、未対応項目は `not implemented` / validation error として扱う。
-- [ ] Phase 5: CLI の NodePool 操作コマンドを実装する。
-  - [ ] Task: [20260217a-nodepool-cli-impl]
-  - [ ] `kompoxops cluster nodepool list --cluster-id <clusterID>` を追加する。
-  - [ ] `kompoxops cluster nodepool create --cluster-id <clusterID> ...` を追加する。
-  - [ ] `kompoxops cluster nodepool update --cluster-id <clusterID> ...` を追加する。
-  - [ ] `kompoxops cluster nodepool delete --cluster-id <clusterID> --name <poolName>` を追加する。
-  - [ ] [Kompox-CLI] 設計との整合を確認し、必要に応じて task 化して追跡する。
+- [x] Phase 5: CLI の NodePool 操作コマンドを実装する。
+  - [x] Task: [20260217a-nodepool-cli-impl]
+  - [x] `kompoxops cluster nodepool list --cluster-id <clusterID>` を追加する。
+  - [x] `kompoxops cluster nodepool create --cluster-id <clusterID> ...` を追加する。
+  - [x] `kompoxops cluster nodepool update --cluster-id <clusterID> ...` を追加する。
+  - [x] `kompoxops cluster nodepool delete --cluster-id <clusterID> --name <poolName>` を追加する。
+  - [x] [Kompox-CLI] 設計との整合を確認し、差分は [20260217a-nodepool-cli-impl] で追跡する。
 - [ ] Phase 6: AKS の NodePool ラベル/ゾーン整合を実装する。
   - [ ] 追加・更新される Agent Pool に `kompox.dev/node-pool` / `kompox.dev/node-zone` ラベルを一貫して設定する。
   - [ ] `deployment.pool/zone` のスケジューリング指定と、AKS 側 NodePool 設定の整合チェックを実装する。
 - [ ] Phase 7: テストと検証を追加する。
   - [ ] AKS driver の NodePool API 呼び出しに対する unit test を追加する。
+  - [ ] `cmd/kompoxops cluster nodepool` のコマンド層テスト(引数バリデーション/呼び出し経路)を追加する。
   - [ ] 既存 AKS E2E シナリオに NodePool の追加/更新/削除ケースを追加する。
   - [ ] 既存機能(ClusterProvision/Install、Volume 系)の回帰がないことを確認する。
 - [ ] Phase 8: 実装タスクへ分割する。
@@ -128,6 +132,7 @@ tasks:
 - 2026-02-17T01:49:46Z 検証として `make build` / `make test` が成功し、Phase 4 を完了に更新
 - 2026-02-17T01:57:00Z CLI 実装がテスト前提であることを反映し、`kompoxops cluster nodepool` コマンド実装を Phase 5 に前倒し。後続フェーズを再採番
 - 2026-02-17T02:00:29Z Phase 5 実装タスク [20260217a-nodepool-cli-impl] を追加し、計画へ紐付け
+- 2026-02-17T04:50:15Z PR #10 (`Add NodePool CLI commands (Phase 5)`) の `main` マージを確認。Phase 5 を完了化し、YAML/JSON file-input 仕様・DTO JSON タグ整備・pointer による partial update 意図保持を差分サマリへ反映
 
 ## 参照
 
