@@ -532,14 +532,14 @@ func (d *driver) mergeMutableFields(update model.NodePool, existing *armcontaine
 			labels[k] = v
 		}
 	}
-	
+
 	// Merge with update labels if provided
 	if update.Labels != nil {
 		for k, v := range *update.Labels {
 			labels[k] = to.Ptr(v)
 		}
 	}
-	
+
 	// Ensure required Kompox labels are always present
 	if update.Name != nil {
 		labels[labelNodePool] = to.Ptr(*update.Name)
@@ -548,7 +548,7 @@ func (d *driver) mergeMutableFields(update model.NodePool, existing *armcontaine
 	if props.AvailabilityZones != nil && len(props.AvailabilityZones) > 0 && props.AvailabilityZones[0] != nil {
 		labels[labelNodeZone] = to.Ptr(d.normalizeAksZoneToKompox(*props.AvailabilityZones[0]))
 	}
-	
+
 	props.NodeLabels = labels
 
 	// Update autoscaling (mutable)
