@@ -3,7 +3,7 @@ id: 2026ab-k8s-node-pool-support
 title: K8s プラットフォームドライバへの NodePool 対応追加
 version: v1
 status: draft
-updated: 2026-02-17T12:44:29Z
+updated: 2026-02-17T23:10:22Z
 language: ja
 adrs:
   - K4x-ADR-019
@@ -15,6 +15,7 @@ tasks:
   - 20260217a-nodepool-cli-impl
   - 20260217b-nodepool-cli-e2e-before-label-zone
   - 20260217c-kom-app-deployment-impl
+  - 20260217d-nodepool-phase8-doc-sync
 ---
 
 # Plan: K8s プラットフォームドライバへの NodePool 対応追加
@@ -110,8 +111,12 @@ tasks:
   - [ ] `cmd/kompoxops cluster nodepool` のコマンド層テスト(引数バリデーション/呼び出し経路)を追加する。
   - [ ] 既存 AKS E2E シナリオに NodePool の追加/更新/削除ケースを追加する。
   - [ ] 既存機能(ClusterProvision/Install、Volume 系)の回帰がないことを確認する。
-- [ ] Phase 8: 実装タスクへ分割する。
-  - [ ] 契約変更、AKS 実装、テスト更新を task file として分割する。
+- [ ] Phase 8: NodePool 対応の設計ドキュメントを同期する。
+  - [x] Task: [20260217d-nodepool-phase8-doc-sync]
+  - [ ] [Kompox-ProviderDriver] に NodePool 実装/テスト進捗の最新状態を反映する。
+  - [ ] [Kompox-ProviderDriver-AKS] に AKS 側の NodePool 運用・検証手順の最新状態を反映する。
+  - [ ] [Kompox-CLI] に `cluster nodepool` コマンド群の最新仕様と検証観点を反映する。
+  - [ ] [Kompox-KubeConverter] に `deployment.pool/zone/pools/zones` と NodePool 契約の接続点を最新状態へ同期する。
 - [ ] Phase 9: ADR ステータス判定を行う。
   - [ ] 現時点では [K4x-ADR-019] は `proposed` を維持する。
   - [ ] 次の条件を満たした時点で [K4x-ADR-019] を `accepted` に変更する。
@@ -143,6 +148,9 @@ tasks:
 - 2026-02-17T08:27:51Z `tests/aks-e2e-nodepool` の通し実行成功を確認。Phase 6 着手前提と Phase 7 の先行 E2E 追加項目を完了へ更新
 - 2026-02-17T09:18:35Z Phase 6 の KOM 定義 / KubeConverter 更新タスクとして [20260217c-kom-app-deployment-impl] を計画へ追加
 - 2026-02-17T12:44:29Z [20260217c-kom-app-deployment-impl] を `done` とし、KOM/NodePool/Bicep のスケジューリングラベル方針整理を反映。現行 AKS 構成で `kompox.dev/node-pool` / `kompox.dev/node-zone` 契約との整合が取れるため、Phase 6 を完了へ更新
+- 2026-02-17T23:03:50Z 残タスク整理を実施。Phase 7 の進捗を 2/6 完了として明記し、旧 Phase 8 (実装タスク分割) を削除。新たに `Kompox-ProviderDriver` / `Kompox-ProviderDriver-AKS` / `Kompox-CLI` の文書同期を Phase 8 として追加
+- 2026-02-17T23:07:43Z Phase 8 着手タスク [20260217d-nodepool-phase8-doc-sync] を作成し、計画チェックリストと tasks 一覧に紐付け
+- 2026-02-17T23:10:22Z Phase 8 対象文書に [Kompox-KubeConverter] を追加
 
 ## 参照
 
@@ -159,6 +167,7 @@ tasks:
 - [20260217a-nodepool-cli-impl]
 - [20260217b-nodepool-cli-e2e-before-label-zone]
 - [20260217c-kom-app-deployment-impl]
+- [20260217d-nodepool-phase8-doc-sync]
 
 [design/plans/README.md]: ../README.md
 [Kompox-ProviderDriver]: ../../v1/Kompox-ProviderDriver.ja.md
@@ -173,3 +182,4 @@ tasks:
 [20260217a-nodepool-cli-impl]: ../../tasks/2026/02/17/20260217a-nodepool-cli-impl.ja.md
 [20260217b-nodepool-cli-e2e-before-label-zone]: ../../tasks/2026/02/17/20260217b-nodepool-cli-e2e-before-label-zone.ja.md
 [20260217c-kom-app-deployment-impl]: ../../tasks/2026/02/17/20260217c-kom-app-deployment-impl.ja.md
+[20260217d-nodepool-phase8-doc-sync]: ../../tasks/2026/02/17/20260217d-nodepool-phase8-doc-sync.ja.md

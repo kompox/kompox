@@ -1,7 +1,7 @@
 {
   "category": "tasks",
-  "updated": "2026-02-17T12:44:29Z",
-  "docCount": 14,
+  "updated": "2026-02-17T23:10:22Z",
+  "docCount": 15,
   "docs": [
     {
       "category": "tasks",
@@ -300,6 +300,32 @@
       "status": "done",
       "title": "KOM App Deployment 指定と KubeConverter 更新",
       "updated": "2026-02-17T12:44:29Z",
+      "version": ""
+    },
+    {
+      "adrs": [
+        "K4x-ADR-019"
+      ],
+      "category": "tasks",
+      "id": "20260217d-nodepool-phase8-doc-sync",
+      "language": "ja",
+      "owner": "yaegashi",
+      "plans": [
+        "2026ab-k8s-node-pool-support"
+      ],
+      "references": [
+        "2026ab-k8s-node-pool-support",
+        "K4x-ADR-019",
+        "Kompox-CLI",
+        "Kompox-KubeConverter",
+        "Kompox-ProviderDriver",
+        "Kompox-ProviderDriver-AKS",
+        "design/tasks/README.md"
+      ],
+      "relPath": "design/tasks/2026/02/17/20260217d-nodepool-phase8-doc-sync.ja.md",
+      "status": "active",
+      "title": "NodePool Phase 8 設計ドキュメント同期",
+      "updated": "2026-02-17T23:10:22Z",
       "version": ""
     }
   ]
