@@ -9,14 +9,14 @@ import (
 
 // UpdateInput holds input parameters for updating a node pool.
 type UpdateInput struct {
-	ClusterID string
-	Pool      model.NodePool
-	Force     bool
+	ClusterID string           `json:"cluster_id"`
+	Pool      model.NodePool   `json:"pool"`
+	Force     bool             `json:"force,omitempty"`
 }
 
 // UpdateOutput holds the result of updating a node pool.
 type UpdateOutput struct {
-	Pool *model.NodePool
+	Pool *model.NodePool `json:"pool"`
 }
 
 // Update updates mutable fields of an existing node pool.

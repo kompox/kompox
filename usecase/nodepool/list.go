@@ -9,13 +9,13 @@ import (
 
 // ListInput holds input parameters for listing node pools.
 type ListInput struct {
-	ClusterID string
-	Name      string // Optional filter by node pool name
+	ClusterID string `json:"cluster_id"`
+	Name      string `json:"name,omitempty"` // Optional filter by node pool name
 }
 
 // ListOutput holds the result of listing node pools.
 type ListOutput struct {
-	Items []*model.NodePool
+	Items []*model.NodePool `json:"items"`
 }
 
 // List retrieves node pools for the specified cluster.

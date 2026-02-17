@@ -9,9 +9,9 @@ import (
 
 // DeleteInput holds input parameters for deleting a node pool.
 type DeleteInput struct {
-	ClusterID string
-	Name      string
-	Force     bool
+	ClusterID string `json:"cluster_id"`
+	Name      string `json:"name"`
+	Force     bool   `json:"force,omitempty"`
 }
 
 // DeleteOutput holds the result of deleting a node pool.
