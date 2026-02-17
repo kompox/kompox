@@ -9,9 +9,9 @@ import (
 
 // CreateInput holds input parameters for creating a node pool.
 type CreateInput struct {
-	ClusterID string           `json:"cluster_id"`
-	Pool      model.NodePool   `json:"pool"`
-	Force     bool             `json:"force,omitempty"`
+	ClusterID string         `json:"cluster_id"`
+	Pool      model.NodePool `json:"pool"`
+	Force     bool           `json:"force,omitempty"`
 }
 
 // CreateOutput holds the result of creating a node pool.
