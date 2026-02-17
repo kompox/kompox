@@ -1,5 +1,5 @@
 {
-  "updated": "2026-02-16T19:13:57Z",
+  "updated": "2026-02-17T01:57:00Z",
   "docCount": 70,
   "categories": [
     {
@@ -10,7 +10,7 @@
     },
     {
       "category": "plans",
-      "updated": "2026-02-16T19:06:55Z",
+      "updated": "2026-02-17T01:57:00Z",
       "docCount": 2,
       "indexPath": "design/plans/index.json"
     },
@@ -22,7 +22,7 @@
     },
     {
       "category": "tasks",
-      "updated": "2026-02-16T19:13:57Z",
+      "updated": "2026-02-17T01:53:54Z",
       "docCount": 11,
       "indexPath": "design/tasks/index.json"
     },
@@ -457,7 +457,7 @@
         "20260216d-nodepool-aks-driver-impl"
       ],
       "title": "K8s プラットフォームドライバへの NodePool 対応追加",
-      "updated": "2026-02-16T19:06:55Z",
+      "updated": "2026-02-17T01:57:00Z",
       "version": "v1"
     },
     {
@@ -707,9 +707,9 @@
         "design/tasks/README.md"
       ],
       "relPath": "design/tasks/2026/02/16/20260216d-nodepool-aks-driver-impl.ja.md",
-      "status": "active",
+      "status": "done",
       "title": "AKS Driver の NodePool 実装 (Phase 4)",
-      "updated": "2026-02-16T19:13:57Z",
+      "updated": "2026-02-17T01:53:54Z",
       "version": ""
     },
     {

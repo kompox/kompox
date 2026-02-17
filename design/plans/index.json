@@ -1,6 +1,6 @@
 {
   "category": "plans",
-  "updated": "2026-02-16T19:06:55Z",
+  "updated": "2026-02-17T01:57:00Z",
   "docCount": 2,
   "docs": [
     {
@@ -61,7 +61,7 @@
         "20260216d-nodepool-aks-driver-impl"
       ],
       "title": "K8s プラットフォームドライバへの NodePool 対応追加",
-      "updated": "2026-02-16T19:06:55Z",
+      "updated": "2026-02-17T01:57:00Z",
       "version": "v1"
     }
   ]

@@ -1,6 +1,6 @@
 {
   "category": "tasks",
-  "updated": "2026-02-16T19:13:57Z",
+  "updated": "2026-02-17T01:53:54Z",
   "docCount": 11,
   "docs": [
     {
@@ -226,9 +226,9 @@
         "design/tasks/README.md"
       ],
       "relPath": "design/tasks/2026/02/16/20260216d-nodepool-aks-driver-impl.ja.md",
-      "status": "active",
+      "status": "done",
       "title": "AKS Driver の NodePool 実装 (Phase 4)",
-      "updated": "2026-02-16T19:13:57Z",
+      "updated": "2026-02-17T01:53:54Z",
       "version": ""
     }
   ]

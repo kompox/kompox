@@ -1,8 +1,8 @@
 ---
 id: 20260216d-nodepool-aks-driver-impl
 title: AKS Driver の NodePool 実装 (Phase 4)
-status: active
-updated: 2026-02-16T19:13:57Z
+status: done
+updated: 2026-02-17T01:53:54Z
 language: ja
 owner: yaegashi
 adrs:
@@ -30,6 +30,7 @@ plans:
 - 非対象:
   - 他クラウドドライバ (k3s/oke/gke/eks) の実装
   - KubeConverter の追加仕様変更 (`deployment.selectors` の実装など)
+  - CLI コマンド実装 (`kompoxops cluster nodepool ...`) の追加
   - E2E シナリオ拡張 (別タスクで実施)
 
 ## 仕様サマリ
@@ -41,14 +42,14 @@ plans:
 
 ## 計画 (チェックリスト)
 
-- [ ] Driver 契約に NodePool 4メソッドを追加し、既存 driver 実装との整合を取る。
-- [ ] AKS driver に NodePool API クライアント初期化を追加する。
-- [ ] `NodePoolList` 実装を追加する (Agent Pool 一覧→NodePool DTO 変換)。
-- [ ] `NodePoolCreate` 実装を追加する (必須項目バリデーションを含む)。
-- [ ] `NodePoolUpdate` 実装を追加する (mutable/immutable 境界を適用)。
-- [ ] `NodePoolDelete` 実装を追加する (`NotFound` は成功扱い)。
-- [ ] エラーモデル (`validation error` / `not implemented`) を統一する。
-- [ ] `make build` / `make test` で回帰確認する。
+- [x] Driver 契約に NodePool 4メソッドを追加し、既存 driver 実装との整合を取る。
+- [x] AKS driver に NodePool API クライアント初期化を追加する。
+- [x] `NodePoolList` 実装を追加する (Agent Pool 一覧→NodePool DTO 変換)。
+- [x] `NodePoolCreate` 実装を追加する (必須項目バリデーションを含む)。
+- [x] `NodePoolUpdate` 実装を追加する (mutable/immutable 境界を適用)。
+- [x] `NodePoolDelete` 実装を追加する (`NotFound` は成功扱い)。
+- [x] エラーモデル (`validation error` / `not implemented`) を統一する。
+- [x] `make build` / `make test` で回帰確認する。
 
 ## テスト
 
@@ -77,6 +78,9 @@ plans:
 ## 進捗
 
 - 2026-02-16T19:13:57Z タスクファイルを作成
+- 2026-02-17T01:49:46Z cloud agent 実装コミット (`197f66a7983b33cc349ec5e50e4a6b57a12d61d6`) を確認。`domain/model/nodepool_port.go` 追加、`registry.go` 契約拡張、`adapters/drivers/provider/aks/nodepool.go` の List/Create/Update/Delete 実装、`k3s` の未対応スタブ、関連テスト追加が反映されていることを確認
+- 2026-02-17T01:49:46Z 検証として `make build` / `make test` を実行し成功。受け入れ条件を満たしたため本タスクを done 化
+- 2026-02-17T01:53:54Z スコープ境界を明確化し、CLI コマンド実装 (`kompoxops cluster nodepool ...`) は本タスクの out of scope として明記
 
 ## 参照
 

@@ -3,7 +3,7 @@ id: 2026ab-k8s-node-pool-support
 title: K8s プラットフォームドライバへの NodePool 対応追加
 version: v1
 status: draft
-updated: 2026-02-16T19:06:55Z
+updated: 2026-02-17T01:57:00Z
 language: ja
 adrs:
   - K4x-ADR-019
@@ -60,6 +60,7 @@ tasks:
 - KubeConverter 契約は `pool/zone` の互換維持に加えて `pools/zones` を初期実装へ取り込み、`kompox.dev/node-pool` を中心に運用する。
   - zone 値のベンダ差異は driver 側の正規化責務として整理する。
   - `deployment.selectors` は将来拡張として予約し、現時点では未サポート(バリデーションエラー)とする。
+- CLI 契約は別フェーズとして `kompoxops cluster nodepool` 系コマンド (`list/create/update/delete`) を追加し、driver NodePool API への操作経路を提供する。
 
 ## 計画 (チェックリスト)
 
@@ -79,25 +80,31 @@ tasks:
   - [x] [Kompox-KubeConverter] に `deployment.pool/zone/pools/zones` と NodePool 抽象の関係を追記する。
   - [x] `deployment.selectors` を将来拡張として予約し、現時点の未サポート方針を明記する。
   - [x] `kompox.dev/node-pool` / `kompox.dev/node-zone` を維持し、zone 正規化責務を driver 側に置くことを明記する。
-- [ ] Phase 4: AKS driver の NodePool 実装を追加する。
+- [x] Phase 4: AKS driver の NodePool 実装を追加する。
   - [x] Task: [20260216d-nodepool-aks-driver-impl]
-  - [ ] `adapters/drivers/provider/registry.go` に追加する NodePool メソッド契約に合わせて `adapters/drivers/provider/aks` の `driver` 実装を更新する。
-  - [ ] AKS の Agent Pool API を呼び出す実装(`List/Create/Update/Delete`)を追加し、`NodePool` 抽象へマッピングする。
-  - [ ] `NodePoolUpdate` の更新可能項目を明示し、未対応項目は `not implemented` / validation error として扱う。
-- [ ] Phase 5: AKS の NodePool ラベル/ゾーン整合を実装する。
+  - [x] `adapters/drivers/provider/registry.go` に追加する NodePool メソッド契約に合わせて `adapters/drivers/provider/aks` の `driver` 実装を更新する。
+  - [x] AKS の Agent Pool API を呼び出す実装(`List/Create/Update/Delete`)を追加し、`NodePool` 抽象へマッピングする。
+  - [x] `NodePoolUpdate` の更新可能項目を明示し、未対応項目は `not implemented` / validation error として扱う。
+- [ ] Phase 5: CLI の NodePool 操作コマンドを実装する。
+  - [ ] `kompoxops cluster nodepool list --cluster-id <clusterID>` を追加する。
+  - [ ] `kompoxops cluster nodepool create --cluster-id <clusterID> ...` を追加する。
+  - [ ] `kompoxops cluster nodepool update --cluster-id <clusterID> ...` を追加する。
+  - [ ] `kompoxops cluster nodepool delete --cluster-id <clusterID> --name <poolName>` を追加する。
+  - [ ] [Kompox-CLI] 設計との整合を確認し、必要に応じて task 化して追跡する。
+- [ ] Phase 6: AKS の NodePool ラベル/ゾーン整合を実装する。
   - [ ] 追加・更新される Agent Pool に `kompox.dev/node-pool` / `kompox.dev/node-zone` ラベルを一貫して設定する。
   - [ ] `deployment.pool/zone` のスケジューリング指定と、AKS 側 NodePool 設定の整合チェックを実装する。
-- [ ] Phase 6: テストと検証を追加する。
+- [ ] Phase 7: テストと検証を追加する。
   - [ ] AKS driver の NodePool API 呼び出しに対する unit test を追加する。
   - [ ] 既存 AKS E2E シナリオに NodePool の追加/更新/削除ケースを追加する。
   - [ ] 既存機能(ClusterProvision/Install、Volume 系)の回帰がないことを確認する。
-- [ ] Phase 7: 実装タスクへ分割する。
+- [ ] Phase 8: 実装タスクへ分割する。
   - [ ] 契約変更、AKS 実装、テスト更新を task file として分割する。
-- [ ] Phase 8: ADR ステータス判定を行う。
+- [ ] Phase 9: ADR ステータス判定を行う。
   - [ ] 現時点では [K4x-ADR-019] は `proposed` を維持する。
   - [ ] 次の条件を満たした時点で [K4x-ADR-019] を `accepted` に変更する。
     - [ ] Phase 1〜3 の design docs 更新が完了している。
-    - [ ] AKS driver の NodePool 実装とテスト(Phase 4〜6)が完了している。
+    - [ ] AKS driver の NodePool 実装とテスト(Phase 4〜7)が完了している。
     - [ ] 未対応ドライバでの `not implemented` 挙動と互換性方針が確認されている。
 
 ## リスク/未解決点
@@ -112,6 +119,12 @@ tasks:
 - `spec.deployment.selectors` は将来拡張として予約し、現時点で指定された場合はバリデーションエラーとする。
 - 既存 AKS クラスタは、NodePool API 導入後も現行設定(`AZURE_AKS_SYSTEM_*`, `AZURE_AKS_USER_*`)を初期値として扱い、段階的に Day2 管理へ移行する。
 - NodePool 未対応ドライバは明示的 `not implemented` を返し、機能可否を利用側で判定可能にする。
+
+## 進捗
+
+- 2026-02-17T01:49:46Z Phase 4 実装完了を確認。`197f66a7983b33cc349ec5e50e4a6b57a12d61d6` にて NodePool 契約拡張、AKS driver 実装(List/Create/Update/Delete)、k3s 未対応スタブ、関連ユニットテストが追加された
+- 2026-02-17T01:49:46Z 検証として `make build` / `make test` が成功し、Phase 4 を完了に更新
+- 2026-02-17T01:57:00Z CLI 実装がテスト前提であることを反映し、`kompoxops cluster nodepool` コマンド実装を Phase 5 に前倒し。後続フェーズを再採番
 
 ## 参照
 
