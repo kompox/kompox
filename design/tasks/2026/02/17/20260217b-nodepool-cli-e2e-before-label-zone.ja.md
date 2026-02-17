@@ -1,8 +1,8 @@
 ---
 id: 20260217b-nodepool-cli-e2e-before-label-zone
 title: NodePool CLI E2E 先行追加 (Phase 6 着手前)
-status: active
-updated: 2026-02-17T07:14:05Z
+status: done
+updated: 2026-02-17T08:29:23Z
 language: ja
 owner: yaegashi
 adrs:
@@ -41,18 +41,18 @@ plans:
 
 ## 計画 (チェックリスト)
 
-- [ ] `tests/aks-e2e-nodepool` を新設し、以下を作成する。
-  - [ ] `Makefile` (`setup/run/teardown/clean/all`) を `tests/aks-e2e-volume/Makefile` にならって作成する。
-  - [ ] `kompoxapp.yml.in` と `test.env` を作成し、NodePool テストに必要な変数を定義する。
-  - [ ] `test-setup.sh` / `test-teardown.sh` / `test-clean.sh` を作成する。
-- [ ] `test-run-nodepool.sh` (または同等の run スクリプト) を作成し、CLI シナリオを順序実行する。
-  - [ ] `create --file` (YAML) 実行
-  - [ ] `list` で作成結果確認
-  - [ ] `update --file` (YAML または JSON) 実行
-  - [ ] `list` で更新結果確認
-  - [ ] `delete` 実行と削除確認
-- [ ] 失敗時のデバッグ情報(対象 cluster id / pool 名 / 入力ファイル / CLI 出力)を記録する。
-- [ ] 既存 `tests/aks-e2e-volume` の運用導線と同様に `make all` で完走できることを確認する。
+- [x] `tests/aks-e2e-nodepool` を新設し、以下を作成する。
+  - [x] `Makefile` (`setup/run/teardown/clean/all`) を `tests/aks-e2e-volume/Makefile` にならって作成する。
+  - [x] `kompoxapp.yml.in` と `test.env` を作成し、NodePool テストに必要な変数を定義する。
+  - [x] `test-setup.sh` / `test-teardown.sh` / `test-clean.sh` を作成する。
+- [x] `test-run-nodepool.sh` (または同等の run スクリプト) を作成し、CLI シナリオを順序実行する。
+  - [x] `create --file` (YAML) 実行
+  - [x] `list` で作成結果確認
+  - [x] `update --file` (YAML または JSON) 実行
+  - [x] `list` で更新結果確認
+  - [x] `delete` 実行と削除確認
+- [x] 失敗時のデバッグ情報(対象 cluster id / pool 名 / 入力ファイル / CLI 出力)を記録する。
+- [x] 既存 `tests/aks-e2e-volume` の運用導線と同様に `make all` で完走できることを確認する。
 
 ## テスト
 
@@ -80,6 +80,7 @@ plans:
 
 - 2026-02-17T07:05:46Z タスクファイルを作成
 - 2026-02-17T07:14:05Z E2E 実装ディレクトリを `tests/aks-e2e-nodepool` に固定し、`tests/aks-e2e-volume` にならう構成( Makefile / setup-run-teardown-clean / env / app template )を計画・チェックリストに反映
+- 2026-02-17T08:29:23Z `tests/aks-e2e-nodepool` / `_tmp/tests/aks-e2e-nodepool-*` で通し実行成功を確認。log 出力設定 (`KOMPOX_LOG_LEVEL=debug`, `KOMPOX_LOG_OUTPUT=-`) と `nodepool list` 可視化を反映し、受け入れ条件を満たしたため `status: done` に更新
 
 ## 参照
 

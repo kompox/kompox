@@ -1,5 +1,5 @@
 {
-  "updated": "2026-02-17T07:14:05Z",
+  "updated": "2026-02-17T08:29:23Z",
   "docCount": 72,
   "categories": [
     {
@@ -10,7 +10,7 @@
     },
     {
       "category": "plans",
-      "updated": "2026-02-17T04:50:15Z",
+      "updated": "2026-02-17T08:27:51Z",
       "docCount": 2,
       "indexPath": "design/plans/index.json"
     },
@@ -22,7 +22,7 @@
     },
     {
       "category": "tasks",
-      "updated": "2026-02-17T07:14:05Z",
+      "updated": "2026-02-17T08:29:23Z",
       "docCount": 13,
       "indexPath": "design/tasks/index.json"
     },
@@ -461,7 +461,7 @@
         "20260217b-nodepool-cli-e2e-before-label-zone"
       ],
       "title": "K8s プラットフォームドライバへの NodePool 対応追加",
-      "updated": "2026-02-17T04:50:15Z",
+      "updated": "2026-02-17T08:27:51Z",
       "version": "v1"
     },
     {
@@ -758,9 +758,9 @@
         "design/tasks/README.md"
       ],
       "relPath": "design/tasks/2026/02/17/20260217b-nodepool-cli-e2e-before-label-zone.ja.md",
-      "status": "active",
+      "status": "done",
       "title": "NodePool CLI E2E 先行追加 (Phase 6 着手前)",
-      "updated": "2026-02-17T07:14:05Z",
+      "updated": "2026-02-17T08:29:23Z",
       "version": ""
     },
     {
