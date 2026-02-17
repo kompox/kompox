@@ -309,4 +309,3 @@ func ExtractResourceID(kind string, name string, annotations map[string]string) 
 
 	return ValidateResourceID(id, kind, name)
 }
-

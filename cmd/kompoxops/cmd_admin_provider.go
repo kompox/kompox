@@ -9,8 +9,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/kompox/kompox/usecase/provider"
+	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )
 

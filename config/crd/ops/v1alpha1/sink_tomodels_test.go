@@ -896,7 +896,7 @@ spec:
     ingressRules:
       - {}
 `,
-			wantErr: true,
+			wantErr:  true,
 			validate: func(t *testing.T, repos Repositories) {},
 		},
 		{
@@ -940,7 +940,7 @@ spec:
           - protocol: TCP
             port: 9090
 `,
-			wantErr: true,
+			wantErr:  true,
 			validate: func(t *testing.T, repos Repositories) {},
 		},
 		{
@@ -984,7 +984,7 @@ spec:
           - protocol: TCP
             port: 9090
 `,
-			wantErr: true,
+			wantErr:  true,
 			validate: func(t *testing.T, repos Repositories) {},
 		},
 		{
@@ -1148,7 +1148,7 @@ spec:
           - protocol: TCP
             port: 8080
 `,
-			wantErr: true,
+			wantErr:  true,
 			validate: func(t *testing.T, repos Repositories) {},
 		},
 		{
@@ -1194,7 +1194,7 @@ spec:
           - protocol: INVALID
             port: 8080
 `,
-			wantErr: true,
+			wantErr:  true,
 			validate: func(t *testing.T, repos Repositories) {},
 		},
 		{
@@ -1240,7 +1240,7 @@ spec:
           - protocol: TCP
             port: 70000
 `,
-			wantErr: true,
+			wantErr:  true,
 			validate: func(t *testing.T, repos Repositories) {},
 		},
 		{
@@ -1288,7 +1288,7 @@ spec:
           - protocol: TCP
             port: 8080
 `,
-			wantErr: true,
+			wantErr:  true,
 			validate: func(t *testing.T, repos Repositories) {},
 		},
 		{
@@ -1336,7 +1336,7 @@ spec:
           - protocol: TCP
             port: 8080
 `,
-			wantErr: true,
+			wantErr:  true,
 			validate: func(t *testing.T, repos Repositories) {},
 		},
 		{
@@ -1383,7 +1383,7 @@ spec:
           - protocol: TCP
             port: 8080
 `,
-			wantErr: true,
+			wantErr:  true,
 			validate: func(t *testing.T, repos Repositories) {},
 		},
 		{
@@ -1460,9 +1460,9 @@ spec:
 				}
 			},
 		},
-{
-name: "box with networkPolicy - port out of range high should fail",
-yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
+		{
+			name: "box with networkPolicy - port out of range high should fail",
+			yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
 kind: Workspace
 metadata:
   name: box-ws
@@ -1512,9 +1512,9 @@ spec:
           - protocol: TCP
             port: 99999
 `,
-wantErr: true,
-validate: func(t *testing.T, repos Repositories) {},
-},
+			wantErr:  true,
+			validate: func(t *testing.T, repos Repositories) {},
+		},
 	}
 
 	for _, tt := range tests {

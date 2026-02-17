@@ -175,9 +175,9 @@ func TestValidator_Validate_MultipleErrors(t *testing.T) {
 	documents := []Document{
 		{Kind: "Workspace", FQN: "/ws/ws1", Object: &Workspace{}},
 		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}},
-		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}},      // Duplicate
-		{Kind: "Cluster", FQN: "/ws/ws1/prv/prv2/cls/cls1", Object: &Cluster{}},   // Missing parent ws1/prv2
-		{Kind: "App", FQN: "ws1/prv3/cls1/app1", Object: &App{}},      // Missing parent ws1/prv3
+		{Kind: "Provider", FQN: "/ws/ws1/prv/prv1", Object: &Provider{}},        // Duplicate
+		{Kind: "Cluster", FQN: "/ws/ws1/prv/prv2/cls/cls1", Object: &Cluster{}}, // Missing parent ws1/prv2
+		{Kind: "App", FQN: "ws1/prv3/cls1/app1", Object: &App{}},                // Missing parent ws1/prv3
 		{Kind: "Box", FQN: "ws1/prv1/cls2/app1/box1", Object: &Box{
 			ObjectMeta: metav1.ObjectMeta{Name: "box1"},
 		}}, // Missing parent chain
@@ -449,9 +449,9 @@ func TestValidator_Box_StandaloneBoxWithIngress(t *testing.T) {
 
 func TestValidator_Box_InvalidDNS1123Label(t *testing.T) {
 	testCases := []struct {
-		name     string
-		boxName  string
-		wantErr  bool
+		name    string
+		boxName string
+		wantErr bool
 	}{
 		{
 			name:    "uppercase letters",
