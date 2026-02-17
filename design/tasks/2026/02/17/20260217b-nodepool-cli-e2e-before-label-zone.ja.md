@@ -1,8 +1,8 @@
 ---
 id: 20260217b-nodepool-cli-e2e-before-label-zone
 title: NodePool CLI E2E 先行追加 (Phase 6 着手前)
-status: draft
-updated: 2026-02-17T07:05:46Z
+status: active
+updated: 2026-02-17T07:14:05Z
 language: ja
 owner: yaegashi
 adrs:
@@ -22,7 +22,7 @@ plans:
 ## スコープ / 非スコープ
 
 - 対象:
-  - 既存 AKS E2E シナリオに NodePool CLI 経路の追加/更新/削除/一覧を追加する。
+  - `tests/aks-e2e-nodepool` ディレクトリを新設し、`tests/aks-e2e-volume` にならう構成で NodePool CLI E2E を実装する。
   - 失敗時に原因を特定しやすいログ出力(入力 spec / 実行コマンド / 主要 API エラー)を整える。
   - `--file` 入力(YAML 正、JSON 互換)の最低 1 ケースを E2E で検証する。
 - 非対象:
@@ -32,21 +32,33 @@ plans:
 ## 仕様サマリ
 
 - E2E は CLI 観点を優先し、`cmd -> usecase -> driver` の実経路を通す。
+- テスト実装は `tests/aks-e2e-volume` の実行モデルに合わせる。
+  - `Makefile` の `setup/run/teardown/clean` ターゲット構成
+  - `test.env` / `test-seed.env` / `test-local.env` の環境読み込み規約
+  - `kompoxapp.yml.in` から `envsubst` で `kompoxapp.yml` を生成する流れ
 - NodePool 名衝突を避けるため、テストごとにユニーク接尾辞を付与する。
 - 後始末を必須化し、失敗時も `delete` を実行して次シナリオへ影響を残さない。
 
 ## 計画 (チェックリスト)
 
-- [ ] AKS E2E の実行基盤から NodePool CLI 呼び出しヘルパーを利用可能にする。
-- [ ] `create --file` (YAML) → `list` で反映確認のケースを追加する。
-- [ ] `update --file` (YAML または JSON) → `list` で差分確認のケースを追加する。
-- [ ] `delete` 後に `list` から消えることを確認する。
-- [ ] 失敗時のデバッグ情報(対象 cluster id / pool 名 / 入力ファイル)を記録する。
+- [ ] `tests/aks-e2e-nodepool` を新設し、以下を作成する。
+  - [ ] `Makefile` (`setup/run/teardown/clean/all`) を `tests/aks-e2e-volume/Makefile` にならって作成する。
+  - [ ] `kompoxapp.yml.in` と `test.env` を作成し、NodePool テストに必要な変数を定義する。
+  - [ ] `test-setup.sh` / `test-teardown.sh` / `test-clean.sh` を作成する。
+- [ ] `test-run-nodepool.sh` (または同等の run スクリプト) を作成し、CLI シナリオを順序実行する。
+  - [ ] `create --file` (YAML) 実行
+  - [ ] `list` で作成結果確認
+  - [ ] `update --file` (YAML または JSON) 実行
+  - [ ] `list` で更新結果確認
+  - [ ] `delete` 実行と削除確認
+- [ ] 失敗時のデバッグ情報(対象 cluster id / pool 名 / 入力ファイル / CLI 出力)を記録する。
+- [ ] 既存 `tests/aks-e2e-volume` の運用導線と同様に `make all` で完走できることを確認する。
 
 ## テスト
 
 - E2E:
-  - 既存 `tests/aks-e2e-*` 系の NodePool 実行可能シナリオを追加
+  - `tests/aks-e2e-nodepool` の `make setup && make run && make teardown`
+  - `tests/aks-e2e-nodepool` の `make all`
 - スモーク:
   - `kompoxops cluster nodepool --help`
   - `kompoxops cluster nodepool create --help`
@@ -67,6 +79,7 @@ plans:
 ## 進捗
 
 - 2026-02-17T07:05:46Z タスクファイルを作成
+- 2026-02-17T07:14:05Z E2E 実装ディレクトリを `tests/aks-e2e-nodepool` に固定し、`tests/aks-e2e-volume` にならう構成( Makefile / setup-run-teardown-clean / env / app template )を計画・チェックリストに反映
 
 ## 参照
 
@@ -74,6 +87,7 @@ plans:
 - [K4x-ADR-019]
 - [20260217a-nodepool-cli-impl]
 - [design/tasks/README.md]
+- tests/aks-e2e-volume/Makefile
 
 [2026ab-k8s-node-pool-support]: ../../../plans/2026/2026ab-k8s-node-pool-support.ja.md
 [K4x-ADR-019]: ../../../adr/K4x-ADR-019.md
