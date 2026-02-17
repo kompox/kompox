@@ -46,6 +46,7 @@
         "20260216c-nodepool-kubeconverter-spec",
         "20260216d-nodepool-aks-driver-impl",
         "20260217a-nodepool-cli-impl",
+        "20260217b-nodepool-cli-e2e-before-label-zone",
         "K4x-ADR-019",
         "Kompox-CLI",
         "Kompox-KubeConverter",
@@ -60,7 +61,8 @@
         "20260216b-nodepool-aks-spec",
         "20260216c-nodepool-kubeconverter-spec",
         "20260216d-nodepool-aks-driver-impl",
-        "20260217a-nodepool-cli-impl"
+        "20260217a-nodepool-cli-impl",
+        "20260217b-nodepool-cli-e2e-before-label-zone"
       ],
       "title": "K8s プラットフォームドライバへの NodePool 対応追加",
       "updated": "2026-02-17T04:50:15Z",

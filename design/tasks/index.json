@@ -1,7 +1,7 @@
 {
   "category": "tasks",
-  "updated": "2026-02-17T04:50:15Z",
-  "docCount": 12,
+  "updated": "2026-02-17T07:05:46Z",
+  "docCount": 13,
   "docs": [
     {
       "category": "tasks",
@@ -253,6 +253,29 @@
       "status": "done",
       "title": "NodePool CLI 実装 (Phase 5)",
       "updated": "2026-02-17T04:50:15Z",
+      "version": ""
+    },
+    {
+      "adrs": [
+        "K4x-ADR-019"
+      ],
+      "category": "tasks",
+      "id": "20260217b-nodepool-cli-e2e-before-label-zone",
+      "language": "ja",
+      "owner": "yaegashi",
+      "plans": [
+        "2026ab-k8s-node-pool-support"
+      ],
+      "references": [
+        "20260217a-nodepool-cli-impl",
+        "2026ab-k8s-node-pool-support",
+        "K4x-ADR-019",
+        "design/tasks/README.md"
+      ],
+      "relPath": "design/tasks/2026/02/17/20260217b-nodepool-cli-e2e-before-label-zone.ja.md",
+      "status": "draft",
+      "title": "NodePool CLI E2E 先行追加 (Phase 6 着手前)",
+      "updated": "2026-02-17T07:05:46Z",
       "version": ""
     }
   ]
