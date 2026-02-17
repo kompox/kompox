@@ -9,6 +9,7 @@ import (
 	"github.com/kompox/kompox/usecase/box"
 	"github.com/kompox/kompox/usecase/cluster"
 	"github.com/kompox/kompox/usecase/dns"
+	"github.com/kompox/kompox/usecase/nodepool"
 	"github.com/kompox/kompox/usecase/provider"
 	"github.com/kompox/kompox/usecase/secret"
 	"github.com/kompox/kompox/usecase/volume"
@@ -133,5 +134,18 @@ func buildDNSRepos(cmd *cobra.Command) (*dns.Repos, error) {
 		Provider:  repos.Provider,
 		Cluster:   repos.Cluster,
 		App:       repos.App,
+	}, nil
+}
+
+// buildNodePoolRepos creates repositories needed for node pool use cases.
+func buildNodePoolRepos(cmd *cobra.Command) (*nodepool.Repos, error) {
+	repos, err := buildRepos(cmd)
+	if err != nil {
+		return nil, err
+	}
+	return &nodepool.Repos{
+		Workspace: repos.Workspace,
+		Provider:  repos.Provider,
+		Cluster:   repos.Cluster,
 	}, nil
 }
