@@ -3,7 +3,7 @@ id: 2026ab-k8s-node-pool-support
 title: K8s プラットフォームドライバへの NodePool 対応追加
 version: v1
 status: draft
-updated: 2026-02-17T08:27:51Z
+updated: 2026-02-17T09:18:35Z
 language: ja
 adrs:
   - K4x-ADR-019
@@ -14,6 +14,7 @@ tasks:
   - 20260216d-nodepool-aks-driver-impl
   - 20260217a-nodepool-cli-impl
   - 20260217b-nodepool-cli-e2e-before-label-zone
+  - 20260217c-kom-kubeconverter-phase6
 ---
 
 # Plan: K8s プラットフォームドライバへの NodePool 対応追加
@@ -98,6 +99,7 @@ tasks:
   - [x] `kompoxops cluster nodepool delete --cluster-id <clusterID> --name <poolName>` を追加する。
   - [x] [Kompox-CLI] 設計との整合を確認し、差分は [20260217a-nodepool-cli-impl] で追跡する。
 - [ ] Phase 6: AKS の NodePool ラベル/ゾーン整合を実装する。
+  - [x] Task: [20260217c-kom-kubeconverter-phase6]
   - [x] 着手前提として [20260217b-nodepool-cli-e2e-before-label-zone] の受け入れ条件を満たす。
   - [ ] 追加・更新される Agent Pool に `kompox.dev/node-pool` / `kompox.dev/node-zone` ラベルを一貫して設定する。
   - [ ] `deployment.pool/zone` のスケジューリング指定と、AKS 側 NodePool 設定の整合チェックを実装する。
@@ -139,6 +141,7 @@ tasks:
 - 2026-02-17T04:50:15Z PR #10 (`Add NodePool CLI commands (Phase 5)`) の `main` マージを確認。Phase 5 を完了化し、YAML/JSON file-input 仕様・DTO JSON タグ整備・pointer による partial update 意図保持を差分サマリへ反映
 - 2026-02-17T07:05:46Z Phase 6 着手前に NodePool CLI E2E を先行追加する方針を反映し、Task [20260217b-nodepool-cli-e2e-before-label-zone] を追加
 - 2026-02-17T08:27:51Z `tests/aks-e2e-nodepool` の通し実行成功を確認。Phase 6 着手前提と Phase 7 の先行 E2E 追加項目を完了へ更新
+- 2026-02-17T09:18:35Z Phase 6 の KOM 定義 / KubeConverter 更新タスクとして [20260217c-kom-kubeconverter-phase6] を計画へ追加
 
 ## 参照
 
@@ -154,6 +157,7 @@ tasks:
 - [20260216d-nodepool-aks-driver-impl]
 - [20260217a-nodepool-cli-impl]
 - [20260217b-nodepool-cli-e2e-before-label-zone]
+- [20260217c-kom-kubeconverter-phase6]
 
 [design/plans/README.md]: ../README.md
 [Kompox-ProviderDriver]: ../../v1/Kompox-ProviderDriver.ja.md
@@ -167,3 +171,4 @@ tasks:
 [20260216d-nodepool-aks-driver-impl]: ../../tasks/2026/02/16/20260216d-nodepool-aks-driver-impl.ja.md
 [20260217a-nodepool-cli-impl]: ../../tasks/2026/02/17/20260217a-nodepool-cli-impl.ja.md
 [20260217b-nodepool-cli-e2e-before-label-zone]: ../../tasks/2026/02/17/20260217b-nodepool-cli-e2e-before-label-zone.ja.md
+[20260217c-kom-kubeconverter-phase6]: ../../tasks/2026/02/17/20260217c-kom-kubeconverter-phase6.ja.md

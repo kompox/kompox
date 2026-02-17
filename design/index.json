@@ -1,6 +1,6 @@
 {
-  "updated": "2026-02-17T08:29:23Z",
-  "docCount": 72,
+  "updated": "2026-02-17T09:18:35Z",
+  "docCount": 73,
   "categories": [
     {
       "category": "adr",
@@ -10,7 +10,7 @@
     },
     {
       "category": "plans",
-      "updated": "2026-02-17T08:27:51Z",
+      "updated": "2026-02-17T09:18:35Z",
       "docCount": 2,
       "indexPath": "design/plans/index.json"
     },
@@ -22,8 +22,8 @@
     },
     {
       "category": "tasks",
-      "updated": "2026-02-17T08:29:23Z",
-      "docCount": 13,
+      "updated": "2026-02-17T09:13:59Z",
+      "docCount": 14,
       "indexPath": "design/tasks/index.json"
     },
     {
@@ -443,6 +443,7 @@
         "20260216d-nodepool-aks-driver-impl",
         "20260217a-nodepool-cli-impl",
         "20260217b-nodepool-cli-e2e-before-label-zone",
+        "20260217c-kom-kubeconverter-phase6",
         "K4x-ADR-019",
         "Kompox-CLI",
         "Kompox-KubeConverter",
@@ -458,10 +459,11 @@
         "20260216c-nodepool-kubeconverter-spec",
         "20260216d-nodepool-aks-driver-impl",
         "20260217a-nodepool-cli-impl",
-        "20260217b-nodepool-cli-e2e-before-label-zone"
+        "20260217b-nodepool-cli-e2e-before-label-zone",
+        "20260217c-kom-kubeconverter-phase6"
       ],
       "title": "K8s プラットフォームドライバへの NodePool 対応追加",
-      "updated": "2026-02-17T08:27:51Z",
+      "updated": "2026-02-17T09:18:35Z",
       "version": "v1"
     },
     {
@@ -761,6 +763,30 @@
       "status": "done",
       "title": "NodePool CLI E2E 先行追加 (Phase 6 着手前)",
       "updated": "2026-02-17T08:29:23Z",
+      "version": ""
+    },
+    {
+      "adrs": [
+        "K4x-ADR-019"
+      ],
+      "category": "tasks",
+      "id": "20260217c-kom-kubeconverter-phase6",
+      "language": "ja",
+      "owner": "yaegashi",
+      "plans": [
+        "2026ab-k8s-node-pool-support"
+      ],
+      "references": [
+        "2026ab-k8s-node-pool-support",
+        "K4x-ADR-019",
+        "Kompox-KOM",
+        "Kompox-KubeConverter",
+        "design/tasks/README.md"
+      ],
+      "relPath": "design/tasks/2026/02/17/20260217c-kom-kubeconverter-phase6.ja.md",
+      "status": "active",
+      "title": "Phase 6 KOM 定義と KubeConverter 更新",
+      "updated": "2026-02-17T09:13:59Z",
       "version": ""
     },
     {

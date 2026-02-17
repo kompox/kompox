@@ -15,8 +15,9 @@
 | [20260216d-nodepool-aks-driver-impl](./2026/02/16/20260216d-nodepool-aks-driver-impl.ja.md) | AKS Driver の NodePool 実装 (Phase 4) | 2026-02-17T01:53:54Z | done |
 | [20260217a-nodepool-cli-impl](./2026/02/17/20260217a-nodepool-cli-impl.ja.md) | NodePool CLI 実装 (Phase 5) | 2026-02-17T04:50:15Z | done |
 | [20260217b-nodepool-cli-e2e-before-label-zone](./2026/02/17/20260217b-nodepool-cli-e2e-before-label-zone.ja.md) | NodePool CLI E2E 先行追加 (Phase 6 着手前) | 2026-02-17T08:29:23Z | done |
+| [20260217c-kom-kubeconverter-phase6](./2026/02/17/20260217c-kom-kubeconverter-phase6.ja.md) | Phase 6 KOM 定義と KubeConverter 更新 | 2026-02-17T09:13:59Z | active |
 
-Updated: 2026-02-17T08:29:23Z
+Updated: 2026-02-17T09:13:59Z
 
 ---
 
