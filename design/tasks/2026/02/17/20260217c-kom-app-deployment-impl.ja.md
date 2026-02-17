@@ -1,8 +1,8 @@
 ---
 id: 20260217c-kom-app-deployment-impl
 title: KOM App Deployment 指定と KubeConverter 更新
-status: active
-updated: 2026-02-17T11:34:21Z
+status: done
+updated: 2026-02-17T12:44:29Z
 language: ja
 owner: yaegashi
 adrs:
@@ -53,9 +53,8 @@ plans:
   - [x] `converter.go` で `pool/zone` を `nodeSelector` に、`pools/zones` を `nodeAffinity` に写像する。
   - [x] 既定 `pool=user` 挙動と zone 未指定時の互換挙動を維持する。
   - [x] `converter_test.go` に `nodeSelector` / `nodeAffinity` 出力のケースを追加する。
-- [ ] **設計文書同期**
-  - [ ] [Kompox-KOM] に `deployment.pool/zone/pools/zones` の入力規則・排他制約・互換ルールを追記する。
-  - [ ] [Kompox-KubeConverter] に `nodeSelector` / `nodeAffinity` 出力規則を実装準拠で追記する。
+- [x] **設計文書同期**
+  - [x] [Kompox-KubeConverter] に `nodeSelector` / `nodeAffinity` 出力規則を実装準拠で追記する。
   - [x] [2026ab-k8s-node-pool-support] の Phase 6 進捗へ本タスクの反映を追記する。
 - [x] **非スコープ確認**
   - [x] `deployment.selectors` は予約のみで未実装であり、設定時はエラーになることを明記する。
@@ -95,6 +94,10 @@ plans:
 - 2026-02-17T10:58:14Z `domain/model`・`config/crd`・`config/kompoxopscfg`・`adapters/kube` に `pool/zone/pools/zones/selectors` 対応を実装し、単数/複数同時指定エラーと `selectors` 予約エラーを追加。関連ユニットテストを更新し `make test` 全通過を確認
 - 2026-02-17T10:58:14Z `tests/fixtures/20260217c-kom-app-deployment-impl` を追加し、`.kompox/kom/` に共通の Workspace/Provider/Cluster 定義、`app-valid-*` / `app-invalid-*` に App パターンを分離して `--kom-app` 切替検証手順を整備
 - 2026-02-17T11:34:21Z doc-id を `20260217c-kom-app-deployment-impl` に統一し、task/plan/fixture の参照リンクとディレクトリ名を整合。タイトルから `Phase 6` 表現を削除
+- 2026-02-17T11:38:25Z [Kompox-KOM] に `App.spec.deployment` 入力契約 (単数/複数排他・`selectors` 予約・互換ルール) を追記し、[Kompox-KubeConverter] に nodeSelector/nodeAffinity の実装準拠出力規則を追記。設計文書同期チェックを完了
+- 2026-02-17T11:44:26Z 指摘により [Kompox-KOM] の `App.spec.deployment` 追記を取り下げて原状へ復元。設計文書同期の [Kompox-KOM] 項目を未完了へ戻した
+- 2026-02-17T11:55:47Z 方針変更に合わせてチェックリストから [Kompox-KOM] 項目を削除し、設計文書同期は [Kompox-KubeConverter] と plan 反映を完了条件として更新
+- 2026-02-17T12:44:29Z KOM/NodePool/Bicep のスケジューリングラベル方針整理が完了。`Kompox-KubeConverter` へ運用方針と fixture 手順を反映し、本タスクを `done` へ更新
 
 ## 参照
 

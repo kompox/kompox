@@ -1,6 +1,6 @@
 {
   "category": "tasks",
-  "updated": "2026-02-17T11:34:21Z",
+  "updated": "2026-02-17T12:44:29Z",
   "docCount": 14,
   "docs": [
     {
@@ -297,9 +297,9 @@
         "design/tasks/README.md"
       ],
       "relPath": "design/tasks/2026/02/17/20260217c-kom-app-deployment-impl.ja.md",
-      "status": "active",
+      "status": "done",
       "title": "KOM App Deployment 指定と KubeConverter 更新",
-      "updated": "2026-02-17T11:34:21Z",
+      "updated": "2026-02-17T12:44:29Z",
       "version": ""
     }
   ]

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-02-17T11:34:21Z",
+  "updated": "2026-02-17T12:44:29Z",
   "docCount": 73,
   "categories": [
     {
@@ -10,7 +10,7 @@
     },
     {
       "category": "plans",
-      "updated": "2026-02-17T09:18:35Z",
+      "updated": "2026-02-17T12:44:29Z",
       "docCount": 2,
       "indexPath": "design/plans/index.json"
     },
@@ -22,13 +22,13 @@
     },
     {
       "category": "tasks",
-      "updated": "2026-02-17T11:34:21Z",
+      "updated": "2026-02-17T12:44:29Z",
       "docCount": 14,
       "indexPath": "design/tasks/index.json"
     },
     {
       "category": "v1",
-      "updated": "2026-02-16T19:02:50Z",
+      "updated": "2026-02-17T12:32:28Z",
       "docCount": 11,
       "indexPath": "design/v1/index.json"
     },
@@ -463,7 +463,7 @@
         "20260217c-kom-app-deployment-impl"
       ],
       "title": "K8s プラットフォームドライバへの NodePool 対応追加",
-      "updated": "2026-02-17T09:18:35Z",
+      "updated": "2026-02-17T12:44:29Z",
       "version": "v1"
     },
     {
@@ -784,9 +784,9 @@
         "design/tasks/README.md"
       ],
       "relPath": "design/tasks/2026/02/17/20260217c-kom-app-deployment-impl.ja.md",
-      "status": "active",
+      "status": "done",
       "title": "KOM App Deployment 指定と KubeConverter 更新",
-      "updated": "2026-02-17T11:34:21Z",
+      "updated": "2026-02-17T12:44:29Z",
       "version": ""
     },
     {
@@ -868,14 +868,12 @@
         "K4x-ADR-005",
         "K4x-ADR-014",
         "K4x-ADR-019",
-        "Kompox-ProviderDriver",
-        "Kompox-ProviderDriver-AKS",
-        "Kompox-ProviderDriver-AKS.ja.md"
+        "Kompox-ProviderDriver"
       ],
       "relPath": "design/v1/Kompox-KubeConverter.ja.md",
       "status": "synced",
       "title": "Kompox Kube Converter ガイド",
-      "updated": "2026-02-16T19:02:50Z",
+      "updated": "2026-02-17T12:32:28Z",
       "version": "v1"
     },
     {

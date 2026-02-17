@@ -1,6 +1,6 @@
 {
   "category": "v1",
-  "updated": "2026-02-16T19:02:50Z",
+  "updated": "2026-02-17T12:32:28Z",
   "docCount": 11,
   "docs": [
     {
@@ -82,14 +82,12 @@
         "K4x-ADR-005",
         "K4x-ADR-014",
         "K4x-ADR-019",
-        "Kompox-ProviderDriver",
-        "Kompox-ProviderDriver-AKS",
-        "Kompox-ProviderDriver-AKS.ja.md"
+        "Kompox-ProviderDriver"
       ],
       "relPath": "design/v1/Kompox-KubeConverter.ja.md",
       "status": "synced",
       "title": "Kompox Kube Converter ガイド",
-      "updated": "2026-02-16T19:02:50Z",
+      "updated": "2026-02-17T12:32:28Z",
       "version": "v1"
     },
     {

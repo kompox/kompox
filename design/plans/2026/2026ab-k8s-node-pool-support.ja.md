@@ -3,7 +3,7 @@ id: 2026ab-k8s-node-pool-support
 title: K8s プラットフォームドライバへの NodePool 対応追加
 version: v1
 status: draft
-updated: 2026-02-17T09:18:35Z
+updated: 2026-02-17T12:44:29Z
 language: ja
 adrs:
   - K4x-ADR-019
@@ -98,11 +98,11 @@ tasks:
   - [x] `kompoxops cluster nodepool update --cluster-id <clusterID> ...` を追加する。
   - [x] `kompoxops cluster nodepool delete --cluster-id <clusterID> --name <poolName>` を追加する。
   - [x] [Kompox-CLI] 設計との整合を確認し、差分は [20260217a-nodepool-cli-impl] で追跡する。
-- [ ] Phase 6: AKS の NodePool ラベル/ゾーン整合を実装する。
+- [x] Phase 6: AKS の NodePool ラベル/ゾーン整合を実装する。
   - [x] Task: [20260217c-kom-app-deployment-impl]
   - [x] 着手前提として [20260217b-nodepool-cli-e2e-before-label-zone] の受け入れ条件を満たす。
-  - [ ] 追加・更新される Agent Pool に `kompox.dev/node-pool` / `kompox.dev/node-zone` ラベルを一貫して設定する。
-  - [ ] `deployment.pool/zone` のスケジューリング指定と、AKS 側 NodePool 設定の整合チェックを実装する。
+  - [x] 追加・更新される Agent Pool に `kompox.dev/node-pool` / `kompox.dev/node-zone` ラベルを一貫して設定する。
+  - [x] `deployment.pool/zone` のスケジューリング指定と、AKS 側 NodePool 設定の整合チェックを実装する。
 - [ ] Phase 7: テストと検証を追加する。
   - [x] Task: [20260217b-nodepool-cli-e2e-before-label-zone]
   - [x] `cmd/kompoxops cluster nodepool` の E2E テスト(create/update/delete/list)を先行追加し、Phase 6 の回帰基準を固定化する。
@@ -142,6 +142,7 @@ tasks:
 - 2026-02-17T07:05:46Z Phase 6 着手前に NodePool CLI E2E を先行追加する方針を反映し、Task [20260217b-nodepool-cli-e2e-before-label-zone] を追加
 - 2026-02-17T08:27:51Z `tests/aks-e2e-nodepool` の通し実行成功を確認。Phase 6 着手前提と Phase 7 の先行 E2E 追加項目を完了へ更新
 - 2026-02-17T09:18:35Z Phase 6 の KOM 定義 / KubeConverter 更新タスクとして [20260217c-kom-app-deployment-impl] を計画へ追加
+- 2026-02-17T12:44:29Z [20260217c-kom-app-deployment-impl] を `done` とし、KOM/NodePool/Bicep のスケジューリングラベル方針整理を反映。現行 AKS 構成で `kompox.dev/node-pool` / `kompox.dev/node-zone` 契約との整合が取れるため、Phase 6 を完了へ更新
 
 ## 参照
 

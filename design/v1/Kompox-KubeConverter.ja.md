@@ -3,7 +3,7 @@ id: Kompox-KubeConverter
 title: Kompox Kube Converter ガイド
 version: v1
 status: synced
-updated: 2026-02-16T19:02:50Z
+updated: 2026-02-17T12:32:28Z
 language: ja
 ---
 
@@ -238,7 +238,7 @@ spec:
   - 例: Azure Files (`file.csi.azure.com`, SMB/NFS), AWS EFS (`efs.csi.aws.com`), GCP Filestore (`filestore.csi.storage.gke.io`)
   - スナップショット機能は多くのプロバイダで非対応 (ドライバは `ErrNotSupported` を返す)
 
-詳細は [K4x-ADR-014] と各プロバイダドライバ仕様 (例: [Kompox-ProviderDriver-AKS.ja.md]) を参照。
+詳細は [K4x-ADR-014] とプロバイダドライバ仕様 [Kompox-ProviderDriver] を参照。
 
 Compose の `services.<service>.volumes` は compose-go によりパースされる。
 
@@ -728,6 +728,10 @@ Deployment.spec.template.spec.nodeSelector に `kompox.dev/node-pool: <pool>` �
 - pools: 複数ノードプール候補。指定した場合は nodeAffinity(requiredDuringSchedulingIgnoredDuringExecution, `In`) で `kompox.dev/node-pool` に写像する。
 - zones: 複数ゾーン候補。指定した場合は nodeAffinity(requiredDuringSchedulingIgnoredDuringExecution, `In`) で `kompox.dev/node-zone` に写像する。
 - 同時指定制約: `pool` と `pools`、`zone` と `zones` は同時指定不可 (バリデーションエラー)。
+- 実装準拠の出力規則:
+  - `pools` 指定時は `kompox.dev/node-pool` の direct nodeSelector は出力せず、nodeAffinity(`In`) のみを出力する。
+  - `zones` 指定時は `kompox.dev/node-zone` の direct nodeSelector は出力せず、nodeAffinity(`In`) のみを出力する。
+  - `deployment` 未指定時は後方互換として `nodeSelector[kompox.dev/node-pool]=user` を出力する。
 
 #### 将来拡張の予約
 
@@ -753,7 +757,59 @@ Deployment.spec.template.spec.nodeSelector に `kompox.dev/node-pool: <pool>` �
   - 推奨共通語彙: `<region>-<zoneIndex>` (例: `japaneast-1`)。
   - 互換語彙: プロバイダ固有値 (例: AKS の `"1"`) も許容し、変換責務は provider driver 側に置く。
 
-この責務分離は [K4x-ADR-019] と [Kompox-ProviderDriver] の NodePool 契約、および [Kompox-ProviderDriver-AKS] の実装方針と整合する。
+#### 運用方針 (pool/zone ラベル)
+
+- Kompox は `pool` / `zone` のラベル値体系を固定しない。
+  - `App.spec.deployment.pool` / `zone` は、各環境でノードプールへ付与した `kompox.dev/node-pool` / `kompox.dev/node-zone` の値に一致させて運用する。
+  - Kompox が唯一規定するのは、既定値が `App.spec.deployment.pool=user` であることのみ。
+- 単一ゾーン運用を採用する環境では、各 user ノードプールを単一ゾーンで作成し、`kompox.dev/node-zone=<zone>` を付与することで、`App.spec.deployment.zone=<zone>` が同ゾーンのノードプールへ整合してスケジュールされる。
+- 特殊用途ノードプール (例: `spot`, `gpu`) は `kompox.dev/node-pool=<value>` を付与し、`App.spec.deployment.pool=<value>` で選択する。
+
+この責務分離は [K4x-ADR-019] と [Kompox-ProviderDriver] の NodePool 契約と整合する。
+
+#### 検証方法 (fixture)
+
+`tests/fixtures/20260217c-kom-app-deployment-impl` を使うと、`deployment.pool/zone/pools/zones` と `deployment.selectors` の挙動を再現できる。
+
+前提:
+
+```bash
+cd /workspaces/kompox/tests/fixtures/20260217c-kom-app-deployment-impl
+```
+
+成功系 (`pools + zones`):
+
+```bash
+kompoxops app validate --kom-app ./app-valid-pools-zones.yml --out-manifest -
+```
+
+確認ポイント:
+
+- `nodeSelector["kompox.dev/node-pool"]` / `nodeSelector["kompox.dev/node-zone"]` の direct 指定が出ないこと
+- `affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution` に `In` 条件が出ること
+
+成功系 (`pool + zone`):
+
+```bash
+kompoxops app validate --kom-app ./app-valid-pool-zone.yml --out-manifest -
+```
+
+確認ポイント:
+
+- `nodeSelector["kompox.dev/node-pool"]` と `nodeSelector["kompox.dev/node-zone"]` が出ること
+
+失敗系 (`selectors` は予約):
+
+```bash
+kompoxops app validate --kom-app ./app-invalid-selectors.yml --out-manifest - 2>&1 | grep -n "deployment.selectors is reserved and not supported yet"
+```
+
+失敗系 (同時指定エラー):
+
+```bash
+kompoxops app validate --kom-app ./app-invalid-pool-pools.yml --out-manifest - 2>&1 | grep -n "deployment.pool and deployment.pools cannot be specified together"
+kompoxops app validate --kom-app ./app-invalid-zone-zones.yml --out-manifest - 2>&1 | grep -n "deployment.zone and deployment.zones cannot be specified together"
+```
 
 ### Network Policy
 
@@ -1509,16 +1565,16 @@ spec:
                   name: admin
 ```
 
-<!-- ADR References -->
+## 参照
+
+- [K4x-ADR-003]
+- [K4x-ADR-005]
+- [K4x-ADR-014]
+- [K4x-ADR-019]
+- [Kompox-ProviderDriver]
 
 [K4x-ADR-003]: ../adr/K4x-ADR-003.md
 [K4x-ADR-005]: ../adr/K4x-ADR-005.md
 [K4x-ADR-014]: ../adr/K4x-ADR-014.md
 [K4x-ADR-019]: ../adr/K4x-ADR-019.md
-
 [Kompox-ProviderDriver]: ./Kompox-ProviderDriver.ja.md
-[Kompox-ProviderDriver-AKS]: ./Kompox-ProviderDriver-AKS.ja.md
-
-<!-- Design References -->
-
-[Kompox-ProviderDriver-AKS.ja.md]: ./Kompox-ProviderDriver-AKS.ja.md
