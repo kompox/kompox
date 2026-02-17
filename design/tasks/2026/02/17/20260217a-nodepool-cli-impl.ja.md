@@ -2,7 +2,7 @@
 id: 20260217a-nodepool-cli-impl
 title: NodePool CLI 実装 (Phase 5)
 status: active
-updated: 2026-02-17T02:00:29Z
+updated: 2026-02-17T02:34:28Z
 language: ja
 owner: yaegashi
 adrs:
@@ -38,31 +38,61 @@ plans:
 - CLI は [Kompox-ProviderDriver] の `NodePoolList/Create/Update/Delete` に対応する操作を公開する。
 - `cluster-id` は既存 `kompoxops cluster` サブコマンド群と同じ解決規則を継承する。
 - Provider/driver 未対応時は判別可能な `not implemented` エラーを利用者へ返す。
+- 実装レイヤは既存の `disk` / `snapshot` パターンに合わせ、`cmd/kompoxops` から直接 driver を叩かず `usecase/nodepool` を経由する。
+- usecase 構成は `usecase/volume` と同様に `types.go` (Repos/UseCase) + 操作別ファイル(`list.go`,`create.go`,`update.go`,`delete.go`) を基本形とする。
+- NodePool の設定項目が多いため、`create` / `update` は YAML/JSON ファイルから設定を読み込める入力方式を提供する。
+- 設定ファイル形式は YAML を正 (基準) とし、JSON は YAML のサブセットとして互換入力として扱う。
 
 ## 計画 (チェックリスト)
 
-- [ ] `cluster nodepool` サブコマンドのルーティングを追加する。
-- [ ] `list` コマンドを追加し、NodePool 一覧を表示する。
-- [ ] `create` コマンドを追加し、必須オプションのバリデーションを実装する。
-- [ ] `update` コマンドを追加し、immutable 項目更新要求時のエラーを透過する。
-- [ ] `delete` コマンドを追加し、冪等 delete の挙動を維持する。
-- [ ] [Kompox-CLI] の記載と実装オプション名/意味を一致させる。
+- [ ] **usecase 追加 (先行実施)**: `usecase/nodepool` パッケージを追加する。
+  - [ ] `types.go` に `Repos` / `UseCase` を定義し、`model.NodePoolPort` を注入可能にする。
+  - [ ] `list.go` / `create.go` / `update.go` / `delete.go` を作成し、`Cluster` 解決と `NodePoolPort` 呼び出しを実装する。
+  - [ ] 入力 DTO は `cluster_id` と操作固有項目を持ち、nil/必須チェックを usecase 側で統一する。
+- [ ] **builder 接続**: `cmd/kompoxops/repos_builder.go` と `cmd/kompoxops/usecase_builder.go` に NodePool 用ビルダーを追加する。
+  - [ ] `buildNodePoolRepos(cmd)` を追加し、`Workspace/Provider/Cluster` repository を束ねる。
+  - [ ] `buildNodePoolUseCase(cmd)` を追加し、provider driver adapter から `NodePoolPort` を注入する。
+  - [ ] 必要に応じて provider adapter 側に `GetNodePoolPort(...)` を追加する。
+- [ ] **CLI 追加**: `cmd/kompoxops/cmd_cluster_nodepool.go` (新規) を追加し、`cluster` 配下に `nodepool` サブコマンドを登録する。
+  - [ ] `newCmdClusterNodePool()` を実装し、`list/create/update/delete` を配下に持たせる。
+  - [ ] `newCmdCluster()` (`cmd_cluster.go`) の `AddCommand(...)` に `newCmdClusterNodePool()` を追加する。
+  - [ ] `--cluster-id` は `cluster` 親の persistent flag と既存 `resolveClusterID(...)` を流用する。
+- [ ] **各サブコマンド実装**: `list/create/update/delete` から `usecase/nodepool` を呼ぶ。
+  - [ ] `list`: NodePool 一覧を JSON で出力する。
+  - [ ] `create`: 必須入力を検証し、作成結果を JSON で出力する。
+  - [ ] `update`: mutable 項目のみ受け付け、immutable 更新エラーをそのまま返す。
+  - [ ] `delete`: `not found` の冪等挙動を維持する。
+- [ ] **YAML/JSON ファイル入力対応**: NodePool の多項目設定をファイル入力で扱えるようにする。
+  - [ ] `create/update` に `--file <path>` (または同等) を追加し、YAML/JSON を DTO にマップする。
+  - [ ] 入力フォーマットは YAML を正とし、JSON も受理することを CLI ヘルプと仕様に明記する。
+  - [ ] CLI フラグ直接指定とファイル入力の優先順位・排他規則を定義する。
+  - [ ] YAML/JSON の必須項目バリデーションとエラーメッセージを整備する。
+- [ ] **オプション整合**: [Kompox-CLI] の記載に合わせてフラグ名・意味・ヘルプを確定する。
+  - [ ] `kompoxops cluster nodepool --help` および各サブコマンド `--help` の文言を確認する。
+  - [ ] 既存サブコマンド(`disk/snapshot`)と同様に `SilenceUsage/SilenceErrors/DisableSuggestions` 方針を適用する。
+- [ ] **テスト追加**:
+  - [ ] `usecase/nodepool` のユニットテスト (`list/create/update/delete`) を追加する。
+  - [ ] `cmd/kompoxops` のコマンド層テストを必要最小限追加する (引数バリデーション/呼び出し経路)。
 
 ## テスト
 
 - ユニット:
-  - 各サブコマンドの引数解析と入力バリデーション
-  - driver 呼び出し結果の表示/エラー変換
+  - `usecase/nodepool`: 入力バリデーション、Cluster 解決、`NodePoolPort` 呼び出し、エラー透過
+  - `cmd/kompoxops`: `cluster nodepool` の引数解析とエラー条件
 - スモーク:
+  - `kompoxops cluster nodepool --help` が表示できる。
+  - `kompoxops cluster nodepool list --help` が表示できる。
   - `make build` が成功する。
   - `make test` が成功する。
 
 ## 受け入れ条件
 
 - `kompoxops cluster nodepool` の `list/create/update/delete` が呼び出せる。
-- 各コマンドが `--cluster-id` を受け取り、NodePool driver API を実行する。
+- 各コマンドが `--cluster-id` を受け取り、`usecase/nodepool` 経由で NodePool driver API を実行する。
 - 未対応 driver で `not implemented` を判別可能に返却する。
 - [Kompox-CLI] 設計との不整合がない。
+- `disk/snapshot` と同等のレイヤ分離 (`cmd -> usecase -> port`) が保たれている。
+- `create/update` で YAML/JSON ファイル入力が利用でき、YAML を正とした仕様・ヘルプが整備され、入力エラー時に原因を判別可能に返却する。
 
 ## 備考
 
@@ -75,6 +105,9 @@ plans:
 ## 進捗
 
 - 2026-02-17T02:00:29Z タスクファイルを作成
+- 2026-02-17T02:09:58Z `disk`/`snapshot` 実装パターンを基に、Phase 5 の計画・チェックリストを具体化。先行ステップとして `usecase/nodepool` 追加を明記
+- 2026-02-17T02:32:42Z NodePool 多項目設定に対応するため、`create/update` の JSON ファイル入力対応を仕様・チェックリスト・受け入れ条件に追記
+- 2026-02-17T02:34:28Z ファイル入力要件を YAML/JSON 対応へ拡張し、YAML を正 (基準) とする方針を追記
 
 ## 参照
 

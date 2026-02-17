@@ -1,5 +1,5 @@
 {
-  "updated": "2026-02-17T02:00:29Z",
+  "updated": "2026-02-17T02:34:28Z",
   "docCount": 71,
   "categories": [
     {
@@ -22,7 +22,7 @@
     },
     {
       "category": "tasks",
-      "updated": "2026-02-17T02:00:29Z",
+      "updated": "2026-02-17T02:34:28Z",
       "docCount": 12,
       "indexPath": "design/tasks/index.json"
     },
@@ -735,7 +735,7 @@
       "relPath": "design/tasks/2026/02/17/20260217a-nodepool-cli-impl.ja.md",
       "status": "active",
       "title": "NodePool CLI 実装 (Phase 5)",
-      "updated": "2026-02-17T02:00:29Z",
+      "updated": "2026-02-17T02:34:28Z",
       "version": ""
     },
     {
