@@ -44,6 +44,7 @@ func newCmdCluster() *cobra.Command {
 		newCmdClusterStatus(),
 		newCmdClusterKubeconfig(),
 		newCmdClusterLogs(),
+		newCmdClusterNodePool(),
 	)
 	return cmd
 }

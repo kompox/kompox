@@ -6,6 +6,7 @@ import (
 	"github.com/kompox/kompox/usecase/box"
 	"github.com/kompox/kompox/usecase/cluster"
 	"github.com/kompox/kompox/usecase/dns"
+	"github.com/kompox/kompox/usecase/nodepool"
 	"github.com/kompox/kompox/usecase/provider"
 	"github.com/kompox/kompox/usecase/secret"
 	"github.com/kompox/kompox/usecase/volume"
@@ -97,5 +98,17 @@ func buildDNSUseCase(cmd *cobra.Command) (*dns.UseCase, error) {
 	return &dns.UseCase{
 		Repos:       repos,
 		ClusterPort: providerdrv.GetClusterPort(repos.Workspace, repos.Provider),
+	}, nil
+}
+
+// buildNodePoolUseCase creates node pool use case with required repositories and ports.
+func buildNodePoolUseCase(cmd *cobra.Command) (*nodepool.UseCase, error) {
+	repos, err := buildNodePoolRepos(cmd)
+	if err != nil {
+		return nil, err
+	}
+	return &nodepool.UseCase{
+		Repos:        repos,
+		NodePoolPort: providerdrv.GetNodePoolPort(repos.Workspace, repos.Provider),
 	}, nil
 }
