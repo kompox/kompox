@@ -1,0 +1,14 @@
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: app1
+  annotations:
+    ops.kompox.dev/id: /ws/ws1/prv/prv1/cls/cls1/app/app1
+spec:
+  compose: |
+    services:
+      app:
+        image: nginx
+  deployment:
+    pools: ["npuser1", "npuser2"]
+    zones: ["japaneast-1", "japaneast-2"]

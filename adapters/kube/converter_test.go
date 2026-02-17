@@ -1208,6 +1208,83 @@ func TestDeploymentNodeSelector(t *testing.T) {
 		t.Errorf("expected node zone 'westus2-2', got %q", nodeSelector[LabelK4xNodeZone])
 	}
 
+	// Test case 4: pools/zones should map to nodeAffinity (and keep default pool selector behavior)
+	app4 := &model.App{
+		Name:    "app4",
+		Compose: `services: {app: {image: "test"}}`,
+		RefBase: "file://" + cwd + "/",
+		Deployment: model.AppDeployment{
+			Pools: []string{"npuser1", "npuser2"},
+			Zones: []string{"japaneast-1", "japaneast-2"},
+		},
+	}
+	c4 := NewConverter(svc, prv, cls, app4, "app")
+	_, err = c4.Convert(context.Background())
+	if err != nil {
+		t.Fatalf("convert failed: %v", err)
+	}
+
+	_, err = c4.Build()
+	if err != nil {
+		t.Fatalf("build failed: %v", err)
+	}
+	objects = c4.AllObjects()
+
+	deployment = nil
+	for _, obj := range objects {
+		if dep, ok := obj.(*appsv1.Deployment); ok {
+			deployment = dep
+			break
+		}
+	}
+	if deployment == nil {
+		t.Fatal("deployment not found")
+	}
+
+	nodeSelector = deployment.Spec.Template.Spec.NodeSelector
+	if _, hasPoolSelector := nodeSelector[LabelK4xNodePool]; hasPoolSelector {
+		t.Errorf("expected no direct pool selector when pools is set, got %q", nodeSelector[LabelK4xNodePool])
+	}
+	if _, hasZoneSelector := nodeSelector[LabelK4xNodeZone]; hasZoneSelector {
+		t.Errorf("expected no direct zone selector when zones is set, got %q", nodeSelector[LabelK4xNodeZone])
+	}
+
+	affinity := deployment.Spec.Template.Spec.Affinity
+	if affinity == nil || affinity.NodeAffinity == nil || affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution == nil {
+		t.Fatal("expected required nodeAffinity when pools/zones are set")
+	}
+	terms := affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms
+	if len(terms) != 1 {
+		t.Fatalf("expected 1 node selector term, got %d", len(terms))
+	}
+	if len(terms[0].MatchExpressions) != 2 {
+		t.Fatalf("expected 2 match expressions, got %d", len(terms[0].MatchExpressions))
+	}
+	exprMap := map[string]corev1.NodeSelectorRequirement{}
+	for _, expr := range terms[0].MatchExpressions {
+		exprMap[expr.Key] = expr
+	}
+	poolExpr, ok := exprMap[LabelK4xNodePool]
+	if !ok {
+		t.Fatalf("expected %q expression", LabelK4xNodePool)
+	}
+	if poolExpr.Operator != corev1.NodeSelectorOpIn {
+		t.Errorf("expected %q operator In, got %q", LabelK4xNodePool, poolExpr.Operator)
+	}
+	if len(poolExpr.Values) != 2 || poolExpr.Values[0] != "npuser1" || poolExpr.Values[1] != "npuser2" {
+		t.Errorf("unexpected pool expression values: %v", poolExpr.Values)
+	}
+	zoneExpr, ok := exprMap[LabelK4xNodeZone]
+	if !ok {
+		t.Fatalf("expected %q expression", LabelK4xNodeZone)
+	}
+	if zoneExpr.Operator != corev1.NodeSelectorOpIn {
+		t.Errorf("expected %q operator In, got %q", LabelK4xNodeZone, zoneExpr.Operator)
+	}
+	if len(zoneExpr.Values) != 2 || zoneExpr.Values[0] != "japaneast-1" || zoneExpr.Values[1] != "japaneast-2" {
+		t.Errorf("unexpected zone expression values: %v", zoneExpr.Values)
+	}
+
 	t.Logf("All deployment nodeSelector tests completed successfully")
 }
 

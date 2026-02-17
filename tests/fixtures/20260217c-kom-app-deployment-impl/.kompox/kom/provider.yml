@@ -1,0 +1,8 @@
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: prv1
+  annotations:
+    ops.kompox.dev/id: /ws/ws1/prv/prv1
+spec:
+  driver: k3s

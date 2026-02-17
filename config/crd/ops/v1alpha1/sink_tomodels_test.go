@@ -746,6 +746,187 @@ spec:
 			},
 		},
 		{
+			name: "app deployment with pools and zones",
+			yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: depx-ws
+  annotations:
+    ops.kompox.dev/id: /ws/depx-ws
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: depx-prv
+  annotations:
+    ops.kompox.dev/id: /ws/depx-ws/prv/depx-prv
+spec:
+  driver: aks
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: depx-cls
+  annotations:
+    ops.kompox.dev/id: /ws/depx-ws/prv/depx-prv/cls/depx-cls
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: depx-app
+  annotations:
+    ops.kompox.dev/id: /ws/depx-ws/prv/depx-prv/cls/depx-cls/app/depx-app
+spec:
+  compose: "services: {}"
+  deployment:
+    pools: ["npuser1", "npuser2"]
+    zones: ["japaneast-1", "japaneast-2"]
+`,
+			wantErr: false,
+			validate: func(t *testing.T, repos Repositories) {
+				apps, _ := repos.App.List(context.Background())
+				if len(apps) != 1 {
+					t.Fatalf("expected 1 app, got %d", len(apps))
+				}
+				app := apps[0]
+				if app.Deployment.Pool != "" {
+					t.Errorf("expected empty deployment pool, got %q", app.Deployment.Pool)
+				}
+				if app.Deployment.Zone != "" {
+					t.Errorf("expected empty deployment zone, got %q", app.Deployment.Zone)
+				}
+				if len(app.Deployment.Pools) != 2 || app.Deployment.Pools[0] != "npuser1" || app.Deployment.Pools[1] != "npuser2" {
+					t.Errorf("unexpected deployment pools: %v", app.Deployment.Pools)
+				}
+				if len(app.Deployment.Zones) != 2 || app.Deployment.Zones[0] != "japaneast-1" || app.Deployment.Zones[1] != "japaneast-2" {
+					t.Errorf("unexpected deployment zones: %v", app.Deployment.Zones)
+				}
+				if len(app.Deployment.Selectors) != 0 {
+					t.Errorf("expected empty selectors, got %v", app.Deployment.Selectors)
+				}
+			},
+		},
+		{
+			name: "app deployment with pool and pools should fail",
+			yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: depbad1-ws
+  annotations:
+    ops.kompox.dev/id: /ws/depbad1-ws
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: depbad1-prv
+  annotations:
+    ops.kompox.dev/id: /ws/depbad1-ws/prv/depbad1-prv
+spec:
+  driver: aks
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: depbad1-cls
+  annotations:
+    ops.kompox.dev/id: /ws/depbad1-ws/prv/depbad1-prv/cls/depbad1-cls
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: depbad1-app
+  annotations:
+    ops.kompox.dev/id: /ws/depbad1-ws/prv/depbad1-prv/cls/depbad1-cls/app/depbad1-app
+spec:
+  compose: "services: {}"
+  deployment:
+    pool: user
+    pools: ["npuser1", "npuser2"]
+`,
+			wantErr:  true,
+			validate: func(t *testing.T, repos Repositories) {},
+		},
+		{
+			name: "app deployment with zone and zones should fail",
+			yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: depbad2-ws
+  annotations:
+    ops.kompox.dev/id: /ws/depbad2-ws
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: depbad2-prv
+  annotations:
+    ops.kompox.dev/id: /ws/depbad2-ws/prv/depbad2-prv
+spec:
+  driver: aks
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: depbad2-cls
+  annotations:
+    ops.kompox.dev/id: /ws/depbad2-ws/prv/depbad2-prv/cls/depbad2-cls
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: depbad2-app
+  annotations:
+    ops.kompox.dev/id: /ws/depbad2-ws/prv/depbad2-prv/cls/depbad2-cls/app/depbad2-app
+spec:
+  compose: "services: {}"
+  deployment:
+    zone: japaneast-1
+    zones: ["japaneast-1", "japaneast-2"]
+`,
+			wantErr:  true,
+			validate: func(t *testing.T, repos Repositories) {},
+		},
+		{
+			name: "app deployment with selectors should fail",
+			yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
+kind: Workspace
+metadata:
+  name: depbad3-ws
+  annotations:
+    ops.kompox.dev/id: /ws/depbad3-ws
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Provider
+metadata:
+  name: depbad3-prv
+  annotations:
+    ops.kompox.dev/id: /ws/depbad3-ws/prv/depbad3-prv
+spec:
+  driver: aks
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: depbad3-cls
+  annotations:
+    ops.kompox.dev/id: /ws/depbad3-ws/prv/depbad3-prv/cls/depbad3-cls
+---
+apiVersion: ops.kompox.dev/v1alpha1
+kind: App
+metadata:
+  name: depbad3-app
+  annotations:
+    ops.kompox.dev/id: /ws/depbad3-ws/prv/depbad3-prv/cls/depbad3-cls/app/depbad3-app
+spec:
+  compose: "services: {}"
+  deployment:
+    selectors:
+      disktype: ssd
+`,
+			wantErr:  true,
+			validate: func(t *testing.T, repos Repositories) {},
+		},
+		{
 			name: "app with networkPolicy - ingress rules with namespaceSelector and ports",
 			yamlContent: `apiVersion: ops.kompox.dev/v1alpha1
 kind: Workspace

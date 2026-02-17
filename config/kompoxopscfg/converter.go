@@ -3,7 +3,9 @@ package kompoxopscfg
 import (
 	"crypto/rand"
 	"fmt"
+	"maps"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -187,8 +189,11 @@ func toModelVolumes(vs []AppVolume) []model.AppVolume {
 // toModelAppDeployment converts config AppDeployment to domain AppDeployment.
 func toModelAppDeployment(ad AppDeployment) model.AppDeployment {
 	return model.AppDeployment{
-		Pool: ad.Pool,
-		Zone: ad.Zone,
+		Pool:      ad.Pool,
+		Pools:     slices.Clone(ad.Pools),
+		Zone:      ad.Zone,
+		Zones:     slices.Clone(ad.Zones),
+		Selectors: maps.Clone(ad.Selectors),
 	}
 }
 

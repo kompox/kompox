@@ -1,8 +1,8 @@
 ---
-id: 20260217c-kom-kubeconverter-phase6
-title: Phase 6 KOM 定義と KubeConverter 更新
+id: 20260217c-kom-app-deployment-impl
+title: KOM App Deployment 指定と KubeConverter 更新
 status: active
-updated: 2026-02-17T09:13:59Z
+updated: 2026-02-17T11:34:21Z
 language: ja
 owner: yaegashi
 adrs:
@@ -10,7 +10,7 @@ adrs:
 plans:
   - 2026ab-k8s-node-pool-support
 ---
-# タスク: Phase 6 KOM 定義と KubeConverter 更新
+# タスク: KOM App Deployment 指定と KubeConverter 更新
 
 本タスクは Plan [2026ab-k8s-node-pool-support] の Phase 6 において、KOM 定義と KubeConverter の解釈を更新し、`deployment.pool/zone/pools/zones` のスケジューリング契約を明確化する作業項目です。
 
@@ -43,22 +43,22 @@ plans:
 
 ## 計画 (チェックリスト)
 
-- [ ] **モデル/CRD 更新** (`config/crd/ops/v1alpha1`)
-  - [ ] `types.go` の `AppDeploymentSpec` に `Pools []string`、`Zones []string`、`Selectors map[string]string` (または同等の予約表現) を追加する。
-  - [ ] 単数/複数同時指定を禁止する validation を追加する(同時指定時は error)。
-  - [ ] `deployment.selectors` に値が設定された場合は未サポートとして validation error を返す。
-  - [ ] `sink_tomodels.go` で `pool/zone/pools/zones` を model 側へ取り込む。
-  - [ ] `sink_tomodels_test.go` に単数/複数/同時指定エラーに加えて、`selectors` 指定時エラーのケースを追加する。
-- [ ] **KubeConverter 更新** (`adapters/kube`)
-  - [ ] `converter.go` で `pool/zone` を `nodeSelector` に、`pools/zones` を `nodeAffinity` に写像する。
-  - [ ] 既定 `pool=user` 挙動と zone 未指定時の互換挙動を維持する。
-  - [ ] `converter_test.go` に `nodeSelector` / `nodeAffinity` 出力のケースを追加する。
+- [x] **モデル/CRD 更新** (`config/crd/ops/v1alpha1`)
+  - [x] `types.go` の `AppDeploymentSpec` に `Pools []string`、`Zones []string`、`Selectors map[string]string` (または同等の予約表現) を追加する。
+  - [x] 単数/複数同時指定を禁止する validation を追加する(同時指定時は error)。
+  - [x] `deployment.selectors` に値が設定された場合は未サポートとして validation error を返す。
+  - [x] `sink_tomodels.go` で `pool/zone/pools/zones` を model 側へ取り込む。
+  - [x] `sink_tomodels_test.go` に単数/複数/同時指定エラーに加えて、`selectors` 指定時エラーのケースを追加する。
+- [x] **KubeConverter 更新** (`adapters/kube`)
+  - [x] `converter.go` で `pool/zone` を `nodeSelector` に、`pools/zones` を `nodeAffinity` に写像する。
+  - [x] 既定 `pool=user` 挙動と zone 未指定時の互換挙動を維持する。
+  - [x] `converter_test.go` に `nodeSelector` / `nodeAffinity` 出力のケースを追加する。
 - [ ] **設計文書同期**
   - [ ] [Kompox-KOM] に `deployment.pool/zone/pools/zones` の入力規則・排他制約・互換ルールを追記する。
   - [ ] [Kompox-KubeConverter] に `nodeSelector` / `nodeAffinity` 出力規則を実装準拠で追記する。
-  - [ ] [2026ab-k8s-node-pool-support] の Phase 6 進捗へ本タスクの反映を追記する。
-- [ ] **非スコープ確認**
-  - [ ] `deployment.selectors` は予約のみで未実装であり、設定時はエラーになることを明記する。
+  - [x] [2026ab-k8s-node-pool-support] の Phase 6 進捗へ本タスクの反映を追記する。
+- [x] **非スコープ確認**
+  - [x] `deployment.selectors` は予約のみで未実装であり、設定時はエラーになることを明記する。
 
 ## テスト
 
@@ -66,7 +66,8 @@ plans:
   - `config/crd/ops/v1alpha1/sink_tomodels_test.go` に `pools/zones` 取り込みと同時指定エラー検証を追加。
   - `config/crd/ops/v1alpha1/sink_tomodels_test.go` に `selectors` 設定時エラー検証を追加。
   - `adapters/kube/converter_test.go` に `nodeSelector` / `nodeAffinity` 出力検証を追加。
-- スモーク:
+- E2E (フルセットの一部):
+  - fixture `tests/fixtures/20260217c-kom-app-deployment-impl` を使い、`--kom-app ./app-valid-*.yml` / `--kom-app ./app-invalid-*.yml` の切替で成功系・失敗系(同時指定エラー、`selectors` 予約エラー)を確認。
   - `deployment.pool/zone` の既存入力で出力が変わらないことを確認。
   - `deployment.pools/zones` 入力で `nodeAffinity.required...In` が出力されることを確認。
 
@@ -91,6 +92,9 @@ plans:
 
 - 2026-02-17T09:07:40Z タスクファイルを作成
 - 2026-02-17T09:13:59Z `AppDeploymentSpec` フィールド追加と KubeConverter の `nodeSelector` / `nodeAffinity` 出力要件に合わせて、実装対象ファイルとテスト観点を含む具体的チェックリストへ更新
+- 2026-02-17T10:58:14Z `domain/model`・`config/crd`・`config/kompoxopscfg`・`adapters/kube` に `pool/zone/pools/zones/selectors` 対応を実装し、単数/複数同時指定エラーと `selectors` 予約エラーを追加。関連ユニットテストを更新し `make test` 全通過を確認
+- 2026-02-17T10:58:14Z `tests/fixtures/20260217c-kom-app-deployment-impl` を追加し、`.kompox/kom/` に共通の Workspace/Provider/Cluster 定義、`app-valid-*` / `app-invalid-*` に App パターンを分離して `--kom-app` 切替検証手順を整備
+- 2026-02-17T11:34:21Z doc-id を `20260217c-kom-app-deployment-impl` に統一し、task/plan/fixture の参照リンクとディレクトリ名を整合。タイトルから `Phase 6` 表現を削除
 
 ## 参照
 

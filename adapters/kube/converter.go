@@ -67,6 +67,7 @@ type Converter struct {
 	Selector                      map[string]string
 	SelectorString                string
 	NodeSelector                  map[string]string
+	NodeAffinity                  *corev1.NodeAffinity
 
 	// Provider-agnostic K8s pieces
 	K8sNamespace        *corev1.Namespace
@@ -186,20 +187,52 @@ func NewConverter(svc *model.Workspace, prv *model.Provider, cls *model.Cluster,
 		c.HeadlessServiceSelector[LabelK4xComposeServiceHeadless] = "true"
 		c.HeadlessServiceSelectorString = labels.Set(c.HeadlessServiceSelector).String()
 
-		// Precompute NodeSelector from app deployment settings
-		c.NodeSelector = map[string]string{}
-		// Default pool is "user" if not specified
-		pool := "user"
-		if a.Deployment.Pool != "" {
-			pool = a.Deployment.Pool
-		}
-		c.NodeSelector[LabelK4xNodePool] = pool
-		// Zone is optional and only set if specified
-		if a.Deployment.Zone != "" {
-			c.NodeSelector[LabelK4xNodeZone] = a.Deployment.Zone
-		}
+		c.NodeSelector, c.NodeAffinity = buildNodeScheduling(a.Deployment)
 	}
 	return c
+}
+
+func buildNodeScheduling(deployment model.AppDeployment) (map[string]string, *corev1.NodeAffinity) {
+	nodeSelector := map[string]string{}
+
+	// Keep compatibility default: pool=user unless pools is explicitly used.
+	if len(deployment.Pools) == 0 {
+		pool := "user"
+		if deployment.Pool != "" {
+			pool = deployment.Pool
+		}
+		nodeSelector[LabelK4xNodePool] = pool
+	}
+	if len(deployment.Zones) == 0 && deployment.Zone != "" {
+		nodeSelector[LabelK4xNodeZone] = deployment.Zone
+	}
+
+	var exprs []corev1.NodeSelectorRequirement
+	if len(deployment.Pools) > 0 {
+		exprs = append(exprs, corev1.NodeSelectorRequirement{
+			Key:      LabelK4xNodePool,
+			Operator: corev1.NodeSelectorOpIn,
+			Values:   deployment.Pools,
+		})
+	}
+	if len(deployment.Zones) > 0 {
+		exprs = append(exprs, corev1.NodeSelectorRequirement{
+			Key:      LabelK4xNodeZone,
+			Operator: corev1.NodeSelectorOpIn,
+			Values:   deployment.Zones,
+		})
+	}
+	if len(exprs) == 0 {
+		return nodeSelector, nil
+	}
+
+	return nodeSelector, &corev1.NodeAffinity{
+		RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+			NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+				MatchExpressions: exprs,
+			}},
+		},
+	}
 }
 
 // checkTargetConflict validates that target paths do not conflict.
@@ -1283,8 +1316,18 @@ func (c *Converter) Build() ([]string, error) {
 		})
 	}
 
-	// Use precomputed NodeSelector from NewConverter
+	// Use precomputed node scheduling from NewConverter
 	nodeSelector := c.NodeSelector
+	affinity := c.NodeAffinity
+	podSpec := corev1.PodSpec{
+		Containers:     c.K8sContainers,
+		InitContainers: c.K8sInitContainers,
+		Volumes:        podVolumes,
+		NodeSelector:   nodeSelector,
+	}
+	if affinity != nil {
+		podSpec.Affinity = &corev1.Affinity{NodeAffinity: affinity}
+	}
 
 	// Deployment (single replica, Recreate)
 	dep := &appsv1.Deployment{
@@ -1295,7 +1338,7 @@ func (c *Converter) Build() ([]string, error) {
 			Selector: &metav1.LabelSelector{MatchLabels: c.Selector},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: c.ComponentLabels},
-				Spec:       corev1.PodSpec{Containers: c.K8sContainers, InitContainers: c.K8sInitContainers, Volumes: podVolumes, NodeSelector: nodeSelector},
+				Spec:       podSpec,
 			},
 		},
 	}
@@ -1409,6 +1452,21 @@ func GenerateStandaloneBoxObjects(svc *model.Workspace, prv *model.Provider, cls
 
 	// Generate minimal deployment for the box
 	replicas := int32(1)
+	boxPodSpec := corev1.PodSpec{
+		Containers: []corev1.Container{
+			{
+				Name:    componentName,
+				Image:   box.Image,
+				Command: box.Command,
+				Args:    box.Args,
+			},
+		},
+		NodeSelector: c.NodeSelector,
+	}
+	if c.NodeAffinity != nil {
+		boxPodSpec.Affinity = &corev1.Affinity{NodeAffinity: c.NodeAffinity}
+	}
+
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      c.ResourceName,
@@ -1424,17 +1482,7 @@ func GenerateStandaloneBoxObjects(svc *model.Workspace, prv *model.Provider, cls
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: c.ComponentLabels,
 				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:    componentName,
-							Image:   box.Image,
-							Command: box.Command,
-							Args:    box.Args,
-						},
-					},
-					NodeSelector: c.NodeSelector,
-				},
+				Spec: boxPodSpec,
 			},
 		},
 	}

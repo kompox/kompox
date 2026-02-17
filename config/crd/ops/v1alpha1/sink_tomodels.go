@@ -3,7 +3,9 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"maps"
 	"path/filepath"
+	"slices"
 
 	"github.com/kompox/kompox/domain/model"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -79,6 +81,22 @@ func parseVolumeSize(size any) (int64, error) {
 		return sizeBytes, nil
 	}
 	return 0, fmt.Errorf("unsupported type %T (expected int64, int, float64, or string)", size)
+}
+
+func validateAppDeploymentSpec(appName string, dep *AppDeploymentSpec) error {
+	if dep == nil {
+		return nil
+	}
+	if dep.Pool != "" && len(dep.Pools) > 0 {
+		return fmt.Errorf("app %q: deployment.pool and deployment.pools cannot be specified together", appName)
+	}
+	if dep.Zone != "" && len(dep.Zones) > 0 {
+		return fmt.Errorf("app %q: deployment.zone and deployment.zones cannot be specified together", appName)
+	}
+	if len(dep.Selectors) > 0 {
+		return fmt.Errorf("app %q: deployment.selectors is reserved and not supported yet", appName)
+	}
+	return nil
 }
 
 // ToModels converts the CRD Sink to domain models and populates the provided repositories.
@@ -276,9 +294,15 @@ func (s *Sink) ToModels(ctx context.Context, repos Repositories, kompoxAppFilePa
 
 		// Convert Deployment if present
 		if app.Spec.Deployment != nil {
+			if err := validateAppDeploymentSpec(app.ObjectMeta.Name, app.Spec.Deployment); err != nil {
+				return err
+			}
 			domainApp.Deployment = model.AppDeployment{
-				Pool: app.Spec.Deployment.Pool,
-				Zone: app.Spec.Deployment.Zone,
+				Pool:      app.Spec.Deployment.Pool,
+				Pools:     slices.Clone(app.Spec.Deployment.Pools),
+				Zone:      app.Spec.Deployment.Zone,
+				Zones:     slices.Clone(app.Spec.Deployment.Zones),
+				Selectors: maps.Clone(app.Spec.Deployment.Selectors),
 			}
 		}
 

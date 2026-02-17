@@ -56,9 +56,15 @@ type AppDeployment struct {
 	// Pool specifies the node pool for deployment.
 	// Defaults to "user" if unspecified.
 	Pool string
+	// Pools specifies multiple node pools for deployment.
+	Pools []string
 	// Zone specifies the availability zone for deployment.
 	// Only sets nodeSelector when specified.
 	Zone string
+	// Zones specifies multiple availability zones for deployment.
+	Zones []string
+	// Selectors is reserved for future scheduling extensions.
+	Selectors map[string]string
 }
 
 // AppNetworkPolicy defines network policy configuration for the app.

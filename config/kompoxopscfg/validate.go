@@ -19,6 +19,22 @@ func (a *App) validate() error {
 	if err := a.validateVolumes(); err != nil {
 		return err
 	}
+	if err := a.validateDeployment(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (a *App) validateDeployment() error {
+	if a.Deployment.Pool != "" && len(a.Deployment.Pools) > 0 {
+		return fmt.Errorf("deployment.pool and deployment.pools cannot be specified together")
+	}
+	if a.Deployment.Zone != "" && len(a.Deployment.Zones) > 0 {
+		return fmt.Errorf("deployment.zone and deployment.zones cannot be specified together")
+	}
+	if len(a.Deployment.Selectors) > 0 {
+		return fmt.Errorf("deployment.selectors is reserved and not supported yet")
+	}
 	return nil
 }
 

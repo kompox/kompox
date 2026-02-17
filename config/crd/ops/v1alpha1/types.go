@@ -229,8 +229,14 @@ type AppVolumeSpec struct {
 type AppDeploymentSpec struct {
 	// Pool specifies the node pool for deployment (defaults to "user").
 	Pool string `json:"pool,omitzero"`
+	// Pools specifies multiple node pools for deployment.
+	Pools []string `json:"pools,omitzero"`
 	// Zone specifies the availability zone for deployment.
 	Zone string `json:"zone,omitzero"`
+	// Zones specifies multiple availability zones for deployment.
+	Zones []string `json:"zones,omitzero"`
+	// Selectors is reserved for future scheduling extensions.
+	Selectors map[string]string `json:"selectors,omitzero"`
 }
 
 // AppNetworkPolicySpec defines network policy configuration for the app.

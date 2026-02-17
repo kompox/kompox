@@ -1,0 +1,7 @@
+apiVersion: ops.kompox.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: cls1
+  annotations:
+    ops.kompox.dev/id: /ws/ws1/prv/prv1/cls/cls1
+spec: {}

@@ -104,7 +104,13 @@ type AppDeployment struct {
 	// Pool specifies the node pool for deployment.
 	// Defaults to "user" if unspecified.
 	Pool string `yaml:"pool,omitempty"`
+	// Pools specifies multiple node pools for deployment.
+	Pools []string `yaml:"pools,omitempty"`
 	// Zone specifies the availability zone for deployment.
 	// Only sets nodeSelector when specified.
 	Zone string `yaml:"zone,omitempty"`
+	// Zones specifies multiple availability zones for deployment.
+	Zones []string `yaml:"zones,omitempty"`
+	// Selectors is reserved for future scheduling extensions.
+	Selectors map[string]string `yaml:"selectors,omitempty"`
 }
