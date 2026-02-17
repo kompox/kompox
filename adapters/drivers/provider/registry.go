@@ -72,6 +72,25 @@ type Driver interface {
 	// Empty fields mean "no opinion" and the caller should omit them from generated manifests rather than
 	// substituting provider-specific defaults. This keeps kube layer free from provider assumptions.
 	VolumeClass(ctx context.Context, cluster *model.Cluster, app *model.App, vol model.AppVolume) (model.VolumeClass, error)
+
+	// NodePoolList returns a list of node pools for the specified cluster.
+	// Implementations should return pools with associated metadata (name, zones, instance type, autoscaling, etc.).
+	// Supports filtering via opts (e.g., by pool name).
+	NodePoolList(ctx context.Context, cluster *model.Cluster, opts ...model.NodePoolListOption) ([]*model.NodePool, error)
+
+	// NodePoolCreate creates a new node pool in the cluster.
+	// The pool parameter specifies the desired configuration. Implementations must validate required fields
+	// and return created pool metadata including provider-assigned identifiers.
+	NodePoolCreate(ctx context.Context, cluster *model.Cluster, pool model.NodePool, opts ...model.NodePoolCreateOption) (*model.NodePool, error)
+
+	// NodePoolUpdate updates mutable fields of an existing node pool.
+	// Only non-nil pointer fields in pool are applied. Attempting to modify immutable fields should
+	// return a validation error. Implementations determine which fields are mutable.
+	NodePoolUpdate(ctx context.Context, cluster *model.Cluster, pool model.NodePool, opts ...model.NodePoolUpdateOption) (*model.NodePool, error)
+
+	// NodePoolDelete deletes the specified node pool from the cluster.
+	// poolName identifies the pool to delete. NotFound is acceptable for idempotency.
+	NodePoolDelete(ctx context.Context, cluster *model.Cluster, poolName string, opts ...model.NodePoolDeleteOption) error
 }
 
 // driverFactory is a constructor function for a provider driver.
