@@ -3,7 +3,7 @@ id: Kompox-ProviderDriver-AKS
 title: AKS Provider Driver 実装ガイド
 version: v1
 status: synced
-updated: 2026-02-16T18:11:54Z
+updated: 2026-02-17T23:42:52Z
 language: ja
 ---
 
@@ -765,7 +765,7 @@ Azure Resource ID ではなく、Azure Files CSI ドライバー固有の形式�
 
 ## 13. NodePool 操作
 
-> **注意**: 2026-02-16 時点で AKS ドライバに NodePool メソッドの実装は存在しない。本セクションでは [K4x-ADR-019] および [Kompox-ProviderDriver] の契約に基づき、AKS 固有のマッピング方針を記述する。
+本セクションは [K4x-ADR-019] および [Kompox-ProviderDriver] の契約に基づく AKS 固有の実装準拠仕様を示す。
 
 ### 13.1 用語マッピング
 
@@ -858,7 +858,14 @@ Azure Resource ID ではなく、Azure Files CSI ドライバー固有の形式�
 
 ---
 
-## 14. ソースファイル構成
+## 14. AKS ドライバ E2E テスト
+
+- `tests/aks-e2e-nodepool`: `cluster nodepool` の list/create/update/delete を対象に、AKS 上で NodePool 操作経路を検証する。
+- `tests/aks-e2e-volume`: Disk/Snapshot 系の操作を対象に、AKS ドライバの Volume 操作経路を検証する。
+
+---
+
+## 15. ソースファイル構成
 
 | ファイル | 責務 |
 |---|---|
@@ -879,6 +886,8 @@ Azure Resource ID ではなく、Azure Files CSI ドライバー固有の形式�
 | `azure_resources.go` | Azure Resource Group SDK ヘルパー (作成、削除、KV パージ対応) |
 | `azure_roles.go` | Azure RBAC ロール割り当てヘルパー |
 | `azure_storage.go` | Azure Storage Account 作成ヘルパー |
+| `nodepool.go` | NodePool (`List/Create/Update/Delete`) 実装 |
+| `nodepool_test.go` | NodePool 変換/正規化/immutable 検証ユニットテスト |
 | `secret.go` | Key Vault → SecretProviderClass 生成 |
 | `naming_test.go` | 命名規則ユニットテスト |
 | `azure_dns_test.go` | DNS ヘルパーユニットテスト |

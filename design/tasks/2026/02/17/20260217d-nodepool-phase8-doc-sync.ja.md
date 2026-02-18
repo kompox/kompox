@@ -1,8 +1,8 @@
 ---
 id: 20260217d-nodepool-phase8-doc-sync
 title: NodePool Phase 8 設計ドキュメント同期
-status: active
-updated: 2026-02-17T23:10:22Z
+status: done
+updated: 2026-02-18T01:22:50Z
 language: ja
 owner: yaegashi
 adrs:
@@ -42,24 +42,23 @@ plans:
 
 ## 計画 (チェックリスト)
 
-- [ ] **ProviderDriver 文書更新**
-  - [ ] [Kompox-ProviderDriver] の NodePool 管理 API 節を現行実装準拠へ更新する。
-  - [ ] 全ドライバ共通の `not implemented` 境界と互換方針を確認・明記する。
-- [ ] **AKS ProviderDriver 文書更新**
-  - [ ] [Kompox-ProviderDriver-AKS] の Agent Pool 対応範囲と更新可能項目を現行挙動に合わせる。
-  - [ ] NodePool 運用/検証手順(想定コマンドや確認観点)を同期する。
-- [ ] **CLI 文書更新**
-  - [ ] [Kompox-CLI] の `kompoxops cluster nodepool` 仕様を現行実装に同期する。
-  - [ ] `--file` 入力方式とエラー/検証観点を明記する。
-- [ ] **KubeConverter 文書更新**
-  - [ ] [Kompox-KubeConverter] の NodePool スケジューリング契約記述を Phase 8 方針に合わせて同期する。
-- [ ] **生成物同期**
-  - [ ] `make gen-index` を実行して `design` index を更新する。
+- [x] **ProviderDriver 文書更新**
+  - [x] [Kompox-ProviderDriver] の NodePool 管理 API 節を現行実装準拠へ更新する。
+  - [x] 全ドライバ共通の `not implemented` 境界と互換方針を確認・明記する。
+- [x] **AKS ProviderDriver 文書更新**
+  - [x] [Kompox-ProviderDriver-AKS] の Agent Pool 対応範囲と更新可能項目を現行挙動に合わせる。
+  - [x] NodePool 運用/検証手順(想定コマンドや確認観点)を同期する。
+- [x] **CLI 文書更新**
+  - [x] [Kompox-CLI] の `kompoxops cluster nodepool` 仕様を現行実装に同期する。
+  - [x] `--file` 入力方式とエラー/検証観点を明記する。
+- [x] **KubeConverter 文書更新**
+  - [x] [Kompox-KubeConverter] の NodePool スケジューリング契約記述を Phase 8 方針に合わせて同期する。
+- [x] **生成物同期**
+  - [x] `make gen-index` を実行して `design` index を更新する。
 
 ## テスト
 
 - ドキュメント整合確認:
-  - 更新した 3 文書で NodePool 用語 (`NodePool` / `Agent Pool`) と責務境界の不整合がないことを確認。
   - 更新した 4 文書で NodePool 用語と責務境界の不整合がないことを確認。
   - コマンド仕様・制約・未実装項目が実装状況と矛盾しないことを確認。
 - 生成確認:
@@ -82,6 +81,9 @@ plans:
 
 - 2026-02-17T23:07:43Z タスクファイルを作成
 - 2026-02-17T23:10:22Z Phase 8 対象へ [Kompox-KubeConverter] を追加し、スコープ/チェックリスト/受け入れ条件を更新
+- 2026-02-17T23:18:51Z [Kompox-ProviderDriver] / [Kompox-ProviderDriver-AKS] / [Kompox-CLI] / [Kompox-KubeConverter] の NodePool 関連記述を同期し、本タスクを `done` に更新
+- 2026-02-18T01:09:35Z 各対象文書の更新状況を再確認し、本タスクに確認結果を追記
+- 2026-02-18T01:20:06Z [Kompox-CLI] について、NodePool 範囲に限定せず CLI 全体にわたってセクション構成と文章表現のリライトが行われたことを追記
 
 ## 参照
 
@@ -93,10 +95,10 @@ plans:
 - [Kompox-KubeConverter]
 - [design/tasks/README.md]
 
-[2026ab-k8s-node-pool-support]: ../../../plans/2026/2026ab-k8s-node-pool-support.ja.md
-[K4x-ADR-019]: ../../../adr/K4x-ADR-019.md
-[Kompox-ProviderDriver]: ../../../v1/Kompox-ProviderDriver.ja.md
-[Kompox-ProviderDriver-AKS]: ../../../v1/Kompox-ProviderDriver-AKS.ja.md
-[Kompox-CLI]: ../../../v1/Kompox-CLI.ja.md
-[Kompox-KubeConverter]: ../../../v1/Kompox-KubeConverter.ja.md
-[design/tasks/README.md]: ../../README.md
+[2026ab-k8s-node-pool-support]: ../../../../plans/2026/2026ab-k8s-node-pool-support.ja.md
+[K4x-ADR-019]: ../../../../adr/K4x-ADR-019.md
+[Kompox-ProviderDriver]: ../../../../v1/Kompox-ProviderDriver.ja.md
+[Kompox-ProviderDriver-AKS]: ../../../../v1/Kompox-ProviderDriver-AKS.ja.md
+[Kompox-CLI]: ../../../../v1/Kompox-CLI.ja.md
+[Kompox-KubeConverter]: ../../../../v1/Kompox-KubeConverter.ja.md
+[design/tasks/README.md]: ../../../README.md

@@ -3,7 +3,7 @@ id: Kompox-ProviderDriver
 title: Kompox Provider Driver ガイド
 version: v1
 status: synced
-updated: 2026-02-16T18:33:19Z
+updated: 2026-02-17T23:29:15Z
 language: ja
 ---
 
@@ -499,12 +499,16 @@ if err := inst.EnsureIngressNamespace(ctx, cluster); err != nil {
 ## テスト方針
 
 - Unit: 入力検証、分岐、SDK 呼び出しのモック化テスト。
+- NodePool:
+  - DTO 変換、zone 正規化、immutable フィールド検証を unit test の対象とする。
+  - provider API 呼び出し経路の検証を unit test の対象とする。
 - Kube: `adapters/kube` は client-go の fake/dynamic を利用。ドライバ側は薄く利用。
 - E2E(End-to-End): `/tests/aks-e2e-*` ディレクトリに実クラウド環境での統合テストを配置。
   - 各テストディレクトリには `Makefile` と一連のシェルスクリプト(`test-setup.sh`, `test-run.sh`, `test-teardown.sh`, `test-clean.sh`)が含まれる。
   - `make all` でセットアップ、実行、クリーンアップの全フローが自動化される。
   - テスト例:
     - `aks-e2e-basic`: 基本的なクラスタプロビジョニング、アプリデプロイ、Ingress 疎通確認。
+    - `aks-e2e-nodepool`: NodePool の list/create/update/delete とスケジューリング契約の確認。
     - `aks-e2e-volume`: ボリューム操作(disk create/assign/delete, snapshot create/delete/restore)の包括的検証。
     - `aks-e2e-gitea`, `aks-e2e-gitlab`, `aks-e2e-redmine`: 実アプリケーション(Compose ベース)のデプロイと動作確認。
   - 認証情報やサブスクリプション ID などは `test.env` および `test-local.env`(非コミット)で管理。

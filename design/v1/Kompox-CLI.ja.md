@@ -3,7 +3,7 @@ id: Kompox-CLI
 title: Kompox PaaS CLI
 version: v1
 status: synced
-updated: 2026-02-12
+updated: 2026-02-18T00:39:15Z
 language: ja
 ---
 
@@ -25,14 +25,13 @@ language: ja
 
 kompoxops は Kompox PaaS 準拠のデプロイツールである。
 
-既定の入力モードは KOM モードであり、`kompoxapp.yml` を起点に Workspace/Provider/Cluster/App を読み込む。単一ファイルモード (`kompoxops.yml`) は互換のため残るが廃止予定である。
-
 ```
 kompoxops init              Kompox CLI Env の初期化 (.kompox/ ディレクトリと設定ファイルの作成)
 kompoxops cluster           クラスタ操作
 kompoxops app               アプリ操作
 kompoxops secret            シークレット操作
 kompoxops dns               DNS 操作
+kompoxops nodepool          NodePool 操作
 kompoxops disk              ディスク操作
 kompoxops snapshot          スナップショット操作
 kompoxops admin             管理ツール
@@ -120,31 +119,7 @@ komPath:
 
 kompoxops は 2 つの設定入力モードをサポートする。
 
-#### (1) 単一ファイルモード (廃止予定)
-
-単一の YAML ファイルから Workspace/Provider/Cluster/App を読み込むレガシーモード。
-
-**起動条件**
-
-- `--db-url file:kompoxops.yml` または環境変数 `KOMPOX_DB_URL=file:...` を指定
-- KOM 関連の入力(`--kom-path`/`--kom-app`)が存在しない
-
-**ファイル形式**
-
-- YAML には `workspace`/`provider`/`cluster`/`app` をそれぞれ 1 件ずつ含む
-- 読み込まれた内容はインメモリ DB に投入され、依存関係は自動設定される
-
-**既定 ID の決定**
-
-- `--app-id` 未指定時: `app.name` を使用
-- `--cluster-id` 未指定時: `cluster.name` を使用
-
-**注意事項**
-
-- このモードは廃止予定であり、新規利用は推奨しない
-- KOM モードへの移行を推奨する
-
-#### (2) KOM モード
+#### (1) KOM モード (既定)
 
 kompoxops が起動時に読み込む Kompox アプリファイル (`kompoxapp.yml`) を起点に KOM (Kompox Ops Manifest) リソース群を読み込むモード。KOM の仕様は [Kompox-KOM.ja.md] を参照。
 
@@ -234,6 +209,30 @@ Kompox アプリファイルには Defaults リソースを 1 件だけ含めら
 - 読み込み元ファイルパスとマルチドキュメント内のインデックス (1-based) を含める
 - 整合性エラーの場合、すべてのドキュメントを破棄する
 
+#### (2) 単一ファイルモード (廃止予定)
+
+単一の YAML ファイルから Workspace/Provider/Cluster/App を読み込むレガシーモード。
+
+**起動条件**
+
+- `--db-url file:kompoxops.yml` または環境変数 `KOMPOX_DB_URL=file:...` を指定
+- KOM 関連の入力(`--kom-path`/`--kom-app`)が存在しない
+
+**ファイル形式**
+
+- YAML には `workspace`/`provider`/`cluster`/`app` をそれぞれ 1 件ずつ含む
+- 読み込まれた内容はインメモリ DB に投入され、依存関係は自動設定される
+
+**既定 ID の決定**
+
+- `--app-id` 未指定時: `app.name` を使用
+- `--cluster-id` 未指定時: `cluster.name` を使用
+
+**注意事項**
+
+- このモードは廃止予定であり、新規利用は推奨しない
+- KOM モードへの移行を推奨する
+
 ### kompoxops init
 
 Kompox CLI Env を初期化する。指定されたディレクトリに `.kompox/` ディレクトリ構造と設定ファイルを作成する。
@@ -290,6 +289,8 @@ kompoxops init -f
 
 ### kompoxops cluster
 
+#### 概要
+
 K8s クラスタ操作を行う。
 
 ```
@@ -341,27 +342,44 @@ provision/deprovision/install/uninstall は status により実行可否が変�
 
 #### kompoxops cluster provision
 
-Cluster リソース準拠の AKS/K8s クラスタを作成開始します(idempotent)。`existing=true` の場合は何もしません。
+K8s クラスタリソースを作成開始します。
+
+- 複数回実行しても同じ結果になります (冪等)。
+- `existing=true` の場合は何もしません。
 
 #### kompoxops cluster deprovision
 
-対象クラスタのリソースグループを削除します(idempotent)。`installed=true` の場合はエラーです。
+K8s クラスタリソースを削除します。
+
+- 複数回実行しても同じ結果になります (冪等)。
+- `installed=true` の場合はエラーです。
 
 #### kompoxops cluster install
 
-Ingress Controller などのクラスタ内リソースをインストールします。`provisioned=false` の場合はエラーです。
+クラスタ内リソースをインストールします。
+
+- Ingress Controller (例: Traefik Proxy) などを含むクラスタ内の共通リソースを作成します。
+- `provisioned=false` の場合はエラーです。
 
 #### kompoxops cluster uninstall
 
-クラスタ内リソースをアンインストールします(best-effort)。
+クラスタ内リソースをアンインストールします。
+
+- 実行特性: best-effort。
 
 #### kompoxops cluster status
 
-クラスタの `existing`/`provisioned`/`installed` に加えて Ingress のグローバル IP/FQDN を JSON で表示します(利用可能な場合)。
+クラスタの状態を表示します。
+
+- `existing`/`provisioned`/`installed` の各状態を表示します。
+- `ingressGlobalIP`/`ingressFQDN` は利用可能な場合のみ表示します。
 
 #### kompoxops cluster kubeconfig
 
-Provider Driver からクラスタの kubeconfig(管理者資格)を取得し、標準出力/ファイル保存/既存 kubeconfig への統合を行う。
+クラスタ管理者の資格情報を取得します。
+
+- Provider Driver から kubeconfig を取得して、標準出力/ファイル保存/既存 kubeconfig への統合を行います。
+- 取得する資格はクラスタ管理者資格です。
 
 主なオプション:
 
@@ -379,8 +397,7 @@ Provider Driver からクラスタの kubeconfig(管理者資格)を取得し、
 - `--cred admin|user` 要求する資格(現状 `admin` のみサポート)
 - `--timeout DURATION` 取得のタイムアウト(既定: `2m`)
 
-注意:
-
+備考:
 - 何も出力先を指定しない(`--merge` なし、`--temp` なし、`--out` 未指定)の場合はエラーになります。
 - stdout 出力は `-o -` を明示したときのみ行われます。
 
@@ -403,7 +420,63 @@ kompoxops cluster kubeconfig --cluster-id mycluster --merge --context kompox/pro
 kompoxops cluster kubeconfig --cluster-id cluster1 --merge --set-current
 ```
 
+### kompoxops nodepool
+
+NodePool の運用操作を行う。
+
+```bash
+kompoxops nodepool list [--name <poolName>] --cluster-id <clusterID>
+kompoxops nodepool create --file <spec.yml|spec.json> [--force] --cluster-id <clusterID>
+kompoxops nodepool update --file <spec.yml|spec.json> [--force] --cluster-id <clusterID>
+kompoxops nodepool delete --name <poolName> [--force] --cluster-id <clusterID>
+```
+
+共通事項:
+
+- `--cluster-id` / `--cluster-name` の解決優先度は `cluster` コマンド共通仕様に従う。
+- 出力は JSON (pretty print)。
+- 未対応ドライバは `not implemented` を返す。
+
+`list`:
+
+- `--name` を指定すると名前フィルタを適用する。
+
+`create` / `update`:
+
+- `-f, --file` は必須。YAML/JSON の spec ファイルを読み込む。
+- spec の `name` は必須。未指定時はエラー。
+- `--force` はドライバが対応する場合のみ有効。
+
+`delete`:
+
+- `--name` は必須。
+- `--force` はドライバが対応する場合のみ有効。
+
+spec 例 (YAML):
+
+```yaml
+name: np-a
+mode: user
+instanceType: Standard_D2ds_v4
+osDiskType: Ephemeral
+osDiskSizeGiB: 64
+zones:
+  - "1"
+labels:
+  kompox.dev/node-pool: user
+autoscaling:
+  enabled: true
+  min: 1
+  max: 3
+```
+
+関連 E2E テスト:
+
+- `tests/aks-e2e-nodepool`: AKS ドライバの NodePool 操作経路 (`list/create/update/delete`) を検証する E2E テスト。
+
 ### kompoxops app
+
+#### 概要
 
 アプリの操作を行う。
 
@@ -432,7 +505,9 @@ kompoxops app logs          --app-id <appID>
 
 #### kompoxops app validate
 
-Compose の検証と K8s マニフェスト生成を行います。`--out-compose`/`--out-manifest` でファイル出力可能です。ローカルファイルシステム参照ポリシーもこの段階で検証されます(KOM 読み込み時には検証しません)。
+Compose の検証と K8s マニフェスト生成を行います。`--out-compose`/`--out-manifest` でファイル出力可能です。ローカルファイルシステム参照ポリシーもこの段階で検証されます。
+
+- KOM 読み込み時にはローカルファイルシステム参照ポリシーを検証しません。
 
 オプション:
 
@@ -458,7 +533,7 @@ Compose の検証と K8s マニフェスト生成を行います。`--out-compos
 
 #### kompoxops app deploy
 
-検証・変換済みのリソースを対象クラスタに適用します(冪等)。
+検証・変換済みのリソースを対象クラスタに適用します。
 
 オプション:
 
@@ -484,9 +559,12 @@ kompoxops app deploy --bootstrap-disks
 kompoxops app deploy --update-dns
 ```
 
+備考
+- 複数回実行しても同じ結果になります (冪等)。
+
 #### kompoxops app destroy
 
-デプロイ済みリソースをクラスタから削除します (冪等)。
+デプロイ済みリソースをクラスタから削除します。
 
 オプション:
 
@@ -502,6 +580,7 @@ kompoxops app deploy --update-dns
 - `--delete-namespace` を指定すると Namespace リソースも削除
 
 備考:
+- 複数回実行しても同じ結果になります (冪等)。
 - PV/PVC を削除しても、StorageClass/PV の ReclaimPolicy が Retain の場合はクラウドディスク本体は保持されます。
 
 使用例:
@@ -515,7 +594,6 @@ kompoxops app destroy --delete-namespace
 # DNS レコードも同時に削除
 kompoxops app destroy --update-dns
 ```
-
 
 #### kompoxops app status
 
@@ -712,6 +790,8 @@ kompoxops app pf -p 8080:80
 
 ### kompoxops secret
 
+#### 概要
+
 アプリのシークレットの操作を行う。
 
 ```
@@ -839,6 +919,8 @@ kompoxops secret pull delete -A app1 --component mycomponent
 
 ### kompoxops dns
 
+#### 概要
+
 アプリの Ingress エンドポイントに対応する DNS レコードを管理します。
 
 ```
@@ -869,7 +951,7 @@ kompoxops dns destroy --app-id <appID>    DNS レコードの削除
 
 #### kompoxops dns deploy
 
-アプリの Ingress ホストに対応する DNS レコードを作成/更新します (冪等)。
+アプリの Ingress ホストに対応する DNS レコードを作成/更新します。
 
 使用例:
 
@@ -888,12 +970,13 @@ kompoxops dns deploy -A app1 --component mycomponent
 ```
 
 備考:
+- 複数回実行しても同じ結果になります。
 - デプロイ済みの Ingress リソースが存在しない場合は、操作対象がないため成功します。
 - `app deploy --update-dns` でアプリのデプロイと同時に DNS レコードを更新できます。
 
 #### kompoxops dns destroy
 
-アプリの Ingress ホストに対応する DNS レコードを削除します (冪等)。
+アプリの Ingress ホストに対応する DNS レコードを削除します。
 
 使用例:
 
@@ -912,10 +995,12 @@ kompoxops dns destroy -A app1 --component mycomponent
 ```
 
 備考:
-- 対象レコードが存在しない場合も成功します (冪等)。
+- 対象レコードが存在しない場合も成功します(冪 等)。
 - `app destroy --update-dns` でアプリの削除と同時に DNS レコードを削除できます。
 
 ### kompoxops disk
+
+#### 概要
 
 `App.spec.volumes` で定義された論理ボリュームに属するディスク (ボリュームインスタンス) を操作する。
 
@@ -923,7 +1008,7 @@ kompoxops dns destroy -A app1 --component mycomponent
 kompoxops disk list   --app-id <appID> --vol-name <volName>                     ディスク一覧表示
 kompoxops disk create --app-id <appID> --vol-name <volName> [-N <name>] [-S <source>] [--zone <zone>] [--options <json>] [--bootstrap] 新しいディスク作成 (サイズは `App.spec.volumes` 定義を使用)
 kompoxops disk assign --app-id <appID> --vol-name <volName> -N <name>          指定ディスクを <volName> の Assigned に設定 (他は自動的に Unassign)
-kompoxops disk delete --app-id <appID> --vol-name <volName> -N <name>          指定ディスク削除 (Assigned 中はエラー)
+kompoxops disk delete --app-id <appID> --vol-name <volName> -N <name>          指定ディスク削除
 ```
 
 共通オプション
@@ -935,49 +1020,27 @@ kompoxops disk delete --app-id <appID> --vol-name <volName> -N <name>          �
 
 優先度: `--app-id` > `--app-name` > KOM デフォルト (Resource ID) > 単一ファイルモード (`app.name`)
 
-create 専用オプション
-
-- `--source | -S` ディスクの作成元を示す任意文字列。CLI/UseCase は解釈・検証・正規化を一切行わず、そのまま Provider Driver に透過的に渡す。受理形式は Driver の仕様に従う。最低限の共通語彙として `disk:<name>` (Kompox 管理ディスク) と `snapshot:<name>` (Kompox 管理スナップショット) を予約する。省略時は空文字が渡り、Driver の既定挙動(例: 空ディスク作成)に委ねる。
-- `--zone | -Z` アベイラビリティゾーンを指定 (`App.spec.deployment.zone` をオーバーライド)
-- `--options | -O` ボリュームオプションをJSON形式で指定 (`App.spec.volumes.options` をオーバーライド/マージ)
-- `--bootstrap` 全ボリュームについて Assigned ディスクが 1 件も存在しない場合に限り、各ボリューム 1 件ずつ新規作成する一括初期化モード。`--vol-name` と同時指定不可。
-
-仕様
+全体仕様
 
 - `<volName>` は `App.spec.volumes` に存在しない場合エラー。
-- create: ディスク名は自動生成 (例: ULID 等) または `--name`/`--disk-name` 指定 (存在重複はエラー)。
-- ディスク名は最大 24 文字。`--name`/`--disk-name` 指定時に 24 文字を超える値はエラー。自動生成名も 24 文字以内。
-- ディスク名は Kubernetes の DNS-1123 ラベル準拠であること: 小文字英数字とハイフンのみ、先頭と末尾は英数字、正規表現は `^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`。
-- create の `--source` は CLI/UseCase で解釈せず不透明(opaque)に扱う。最終的な解決やバリデーションは Provider Driver の責務。
-- assign: 1 論理ボリュームにつき同時に Assigned=true は 0 または 1。既に同一ディスクが Assigned なら成功 (冪等)。別ディスクが Assigned の場合は自動でそのディスクを Unassign 後に指定を Assign。
-- delete: 対象が存在しなければ成功 (冪等)。Assigned=true のディスクは `--force` 無しで拒否。
-- list 出力列例: NAME  ASSIGNED  SIZE  HANDLE(SHORT)  CREATED              UPDATED
-- SIZE 表示は Gi 単位 (内部は bytes)。
-- manifest 生成 (app deploy) 時: 各 volName で Assigned ディスクがちょうど 1 件でない場合エラー (ただし `app deploy --bootstrap-disks` 指定時は事前に一括初期化を試みる)。
+- ディスク名制約 (`create`/`assign`/`delete` の対象名): 最大 24 文字、DNS-1123 ラベル準拠 (`^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`)。
 
-ブートストラップ挙動 (`--bootstrap` / `--bootstrap-disks` 共通):
-- 目的: 初期状態 (どのボリュームにも Assigned ディスクが無い) で手動操作無しで 1:1 対応の基盤を用意する。
-- 成功条件: 全ボリューム Assigned=0。
-- スキップ条件: 全ボリューム Assigned=1 (何も作らず成功)。
-- エラー条件: 上記以外 (一部のみ Assigned>0 / Unassigned 残骸が混在)。
-- 作成結果: 各ボリュームに 1 つずつ新規ディスク (Assigned=true) を生成し JSON (配列) で返す (disk create の場合)。
+関連 E2E テスト:
 
-例
-
-```
-$ kompoxops disk list default
-NAME        ASSIGNED  SIZE   HANDLE        CREATED              UPDATED
-vol-202401  true      32Gi   1f3ab29 (az)  2024-01-10T12:00Z    2024-01-10T12:05Z
-vol-202312  false     32Gi   9ab1c02 (az)  2023-12-31T09:00Z    2024-01-10T12:05Z
-```
+- `tests/aks-e2e-volume`: AKS ドライバの Volume 操作経路 (disk create/assign/delete, snapshot create/delete/restore) を検証する E2E テスト。
 
 #### kompoxops disk list
 
 ボリュームインスタンスの一覧を表示します。
 
+- 出力形式は JSON 配列。
+- 並び順は `CreatedAt` の降順 (新しい順)。
+
 #### kompoxops disk create
 
-新しいボリュームインスタンスを作成します (サイズは `App.spec.volumes` 定義)。
+新しいボリュームインスタンスを作成します。
+
+- サイズは `App.spec.volumes` 定義を使用します。
 
 オプション:
 - `--name | -N`: 明示的なディスク名を指定 (省略時は Driver が自動生成)。`--disk-name` は同義。最大 24 文字。
@@ -991,6 +1054,13 @@ Source の扱い (パススルー):
 - ドライバ共通の最低限の語彙として `disk:`/`snapshot:` を予約。`disk:<name>` は Kompox 管理ディスク名、`snapshot:<name>` は Kompox 管理スナップショット名を意味する。
 - 省略時は `snapshot:` の省略とみなす。
 - 例: AKS ドライバでは Kompox 管理名に加え Azure ARM Resource ID 等も受理し、ドライバ内部で解決する。
+
+初期化ポリシー (`disk create --bootstrap` / `app deploy --bootstrap-disks` 共通):
+- 目的: 初期状態 (どのボリュームにも Assigned ディスクが無い) で手動操作無しで 1:1 対応の基盤を用意する。
+- 成功条件: 全ボリューム Assigned=0。
+- スキップ条件: 全ボリューム Assigned=1 (何も作らず成功)。
+- エラー条件: 上記以外 (一部のみ Assigned>0 / Unassigned 残骸が混在)。
+- 作成結果: 各ボリュームに 1 つずつ新規ディスク (Assigned=true) を生成し JSON (配列) で返す (disk create の場合)。
 
 使用例:
 ```bash
@@ -1028,9 +1098,14 @@ kompoxops disk create -V myvolume -S daily-20250927
 
 #### kompoxops disk delete
 
-指定インスタンスを削除します (Assigned 中は `--force` なしで拒否)。
+指定インスタンスを削除します。
+
+- 対象が NotFound の場合も成功します (冪等)。
+- Assigned の場合は削除を拒否します。 `--force` で強制削除します。
 
 ### kompoxops snapshot
+
+#### 概要
 
 `App.spec.volumes` で定義された論理ボリュームに属するスナップショットを操作する。
 
@@ -1039,7 +1114,7 @@ kompoxops disk create -V myvolume -S daily-20250927
 ```
 kompoxops snapshot list    --app-id <appID> --vol-name <volName>                               スナップショット一覧表示
 kompoxops snapshot create  --app-id <appID> --vol-name <volName> [-N <name>] [-S <source>]      スナップショットを作成 (既定は Assigned ディスクを使用)
-kompoxops snapshot delete  --app-id <appID> --vol-name <volName> -N <name>                     指定スナップショットを削除 (NotFound は成功)
+kompoxops snapshot delete  --app-id <appID> --vol-name <volName> -N <name>                     指定スナップショットを削除
 ```
 
 共通オプション
@@ -1051,16 +1126,8 @@ kompoxops snapshot delete  --app-id <appID> --vol-name <volName> -N <name>      
 
 優先度: `--app-id` > `--app-name` > KOM デフォルト (Resource ID) > 単一ファイルモード (`app.name`)
 
+全体仕様
 
-create 追加オプション
-
-- `--source | -S` 作成元の識別子。CLI/UseCase は加工せず Driver にそのまま渡す。省略時は空文字となり Driver 既定 (Assigned ディスクの自動選択等) に委ねる。`disk:`/`snapshot:` の接頭辞はドライバ共通で予約。
-
-仕様
-
-- list: `CreatedAt` の降順で返す。出力は JSON 配列。
-- create: 指定ソース (省略時は Assigned ディスク) からクラウドネイティブのスナップショットを作成し、JSON で 1 件返す。
-- delete: 存在しない場合も成功 (冪等)。
 - スナップショット名は最大 24 文字。24 文字を超える値はエラー。
 - スナップショット名は Kubernetes の DNS-1123 ラベル準拠であること: 小文字英数字とハイフンのみ、先頭と末尾は英数字、正規表現は `^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`。
 
@@ -1083,21 +1150,40 @@ kompoxops snapshot create -V db -N daily-20250928
 kompoxops snapshot delete -V db -N 01J8WXYZABCDEF1234567890
 ```
 
+関連 E2E テスト:
+
+- `tests/aks-e2e-volume`: AKS ドライバの Volume 操作経路 (disk create/assign/delete, snapshot create/delete/restore) を検証する E2E テスト。
+
 #### kompoxops snapshot list
 
 スナップショットの一覧を表示します。
+
+- 出力形式は JSON 配列。
+- 並び順は `CreatedAt` の降順 (新しい順)。
 
 #### kompoxops snapshot create
 
 指定ディスクからスナップショットを作成します。
 
+オプション:
+
+- `--source | -S`: 作成元の識別子。CLI/UseCase は加工せず Driver にそのまま渡す。省略時は空文字となり Driver 既定 (Assigned ディスクの自動選択等) に委ねる。`disk:`/`snapshot:` の接頭辞はドライバ共通で予約。
+
+Source の扱い (パススルー):
+
+- CLI/UseCase は `--source` の値をパースしない。検証や正規化は Provider Driver が行う。
+- ドライバ共通の最低限の語彙として `disk:`/`snapshot:` を予約。`disk:<name>` は Kompox 管理ディスク名、`snapshot:<name>` は Kompox 管理スナップショット名を意味する。
+- 省略時は Driver の既定動作 (Assigned ディスクの自動選択等) に委ねる。
+
 #### kompoxops snapshot delete
 
-指定スナップショットを削除します (NotFound の場合も成功)。
+指定スナップショットを削除します。
 
-### kompoxops admin
+- 対象が NotFound の場合も成功します (冪等)。
 
 ### kompoxops box
+
+#### 概要
 
 アプリの Namespace に Kompox Box (Deployment/Pod) をデプロイ・操作する。
 
@@ -1127,7 +1213,7 @@ kompoxops box rsync        --app-id <appID> -- <rsync args...>                  
 
 #### kompoxops box deploy
 
-Kompox Box のリソースをデプロイします (冪等)。
+Kompox Box のリソースをデプロイします。
 
 オプション:
 
@@ -1155,12 +1241,16 @@ kompoxops box deploy -c sleep -a infinity
 ```
 
 備考:
+- 複数回実行しても同じ結果になります (冪等)。
 - アプリ定義のボリュームと既存ディスクを指定してマウントできます。
 - SSH公開鍵はコンテナ内で `/etc/ssh/authorized_keys` に登録されます。
 
 #### kompoxops box destroy
 
-Kompox Box のリソースを削除します (冪等)。
+Kompox Box のリソースを削除します。
+
+備考:
+- 複数回実行しても同じ結果になります (冪等)。
 
 #### kompoxops box status
 
@@ -1209,7 +1299,7 @@ kompoxops box exec -t -- ls -la /mnt
 ```
 
 備考:
-
+- 複数回実行しても同じ結果になります (冪等)。
 - `app.kubernetes.io/component=box` ラベルが付与された Pod を対象とします。
 - Ready 状態の Pod を優先し、無ければ非終了中の Pod を選択します。
 - `--tty` 指定時は stderr は stdout にマージされます (TTY の仕様)。

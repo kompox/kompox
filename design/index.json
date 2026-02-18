@@ -1,5 +1,5 @@
 {
-  "updated": "2026-02-17T23:10:22Z",
+  "updated": "2026-02-18T01:22:50Z",
   "docCount": 74,
   "categories": [
     {
@@ -10,7 +10,7 @@
     },
     {
       "category": "plans",
-      "updated": "2026-02-17T23:10:22Z",
+      "updated": "2026-02-17T23:18:51Z",
       "docCount": 2,
       "indexPath": "design/plans/index.json"
     },
@@ -22,13 +22,13 @@
     },
     {
       "category": "tasks",
-      "updated": "2026-02-17T23:10:22Z",
+      "updated": "2026-02-18T01:22:50Z",
       "docCount": 15,
       "indexPath": "design/tasks/index.json"
     },
     {
       "category": "v1",
-      "updated": "2026-02-17T12:32:28Z",
+      "updated": "2026-02-18T00:39:15Z",
       "docCount": 11,
       "indexPath": "design/v1/index.json"
     },
@@ -465,7 +465,7 @@
         "20260217d-nodepool-phase8-doc-sync"
       ],
       "title": "K8s プラットフォームドライバへの NodePool 対応追加",
-      "updated": "2026-02-17T23:10:22Z",
+      "updated": "2026-02-17T23:18:51Z",
       "version": "v1"
     },
     {
@@ -812,9 +812,9 @@
         "design/tasks/README.md"
       ],
       "relPath": "design/tasks/2026/02/17/20260217d-nodepool-phase8-doc-sync.ja.md",
-      "status": "active",
+      "status": "done",
       "title": "NodePool Phase 8 設計ドキュメント同期",
-      "updated": "2026-02-17T23:10:22Z",
+      "updated": "2026-02-18T01:22:50Z",
       "version": ""
     },
     {
@@ -839,7 +839,7 @@
       "relPath": "design/v1/Kompox-CLI.ja.md",
       "status": "synced",
       "title": "Kompox PaaS CLI",
-      "updated": "2026-02-12T00:00:00Z",
+      "updated": "2026-02-18T00:39:15Z",
       "version": "v1"
     },
     {
@@ -901,7 +901,7 @@
       "relPath": "design/v1/Kompox-KubeConverter.ja.md",
       "status": "synced",
       "title": "Kompox Kube Converter ガイド",
-      "updated": "2026-02-17T12:32:28Z",
+      "updated": "2026-02-17T23:53:47Z",
       "version": "v1"
     },
     {
@@ -936,7 +936,7 @@
       "relPath": "design/v1/Kompox-ProviderDriver-AKS.ja.md",
       "status": "synced",
       "title": "AKS Provider Driver 実装ガイド",
-      "updated": "2026-02-16T18:11:54Z",
+      "updated": "2026-02-17T23:42:52Z",
       "version": "v1"
     },
     {
@@ -956,7 +956,7 @@
       "relPath": "design/v1/Kompox-ProviderDriver.ja.md",
       "status": "synced",
       "title": "Kompox Provider Driver ガイド",
-      "updated": "2026-02-16T18:33:19Z",
+      "updated": "2026-02-17T23:29:15Z",
       "version": "v1"
     },
     {

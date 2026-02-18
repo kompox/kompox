@@ -3,7 +3,7 @@ id: Kompox-KubeConverter
 title: Kompox Kube Converter ガイド
 version: v1
 status: synced
-updated: 2026-02-17T12:32:28Z
+updated: 2026-02-17T23:53:47Z
 language: ja
 ---
 
@@ -745,6 +745,7 @@ Deployment.spec.template.spec.nodeSelector に `kompox.dev/node-pool: <pool>` �
 - KubeConverter の責務は、これらを `kompox.dev/node-pool` / `kompox.dev/node-zone` の nodeSelector / nodeAffinity へ写像することに限定される。
 - zone 値のベンダ差異吸収 (例: AKS の数字ゾーン) は provider driver 側の責務であり、KubeConverter はベンダ固有の値変換を行わない。
 - そのため KubeConverter は NodePool の CRUD 実行主体ではなく、スケジューリング意図の伝達境界として機能する。
+- `kompoxops nodepool` は NodePool 実体(クラスタ側リソース)を管理し、KubeConverter は App 側指定を Pod スケジューリング制約へ変換する。両者は責務分離された補完関係にある。
 
 #### `kompox.dev/node-pool` / `kompox.dev/node-zone` の値規約
 
@@ -810,6 +811,11 @@ kompoxops app validate --kom-app ./app-invalid-selectors.yml --out-manifest - 2>
 kompoxops app validate --kom-app ./app-invalid-pool-pools.yml --out-manifest - 2>&1 | grep -n "deployment.pool and deployment.pools cannot be specified together"
 kompoxops app validate --kom-app ./app-invalid-zone-zones.yml --out-manifest - 2>&1 | grep -n "deployment.zone and deployment.zones cannot be specified together"
 ```
+
+検証スコープの補足:
+
+- 上記 fixture 検証は KubeConverter の出力規則 (nodeSelector/nodeAffinity とバリデーション) を対象とする。
+- NodePool API 呼び出し経路や CLI コマンド層の詳細テストは ProviderDriver/CLI 側のテストスコープで扱う。
 
 ### Network Policy
 

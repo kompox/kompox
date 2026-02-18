@@ -1,6 +1,6 @@
 {
   "category": "plans",
-  "updated": "2026-02-17T23:10:22Z",
+  "updated": "2026-02-17T23:18:51Z",
   "docCount": 2,
   "docs": [
     {
@@ -69,7 +69,7 @@
         "20260217d-nodepool-phase8-doc-sync"
       ],
       "title": "K8s プラットフォームドライバへの NodePool 対応追加",
-      "updated": "2026-02-17T23:10:22Z",
+      "updated": "2026-02-17T23:18:51Z",
       "version": "v1"
     }
   ]

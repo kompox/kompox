@@ -3,7 +3,7 @@ id: 2026ab-k8s-node-pool-support
 title: K8s プラットフォームドライバへの NodePool 対応追加
 version: v1
 status: draft
-updated: 2026-02-17T23:10:22Z
+updated: 2026-02-17T23:18:51Z
 language: ja
 adrs:
   - K4x-ADR-019
@@ -111,12 +111,12 @@ tasks:
   - [ ] `cmd/kompoxops cluster nodepool` のコマンド層テスト(引数バリデーション/呼び出し経路)を追加する。
   - [ ] 既存 AKS E2E シナリオに NodePool の追加/更新/削除ケースを追加する。
   - [ ] 既存機能(ClusterProvision/Install、Volume 系)の回帰がないことを確認する。
-- [ ] Phase 8: NodePool 対応の設計ドキュメントを同期する。
+- [x] Phase 8: NodePool 対応の設計ドキュメントを同期する。
   - [x] Task: [20260217d-nodepool-phase8-doc-sync]
-  - [ ] [Kompox-ProviderDriver] に NodePool 実装/テスト進捗の最新状態を反映する。
-  - [ ] [Kompox-ProviderDriver-AKS] に AKS 側の NodePool 運用・検証手順の最新状態を反映する。
-  - [ ] [Kompox-CLI] に `cluster nodepool` コマンド群の最新仕様と検証観点を反映する。
-  - [ ] [Kompox-KubeConverter] に `deployment.pool/zone/pools/zones` と NodePool 契約の接続点を最新状態へ同期する。
+  - [x] [Kompox-ProviderDriver] に NodePool 実装/テスト進捗の最新状態を反映する。
+  - [x] [Kompox-ProviderDriver-AKS] に AKS 側の NodePool 運用・検証手順の最新状態を反映する。
+  - [x] [Kompox-CLI] に `cluster nodepool` コマンド群の最新仕様と検証観点を反映する。
+  - [x] [Kompox-KubeConverter] に `deployment.pool/zone/pools/zones` と NodePool 契約の接続点を最新状態へ同期する。
 - [ ] Phase 9: ADR ステータス判定を行う。
   - [ ] 現時点では [K4x-ADR-019] は `proposed` を維持する。
   - [ ] 次の条件を満たした時点で [K4x-ADR-019] を `accepted` に変更する。
@@ -151,6 +151,7 @@ tasks:
 - 2026-02-17T23:03:50Z 残タスク整理を実施。Phase 7 の進捗を 2/6 完了として明記し、旧 Phase 8 (実装タスク分割) を削除。新たに `Kompox-ProviderDriver` / `Kompox-ProviderDriver-AKS` / `Kompox-CLI` の文書同期を Phase 8 として追加
 - 2026-02-17T23:07:43Z Phase 8 着手タスク [20260217d-nodepool-phase8-doc-sync] を作成し、計画チェックリストと tasks 一覧に紐付け
 - 2026-02-17T23:10:22Z Phase 8 対象文書に [Kompox-KubeConverter] を追加
+- 2026-02-17T23:18:51Z [20260217d-nodepool-phase8-doc-sync] を完了。ProviderDriver/AKS/CLI/KubeConverter の NodePool 関連文書を同期し、Phase 8 を完了へ更新
 
 ## 参照
 

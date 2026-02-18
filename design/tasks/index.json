@@ -1,6 +1,6 @@
 {
   "category": "tasks",
-  "updated": "2026-02-17T23:10:22Z",
+  "updated": "2026-02-18T01:22:50Z",
   "docCount": 15,
   "docs": [
     {
@@ -323,9 +323,9 @@
         "design/tasks/README.md"
       ],
       "relPath": "design/tasks/2026/02/17/20260217d-nodepool-phase8-doc-sync.ja.md",
-      "status": "active",
+      "status": "done",
       "title": "NodePool Phase 8 設計ドキュメント同期",
-      "updated": "2026-02-17T23:10:22Z",
+      "updated": "2026-02-18T01:22:50Z",
       "version": ""
     }
   ]
