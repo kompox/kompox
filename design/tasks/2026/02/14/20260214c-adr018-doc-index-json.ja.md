@@ -2,7 +2,7 @@
 id: 20260214c-adr018-doc-index-json
 title: K4x-ADR-018 実装（design index JSON 生成）
 status: done
-updated: 2026-02-14T18:53:03Z
+updated: 2026-02-18T01:30:40Z
 language: ja
 owner: yaegashi
 plans: []
@@ -109,4 +109,4 @@ plans: []
 
 [K4x-ADR-018]: ../../../../adr/K4x-ADR-018.md
 [design/gen/README.md]: ../../../../gen/README.md
-[design/tasks/README.md]: ../../README.md
+[design/tasks/README.md]: ../../../README.md

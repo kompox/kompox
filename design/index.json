@@ -1,16 +1,16 @@
 {
-  "updated": "2026-02-18T01:22:50Z",
+  "updated": "2026-02-18T01:34:09Z",
   "docCount": 74,
   "categories": [
     {
       "category": "adr",
-      "updated": "2026-02-15T05:03:16Z",
+      "updated": "2026-02-18T00:00:00Z",
       "docCount": 19,
       "indexPath": "design/adr/index.json"
     },
     {
       "category": "plans",
-      "updated": "2026-02-17T23:18:51Z",
+      "updated": "2026-02-18T01:34:09Z",
       "docCount": 2,
       "indexPath": "design/plans/index.json"
     },
@@ -22,7 +22,7 @@
     },
     {
       "category": "tasks",
-      "updated": "2026-02-18T01:22:50Z",
+      "updated": "2026-02-18T01:30:40Z",
       "docCount": 15,
       "indexPath": "design/tasks/index.json"
     },
@@ -159,7 +159,7 @@
       ],
       "supersedes": [],
       "title": "Introduce CRD-style configuration",
-      "updated": "2025-10-13T00:00:00Z",
+      "updated": "2026-02-18T00:00:00Z",
       "version": ""
     },
     {
@@ -181,7 +181,7 @@
       ],
       "supersedes": [],
       "title": "Introduce Box as a first-class ops kind",
-      "updated": "2025-10-13T00:00:00Z",
+      "updated": "2026-02-18T00:00:00Z",
       "version": ""
     },
     {
@@ -202,7 +202,7 @@
         "K4x-ADR-007"
       ],
       "title": "Kompox Ops Manifest Schema",
-      "updated": "2025-10-15T00:00:00Z",
+      "updated": "2026-02-18T00:00:00Z",
       "version": ""
     },
     {
@@ -263,7 +263,7 @@
       "supersededBy": [],
       "supersedes": [],
       "title": "Introduce App.RefBase for external references",
-      "updated": "2025-10-18T00:00:00Z",
+      "updated": "2026-02-18T00:00:00Z",
       "version": ""
     },
     {
@@ -426,7 +426,7 @@
         "20260215a-standalone-box-manifest"
       ],
       "title": "Kompox Box Update",
-      "updated": "2026-02-15T06:15:05Z",
+      "updated": "2026-02-18T01:34:09Z",
       "version": "v1"
     },
     {
@@ -544,7 +544,7 @@
       "relPath": "design/tasks/2026/02/14/20260214c-adr018-doc-index-json.ja.md",
       "status": "done",
       "title": "K4x-ADR-018 実装（design index JSON 生成）",
-      "updated": "2026-02-14T18:53:03Z",
+      "updated": "2026-02-18T01:30:40Z",
       "version": ""
     },
     {
@@ -644,7 +644,7 @@
       "relPath": "design/tasks/2026/02/16/20260216a-nodepool-providerdriver-spec.ja.md",
       "status": "done",
       "title": "NodePool 対応に向けた ProviderDriver 仕様更新 (Phase 1)",
-      "updated": "2026-02-16T15:59:31Z",
+      "updated": "2026-02-18T01:30:40Z",
       "version": ""
     },
     {
@@ -668,7 +668,7 @@
       "relPath": "design/tasks/2026/02/16/20260216b-nodepool-aks-spec.ja.md",
       "status": "done",
       "title": "NodePool 対応に向けた AKS ProviderDriver 仕様更新 (Phase 2)",
-      "updated": "2026-02-16T18:11:54Z",
+      "updated": "2026-02-18T01:30:40Z",
       "version": ""
     },
     {
@@ -693,7 +693,7 @@
       "relPath": "design/tasks/2026/02/16/20260216c-nodepool-kubeconverter-spec.ja.md",
       "status": "done",
       "title": "NodePool 対応に向けた KubeConverter 契約更新 (Phase 3)",
-      "updated": "2026-02-16T19:06:55Z",
+      "updated": "2026-02-18T01:30:40Z",
       "version": ""
     },
     {
@@ -717,7 +717,7 @@
       "relPath": "design/tasks/2026/02/16/20260216d-nodepool-aks-driver-impl.ja.md",
       "status": "done",
       "title": "AKS Driver の NodePool 実装 (Phase 4)",
-      "updated": "2026-02-17T01:53:54Z",
+      "updated": "2026-02-18T01:30:40Z",
       "version": ""
     },
     {
@@ -741,7 +741,7 @@
       "relPath": "design/tasks/2026/02/17/20260217a-nodepool-cli-impl.ja.md",
       "status": "done",
       "title": "NodePool CLI 実装 (Phase 5)",
-      "updated": "2026-02-17T04:50:15Z",
+      "updated": "2026-02-18T01:30:40Z",
       "version": ""
     },
     {
@@ -764,7 +764,7 @@
       "relPath": "design/tasks/2026/02/17/20260217b-nodepool-cli-e2e-before-label-zone.ja.md",
       "status": "done",
       "title": "NodePool CLI E2E 先行追加 (Phase 6 着手前)",
-      "updated": "2026-02-17T08:29:23Z",
+      "updated": "2026-02-18T01:30:40Z",
       "version": ""
     },
     {
@@ -788,7 +788,7 @@
       "relPath": "design/tasks/2026/02/17/20260217c-kom-app-deployment-impl.ja.md",
       "status": "done",
       "title": "KOM App Deployment 指定と KubeConverter 更新",
-      "updated": "2026-02-17T12:44:29Z",
+      "updated": "2026-02-18T01:30:40Z",
       "version": ""
     },
     {

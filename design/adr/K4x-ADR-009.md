@@ -2,7 +2,7 @@
 id: K4x-ADR-009
 title: Kompox Ops Manifest Schema
 status: proposed
-updated: 2025-10-15
+updated: 2026-02-18
 language: en
 supersedes: [K4x-ADR-007]
 supersededBy: []
@@ -144,5 +144,5 @@ metadata:
 [K4x-ADR-007]: ./K4x-ADR-007.md
 [K4x-ADR-008]: ./K4x-ADR-008.md
 [Kompox-CRD.ja.md]: ../v1/Kompox-CRD.ja.md
-[_dev/tasks/2025-10-13-crd-p1.ja.md]: ../../../_dev/tasks/2025-10-13-crd-p1.ja.md
-[_dev/tasks/2025-10-13-crd-p2.ja.md]: ../../../_dev/tasks/2025-10-13-crd-p2.ja.md
+[_dev/tasks/2025-10-13-crd-p1.ja.md]: ../../_dev/tasks/2025-10-13-crd-p1.ja.md
+[_dev/tasks/2025-10-13-crd-p2.ja.md]: ../../_dev/tasks/2025-10-13-crd-p2.ja.md

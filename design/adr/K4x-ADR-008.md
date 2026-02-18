@@ -2,7 +2,7 @@
 id: K4x-ADR-008
 title: Introduce Box as a first-class ops kind
 status: proposed
-updated: 2025-10-13
+updated: 2026-02-18
 language: en
 supersedes: []
 supersededBy: [K4x-ADR-017]
@@ -73,6 +73,6 @@ supersededBy: [K4x-ADR-017]
 [K4x-ADR-007]: ./K4x-ADR-007.md
 [K4x-ADR-009]: ./K4x-ADR-009.md
 [Kompox-CRD.ja.md]: ../v1/Kompox-CRD.ja.md
-[_dev/tasks/2025-10-13-crd-p1.ja.md]: ../../../_dev/tasks/2025-10-13-crd-p1.ja.md
-[_dev/tasks/2025-10-13-crd-p2.ja.md]: ../../../_dev/tasks/2025-10-13-crd-p2.ja.md
-[config/crd/ops/v1alpha1/README.md]: ../../../config/crd/ops/v1alpha1/README.md
+[_dev/tasks/2025-10-13-crd-p1.ja.md]: ../../_dev/tasks/2025-10-13-crd-p1.ja.md
+[_dev/tasks/2025-10-13-crd-p2.ja.md]: ../../_dev/tasks/2025-10-13-crd-p2.ja.md
+[config/crd/ops/v1alpha1/README.md]: ../../config/crd/ops/v1alpha1/README.md

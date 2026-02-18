@@ -2,7 +2,7 @@
 id: 20260216d-nodepool-aks-driver-impl
 title: AKS Driver の NodePool 実装 (Phase 4)
 status: done
-updated: 2026-02-17T01:53:54Z
+updated: 2026-02-18T01:30:40Z
 language: ja
 owner: yaegashi
 adrs:
@@ -90,8 +90,8 @@ plans:
 - [Kompox-ProviderDriver-AKS]
 - [design/tasks/README.md]
 
-[2026ab-k8s-node-pool-support]: ../../../plans/2026/2026ab-k8s-node-pool-support.ja.md
-[K4x-ADR-019]: ../../../adr/K4x-ADR-019.md
-[Kompox-ProviderDriver]: ../../../v1/Kompox-ProviderDriver.ja.md
-[Kompox-ProviderDriver-AKS]: ../../../v1/Kompox-ProviderDriver-AKS.ja.md
-[design/tasks/README.md]: ../../README.md
+[2026ab-k8s-node-pool-support]: ../../../../plans/2026/2026ab-k8s-node-pool-support.ja.md
+[K4x-ADR-019]: ../../../../adr/K4x-ADR-019.md
+[Kompox-ProviderDriver]: ../../../../v1/Kompox-ProviderDriver.ja.md
+[Kompox-ProviderDriver-AKS]: ../../../../v1/Kompox-ProviderDriver-AKS.ja.md
+[design/tasks/README.md]: ../../../README.md

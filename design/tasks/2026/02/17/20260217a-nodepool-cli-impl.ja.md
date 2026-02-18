@@ -2,7 +2,7 @@
 id: 20260217a-nodepool-cli-impl
 title: NodePool CLI 実装 (Phase 5)
 status: done
-updated: 2026-02-17T04:50:15Z
+updated: 2026-02-18T01:30:40Z
 language: ja
 owner: yaegashi
 adrs:
@@ -122,8 +122,8 @@ plans:
 - [Kompox-ProviderDriver]
 - [design/tasks/README.md]
 
-[2026ab-k8s-node-pool-support]: ../../../plans/2026/2026ab-k8s-node-pool-support.ja.md
-[K4x-ADR-019]: ../../../adr/K4x-ADR-019.md
-[Kompox-CLI]: ../../../v1/Kompox-CLI.ja.md
-[Kompox-ProviderDriver]: ../../../v1/Kompox-ProviderDriver.ja.md
-[design/tasks/README.md]: ../../README.md
+[2026ab-k8s-node-pool-support]: ../../../../plans/2026/2026ab-k8s-node-pool-support.ja.md
+[K4x-ADR-019]: ../../../../adr/K4x-ADR-019.md
+[Kompox-CLI]: ../../../../v1/Kompox-CLI.ja.md
+[Kompox-ProviderDriver]: ../../../../v1/Kompox-ProviderDriver.ja.md
+[design/tasks/README.md]: ../../../README.md

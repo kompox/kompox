@@ -2,7 +2,7 @@
 id: 20260216a-nodepool-providerdriver-spec
 title: NodePool 対応に向けた ProviderDriver 仕様更新 (Phase 1)
 status: done
-updated: 2026-02-16T15:59:31Z
+updated: 2026-02-18T01:30:40Z
 language: ja
 owner: yaegashi
 adrs:
@@ -166,8 +166,8 @@ NodePoolDelete(
 - [Kompox-ProviderDriver-AKS]
 - [design/tasks/README.md]
 
-[2026ab-k8s-node-pool-support]: ../../../plans/2026/2026ab-k8s-node-pool-support.ja.md
-[K4x-ADR-019]: ../../../adr/K4x-ADR-019.md
-[Kompox-ProviderDriver]: ../../../v1/Kompox-ProviderDriver.ja.md
-[Kompox-ProviderDriver-AKS]: ../../../v1/Kompox-ProviderDriver-AKS.ja.md
-[design/tasks/README.md]: ../../README.md
+[2026ab-k8s-node-pool-support]: ../../../../plans/2026/2026ab-k8s-node-pool-support.ja.md
+[K4x-ADR-019]: ../../../../adr/K4x-ADR-019.md
+[Kompox-ProviderDriver]: ../../../../v1/Kompox-ProviderDriver.ja.md
+[Kompox-ProviderDriver-AKS]: ../../../../v1/Kompox-ProviderDriver-AKS.ja.md
+[design/tasks/README.md]: ../../../README.md

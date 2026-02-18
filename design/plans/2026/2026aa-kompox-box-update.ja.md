@@ -3,7 +3,7 @@ id: 2026aa-kompox-box-update
 title: Kompox Box Update
 version: v1
 status: draft
-updated: 2026-02-15T06:15:05Z
+updated: 2026-02-18T01:34:09Z
 language: ja
 owner: yaegashi
 adrs:
@@ -563,13 +563,13 @@ spec:
 - [Kubernetes NetworkPolicy]
 - [Compose specification]
 
-[20260214b-box-kom-loader]: ../tasks/2026/02/14/20260214b-box-kom-loader.ja.md
-[Kompox-KubeConverter]: ./Kompox-KubeConverter.ja.md
-[Kompox-CLI]: ./Kompox-CLI.ja.md
-[K4x-ADR-008]: ../adr/K4x-ADR-008.md
-[K4x-ADR-009]: ../adr/K4x-ADR-009.md
-[K4x-ADR-017]: ../adr/K4x-ADR-017.md
-[ops/v1alpha1 types.go]: ../../config/crd/ops/v1alpha1/types.go
+[20260214b-box-kom-loader]: ../../tasks/2026/02/14/20260214b-box-kom-loader.ja.md
+[Kompox-KubeConverter]: ../../v1/Kompox-KubeConverter.ja.md
+[Kompox-CLI]: ../../v1/Kompox-CLI.ja.md
+[K4x-ADR-008]: ../../adr/K4x-ADR-008.md
+[K4x-ADR-009]: ../../adr/K4x-ADR-009.md
+[K4x-ADR-017]: ../../adr/K4x-ADR-017.md
+[ops/v1alpha1 types.go]: ../../../config/crd/ops/v1alpha1/types.go
 [Kubernetes NetworkPolicy]: https://kubernetes.io/docs/concepts/services-networking/network-policies/
 [Compose specification]: https://compose-spec.io/
-[20260215a-standalone-box-manifest]: ../tasks/2026/02/15/20260215a-standalone-box-manifest.ja.md
+[20260215a-standalone-box-manifest]: ../../tasks/2026/02/15/20260215a-standalone-box-manifest.ja.md

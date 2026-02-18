@@ -2,7 +2,7 @@
 id: K4x-ADR-007
 title: Introduce CRD-style configuration
 status: accepted
-updated: 2025-10-13
+updated: 2026-02-18
 language: en
 supersedes: []
 supersededBy: [K4x-ADR-009]
@@ -122,7 +122,7 @@ supersededBy: [K4x-ADR-009]
 [Kompox-CLI.ja.md]: ../v1/Kompox-CLI.ja.md
 [Kompox-CRD.ja.md]: ../v1/Kompox-CRD.ja.md
 [Kompox-KubeConverter.ja.md]: ../v1/Kompox-KubeConverter.ja.md
-[2025-10-12-workspace.ja.md]: ../../../_dev/tasks/2025-10-12-workspace.ja.md
-[2025-10-13-crd-p1.ja.md]: ../../../_dev/tasks/2025-10-13-crd-p1.ja.md
-[2025-10-13-crd-p2.ja.md]: ../../../_dev/tasks/2025-10-13-crd-p2.ja.md
-[config/crd/ops/v1alpha1/README.md]: ../../../config/crd/ops/v1alpha1/README.md
+[2025-10-12-workspace.ja.md]: ../../_dev/tasks/2025-10-12-workspace.ja.md
+[2025-10-13-crd-p1.ja.md]: ../../_dev/tasks/2025-10-13-crd-p1.ja.md
+[2025-10-13-crd-p2.ja.md]: ../../_dev/tasks/2025-10-13-crd-p2.ja.md
+[config/crd/ops/v1alpha1/README.md]: ../../config/crd/ops/v1alpha1/README.md

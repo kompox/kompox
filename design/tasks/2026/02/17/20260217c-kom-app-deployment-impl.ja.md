@@ -2,7 +2,7 @@
 id: 20260217c-kom-app-deployment-impl
 title: KOM App Deployment 指定と KubeConverter 更新
 status: done
-updated: 2026-02-17T12:44:29Z
+updated: 2026-02-18T01:30:40Z
 language: ja
 owner: yaegashi
 adrs:
@@ -107,8 +107,8 @@ plans:
 - [Kompox-KubeConverter]
 - [design/tasks/README.md]
 
-[2026ab-k8s-node-pool-support]: ../../../plans/2026/2026ab-k8s-node-pool-support.ja.md
-[K4x-ADR-019]: ../../../adr/K4x-ADR-019.md
-[Kompox-KOM]: ../../../v1/Kompox-KOM.ja.md
-[Kompox-KubeConverter]: ../../../v1/Kompox-KubeConverter.ja.md
-[design/tasks/README.md]: ../../README.md
+[2026ab-k8s-node-pool-support]: ../../../../plans/2026/2026ab-k8s-node-pool-support.ja.md
+[K4x-ADR-019]: ../../../../adr/K4x-ADR-019.md
+[Kompox-KOM]: ../../../../v1/Kompox-KOM.ja.md
+[Kompox-KubeConverter]: ../../../../v1/Kompox-KubeConverter.ja.md
+[design/tasks/README.md]: ../../../README.md

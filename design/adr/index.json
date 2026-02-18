@@ -1,6 +1,6 @@
 {
   "category": "adr",
-  "updated": "2026-02-15T05:03:16Z",
+  "updated": "2026-02-18T00:00:00Z",
   "docCount": 19,
   "docs": [
     {
@@ -116,7 +116,7 @@
       ],
       "supersedes": [],
       "title": "Introduce CRD-style configuration",
-      "updated": "2025-10-13T00:00:00Z",
+      "updated": "2026-02-18T00:00:00Z",
       "version": ""
     },
     {
@@ -138,7 +138,7 @@
       ],
       "supersedes": [],
       "title": "Introduce Box as a first-class ops kind",
-      "updated": "2025-10-13T00:00:00Z",
+      "updated": "2026-02-18T00:00:00Z",
       "version": ""
     },
     {
@@ -159,7 +159,7 @@
         "K4x-ADR-007"
       ],
       "title": "Kompox Ops Manifest Schema",
-      "updated": "2025-10-15T00:00:00Z",
+      "updated": "2026-02-18T00:00:00Z",
       "version": ""
     },
     {
@@ -220,7 +220,7 @@
       "supersededBy": [],
       "supersedes": [],
       "title": "Introduce App.RefBase for external references",
-      "updated": "2025-10-18T00:00:00Z",
+      "updated": "2026-02-18T00:00:00Z",
       "version": ""
     },
     {

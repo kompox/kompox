@@ -2,7 +2,7 @@
 id: K4x-ADR-012
 title: Introduce App.RefBase for external references
 status: accepted
-updated: 2025-10-18
+updated: 2026-02-18
 language: en
 supersedes: []
 supersededBy: []
@@ -93,6 +93,6 @@ supersededBy: []
 [kube converter]: ../../adapters/kube/converter.go
 [domain model App]: ../../domain/model/app.go
 [kompoxopscfg converter]: ../../config/kompoxopscfg/converter.go
-[v1alpha1 validation]: ../../config/crd/ops/v1alpha1/app_validation.go
+[v1alpha1 validation]: ../../config/crd/ops/v1alpha1/validator.go
 [CLI loader]: ../../cmd/kompoxops/kom_loader.go
 [tests]: ../../tests/

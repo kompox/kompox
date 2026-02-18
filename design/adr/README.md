@@ -8,12 +8,12 @@
 | [K4x-ADR-004](./K4x-ADR-004.md) | Cluster ingress endpoint DNS auto-update | 2025-09-30T00:00:00Z | accepted |
 | [K4x-ADR-005](./K4x-ADR-005.md) | Support Compose configs/secrets and make bind volumes directory-only | 2025-10-10T00:00:00Z | accepted |
 | [K4x-ADR-006](./K4x-ADR-006.md) | Rename domain model Service to Workspace | 2025-10-12T00:00:00Z | accepted |
-| [K4x-ADR-007](./K4x-ADR-007.md) | Introduce CRD-style configuration | 2025-10-13T00:00:00Z | accepted |
-| [K4x-ADR-008](./K4x-ADR-008.md) | Introduce Box as a first-class ops kind | 2025-10-13T00:00:00Z | proposed |
-| [K4x-ADR-009](./K4x-ADR-009.md) | Kompox Ops Manifest Schema | 2025-10-15T00:00:00Z | proposed |
+| [K4x-ADR-007](./K4x-ADR-007.md) | Introduce CRD-style configuration | 2026-02-18T00:00:00Z | accepted |
+| [K4x-ADR-008](./K4x-ADR-008.md) | Introduce Box as a first-class ops kind | 2026-02-18T00:00:00Z | proposed |
+| [K4x-ADR-009](./K4x-ADR-009.md) | Kompox Ops Manifest Schema | 2026-02-18T00:00:00Z | proposed |
 | [K4x-ADR-010](./K4x-ADR-010.md) | Rename CRD to KOM | 2025-10-17T00:00:00Z | accepted |
 | [K4x-ADR-011](./K4x-ADR-011.md) | Introduce Defaults pseudo-resource for KOM ingestion | 2025-10-17T00:00:00Z | accepted |
-| [K4x-ADR-012](./K4x-ADR-012.md) | Introduce App.RefBase for external references | 2025-10-18T00:00:00Z | accepted |
+| [K4x-ADR-012](./K4x-ADR-012.md) | Introduce App.RefBase for external references | 2026-02-18T00:00:00Z | accepted |
 | [K4x-ADR-013](./K4x-ADR-013.md) | Resource protection policy for Cluster operations | 2025-10-23T00:00:00Z | accepted |
 | [K4x-ADR-014](./K4x-ADR-014.md) | Introduce Volume Types | 2025-10-23T00:00:00Z | accepted |
 | [K4x-ADR-015](./K4x-ADR-015.md) | Introduce Kompox CLI Env with Git-like discovery | 2025-11-03T00:00:00Z | accepted |
@@ -22,7 +22,7 @@
 | [K4x-ADR-018](./K4x-ADR-018.md) | Establish doc governance and dual index artifacts (Markdown + JSON) | 2026-02-14T18:23:37Z | accepted |
 | [K4x-ADR-019](./K4x-ADR-019.md) | Introduce NodePool abstraction for multi-provider cluster scaling and scheduling | 2026-02-15T00:00:00Z | proposed |
 
-Updated: 2026-02-15T05:03:16Z
+Updated: 2026-02-18T00:00:00Z
 
 ---
 

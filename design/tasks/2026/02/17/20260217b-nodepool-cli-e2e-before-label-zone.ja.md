@@ -2,7 +2,7 @@
 id: 20260217b-nodepool-cli-e2e-before-label-zone
 title: NodePool CLI E2E 先行追加 (Phase 6 着手前)
 status: done
-updated: 2026-02-17T08:29:23Z
+updated: 2026-02-18T01:30:40Z
 language: ja
 owner: yaegashi
 adrs:
@@ -90,7 +90,7 @@ plans:
 - [design/tasks/README.md]
 - tests/aks-e2e-volume/Makefile
 
-[2026ab-k8s-node-pool-support]: ../../../plans/2026/2026ab-k8s-node-pool-support.ja.md
-[K4x-ADR-019]: ../../../adr/K4x-ADR-019.md
+[2026ab-k8s-node-pool-support]: ../../../../plans/2026/2026ab-k8s-node-pool-support.ja.md
+[K4x-ADR-019]: ../../../../adr/K4x-ADR-019.md
 [20260217a-nodepool-cli-impl]: ./20260217a-nodepool-cli-impl.ja.md
-[design/tasks/README.md]: ../../README.md
+[design/tasks/README.md]: ../../../README.md
