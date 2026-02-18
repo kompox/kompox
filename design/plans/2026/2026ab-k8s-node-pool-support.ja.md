@@ -3,7 +3,7 @@ id: 2026ab-k8s-node-pool-support
 title: K8s プラットフォームドライバへの NodePool 対応追加
 version: v1
 status: draft
-updated: 2026-02-17T23:18:51Z
+updated: 2026-02-18T02:12:58Z
 language: ja
 adrs:
   - K4x-ADR-019
@@ -16,6 +16,7 @@ tasks:
   - 20260217b-nodepool-cli-e2e-before-label-zone
   - 20260217c-kom-app-deployment-impl
   - 20260217d-nodepool-doc-sync
+  - 20260218a-nodepool-tests
 ---
 
 # Plan: K8s プラットフォームドライバへの NodePool 対応追加
@@ -106,6 +107,7 @@ tasks:
   - [x] `deployment.pool/zone` のスケジューリング指定と、AKS 側 NodePool 設定の整合チェックを実装する。
 - [ ] Phase 7: テストと検証を追加する。
   - [x] Task: [20260217b-nodepool-cli-e2e-before-label-zone]
+  - [x] Task: [20260218a-nodepool-tests]
   - [x] `cmd/kompoxops cluster nodepool` の E2E テスト(create/update/delete/list)を先行追加し、Phase 6 の回帰基準を固定化する。
   - [ ] AKS driver の NodePool API 呼び出しに対する unit test を追加する。
   - [ ] `cmd/kompoxops cluster nodepool` のコマンド層テスト(引数バリデーション/呼び出し経路)を追加する。
@@ -152,6 +154,7 @@ tasks:
 - 2026-02-17T23:07:43Z Phase 8 着手タスク [20260217d-nodepool-doc-sync] を作成し、計画チェックリストと tasks 一覧に紐付け
 - 2026-02-17T23:10:22Z Phase 8 対象文書に [Kompox-KubeConverter] を追加
 - 2026-02-17T23:18:51Z [20260217d-nodepool-doc-sync] を完了。ProviderDriver/AKS/CLI/KubeConverter の NodePool 関連文書を同期し、Phase 8 を完了へ更新
+- 2026-02-18T02:11:40Z Phase 7 残タスクとして [20260218a-nodepool-tests] を追加
 
 ## 参照
 
@@ -169,6 +172,7 @@ tasks:
 - [20260217b-nodepool-cli-e2e-before-label-zone]
 - [20260217c-kom-app-deployment-impl]
 - [20260217d-nodepool-doc-sync]
+- [20260218a-nodepool-tests]
 
 [design/plans/README.md]: ../README.md
 [Kompox-ProviderDriver]: ../../v1/Kompox-ProviderDriver.ja.md
@@ -184,3 +188,4 @@ tasks:
 [20260217b-nodepool-cli-e2e-before-label-zone]: ../../tasks/2026/02/17/20260217b-nodepool-cli-e2e-before-label-zone.ja.md
 [20260217c-kom-app-deployment-impl]: ../../tasks/2026/02/17/20260217c-kom-app-deployment-impl.ja.md
 [20260217d-nodepool-doc-sync]: ../../tasks/2026/02/17/20260217d-nodepool-doc-sync.ja.md
+[20260218a-nodepool-tests]: ../../tasks/2026/02/18/20260218a-nodepool-tests.ja.md

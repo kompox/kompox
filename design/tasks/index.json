@@ -1,7 +1,7 @@
 {
   "category": "tasks",
-  "updated": "2026-02-18T01:30:40Z",
-  "docCount": 15,
+  "updated": "2026-02-18T02:12:58Z",
+  "docCount": 16,
   "docs": [
     {
       "category": "tasks",
@@ -326,6 +326,31 @@
       "status": "done",
       "title": "NodePool 設計ドキュメント同期",
       "updated": "2026-02-18T01:22:50Z",
+      "version": ""
+    },
+    {
+      "adrs": [
+        "K4x-ADR-019"
+      ],
+      "category": "tasks",
+      "id": "20260218a-nodepool-tests",
+      "language": "ja",
+      "owner": "yaegashi",
+      "plans": [
+        "2026ab-k8s-node-pool-support"
+      ],
+      "references": [
+        "20260216d-nodepool-aks-driver-impl",
+        "20260217a-nodepool-cli-impl",
+        "20260217b-nodepool-cli-e2e-before-label-zone",
+        "2026ab-k8s-node-pool-support",
+        "K4x-ADR-019",
+        "design/tasks/README.md"
+      ],
+      "relPath": "design/tasks/2026/02/18/20260218a-nodepool-tests.ja.md",
+      "status": "active",
+      "title": "NodePool テスト実装",
+      "updated": "2026-02-18T02:12:58Z",
       "version": ""
     }
   ]

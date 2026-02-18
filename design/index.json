@@ -1,6 +1,6 @@
 {
-  "updated": "2026-02-18T01:34:09Z",
-  "docCount": 74,
+  "updated": "2026-02-18T02:12:58Z",
+  "docCount": 75,
   "categories": [
     {
       "category": "adr",
@@ -10,7 +10,7 @@
     },
     {
       "category": "plans",
-      "updated": "2026-02-18T01:34:09Z",
+      "updated": "2026-02-18T02:12:58Z",
       "docCount": 2,
       "indexPath": "design/plans/index.json"
     },
@@ -22,8 +22,8 @@
     },
     {
       "category": "tasks",
-      "updated": "2026-02-18T01:30:40Z",
-      "docCount": 15,
+      "updated": "2026-02-18T02:12:58Z",
+      "docCount": 16,
       "indexPath": "design/tasks/index.json"
     },
     {
@@ -445,6 +445,7 @@
         "20260217b-nodepool-cli-e2e-before-label-zone",
         "20260217c-kom-app-deployment-impl",
         "20260217d-nodepool-doc-sync",
+        "20260218a-nodepool-tests",
         "K4x-ADR-019",
         "Kompox-CLI",
         "Kompox-KubeConverter",
@@ -462,10 +463,11 @@
         "20260217a-nodepool-cli-impl",
         "20260217b-nodepool-cli-e2e-before-label-zone",
         "20260217c-kom-app-deployment-impl",
-        "20260217d-nodepool-doc-sync"
+        "20260217d-nodepool-doc-sync",
+        "20260218a-nodepool-tests"
       ],
       "title": "K8s プラットフォームドライバへの NodePool 対応追加",
-      "updated": "2026-02-17T23:18:51Z",
+      "updated": "2026-02-18T02:12:58Z",
       "version": "v1"
     },
     {
@@ -815,6 +817,31 @@
       "status": "done",
       "title": "NodePool 設計ドキュメント同期",
       "updated": "2026-02-18T01:22:50Z",
+      "version": ""
+    },
+    {
+      "adrs": [
+        "K4x-ADR-019"
+      ],
+      "category": "tasks",
+      "id": "20260218a-nodepool-tests",
+      "language": "ja",
+      "owner": "yaegashi",
+      "plans": [
+        "2026ab-k8s-node-pool-support"
+      ],
+      "references": [
+        "20260216d-nodepool-aks-driver-impl",
+        "20260217a-nodepool-cli-impl",
+        "20260217b-nodepool-cli-e2e-before-label-zone",
+        "2026ab-k8s-node-pool-support",
+        "K4x-ADR-019",
+        "design/tasks/README.md"
+      ],
+      "relPath": "design/tasks/2026/02/18/20260218a-nodepool-tests.ja.md",
+      "status": "active",
+      "title": "NodePool テスト実装",
+      "updated": "2026-02-18T02:12:58Z",
       "version": ""
     },
     {

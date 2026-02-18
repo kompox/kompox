@@ -17,8 +17,9 @@
 | [20260217b-nodepool-cli-e2e-before-label-zone](./2026/02/17/20260217b-nodepool-cli-e2e-before-label-zone.ja.md) | NodePool CLI E2E 先行追加 (Phase 6 着手前) | 2026-02-18T01:30:40Z | done |
 | [20260217c-kom-app-deployment-impl](./2026/02/17/20260217c-kom-app-deployment-impl.ja.md) | KOM App Deployment 指定と KubeConverter 更新 | 2026-02-18T01:30:40Z | done |
 | [20260217d-nodepool-doc-sync](./2026/02/17/20260217d-nodepool-doc-sync.ja.md) | NodePool 設計ドキュメント同期 | 2026-02-18T01:22:50Z | done |
+| [20260218a-nodepool-tests](./2026/02/18/20260218a-nodepool-tests.ja.md) | NodePool テスト実装 | 2026-02-18T02:12:58Z | active |
 
-Updated: 2026-02-18T01:30:40Z
+Updated: 2026-02-18T02:12:58Z
 
 ---
 
