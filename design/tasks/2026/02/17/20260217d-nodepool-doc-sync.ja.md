@@ -1,6 +1,6 @@
 ---
-id: 20260217d-nodepool-phase8-doc-sync
-title: NodePool Phase 8 設計ドキュメント同期
+id: 20260217d-nodepool-doc-sync
+title: NodePool 設計ドキュメント同期
 status: done
 updated: 2026-02-18T01:22:50Z
 language: ja
@@ -10,9 +10,9 @@ adrs:
 plans:
   - 2026ab-k8s-node-pool-support
 ---
-# タスク: NodePool Phase 8 設計ドキュメント同期
+# タスク: NodePool 設計ドキュメント同期
 
-本タスクは Plan [2026ab-k8s-node-pool-support] の Phase 8 として、NodePool 実装・検証の現状を設計文書へ同期し、次フェーズのテスト実施および ADR 判定の前提を整える。
+本タスクは Plan [2026ab-k8s-node-pool-support] の文書同期タスクとして、NodePool 実装・検証の現状を設計文書へ同期し、次フェーズのテスト実施および ADR 判定の前提を整える。
 
 ## 目的
 

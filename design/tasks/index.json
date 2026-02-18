@@ -307,7 +307,7 @@
         "K4x-ADR-019"
       ],
       "category": "tasks",
-      "id": "20260217d-nodepool-phase8-doc-sync",
+      "id": "20260217d-nodepool-doc-sync",
       "language": "ja",
       "owner": "yaegashi",
       "plans": [
@@ -322,9 +322,9 @@
         "Kompox-ProviderDriver-AKS",
         "design/tasks/README.md"
       ],
-      "relPath": "design/tasks/2026/02/17/20260217d-nodepool-phase8-doc-sync.ja.md",
+      "relPath": "design/tasks/2026/02/17/20260217d-nodepool-doc-sync.ja.md",
       "status": "done",
-      "title": "NodePool Phase 8 設計ドキュメント同期",
+      "title": "NodePool 設計ドキュメント同期",
       "updated": "2026-02-18T01:22:50Z",
       "version": ""
     }
