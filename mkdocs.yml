@@ -1,46 +1,126 @@
+# Exclude non-doc files (build-time helpers) from the site output
+exclude_docs: |
+  _*/**
+
 site_name: Kompox Docs
 site_url: https://docs.kompox.dev/
+site_description: Kompox is a cloud-native application framework for building scalable and maintainable applications on Kubernetes.
+site_author: Kompox Team
+
 repo_name: kompox/kompox
 repo_url: https://github.com/kompox/kompox
 edit_uri: edit/main/docs
 
-# Exclude non-doc files (build-time helpers) from the site output
-exclude_docs: _*/**
-
 theme:
   name: material
   language: en
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
   features:
-    - navigation.tabs
-    - content.code.copy
+    - navigation.tracking
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
     - content.action.edit
+    - content.code.copy
+    - content.code.annotate
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          # Use a distinct class to avoid mkdocs-material's built-in Mermaid
+          # renderer, which wraps SVG in a closed Shadow DOM (hard to lightbox).
+          class: mermaid-diagram
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - toc:
+      permalink: true
+  - tables
+  - attr_list
+  - md_in_html
+
+nav:
+  - index.md
+  - story/index.md
 
 plugins:
-  - search
   - i18n:
       docs_structure: suffix
       reconfigure_material: true
-      force_default_in_subdirectory: true
       languages:
-        - locale: en
-          name: English
-          build: true
+        - locale: en-US
+          name: Redirect
           default: true
-          link: /en/
+          build: true
+          theme:
+            language: en
         - locale: ja
           name: 日本語
           build: true
-          link: /ja/
+          theme:
+            language: ja
+        - locale: en
+          name: English
+          build: true
+          theme:
+            language: en
+  - glightbox
   - git-revision-date-localized:
-      fallback_to_build_date: true
-      exclude: [_*/**]
+      enable_creation_date: true
+      type: datetime
+  - search:
+      lang: ja
+  - minify:
+      minify_html: true
 
 extra:
+  alternate:
+    - name: 日本語
+      link: /ja/
+      lang: ja
+    - name: English
+      link: /en/
+      lang: en
   version:
     provider: mike
 
-nav:
-  - Home: index.md
+extra_javascript:
+  - https://unpkg.com/mermaid@10.4.0/dist/mermaid.min.js
+  - https://unpkg.com/gridjs@6.2.0/dist/gridjs.umd.js
+  - js/mermaid-init.js
+  - js/doc-index.js
 
-hooks:
-  - docs/_mkdocs/hooks/post_build_root_redirect.py
+extra_css:
+  - https://unpkg.com/gridjs@6.2.0/dist/theme/mermaid.min.css
+  - css/mermaid-lightbox.css
+  - css/content-width.css
+  - css/doc-index.css
+  - css/page-meta.css

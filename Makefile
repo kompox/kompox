@@ -81,26 +81,23 @@ git-hooks-setup:
 
 .PHONY: docs-setup docs-serve docs-build docs-deploy-edge docs-deploy-version
 
-MKDOCS := $(CURDIR)/.venv/bin/mkdocs
-MIKE   := $(CURDIR)/.venv/bin/mike
-
 docs-setup:
-	bash _dev/bin/setup-docs.sh
+	uv sync
 
 docs-serve:
-	$(MKDOCS) serve -a 0.0.0.0:8000
+	uv run mkdocs serve --livereload -a 0.0.0.0:8000
 
 docs-build:
-	$(MKDOCS) build
+	uv run mkdocs build
 
 docs-deploy-edge:
-	$(MIKE) deploy --push --update-aliases edge
+	uv run mike deploy --push --update-aliases edge
 
 # usage: make docs-deploy-version VERSION=0.3
 docs-deploy-version:
 	@[ -n "$$VERSION" ] || (echo "VERSION is required. e.g., make docs-deploy-version VERSION=0.3" && exit 1)
-	$(MIKE) deploy --push --update-aliases v$(VERSION) latest
-	$(MIKE) set-default --push latest
+	uv run mike deploy --push --update-aliases v$(VERSION) latest
+	uv run mike set-default --push latest
 
 .PHONY: docs-clean-venv
 docs-clean-venv:
