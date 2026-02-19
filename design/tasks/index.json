@@ -1,6 +1,6 @@
 {
   "category": "tasks",
-  "updated": "2026-02-18T02:12:58Z",
+  "updated": "2026-02-19T23:40:18Z",
   "docCount": 16,
   "docs": [
     {
@@ -348,9 +348,9 @@
         "design/tasks/README.md"
       ],
       "relPath": "design/tasks/2026/02/18/20260218a-nodepool-tests.ja.md",
-      "status": "active",
+      "status": "done",
       "title": "NodePool テスト実装",
-      "updated": "2026-02-18T02:12:58Z",
+      "updated": "2026-02-19T23:40:18Z",
       "version": ""
     }
   ]

@@ -13,6 +13,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+var (
+	buildNodePoolUseCaseFunc = buildNodePoolUseCase
+	resolveClusterIDFunc     = resolveClusterID
+)
+
 // newCmdClusterNodePool returns the root nodepool command.
 func newCmdClusterNodePool() *cobra.Command {
 	cmd := &cobra.Command{
@@ -45,14 +50,14 @@ func newCmdClusterNodePoolList() *cobra.Command {
 		SilenceErrors:      true,
 		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			u, err := buildNodePoolUseCase(cmd)
+			u, err := buildNodePoolUseCaseFunc(cmd)
 			if err != nil {
 				return err
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 2*time.Minute)
 			defer cancel()
 
-			clusterID, err := resolveClusterID(ctx, u.Repos.Cluster, nil)
+			clusterID, err := resolveClusterIDFunc(ctx, u.Repos.Cluster, nil)
 			if err != nil {
 				return err
 			}
@@ -170,14 +175,14 @@ func newCmdClusterNodePoolCreate() *cobra.Command {
 		SilenceErrors:      true,
 		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, _ []string) (err error) {
-			u, err := buildNodePoolUseCase(cmd)
+			u, err := buildNodePoolUseCaseFunc(cmd)
 			if err != nil {
 				return err
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
 			defer cancel()
 
-			clusterID, err := resolveClusterID(ctx, u.Repos.Cluster, nil)
+			clusterID, err := resolveClusterIDFunc(ctx, u.Repos.Cluster, nil)
 			if err != nil {
 				return err
 			}
@@ -232,14 +237,14 @@ func newCmdClusterNodePoolUpdate() *cobra.Command {
 		SilenceErrors:      true,
 		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, _ []string) (err error) {
-			u, err := buildNodePoolUseCase(cmd)
+			u, err := buildNodePoolUseCaseFunc(cmd)
 			if err != nil {
 				return err
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
 			defer cancel()
 
-			clusterID, err := resolveClusterID(ctx, u.Repos.Cluster, nil)
+			clusterID, err := resolveClusterIDFunc(ctx, u.Repos.Cluster, nil)
 			if err != nil {
 				return err
 			}
@@ -294,14 +299,14 @@ func newCmdClusterNodePoolDelete() *cobra.Command {
 		SilenceErrors:      true,
 		DisableSuggestions: true,
 		RunE: func(cmd *cobra.Command, _ []string) (err error) {
-			u, err := buildNodePoolUseCase(cmd)
+			u, err := buildNodePoolUseCaseFunc(cmd)
 			if err != nil {
 				return err
 			}
 			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Minute)
 			defer cancel()
 
-			clusterID, err := resolveClusterID(ctx, u.Repos.Cluster, nil)
+			clusterID, err := resolveClusterIDFunc(ctx, u.Repos.Cluster, nil)
 			if err != nil {
 				return err
 			}

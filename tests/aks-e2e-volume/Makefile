@@ -52,8 +52,10 @@ setup: $(TEST_DEPENDENCIES)
 	@$(call TEST_RUN_SCRIPT,./test-setup.sh,$(TEST_DEPENDENCIES))
 
 run: $(TEST_DEPENDENCIES)
-	@$(call TEST_RUN_SCRIPT,./test-run-disk.sh,$(TEST_DEPENDENCIES))
-	@$(call TEST_RUN_SCRIPT,./test-run-files.sh,$(TEST_DEPENDENCIES))
+	@$(call TEST_RUN_SCRIPT,./test-run-disk-ops.sh,$(TEST_DEPENDENCIES))
+	@$(call TEST_RUN_SCRIPT,./test-run-disk-filter.sh,$(TEST_DEPENDENCIES))
+	@$(call TEST_RUN_SCRIPT,./test-run-files-ops.sh,$(TEST_DEPENDENCIES))
+	@$(call TEST_RUN_SCRIPT,./test-run-files-filter.sh,$(TEST_DEPENDENCIES))
 
 teardown:
 	@$(call TEST_RUN_SCRIPT,./test-teardown.sh,$(TEST_DEPENDENCIES))

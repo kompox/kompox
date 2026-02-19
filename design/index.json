@@ -1,5 +1,5 @@
 {
-  "updated": "2026-02-18T12:26:37Z",
+  "updated": "2026-02-19T23:40:18Z",
   "docCount": 76,
   "categories": [
     {
@@ -10,7 +10,7 @@
     },
     {
       "category": "plans",
-      "updated": "2026-02-18T02:12:58Z",
+      "updated": "2026-02-19T23:38:59Z",
       "docCount": 2,
       "indexPath": "design/plans/index.json"
     },
@@ -22,7 +22,7 @@
     },
     {
       "category": "tasks",
-      "updated": "2026-02-18T02:12:58Z",
+      "updated": "2026-02-19T23:40:18Z",
       "docCount": 16,
       "indexPath": "design/tasks/index.json"
     },
@@ -454,7 +454,7 @@
         "design/plans/README.md"
       ],
       "relPath": "design/plans/2026/2026ab-k8s-node-pool-support.ja.md",
-      "status": "draft",
+      "status": "active",
       "tasks": [
         "20260216a-nodepool-providerdriver-spec",
         "20260216b-nodepool-aks-spec",
@@ -467,7 +467,7 @@
         "20260218a-nodepool-tests"
       ],
       "title": "K8s プラットフォームドライバへの NodePool 対応追加",
-      "updated": "2026-02-18T02:12:58Z",
+      "updated": "2026-02-19T23:38:59Z",
       "version": "v1"
     },
     {
@@ -839,9 +839,9 @@
         "design/tasks/README.md"
       ],
       "relPath": "design/tasks/2026/02/18/20260218a-nodepool-tests.ja.md",
-      "status": "active",
+      "status": "done",
       "title": "NodePool テスト実装",
-      "updated": "2026-02-18T02:12:58Z",
+      "updated": "2026-02-19T23:40:18Z",
       "version": ""
     },
     {

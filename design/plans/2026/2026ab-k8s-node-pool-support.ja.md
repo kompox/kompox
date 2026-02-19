@@ -2,8 +2,8 @@
 id: 2026ab-k8s-node-pool-support
 title: K8s プラットフォームドライバへの NodePool 対応追加
 version: v1
-status: draft
-updated: 2026-02-18T02:12:58Z
+status: active
+updated: 2026-02-19T23:38:59Z
 language: ja
 adrs:
   - K4x-ADR-019
@@ -105,14 +105,14 @@ tasks:
   - [x] 着手前提として [20260217b-nodepool-cli-e2e-before-label-zone] の受け入れ条件を満たす。
   - [x] 追加・更新される Agent Pool に `kompox.dev/node-pool` / `kompox.dev/node-zone` ラベルを一貫して設定する。
   - [x] `deployment.pool/zone` のスケジューリング指定と、AKS 側 NodePool 設定の整合チェックを実装する。
-- [ ] Phase 7: テストと検証を追加する。
+- [x] Phase 7: テストと検証を追加する。
   - [x] Task: [20260217b-nodepool-cli-e2e-before-label-zone]
   - [x] Task: [20260218a-nodepool-tests]
   - [x] `cmd/kompoxops cluster nodepool` の E2E テスト(create/update/delete/list)を先行追加し、Phase 6 の回帰基準を固定化する。
-  - [ ] AKS driver の NodePool API 呼び出しに対する unit test を追加する。
-  - [ ] `cmd/kompoxops cluster nodepool` のコマンド層テスト(引数バリデーション/呼び出し経路)を追加する。
-  - [ ] 既存 AKS E2E シナリオに NodePool の追加/更新/削除ケースを追加する。
-  - [ ] 既存機能(ClusterProvision/Install、Volume 系)の回帰がないことを確認する。
+  - [x] AKS driver の NodePool unit test（変換/validation/冪等判定）を追加する。
+  - [x] `cmd/kompoxops cluster nodepool` のコマンド層テスト(引数バリデーション/呼び出し経路)を追加する。
+  - [x] 既存 AKS E2E シナリオに NodePool の追加/更新/削除ケースを追加する。
+  - [x] 既存機能(ClusterProvision/Install、Volume 系)の回帰がないことを確認する。
 - [x] Phase 8: NodePool 対応の設計ドキュメントを同期する。
   - [x] Task: [20260217d-nodepool-doc-sync]
   - [x] [Kompox-ProviderDriver] に NodePool 実装/テスト進捗の最新状態を反映する。
@@ -155,6 +155,7 @@ tasks:
 - 2026-02-17T23:10:22Z Phase 8 対象文書に [Kompox-KubeConverter] を追加
 - 2026-02-17T23:18:51Z [20260217d-nodepool-doc-sync] を完了。ProviderDriver/AKS/CLI/KubeConverter の NodePool 関連文書を同期し、Phase 8 を完了へ更新
 - 2026-02-18T02:11:40Z Phase 7 残タスクとして [20260218a-nodepool-tests] を追加
+- 2026-02-19T23:38:59Z [20260218a-nodepool-tests] を完了。CLI コマンド層テスト追加、NodePool E2E 拡張（`aks-e2e-nodepool` / `aks-e2e-basic`）、回帰検証（`aks-e2e-basic` / `aks-e2e-volume`）および `make gen-index` を実施
 
 ## 参照
 

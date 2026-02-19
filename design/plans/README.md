@@ -3,9 +3,9 @@
 | ID | Title | Updated | Status |
 | --- | --- | --- | --- |
 | [2026aa-kompox-box-update](./2026/2026aa-kompox-box-update.ja.md) | Kompox Box Update | 2026-02-18T01:34:09Z | draft |
-| [2026ab-k8s-node-pool-support](./2026/2026ab-k8s-node-pool-support.ja.md) | K8s プラットフォームドライバへの NodePool 対応追加 | 2026-02-18T02:12:58Z | draft |
+| [2026ab-k8s-node-pool-support](./2026/2026ab-k8s-node-pool-support.ja.md) | K8s プラットフォームドライバへの NodePool 対応追加 | 2026-02-19T23:38:59Z | active |
 
-Updated: 2026-02-18T02:12:58Z
+Updated: 2026-02-19T23:38:59Z
 
 ---
 
