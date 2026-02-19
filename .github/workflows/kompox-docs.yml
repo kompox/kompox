@@ -28,9 +28,7 @@ jobs:
         uses: astral-sh/setup-uv@v4
       - name: Install Python packages (uv)
         run: |
-          uv venv .venv
-          . .venv/bin/activate
-          uv pip install -r docs/_mkdocs/requirements.txt
+          uv sync --frozen
       - name: Setup git identity
         run: |
           git config user.name "github-actions[bot]"
@@ -38,18 +36,16 @@ jobs:
       - name: Deploy edge (main)
         if: startsWith(github.ref, 'refs/heads/main')
         run: |
-          . .venv/bin/activate
-          mike deploy --push --update-aliases edge
-          mike list | grep -q '^latest$' || mike set-default --push edge
+          uv run mike deploy --push --update-aliases edge
+          uv run mike list | grep -q '^latest$' || uv run mike set-default --push edge
       - name: Deploy release (tag)
         if: startsWith(github.ref, 'refs/tags/')
         shell: bash
         run: |
-          . .venv/bin/activate
           TAG="${GITHUB_REF#refs/tags/}"
           SHORT="${TAG%.*}"
-          mike deploy --push --update-aliases "$SHORT" latest
-          mike set-default --push latest
+          uv run mike deploy --push --update-aliases "$SHORT" latest
+          uv run mike set-default --push latest
       - name: Ensure CNAME
         run: |
           git fetch origin gh-pages:gh-pages
