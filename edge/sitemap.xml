@@ -1,17 +1,51 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
     <url>
-        <loc>https://docs.kompox.dev/edge/en/</loc>
-        <lastmod>2025-10-22</lastmod>
+        <loc>https://docs.kompox.dev/edge/</loc>
+        <lastmod>2026-02-19</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edge/en/"/>
+        <xhtml:link rel="alternate" hreflang="en-US" href="https://docs.kompox.dev/edge/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edgeen/"/>
         <xhtml:link rel="alternate" hreflang="ja" href="https://docs.kompox.dev/edgeja/"/>
     </url>
     <url>
+        <loc>https://docs.kompox.dev/edge/story/</loc>
+        <lastmod>2026-02-19</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en-US" href="https://docs.kompox.dev/edge/story/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edgeen/story/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://docs.kompox.dev/edgeja/story/"/>
+    </url>
+    <url>
         <loc>https://docs.kompox.dev/edge/ja/</loc>
-        <lastmod>2025-10-22</lastmod>
+        <lastmod>2026-02-19</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="ja" href="https://docs.kompox.dev/edge/ja/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edgeen/"/>
+        <xhtml:link rel="alternate" hreflang="en-US" href="https://docs.kompox.dev/edge"/>
+    </url>
+    <url>
+        <loc>https://docs.kompox.dev/edge/ja/story/</loc>
+        <lastmod>2026-02-19</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://docs.kompox.dev/edge/ja/story/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edgeen/story/"/>
+        <xhtml:link rel="alternate" hreflang="en-US" href="https://docs.kompox.dev/edgestory/"/>
+    </url>
+    <url>
+        <loc>https://docs.kompox.dev/edge/en/</loc>
+        <lastmod>2026-02-19</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edge/en/"/>
+        <xhtml:link rel="alternate" hreflang="en-US" href="https://docs.kompox.dev/edge"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://docs.kompox.dev/edgeja/"/>
+    </url>
+    <url>
+        <loc>https://docs.kompox.dev/edge/en/story/</loc>
+        <lastmod>2026-02-19</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edge/en/story/"/>
+        <xhtml:link rel="alternate" hreflang="en-US" href="https://docs.kompox.dev/edgestory/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://docs.kompox.dev/edgeja/story/"/>
     </url>
 </urlset>
