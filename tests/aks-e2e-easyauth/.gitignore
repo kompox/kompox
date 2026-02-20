@@ -6,3 +6,4 @@
 /test-seed.env
 /test-local.env
 /compose-easyauth.override.yml
+/.kompox/logs

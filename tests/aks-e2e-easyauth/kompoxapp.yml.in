@@ -33,9 +33,6 @@ metadata:
     ops.kompox.dev/id: /ws/${SERVICE_NAME}/prv/aks1/cls/cluster1
 spec:
   existing: false
-  protection:
-    provisioning: readOnly
-    installation: readOnly
   ingress:
     certEmail: yaegashi@live.jp
     certResolver: staging
