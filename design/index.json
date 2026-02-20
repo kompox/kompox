@@ -1,16 +1,16 @@
 {
-  "updated": "2026-02-19T23:40:18Z",
+  "updated": "2026-02-20T00:20:00Z",
   "docCount": 76,
   "categories": [
     {
       "category": "adr",
-      "updated": "2026-02-18T00:00:00Z",
+      "updated": "2026-02-20T00:15:00Z",
       "docCount": 19,
       "indexPath": "design/adr/index.json"
     },
     {
       "category": "plans",
-      "updated": "2026-02-19T23:38:59Z",
+      "updated": "2026-02-20T00:20:00Z",
       "docCount": 2,
       "indexPath": "design/plans/index.json"
     },
@@ -392,11 +392,11 @@
         "Kompox-ProviderDriver-AKS"
       ],
       "relPath": "design/adr/K4x-ADR-019.md",
-      "status": "proposed",
+      "status": "accepted",
       "supersededBy": [],
       "supersedes": [],
       "title": "Introduce NodePool abstraction for multi-provider cluster scaling and scheduling",
-      "updated": "2026-02-15T00:00:00Z",
+      "updated": "2026-02-20T00:15:00Z",
       "version": ""
     },
     {
@@ -454,7 +454,7 @@
         "design/plans/README.md"
       ],
       "relPath": "design/plans/2026/2026ab-k8s-node-pool-support.ja.md",
-      "status": "active",
+      "status": "done",
       "tasks": [
         "20260216a-nodepool-providerdriver-spec",
         "20260216b-nodepool-aks-spec",
@@ -467,7 +467,7 @@
         "20260218a-nodepool-tests"
       ],
       "title": "K8s プラットフォームドライバへの NodePool 対応追加",
-      "updated": "2026-02-19T23:38:59Z",
+      "updated": "2026-02-20T00:20:00Z",
       "version": "v1"
     },
     {

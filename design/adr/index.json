@@ -1,6 +1,6 @@
 {
   "category": "adr",
-  "updated": "2026-02-18T00:00:00Z",
+  "updated": "2026-02-20T00:15:00Z",
   "docCount": 19,
   "docs": [
     {
@@ -349,11 +349,11 @@
         "Kompox-ProviderDriver-AKS"
       ],
       "relPath": "design/adr/K4x-ADR-019.md",
-      "status": "proposed",
+      "status": "accepted",
       "supersededBy": [],
       "supersedes": [],
       "title": "Introduce NodePool abstraction for multi-provider cluster scaling and scheduling",
-      "updated": "2026-02-15T00:00:00Z",
+      "updated": "2026-02-20T00:15:00Z",
       "version": ""
     }
   ]

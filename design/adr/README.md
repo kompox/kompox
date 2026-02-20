@@ -20,9 +20,9 @@
 | [K4x-ADR-016](./K4x-ADR-016.md) | CLI Logging Strategy | 2025-12-13T00:00:00Z | accepted |
 | [K4x-ADR-017](./K4x-ADR-017.md) | Define App/Box model, Compose mapping, and CLI selectors | 2026-02-15T05:03:16Z | accepted |
 | [K4x-ADR-018](./K4x-ADR-018.md) | Establish doc governance and dual index artifacts (Markdown + JSON) | 2026-02-14T18:23:37Z | accepted |
-| [K4x-ADR-019](./K4x-ADR-019.md) | Introduce NodePool abstraction for multi-provider cluster scaling and scheduling | 2026-02-15T00:00:00Z | proposed |
+| [K4x-ADR-019](./K4x-ADR-019.md) | Introduce NodePool abstraction for multi-provider cluster scaling and scheduling | 2026-02-20T00:15:00Z | accepted |
 
-Updated: 2026-02-18T00:00:00Z
+Updated: 2026-02-20T00:15:00Z
 
 ---
 

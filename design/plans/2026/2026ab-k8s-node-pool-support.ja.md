@@ -2,8 +2,8 @@
 id: 2026ab-k8s-node-pool-support
 title: K8s プラットフォームドライバへの NodePool 対応追加
 version: v1
-status: active
-updated: 2026-02-19T23:38:59Z
+status: done
+updated: 2026-02-20T00:20:00Z
 language: ja
 adrs:
   - K4x-ADR-019
@@ -119,12 +119,12 @@ tasks:
   - [x] [Kompox-ProviderDriver-AKS] に AKS 側の NodePool 運用・検証手順の最新状態を反映する。
   - [x] [Kompox-CLI] に `cluster nodepool` コマンド群の最新仕様と検証観点を反映する。
   - [x] [Kompox-KubeConverter] に `deployment.pool/zone/pools/zones` と NodePool 契約の接続点を最新状態へ同期する。
-- [ ] Phase 9: ADR ステータス判定を行う。
-  - [ ] 現時点では [K4x-ADR-019] は `proposed` を維持する。
-  - [ ] 次の条件を満たした時点で [K4x-ADR-019] を `accepted` に変更する。
-    - [ ] Phase 1〜3 の design docs 更新が完了している。
-    - [ ] AKS driver の NodePool 実装とテスト(Phase 4〜7)が完了している。
-    - [ ] 未対応ドライバでの `not implemented` 挙動と互換性方針が確認されている。
+- [x] Phase 9: ADR ステータス判定を行う。
+  - [x] [K4x-ADR-019] を `accepted` に変更する。
+  - [x] 判定条件を満たしたことを確認する。
+    - [x] Phase 1〜3 の design docs 更新が完了している。
+    - [x] AKS driver の NodePool 実装とテスト(Phase 4〜7)が完了している。
+    - [x] 未対応ドライバでの `not implemented` 挙動と互換性方針が確認されている。
 
 ## リスク/未解決点
 
@@ -156,6 +156,7 @@ tasks:
 - 2026-02-17T23:18:51Z [20260217d-nodepool-doc-sync] を完了。ProviderDriver/AKS/CLI/KubeConverter の NodePool 関連文書を同期し、Phase 8 を完了へ更新
 - 2026-02-18T02:11:40Z Phase 7 残タスクとして [20260218a-nodepool-tests] を追加
 - 2026-02-19T23:38:59Z [20260218a-nodepool-tests] を完了。CLI コマンド層テスト追加、NodePool E2E 拡張（`aks-e2e-nodepool` / `aks-e2e-basic`）、回帰検証（`aks-e2e-basic` / `aks-e2e-volume`）および `make gen-index` を実施
+- 2026-02-20T00:15:00Z Phase 9 の判定条件充足を確認し、[K4x-ADR-019] を `accepted` へ更新
 
 ## 参照
 

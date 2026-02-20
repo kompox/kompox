@@ -1,8 +1,8 @@
 ---
 id: K4x-ADR-019
 title: Introduce NodePool abstraction for multi-provider cluster scaling and scheduling
-status: proposed
-updated: 2026-02-15T00:00:00Z
+status: accepted
+updated: 2026-02-20T00:15:00Z
 language: en
 supersedes: []
 supersededBy: []
