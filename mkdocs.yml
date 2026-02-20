@@ -104,10 +104,8 @@ plugins:
 extra:
   alternate:
     - name: 日本語
-      link: /ja/
       lang: ja
     - name: English
-      link: /en/
       lang: en
   version:
     provider: mike
