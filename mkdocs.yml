@@ -13,6 +13,7 @@ edit_uri: edit/main/docs
 
 theme:
   name: material
+  custom_dir: docs/_mkdocs/custom
   language: en
   palette:
     # Light mode
@@ -114,7 +115,6 @@ extra_javascript:
   - https://unpkg.com/mermaid@10.4.0/dist/mermaid.min.js
   - https://unpkg.com/gridjs@6.2.0/dist/gridjs.umd.js
   - js/mermaid-init.js
-  - js/doc-index.js
 
 extra_css:
   - https://unpkg.com/gridjs@6.2.0/dist/theme/mermaid.min.css
