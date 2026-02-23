@@ -1,87 +1,10 @@
-# Kompox (K4x)
+---
+title: Kompox Usage Example
+---
 
-## 概要
+# Kompox Usage Example
 
-**Docker Compose で書かれたステートフルアプリを、クラウドのマネージド Kubernetes 上でシームレスに動かすことができるオーケストレーションツール**
-
-Kompox は [Kompose](https://kompose.io) のアイディアを拡張し、ステートフルワークロードの本番運用における課題を解決します。
-
-K4x は Kompox の短縮形です。
-
-## ステータスとロードマップ
-
-**2025年9月時点で本プロジェクトはアルファバージョンの段階です。CLIや内部APIは将来的に破壊的変更が行われる可能性があります。**
-
-Kompox はマルチクラウドに対応した設計となっていますが、当面は Microsoft Azure をターゲットに個別機能の POC を進めています。
-
-完了
-
-- [x] `kompoxops` CLI 基本実装
-  - [x] `kompoxops.yml` 設定ファイルの定義 (互換用の単一ファイルモード)
-  - [x] クロスプラットフォーム CI/CD (GoReleaser)
-- [x] Kubernetes 基本実装
-  - [x] Docker Compose → Kubernetes Manifest 変換
-    - [x] `services` → 単一Pod・複数コンテナマッピング
-    - [x] `volumes` → RWO PV/PVC マッピング
-    - [x] `ports` → Service/Ingress マッピング
-    - [x] `env_file` → Secret マッピング
-  - [x] Ingress Controller
-    - [x] Helm SDK による Traefik インストール
-    - [x] Let's Encrypt TLS 証明書発行 (ALPN-TLS-01)
-  - [x] App コンポーネント (アプリコンテナ)
-    - [x] 独立ネームスペース作成とネットワーク隔離
-    - [x] コンテナログ表示とシェル接続
-  - [x] Kompox Box コンポーネント (開発・テスト・メンテナンスコンテナ)
-    - [x] RWO PVマウント
-    - [x] コンテナ SSH 接続
-    - [x] コンテナ SCP ファイル転送
-    - [x] コンテナ Rsync ファイル転送
-- [x] AKS (Azure) Driver 基本実装
-  - [x] AKS クラスタライフサイクル管理
-  - [x] 管理ディスク・スナップショットライフサイクル管理
-  - [x] 可用性ゾーン対応
-  - [x] スナップショットによる RWO ディスクの復元とフェイルオーバー
-  - [x] Traefik Static TLS 証明書 (Azure Key Vault CSI driver)
-
-計画中
-
-- [ ] K3s (selfhosted) Driver
-- [ ] OKE (OCI) Driver
-- [ ] EKS (AWS) Driver
-- [ ] GKE (Google) Driver
-- [ ] GitOps 対応
-- [ ] PaaS サーバ実装
-- [ ] クラウドサービス・K8sワークロードのビリング
-- [ ] クロスプラットフォーム対応
-  - [ ] darwin/arm64, linux/arm64, windows/amd64 動作テスト
-
-## 発表・登壇
-
-- **2025/09/25(木)** [**Kubernetes Novice Tokyo #38**](https://k8s-novice-jp.connpass.com/event/365526/)
-  - Kompox: クラウドネイティブコンテナ Web アプリ DevOps ツールの紹介
-  - [スライド資料 (PDF)](https://www.docswell.com/s/yaegashi/544R21-KNT38-Kompox)
-- **2025/11/18(火)** [**CloudNative Days Winter 2025**](https://event.cloudnativedays.jp/cndw2025) (予定)
-  - [Kompox: ステートフルワークロード運用がスケールする未来をつくる](https://event.cloudnativedays.jp/cndw2025/proposals/1000)
-  - 採択前のプロポーザルです。興味を持たれた方はぜひ投票をお願いします
-
-## Kompox の背景にある課題
-
-Kubernetesはステートレスアプリの運用基盤として普及しましたが、ステートフルなワークロードの運用は依然として複雑です。
-
-- **ストレージの制約:** 性能要件からReadWriteOnce (RWO) の永続ボリューム (PV) が必要になるケースが多くありますが、RWOボリュームは単一ノードにしか接続できず、障害時の復旧や移行が困難になる一因となっています。
-- **クラウド間の差異:** 各クラウド (Azure, AWS, Google, OCI など) が提供するマネージドKubernetesやストレージサービスには微妙な仕様の違いがあり、アプリケーションのポータビリティを妨げます。
-- **開発と本番のギャップ:** Docker Compose の `compose.yml` を使ったローカルでの手軽な開発体験を、そのまま本番のKubernetes環境に持ち込むことは困難です。
-
-Kompoxはこれらの課題を解決し、ステートフルワークロードの運用をスケールさせることを目指します。
-
-- **シンプルな定義ファイル:** `compose.yml` の資産を活かしつつ、`kompoxapp.yml` と KOM (Workspace/Provider/Cluster/App) でアプリケーションとインフラを定義できます。
-- **クラウド差異の吸収:** Provider Driverアーキテクチャにより、AKS (Azure), EKS (AWS), GKE (Google), OKE (OCI) といった各クラウドにおける RWO ボリュームやスナップショット機能の差異を吸収します。
-- **容易なデータ管理:** クラウドネイティブなスナップショット機能を活用し、バックアップ・リストアや、障害発生時のアベイラビリティゾーン (AZ)・リージョン・クラウド間マイグレーションを容易にします。
-- **一貫した操作性:** `kompoxops` CLIツールを通じて、ローカル開発環境から本番クラウド環境まで、一貫したコマンドでアプリケーションのデプロイや管理を行えます。
-
-## Kompox の使用例
-
-例えば次のような [Gitea](https://about.gitea.com/) を動かすための [compose.yml](./tests/aks-e2e-gitea/compose.yml) ファイルがあるとします。
+Suppose you have a `compose.yml` like the following to run [Gitea](https://about.gitea.com/).
 
 ```yaml
 services:
@@ -104,7 +27,7 @@ services:
       - ./data/postgres:/var/lib/postgresql/data
 ```
 
-これは Docker Compose を使ってローカルの開発環境で普通にテストすることができます。
+You can test this normally in a local development environment using Docker Compose.
 
 ```bash
 $ docker compose up -d
@@ -114,12 +37,12 @@ $ docker compose up -d
  ✔ Container aks-e2e-gitea-gitea-1     Started        0.3d
 ```
 
-AKS 向けの KOM 設定(例: `kompoxapp.yml` と Workspace/Provider/Cluster/App の YAML)を用意し `kompoxops` CLI ツールを使うことで、次のことができます。
+By preparing KOM settings for AKS (for example, `kompoxapp.yml` and Workspace/Provider/Cluster/App YAML files) and using the `kompoxops` CLI, you can do the following:
 
-- AKS クラスタをプロビジョン (認証は Azure CLI によるものを使用)
-- クラスタに Ingress Controller (traefik) や共通 Kubernetes リソースをインストール
-- RWO PV の実体となる Azure 管理ディスク (Premium SSD v2, 10GiB) を作成
-- compose.yml から変換した Kubernetes Manifest をデプロイしてアプリを公開
+- Provision an AKS cluster (using Azure CLI authentication)
+- Install the Ingress Controller (traefik) and common Kubernetes resources
+- Create Azure managed disks (Premium SSD v2, 10GiB) as the backing storage for RWO PVs
+- Deploy Kubernetes manifests converted from `compose.yml` and expose the app
 
 ```yaml
 apiVersion: ops.kompox.dev/v1alpha1
@@ -200,17 +123,17 @@ spec:
         sku: PremiumV2_LRS
 ```
 
-実行例
+Execution example
 
 ```console
-# AKS クラスタをプロビジョン
+# Provision the AKS cluster
 $ kompoxops cluster provision
 2025/09/25 06:04:14 INFO provision start cluster=cluster1
 2025/09/25 06:04:14 INFO aks cluster provision begin subscription=9473abf6-f25e-420e-b3f2-128c1c7b46f2 resource_group=k4x-50vf7y_cls_cluster1_62mpgv tags="map[kompox-cluster-hash:62mpgv kompox-cluster-name:cluster1 kompox-provider-name:aks1 kompox-service-name:aks-e2e-gitea-20250925-060355 managed-by:kompox]"
 2025/09/25 06:10:39 INFO aks cluster provision succeeded subscription=9473abf6-f25e-420e-b3f2-128c1c7b46f2 resource_group=k4x-50vf7y_cls_cluster1_62mpgv
 2025/09/25 06:10:39 INFO provision success cluster=cluster1
 
-# クラスタに Ingress Controller (traefik) 他をインストール
+# Install Ingress Controller (traefik) and related resources into the cluster
 $ kompoxops cluster install
 2025/09/25 06:10:45 INFO install start cluster=cluster1
 2025/09/25 06:10:45 INFO aks cluster install begin cluster=cluster1 provider=aks1
@@ -221,7 +144,7 @@ $ kompoxops cluster install
 2025/09/25 06:12:15 INFO aks cluster install succeeded cluster=cluster1 provider=aks1
 2025/09/25 06:12:15 INFO install success cluster=cluster1
 
-# クラスタの状態を表示
+# Show cluster status
 $ ./kompoxops cluster status
 {
   "existing": false,
@@ -232,8 +155,8 @@ $ ./kompoxops cluster status
   "cluster_name": "cluster1"
 }
 
-# クラスタに compose.yml から変換した Kubernetes Manifest をデプロイ
-# App.spec.volumes で定義した Azure 管理ディスクが自動的に作成され RWO PV としてマウントされます
+# Deploy Kubernetes manifests converted from compose.yml
+# The Azure managed disk defined in App.spec.volumes is automatically created and mounted as an RWO PV
 $ kompoxops app deploy --bootstrap-disks
 2025/09/25 06:12:20 INFO bootstrap disks before deploy app=app1
 2025/09/25 06:12:24 INFO ensuring resource group subscription=9473abf6-f25e-420e-b3f2-128c1c7b46f2 location=eastus resource_group=k4x-50vf7y_app_app1_13o40q tags="map[kompox-app-id-hash:13o40q kompox-app-name:app1 kompox-provider-name:aks1 kompox-service-name:aks-e2e-gitea-20250925-060355 managed-by:kompox]"
@@ -254,7 +177,7 @@ $ kompoxops app deploy --bootstrap-disks
 2025/09/25 06:12:44 INFO deploy success app=app1
 2025/09/25 06:12:45 INFO patched deployment secrets deployment=app1-app hashChanged=true imagePullSecretsChanged=false
 
-# クラスタにデプロイされたアプリの状態を表示
+# Show deployed app status
 $ kompoxops app status
 {
   "app_id": "d7a5e3f3326dc6bf",
@@ -276,7 +199,7 @@ $ kompoxops app status
   ]
 }
 
-# アプリコンテナのログ表示
+# Show app container logs
 $ ./kompoxops app logs -c gitea
 Generating /data/ssh/ssh_host_ed25519_key...
 Generating /data/ssh/ssh_host_rsa_key...
@@ -295,7 +218,7 @@ Server listening on 0.0.0.0 port 22.
 2025/09/25 06:13:54 cmd/web.go:327:listen() [I] AppURL(ROOT_URL): http://localhost:3000/
 2025/09/25 06:13:54 modules/graceful/server.go:50:NewServer() [I] Starting new Web server: tcp:0.0.0.0:3000 on PID: 15
 
-# KUBECONFIG取得とkubectlの実行
+# Get kubeconfig and run kubectl
 $ ./kompoxops cluster kubeconfig --merge --set-current
 $ kubectl get pod -o wide
 NAME                        READY   STATUS    RESTARTS   AGE   IP             NODE                              NOMINATED NODE   READINESS GATES
@@ -306,24 +229,16 @@ app1-app-custom    traefik   gitea.custom.exp.kompox.dev                     135
 app1-app-default   traefik   app1-13o40q-3000.cluster1.aks1.exp.kompox.dev   135.222.244.115   80      52m
 ```
 
-これで Gitea が AKS で稼働開始したので、カスタム DNS ドメイン `gitea.custom.exp.kompox.dev` を Ingress の IP アドレス 135.222.244.115 に設定してブラウザで `https://gitea.custom.exp.kompox.dev` を開けば Gitea の初期画面が現れます。 TLS 証明書は Let's Encrypt により自動的に発行されます。
+At this point, Gitea is running on AKS. Set the custom DNS domain `gitea.custom.exp.kompox.dev` to the Ingress IP address `135.222.244.115`, then open `https://gitea.custom.exp.kompox.dev` in your browser to access the initial Gitea screen. TLS certificates are automatically issued by Let's Encrypt.
 
-この他にも `kompoxops` CLI を使って次のような運用をすることができます。
+With the `kompoxops` CLI, you can also perform operations such as:
 
-- アプリコンテナへのシェル接続: `kompoxops app exec -it -c gitea -- /bin/bash`
-- ディスクのスナップショットを作成: `kompoxops snapshot create -V default`
-- スナップショットからディスクを復元: `kompoxops snapshot restore -V default -S <SNAPSHOT-ID>`
-- アプリにアサインするディスクを変更: `kompoxops disk attach -V default -D <DISK-ID>`
-- アプリの再デプロイ・ディスクの切替: `kompoxops disk deploy`
+- Connect a shell to the app container: `kompoxops app exec -it -c gitea -- /bin/bash`
+- Create a disk snapshot: `kompoxops snapshot create -V default`
+- Restore a disk from a snapshot: `kompoxops snapshot restore -V default -S <SNAPSHOT-ID>`
+- Change the disk assigned to the app: `kompoxops disk attach -V default -D <DISK-ID>`
+- Redeploy the app and switch disk: `kompoxops disk deploy`
 
-Gitea リポジトリや Postgres データーベースは RWO PV である単一の Azure 管理ディスクの中に保存されています。
-Azure 管理ディスクのライフサイクルは Kompox が管理しており AKS クラスタとは独立しているので、
-スナップショットの作成、復元、別 AKS クラスタへの接続といったメンテナンスやマイグレーションが簡単にできます。
-
-## 仕様・アーキテクチャ
-
-[Kompox 設計ドキュメント目次](design/README.ja.md) を参照してください。
-
-## ライセンス
-
-[MIT License](LICENSE)
+Gitea repositories and the PostgreSQL database are stored on a single Azure managed disk used as an RWO PV.
+The lifecycle of that Azure managed disk is managed by Kompox and is independent from the AKS cluster,
+so maintenance and migration tasks such as snapshot creation/restoration and attaching to another AKS cluster are straightforward.

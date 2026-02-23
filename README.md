@@ -25,7 +25,7 @@ Kompox addresses the complexity of running stateful workloads on Kubernetes by p
 
 Transform your Docker Compose application (e.g., Gitea with PostgreSQL) into a production-ready Kubernetes deployment with persistent storage, ingress, and TLS certificates - all with simple CLI commands:
 
-Primary CLI input mode is KOM (`kompoxapp.yml` + Workspace/Provider/Cluster/App manifests). In this mode, app/cluster settings are represented as `App.spec.*` and `Cluster.spec.*` fields. Legacy single-file `kompoxops.yml` mode remains for compatibility and is deprecated for new setups.
+Primary CLI input mode is KOM (`kompoxapp.yml` + Workspace/Provider/Cluster/App manifests). In this mode, app/cluster settings are represented as `App.spec.*` and `Cluster.spec.*` fields.
 
 ```bash
 # Provision AKS cluster

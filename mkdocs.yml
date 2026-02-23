@@ -70,7 +70,8 @@ markdown_extensions:
 
 nav:
   - index.md
-  - story/index.md
+  - stories/index.md
+  - examples/index.md
 
 plugins:
   - i18n:

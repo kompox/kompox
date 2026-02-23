@@ -1,8 +1,8 @@
 ---
-title: Kompox Story
+title: Kompox Stories
 ---
 
-# Kompox Story
+# Kompox Stories
 
 This page explains why the author started the Kompox project, what goals Kompox is aiming for, and its mid- to long-term vision.
 

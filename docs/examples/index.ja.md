@@ -1,87 +1,10 @@
-# Kompox (K4x)
+---
+title: Kompox の使用例
+---
 
-## 概要
+# Kompox の使用例
 
-**Docker Compose で書かれたステートフルアプリを、クラウドのマネージド Kubernetes 上でシームレスに動かすことができるオーケストレーションツール**
-
-Kompox は [Kompose](https://kompose.io) のアイディアを拡張し、ステートフルワークロードの本番運用における課題を解決します。
-
-K4x は Kompox の短縮形です。
-
-## ステータスとロードマップ
-
-**2025年9月時点で本プロジェクトはアルファバージョンの段階です。CLIや内部APIは将来的に破壊的変更が行われる可能性があります。**
-
-Kompox はマルチクラウドに対応した設計となっていますが、当面は Microsoft Azure をターゲットに個別機能の POC を進めています。
-
-完了
-
-- [x] `kompoxops` CLI 基本実装
-  - [x] `kompoxops.yml` 設定ファイルの定義 (互換用の単一ファイルモード)
-  - [x] クロスプラットフォーム CI/CD (GoReleaser)
-- [x] Kubernetes 基本実装
-  - [x] Docker Compose → Kubernetes Manifest 変換
-    - [x] `services` → 単一Pod・複数コンテナマッピング
-    - [x] `volumes` → RWO PV/PVC マッピング
-    - [x] `ports` → Service/Ingress マッピング
-    - [x] `env_file` → Secret マッピング
-  - [x] Ingress Controller
-    - [x] Helm SDK による Traefik インストール
-    - [x] Let's Encrypt TLS 証明書発行 (ALPN-TLS-01)
-  - [x] App コンポーネント (アプリコンテナ)
-    - [x] 独立ネームスペース作成とネットワーク隔離
-    - [x] コンテナログ表示とシェル接続
-  - [x] Kompox Box コンポーネント (開発・テスト・メンテナンスコンテナ)
-    - [x] RWO PVマウント
-    - [x] コンテナ SSH 接続
-    - [x] コンテナ SCP ファイル転送
-    - [x] コンテナ Rsync ファイル転送
-- [x] AKS (Azure) Driver 基本実装
-  - [x] AKS クラスタライフサイクル管理
-  - [x] 管理ディスク・スナップショットライフサイクル管理
-  - [x] 可用性ゾーン対応
-  - [x] スナップショットによる RWO ディスクの復元とフェイルオーバー
-  - [x] Traefik Static TLS 証明書 (Azure Key Vault CSI driver)
-
-計画中
-
-- [ ] K3s (selfhosted) Driver
-- [ ] OKE (OCI) Driver
-- [ ] EKS (AWS) Driver
-- [ ] GKE (Google) Driver
-- [ ] GitOps 対応
-- [ ] PaaS サーバ実装
-- [ ] クラウドサービス・K8sワークロードのビリング
-- [ ] クロスプラットフォーム対応
-  - [ ] darwin/arm64, linux/arm64, windows/amd64 動作テスト
-
-## 発表・登壇
-
-- **2025/09/25(木)** [**Kubernetes Novice Tokyo #38**](https://k8s-novice-jp.connpass.com/event/365526/)
-  - Kompox: クラウドネイティブコンテナ Web アプリ DevOps ツールの紹介
-  - [スライド資料 (PDF)](https://www.docswell.com/s/yaegashi/544R21-KNT38-Kompox)
-- **2025/11/18(火)** [**CloudNative Days Winter 2025**](https://event.cloudnativedays.jp/cndw2025) (予定)
-  - [Kompox: ステートフルワークロード運用がスケールする未来をつくる](https://event.cloudnativedays.jp/cndw2025/proposals/1000)
-  - 採択前のプロポーザルです。興味を持たれた方はぜひ投票をお願いします
-
-## Kompox の背景にある課題
-
-Kubernetesはステートレスアプリの運用基盤として普及しましたが、ステートフルなワークロードの運用は依然として複雑です。
-
-- **ストレージの制約:** 性能要件からReadWriteOnce (RWO) の永続ボリューム (PV) が必要になるケースが多くありますが、RWOボリュームは単一ノードにしか接続できず、障害時の復旧や移行が困難になる一因となっています。
-- **クラウド間の差異:** 各クラウド (Azure, AWS, Google, OCI など) が提供するマネージドKubernetesやストレージサービスには微妙な仕様の違いがあり、アプリケーションのポータビリティを妨げます。
-- **開発と本番のギャップ:** Docker Compose の `compose.yml` を使ったローカルでの手軽な開発体験を、そのまま本番のKubernetes環境に持ち込むことは困難です。
-
-Kompoxはこれらの課題を解決し、ステートフルワークロードの運用をスケールさせることを目指します。
-
-- **シンプルな定義ファイル:** `compose.yml` の資産を活かしつつ、`kompoxapp.yml` と KOM (Workspace/Provider/Cluster/App) でアプリケーションとインフラを定義できます。
-- **クラウド差異の吸収:** Provider Driverアーキテクチャにより、AKS (Azure), EKS (AWS), GKE (Google), OKE (OCI) といった各クラウドにおける RWO ボリュームやスナップショット機能の差異を吸収します。
-- **容易なデータ管理:** クラウドネイティブなスナップショット機能を活用し、バックアップ・リストアや、障害発生時のアベイラビリティゾーン (AZ)・リージョン・クラウド間マイグレーションを容易にします。
-- **一貫した操作性:** `kompoxops` CLIツールを通じて、ローカル開発環境から本番クラウド環境まで、一貫したコマンドでアプリケーションのデプロイや管理を行えます。
-
-## Kompox の使用例
-
-例えば次のような [Gitea](https://about.gitea.com/) を動かすための [compose.yml](./tests/aks-e2e-gitea/compose.yml) ファイルがあるとします。
+例えば次のような [Gitea](https://about.gitea.com/) を動かすための `compose.yml` ファイルがあるとします。
 
 ```yaml
 services:
@@ -319,11 +242,3 @@ app1-app-default   traefik   app1-13o40q-3000.cluster1.aks1.exp.kompox.dev   135
 Gitea リポジトリや Postgres データーベースは RWO PV である単一の Azure 管理ディスクの中に保存されています。
 Azure 管理ディスクのライフサイクルは Kompox が管理しており AKS クラスタとは独立しているので、
 スナップショットの作成、復元、別 AKS クラスタへの接続といったメンテナンスやマイグレーションが簡単にできます。
-
-## 仕様・アーキテクチャ
-
-[Kompox 設計ドキュメント目次](design/README.ja.md) を参照してください。
-
-## ライセンス
-
-[MIT License](LICENSE)
