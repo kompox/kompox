@@ -9,12 +9,20 @@
         <xhtml:link rel="alternate" hreflang="ja" href="https://docs.kompox.dev/edgeja/"/>
     </url>
     <url>
-        <loc>https://docs.kompox.dev/edge/story/</loc>
+        <loc>https://docs.kompox.dev/edge/examples/</loc>
         <lastmod>2026-02-23</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="en-US" href="https://docs.kompox.dev/edge/story/"/>
-        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edgeen/story/"/>
-        <xhtml:link rel="alternate" hreflang="ja" href="https://docs.kompox.dev/edgeja/story/"/>
+        <xhtml:link rel="alternate" hreflang="en-US" href="https://docs.kompox.dev/edge/examples/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edgeen/examples/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://docs.kompox.dev/edgeja/examples/"/>
+    </url>
+    <url>
+        <loc>https://docs.kompox.dev/edge/stories/</loc>
+        <lastmod>2026-02-23</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en-US" href="https://docs.kompox.dev/edge/stories/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edgeen/stories/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://docs.kompox.dev/edgeja/stories/"/>
     </url>
     <url>
         <loc>https://docs.kompox.dev/edge/ja/</loc>
@@ -25,12 +33,20 @@
         <xhtml:link rel="alternate" hreflang="en-US" href="https://docs.kompox.dev/edge"/>
     </url>
     <url>
-        <loc>https://docs.kompox.dev/edge/ja/story/</loc>
+        <loc>https://docs.kompox.dev/edge/ja/examples/</loc>
         <lastmod>2026-02-23</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="ja" href="https://docs.kompox.dev/edge/ja/story/"/>
-        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edgeen/story/"/>
-        <xhtml:link rel="alternate" hreflang="en-US" href="https://docs.kompox.dev/edgestory/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://docs.kompox.dev/edge/ja/examples/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edgeen/examples/"/>
+        <xhtml:link rel="alternate" hreflang="en-US" href="https://docs.kompox.dev/edgeexamples/"/>
+    </url>
+    <url>
+        <loc>https://docs.kompox.dev/edge/ja/stories/</loc>
+        <lastmod>2026-02-23</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://docs.kompox.dev/edge/ja/stories/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edgeen/stories/"/>
+        <xhtml:link rel="alternate" hreflang="en-US" href="https://docs.kompox.dev/edgestories/"/>
     </url>
     <url>
         <loc>https://docs.kompox.dev/edge/en/</loc>
@@ -41,11 +57,19 @@
         <xhtml:link rel="alternate" hreflang="ja" href="https://docs.kompox.dev/edgeja/"/>
     </url>
     <url>
-        <loc>https://docs.kompox.dev/edge/en/story/</loc>
+        <loc>https://docs.kompox.dev/edge/en/examples/</loc>
         <lastmod>2026-02-23</lastmod>
         <changefreq>daily</changefreq>
-        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edge/en/story/"/>
-        <xhtml:link rel="alternate" hreflang="en-US" href="https://docs.kompox.dev/edgestory/"/>
-        <xhtml:link rel="alternate" hreflang="ja" href="https://docs.kompox.dev/edgeja/story/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edge/en/examples/"/>
+        <xhtml:link rel="alternate" hreflang="en-US" href="https://docs.kompox.dev/edgeexamples/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://docs.kompox.dev/edgeja/examples/"/>
+    </url>
+    <url>
+        <loc>https://docs.kompox.dev/edge/en/stories/</loc>
+        <lastmod>2026-02-23</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edge/en/stories/"/>
+        <xhtml:link rel="alternate" hreflang="en-US" href="https://docs.kompox.dev/edgestories/"/>
+        <xhtml:link rel="alternate" hreflang="ja" href="https://docs.kompox.dev/edgeja/stories/"/>
     </url>
 </urlset>
