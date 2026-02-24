@@ -107,7 +107,7 @@ Under this assumption, Kompox sets the following availability targets:
 | **RPO** (node failure) | 0 | Even if a node fails, the RWO disk is preserved by the cloud platform, so no data loss occurs<br>Database journaling and similar mechanisms preserve committed data after crashes |
 | **RPO** (AZ failure) | At the latest snapshot point | When migrating to another AZ after an AZ outage, recovery point depends on the latest cross-AZ snapshot<br>RPO depends on snapshot frequency, so periodic snapshot operations are critical<br>However, RPO=0 is achievable when using zone-redundant storage (described below) |
 | **RTO** (planned maintenance) | Tens of seconds to a few minutes | Planned downtime including node drain, disk reattachment, and Pod startup |
-| **RTO** (unplanned failure / auto-recovery) | Tens of minutes to several hours | In addition to Kubernetes node-failure detection (default 5–6 minutes), forced disk detach/reattach and Pod restart are required<br>Large incidents such as AZ outages can take even longer |
+| **RTO** (unplanned failure → auto-recovery) | Tens of minutes to several hours | In addition to Kubernetes node-failure detection (default 5–6 minutes), forced disk detach/reattach and Pod restart are required<br>Large incidents such as AZ outages can take even longer |
 | **SLO** | 99.9% | Even with a single replica and RTO>0, this level is targeted by establishing service monitoring and auto-recovery via Kubernetes (annual downtime budget: 8.75 hours) |
 | **SLA** | 99.0% | Acceptable level for internal services<br>Provides sufficient buffer against SLO for application-layer defects and maintenance time (annual downtime budget: 87.5 hours) |
 

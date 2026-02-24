@@ -6,7 +6,7 @@ title: Kompox Home
 
 ## Overview
 
-**An orchestration tool to migrate stateful applications (Git / Perforce / DB, etc.) running on Docker Compose to managed Kubernetes with minimal re-architecture**
+**Orchestrate stateful [Docker Compose](https://docs.docker.com/compose/) apps on managed [Kubernetes](https://kubernetes.io/) with RWO disk and snapshot lifecycle automation.**
 
 Kompox extends the ideas from [Kompose](https://kompose.io) as an orchestration tool.
 
@@ -18,7 +18,7 @@ K4x is the short form of Kompox.
 
 ## Key Features
 
-- **compose.yml-based workflow:** Create a single compose.yml that works in both local Docker environments (dev/staging) and Kubernetes clusters (production)
+- **Docker Compose-based workflow:** Create a single compose.yml that works in both local Docker environments (dev/staging) and Kubernetes clusters (production)
 - **Stateful app specialization:** Automatically generates production-ready configurations for stateful applications such as databases and file servers
 - **RWO disk & snapshot management:** Automated lifecycle management of cloud-native, high-performance persistent volumes — covering backup, restore, and cross-cluster migration
 - **Node pool management:** Configure multiple node pools with different specs and priorities, balancing cloud capacity/quota constraints for optimal Pod scheduling, cost efficiency, and fault tolerance
@@ -41,6 +41,7 @@ As of February 2026, core v1 features and the basic AKS driver implementation ar
 
 ## Resources
 
+- [Documentation Site (English)](https://docs.kompox.dev/edge/en)
 - [GitHub Repository](https://github.com/kompox/kompox)
     - [Developer Documentation](https://github.com/kompox/kompox/blob/main/design/README.md)
         - [ADR (Architectural Decision Records)](https://github.com/kompox/kompox/blob/main/design/adr/README.md)

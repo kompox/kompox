@@ -6,7 +6,7 @@ title: Kompox ホーム
 
 ## 概要
 
-**Docker Compose で動いていたステートフルアプリ （データベースやリポジトリホスティングなど） を、リアーキテクチャ最小でマネージド Kubernetes に移行するためのオーケストレーションツール**
+**マネージド [Kubernetes](https://kubernetes.io/) で [Docker Compose](https://docs.docker.com/compose/) のステートフルアプリのオーケストレーションを行い、RWO ディスクとスナップショットのライフサイクル管理を自動化するツール。**
 
 Kompox は [Kompose](https://kompose.io) のアイデアを拡張したオーケストレーションツールです。
 
@@ -18,7 +18,7 @@ K4x は Kompox の略称表記です。
 
 ## 特徴
 
-- **compose.yml ベースのワークフロー:** ローカル Docker 環境 (開発・検証) と Kubernetes クラスタ (本番) の両方で動く compose.yml が作成可能
+- **Docker Compose ベースのワークフロー:** ローカル Docker 環境 (開発・検証) と Kubernetes クラスタ (本番) の両方で動く compose.yml が作成可能
 - **ステートフルアプリ特化:** データベースやファイルサーバーなど、状態を持つアプリの本番運用に適した構成を自動生成
 - **RWO ディスク・スナップショット管理:** クラウドネイティブで高性能な永続ボリュームのライフサイクルを自動管理、バックアップ・リストア・クラスタ間移行まで対応
 - **ノードプール管理:** クラウド側のキャパシティ・クオータ制約と折り合いながら、スペックや優先度の異なる複数のノードプールを構成し、Pod の適切なスケジュールとコスト最適化・耐障害性を実現
@@ -41,6 +41,7 @@ K4x は Kompox の略称表記です。
 
 ## リソース
 
+- [ドキュメントサイト (日本語)](https://docs.kompox.dev/edge/ja)
 - [GitHub リポジトリ](https://github.com/kompox/kompox)
     - [開発者向けドキュメント](https://github.com/kompox/kompox/blob/main/design/README.md)
         - [ADR (Architectural Decision Records)](https://github.com/kompox/kompox/blob/main/design/adr/README.md)

@@ -1,72 +1,49 @@
 # Kompox (K4x)
 
-**An orchestration tool to seamlessly run stateful applications written in Docker Compose on managed Kubernetes in the cloud**
-
-Kompox extends the ideas from [Kompose](https://kompose.io) to solve production operational challenges for stateful workloads. K4x is the short form of Kompox.
-
-**日本語によるプロジェクトの説明: [README.ja.md](README.ja.md)**
-
-## Project Status
-
-**This project is in alpha stage as of September 2025. CLI and internal APIs may undergo breaking changes.**
-
-While Kompox is designed for multi-cloud support, we are currently focusing on Microsoft Azure for individual feature implementation.
+**日本語: [README.ja.md](README.ja.md)**
 
 ## Overview
 
-Kompox addresses the complexity of running stateful workloads on Kubernetes by providing:
+**Orchestrate stateful [Docker Compose](https://docs.docker.com/compose/) apps on managed [Kubernetes](https://kubernetes.io/) with RWO disk and snapshot lifecycle automation.**
 
-- **Simple configuration**: Use `kompoxapp.yml` + KOM (Workspace/Provider/Cluster/App) while reusing existing `compose.yml` assets
-- **Cloud abstraction**: Provider Driver architecture that abstracts differences between cloud platforms (AKS, EKS, GKE, OKE)
-- **Easy data management**: Cloud-native snapshot capabilities for backup, restore, and cross-zone/region/cloud migration
-- **Consistent operations**: Unified CLI experience from local development to production cloud environments
+Kompox extends the ideas from [Kompose](https://kompose.io) as an orchestration tool.
 
-## Quick Example
+Beyond converting Docker Compose to Kubernetes manifests, Kompox actively manages the lifecycle of RWO persistent volumes and snapshots — including creation, backup, restore, and migration.
 
-Transform your Docker Compose application (e.g., Gitea with PostgreSQL) into a production-ready Kubernetes deployment with persistent storage, ingress, and TLS certificates - all with simple CLI commands:
+This makes it practically feasible to operate **block-storage-dependent stateful applications** on managed Kubernetes, which are otherwise difficult to handle on managed container platforms.
 
-Primary CLI input mode is KOM (`kompoxapp.yml` + Workspace/Provider/Cluster/App manifests). In this mode, app/cluster settings are represented as `App.spec.*` and `Cluster.spec.*` fields.
-
-```bash
-# Provision AKS cluster
-kompoxops cluster provision
-
-# Install ingress controller and common resources
-kompoxops cluster install
-
-# Create persistent volumes (Azure managed disks)
-kompoxops disk create -V default
-
-# Deploy application from compose.yml
-kompoxops app deploy
-```
+K4x is the short form of Kompox.
 
 ## Key Features
 
-- **Stateful workload focus**: RWO volume management with cloud-native snapshots
-- **Multi-cloud ready**: Currently supports Azure AKS, with plans for K3s, EKS, GKE, and OKE
-- **Production-ready**: Ingress controller, TLS certificates, network isolation
-- **Data lifecycle management**: Independent disk lifecycle from cluster, enabling easy migration and maintenance
+- **Docker Compose-based workflow:** Create a single compose.yml that works in both local Docker environments (dev/staging) and Kubernetes clusters (production)
+- **Stateful app specialization:** Automatically generates production-ready configurations for stateful applications such as databases and file servers
+- **RWO disk & snapshot management:** Automated lifecycle management of cloud-native, high-performance persistent volumes — covering backup, restore, and cross-cluster migration
+- **Node pool management:** Configure multiple node pools with different specs and priorities, balancing cloud capacity/quota constraints for optimal Pod scheduling, cost efficiency, and fault tolerance
+- **Availability zone support:** Zone-aware placement and management of Pods, disks, and snapshots
+- **Multi-cloud support:** AKS (Azure) as the reference implementation, with OKE (OCI), EKS (AWS), GKE (Google), and K3s (self-hosted) planned
 
-## Documentation
+## Roadmap
 
-Comprehensive documentation is available in Japanese:
+- **v1 (Kompox CLI)**
+    - Core feature implementation via the `kompoxops` CLI
+    - Definition and implementation of the Kompox Ops Manifest (KOM) format
+    - Cloud provider driver implementation with AKS as the reference
+    - Sequential support for additional cloud provider drivers (AKS → OKE → EKS → GKE → K3s)
+- **v2 (Kompox PaaS)**
+    - Kompox CRD: KOM-based Kubernetes-native resource definitions
+    - Kompox Operator: Kubernetes controller for managing Kompox resources
+    - Kompox PaaS: PaaS layer supporting multi-tenant requirements such as RBAC and billing
 
-- **[README.ja.md](README.ja.md)**: Complete project overview, roadmap, and usage examples
-- **[design/](design/)**: Kompox Design Document Index: detailed specifications, architecture documents, etc.
+As of February 2026, core v1 features and the basic AKS driver implementation are complete. The project is in alpha stage, so each feature is at prototype level and documentation primarily consists of developer-facing design materials. Going forward, we plan to develop operational tools and user-facing documentation and tutorials.
 
-The documentation includes:
-- Detailed use cases and examples
-- Complete CLI reference
-- Architecture specifications
-- Implementation details
+## Resources
 
-## Community
-
-- **Presentations**:
-  - Kubernetes Novice Tokyo #38 (2025/09/25)
-  - CloudNative Days Winter 2025 (2025/11/18, planned)
-
-## License
-
-[MIT License](LICENSE)
+- [Documentation Site (English)](https://docs.kompox.dev/edge/en)
+- [GitHub Repository](https://github.com/kompox/kompox)
+    - [Developer Documentation](https://github.com/kompox/kompox/blob/main/design/README.md)
+        - [ADR (Architectural Decision Records)](https://github.com/kompox/kompox/blob/main/design/adr/README.md)
+        - [Plans](https://github.com/kompox/kompox/blob/main/design/plans/README.md)
+        - [Tasks](https://github.com/kompox/kompox/blob/main/design/tasks/README.md)
+        - [v1 Documents](https://github.com/kompox/kompox/blob/main/design/v1/README.md)
+    - [Releases](https://github.com/kompox/kompox/releases) (Download the `kompoxops` CLI)
