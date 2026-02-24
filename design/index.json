@@ -1,17 +1,17 @@
 {
-  "updated": "2026-02-20T00:20:00Z",
-  "docCount": 76,
+  "updated": "2026-02-24T10:31:42Z",
+  "docCount": 78,
   "categories": [
     {
       "category": "adr",
-      "updated": "2026-02-20T00:15:00Z",
-      "docCount": 19,
+      "updated": "2026-02-24T10:31:42Z",
+      "docCount": 20,
       "indexPath": "design/adr/index.json"
     },
     {
       "category": "plans",
-      "updated": "2026-02-20T00:20:00Z",
-      "docCount": 2,
+      "updated": "2026-02-24T10:31:42Z",
+      "docCount": 3,
       "indexPath": "design/plans/index.json"
     },
     {
@@ -400,6 +400,26 @@
       "version": ""
     },
     {
+      "category": "adr",
+      "id": "K4x-ADR-020",
+      "language": "en",
+      "plans": [
+        "2026ac-aks-arm-rest-migration"
+      ],
+      "references": [
+        "2026ac-aks-arm-rest-migration",
+        "Kompox-ProviderDriver",
+        "Kompox-ProviderDriver-AKS"
+      ],
+      "relPath": "design/adr/K4x-ADR-020.md",
+      "status": "proposed",
+      "supersededBy": [],
+      "supersedes": [],
+      "title": "Migrate AKS driver provisioning from ARM template deployment to ARM REST ensure workflow",
+      "updated": "2026-02-24T10:31:42Z",
+      "version": ""
+    },
+    {
       "adrs": [
         "K4x-ADR-017"
       ],
@@ -468,6 +488,26 @@
       ],
       "title": "K8s プラットフォームドライバへの NodePool 対応追加",
       "updated": "2026-02-20T00:20:00Z",
+      "version": "v1"
+    },
+    {
+      "adrs": [
+        "K4x-ADR-020"
+      ],
+      "category": "plans",
+      "id": "2026ac-aks-arm-rest-migration",
+      "language": "ja",
+      "references": [
+        "Kompox-CLI",
+        "Kompox-ProviderDriver",
+        "Kompox-ProviderDriver-AKS",
+        "design/plans/README.md"
+      ],
+      "relPath": "design/plans/2026/2026ac-aks-arm-rest-migration.ja.md",
+      "status": "draft",
+      "tasks": [],
+      "title": "AKS Provider Driver の ARM REST API ベース移行",
+      "updated": "2026-02-24T10:31:42Z",
       "version": "v1"
     },
     {

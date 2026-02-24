@@ -1,7 +1,7 @@
 {
   "category": "adr",
-  "updated": "2026-02-20T00:15:00Z",
-  "docCount": 19,
+  "updated": "2026-02-24T10:31:42Z",
+  "docCount": 20,
   "docs": [
     {
       "category": "adr",
@@ -354,6 +354,26 @@
       "supersedes": [],
       "title": "Introduce NodePool abstraction for multi-provider cluster scaling and scheduling",
       "updated": "2026-02-20T00:15:00Z",
+      "version": ""
+    },
+    {
+      "category": "adr",
+      "id": "K4x-ADR-020",
+      "language": "en",
+      "plans": [
+        "2026ac-aks-arm-rest-migration"
+      ],
+      "references": [
+        "2026ac-aks-arm-rest-migration",
+        "Kompox-ProviderDriver",
+        "Kompox-ProviderDriver-AKS"
+      ],
+      "relPath": "design/adr/K4x-ADR-020.md",
+      "status": "proposed",
+      "supersededBy": [],
+      "supersedes": [],
+      "title": "Migrate AKS driver provisioning from ARM template deployment to ARM REST ensure workflow",
+      "updated": "2026-02-24T10:31:42Z",
       "version": ""
     }
   ]
