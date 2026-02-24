@@ -2,7 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
     <url>
         <loc>https://docs.kompox.dev/edge/</loc>
-        <lastmod>2026-02-23</lastmod>
+        <lastmod>2026-02-24</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en-US" href="https://docs.kompox.dev/edge/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edgeen/"/>
@@ -10,7 +10,7 @@
     </url>
     <url>
         <loc>https://docs.kompox.dev/edge/examples/</loc>
-        <lastmod>2026-02-23</lastmod>
+        <lastmod>2026-02-24</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en-US" href="https://docs.kompox.dev/edge/examples/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edgeen/examples/"/>
@@ -18,7 +18,7 @@
     </url>
     <url>
         <loc>https://docs.kompox.dev/edge/stories/</loc>
-        <lastmod>2026-02-23</lastmod>
+        <lastmod>2026-02-24</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en-US" href="https://docs.kompox.dev/edge/stories/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edgeen/stories/"/>
@@ -26,7 +26,7 @@
     </url>
     <url>
         <loc>https://docs.kompox.dev/edge/ja/</loc>
-        <lastmod>2026-02-23</lastmod>
+        <lastmod>2026-02-24</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="ja" href="https://docs.kompox.dev/edge/ja/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edgeen/"/>
@@ -34,7 +34,7 @@
     </url>
     <url>
         <loc>https://docs.kompox.dev/edge/ja/examples/</loc>
-        <lastmod>2026-02-23</lastmod>
+        <lastmod>2026-02-24</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="ja" href="https://docs.kompox.dev/edge/ja/examples/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edgeen/examples/"/>
@@ -42,7 +42,7 @@
     </url>
     <url>
         <loc>https://docs.kompox.dev/edge/ja/stories/</loc>
-        <lastmod>2026-02-23</lastmod>
+        <lastmod>2026-02-24</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="ja" href="https://docs.kompox.dev/edge/ja/stories/"/>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edgeen/stories/"/>
@@ -50,7 +50,7 @@
     </url>
     <url>
         <loc>https://docs.kompox.dev/edge/en/</loc>
-        <lastmod>2026-02-23</lastmod>
+        <lastmod>2026-02-24</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edge/en/"/>
         <xhtml:link rel="alternate" hreflang="en-US" href="https://docs.kompox.dev/edge"/>
@@ -58,7 +58,7 @@
     </url>
     <url>
         <loc>https://docs.kompox.dev/edge/en/examples/</loc>
-        <lastmod>2026-02-23</lastmod>
+        <lastmod>2026-02-24</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edge/en/examples/"/>
         <xhtml:link rel="alternate" hreflang="en-US" href="https://docs.kompox.dev/edgeexamples/"/>
@@ -66,7 +66,7 @@
     </url>
     <url>
         <loc>https://docs.kompox.dev/edge/en/stories/</loc>
-        <lastmod>2026-02-23</lastmod>
+        <lastmod>2026-02-24</lastmod>
         <changefreq>daily</changefreq>
         <xhtml:link rel="alternate" hreflang="en" href="https://docs.kompox.dev/edge/en/stories/"/>
         <xhtml:link rel="alternate" hreflang="en-US" href="https://docs.kompox.dev/edgestories/"/>
