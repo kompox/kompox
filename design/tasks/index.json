@@ -1,7 +1,7 @@
 {
   "category": "tasks",
-  "updated": "2026-02-19T23:40:18Z",
-  "docCount": 16,
+  "updated": "2026-02-27T12:34:00Z",
+  "docCount": 17,
   "docs": [
     {
       "category": "tasks",
@@ -351,6 +351,30 @@
       "status": "done",
       "title": "NodePool テスト実装",
       "updated": "2026-02-19T23:40:18Z",
+      "version": ""
+    },
+    {
+      "adrs": [],
+      "category": "tasks",
+      "id": "20260227a-oke-driver-design-doc",
+      "language": "ja",
+      "owner": null,
+      "plans": [
+        "2026ad-oke-driver-implementation"
+      ],
+      "references": [
+        "2026ad-oke-driver-implementation",
+        "Kompox-ProviderDriver",
+        "Kompox-ProviderDriver-AKS",
+        "Kompox-ProviderDriver-OKE-DesignStudy",
+        "design/tasks/README.md"
+      ],
+      "relPath": "design/tasks/2026/02/27/20260227a-oke-driver-design-doc.ja.md",
+      "status": "active",
+      "supersededBy": null,
+      "supersedes": [],
+      "title": "OKE Driver 設計基準ドキュメント作成",
+      "updated": "2026-02-27T12:34:00Z",
       "version": ""
     }
   ]

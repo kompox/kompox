@@ -18,8 +18,9 @@
 | [20260217c-kom-app-deployment-impl](./2026/02/17/20260217c-kom-app-deployment-impl.ja.md) | KOM App Deployment 指定と KubeConverter 更新 | 2026-02-18T01:30:40Z | done |
 | [20260217d-nodepool-doc-sync](./2026/02/17/20260217d-nodepool-doc-sync.ja.md) | NodePool 設計ドキュメント同期 | 2026-02-18T01:22:50Z | done |
 | [20260218a-nodepool-tests](./2026/02/18/20260218a-nodepool-tests.ja.md) | NodePool テスト実装 | 2026-02-19T23:40:18Z | done |
+| [20260227a-oke-driver-design-doc](./2026/02/27/20260227a-oke-driver-design-doc.ja.md) | OKE Driver 設計基準ドキュメント作成 | 2026-02-27T12:34:00Z | active |
 
-Updated: 2026-02-19T23:40:18Z
+Updated: 2026-02-27T12:34:00Z
 
 ---
 

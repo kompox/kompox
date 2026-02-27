@@ -6,7 +6,8 @@ status: active
 updated: 2026-02-27T11:08:13Z
 language: ja
 adrs: []
-tasks: []
+tasks:
+  - 20260227a-oke-driver-design-doc
 ---
 
 # Plan: OKE Provider Driver 実装
@@ -45,6 +46,7 @@ tasks: []
 ## 計画 (チェックリスト)
 
 - [ ] Phase 1: OKE Driver の設計基準ドキュメントを作成する。
+  - [x] Task: [20260227a-oke-driver-design-doc]
   - [ ] `design/v1/Kompox-ProviderDriver-OKE.ja.md` を新規作成する。
   - [ ] [Kompox-ProviderDriver-OKE-DesignStudy] の方針を、実装規約(必須/任意/非対応)として再編する。
   - [ ] MVP 範囲(`instance_principal` + `user_principal`、CA非対応、OCIR後続)を明記する。
@@ -108,6 +110,7 @@ tasks: []
 - [2026ac-aks-arm-rest-migration]
 - [Kompox-KOM]
 - [Kompox-CLI]
+- [20260227a-oke-driver-design-doc]
 
 [design/plans/README.md]: ../README.md
 [Kompox-ProviderDriver-OKE]: ../../v1/Kompox-ProviderDriver-OKE.ja.md
@@ -117,3 +120,4 @@ tasks: []
 [2026ac-aks-arm-rest-migration]: ./2026ac-aks-arm-rest-migration.ja.md
 [Kompox-KOM]: ../../v1/Kompox-KOM.ja.md
 [Kompox-CLI]: ../../v1/Kompox-CLI.ja.md
+[20260227a-oke-driver-design-doc]: ../../tasks/2026/02/27/20260227a-oke-driver-design-doc.ja.md
