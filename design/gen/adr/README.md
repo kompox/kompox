@@ -1,3 +1,6 @@
+---
+sort: adr-number asc
+---
 # ADR Index
 
 | ID | Title | Updated | Status |

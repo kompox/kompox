@@ -1,3 +1,6 @@
+---
+sort: updated desc
+---
 # Public Docs Index
 
 | ID | Title | Updated | Status |

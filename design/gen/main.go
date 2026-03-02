@@ -112,20 +112,7 @@ func main() {
 			exitErr(fmt.Errorf("scan category docs (%s): %w", ct.Category, err))
 		}
 
-		if strings.EqualFold(ct.Category, "adr") {
-			sort.SliceStable(docs, func(i, j int) bool {
-				ni := adrNumberFromDoc(docs[i])
-				nj := adrNumberFromDoc(docs[j])
-				if ni == nj {
-					return docs[i].RelPath < docs[j].RelPath
-				}
-				return ni < nj
-			})
-		} else {
-			sort.SliceStable(docs, func(i, j int) bool {
-				return docs[i].RelPath < docs[j].RelPath
-			})
-		}
+		sortDocs(docs, parseSortDirective(ct.TemplatePath))
 
 		data := IndexData{
 			Title:    fmt.Sprintf("Kompox Design %s Index", strings.ToUpper(ct.Category)),
@@ -282,7 +269,8 @@ func renderTemplateToFile(templatePath, outputPath string, data any) error {
 	if readErr != nil {
 		return fmt.Errorf("read template: %w", readErr)
 	}
-	tpl, err := template.New(filepath.Base(templatePath)).Parse(string(tplBytes))
+	tplBody, _ := splitFrontMatter(tplBytes)
+	tpl, err := template.New(filepath.Base(templatePath)).Parse(string(tplBody))
 	if err != nil {
 		return fmt.Errorf("parse template: %w", err)
 	}
@@ -291,17 +279,18 @@ func renderTemplateToFile(templatePath, outputPath string, data any) error {
 	if err := tpl.Execute(&buf, data); err != nil {
 		return fmt.Errorf("execute template: %w", err)
 	}
+	rendered := bytes.TrimLeft(buf.Bytes(), "\n")
 	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
 		return fmt.Errorf("ensure output dir: %w", err)
 	}
 	if prev, err := os.ReadFile(outputPath); err == nil {
-		if bytes.Equal(prev, buf.Bytes()) {
+		if bytes.Equal(prev, rendered) {
 			return nil
 		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("read existing output: %w", err)
 	}
-	if err := os.WriteFile(outputPath, buf.Bytes(), 0o644); err != nil {
+	if err := os.WriteFile(outputPath, rendered, 0o644); err != nil {
 		return fmt.Errorf("write output: %w", err)
 	}
 
@@ -548,6 +537,98 @@ func parseReferenceLabels(lines []string) []string {
 	}
 	sort.Strings(refs)
 	return refs
+}
+
+// sortDirective describes how to sort docs for a category index.
+type sortDirective struct {
+	Field string // "relpath", "id", "title", "updated", "status", "adr-number"
+	Desc  bool   // true for descending
+}
+
+// templateMeta holds the YAML front matter of a category template.
+type templateMeta struct {
+	Sort string `yaml:"sort"` // e.g. "updated desc", "adr-number asc"
+}
+
+// parseSortDirective reads the YAML front matter from a template file and
+// extracts the sort directive. Returns a default (relpath asc) when no
+// front matter or sort field is found.
+func parseSortDirective(templatePath string) sortDirective {
+	defaultSD := sortDirective{Field: "relpath", Desc: false}
+	data, err := os.ReadFile(templatePath)
+	if err != nil {
+		return defaultSD
+	}
+	_, fm := splitFrontMatter(data)
+	if fm == nil {
+		return defaultSD
+	}
+	var meta templateMeta
+	if err := yaml.Unmarshal(fm, &meta); err != nil || meta.Sort == "" {
+		return defaultSD
+	}
+	parts := strings.Fields(meta.Sort)
+	field := strings.ToLower(parts[0])
+	desc := len(parts) >= 2 && strings.EqualFold(parts[1], "desc")
+	return sortDirective{Field: field, Desc: desc}
+}
+
+// splitFrontMatter splits YAML front matter (delimited by ---) from the rest
+// of the content. Returns (body, frontMatter). If no front matter is found,
+// frontMatter is nil and body is the original content.
+func splitFrontMatter(data []byte) (body []byte, frontMatter []byte) {
+	const sep = "---"
+	s := string(data)
+	if !strings.HasPrefix(strings.TrimLeft(s, "\n"), sep) {
+		return data, nil
+	}
+	s = strings.TrimLeft(s, "\n")
+	rest := s[len(sep):]
+	idx := strings.Index(rest, "\n"+sep)
+	if idx < 0 {
+		return data, nil
+	}
+	fm := rest[:idx]
+	body = []byte(strings.TrimLeft(rest[idx+1+len(sep):], "\n"))
+	return body, []byte(fm)
+}
+
+// sortDocs sorts the doc slice in place according to the given directive.
+func sortDocs(docs []Doc, sd sortDirective) {
+	less := docLessFunc(sd.Field)
+	if sd.Desc {
+		sort.SliceStable(docs, func(i, j int) bool {
+			return less(docs[j], docs[i])
+		})
+	} else {
+		sort.SliceStable(docs, func(i, j int) bool {
+			return less(docs[i], docs[j])
+		})
+	}
+}
+
+// docLessFunc returns a less-than comparator for the given field name.
+func docLessFunc(field string) func(a, b Doc) bool {
+	switch field {
+	case "id":
+		return func(a, b Doc) bool { return a.ID < b.ID }
+	case "title":
+		return func(a, b Doc) bool { return a.Title < b.Title }
+	case "updated":
+		return func(a, b Doc) bool { return a.Updated < b.Updated }
+	case "status":
+		return func(a, b Doc) bool { return a.Status < b.Status }
+	case "adr-number":
+		return func(a, b Doc) bool {
+			na, nb := adrNumberFromDoc(a), adrNumberFromDoc(b)
+			if na == nb {
+				return a.RelPath < b.RelPath
+			}
+			return na < nb
+		}
+	default: // "relpath" or unknown
+		return func(a, b Doc) bool { return a.RelPath < b.RelPath }
+	}
 }
 
 // adrNumberFromDoc extracts the numeric ADR id (e.g., 6 from "K4x-ADR-006").
