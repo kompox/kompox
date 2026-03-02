@@ -2,10 +2,11 @@
 
 | ID | Title | Updated | Status |
 | --- | --- | --- | --- |
+| [Kompox-Pub-202603-CNK](./Kompox-Pub-CNK2026.ja.md) | Cloud Native Kaigi | 2026-03-02T12:30:47Z | draft |
 | [Kompox-Pub-CNDW2025](./Kompox-Pub-CNDW2025.ja.md) | CloudNative Days Winter 2025 | 2025-10-01T00:00:00Z | rejected |
 | [Kompox-Pub-k8snovice38](./Kompox-Pub-k8snovice38.ja.md) | Kubernetes Novice Tokyo #38 | 2025-09-26T00:00:00Z | delivered |
 
-Updated: 2025-10-01T00:00:00Z
+Updated: 2026-03-02T12:30:47Z
 
 ---
 

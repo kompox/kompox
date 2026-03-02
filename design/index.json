@@ -1,6 +1,6 @@
 {
-  "updated": "2026-02-27T12:34:00Z",
-  "docCount": 80,
+  "updated": "2026-03-02T12:30:47Z",
+  "docCount": 81,
   "categories": [
     {
       "category": "adr",
@@ -16,8 +16,8 @@
     },
     {
       "category": "pub",
-      "updated": "2025-10-01T00:00:00Z",
-      "docCount": 2,
+      "updated": "2026-03-02T12:30:47Z",
+      "docCount": 3,
       "indexPath": "design/pub/index.json"
     },
     {
@@ -534,6 +534,20 @@
       "title": "OKE Provider Driver 実装",
       "updated": "2026-02-27T11:08:13Z",
       "version": "v1"
+    },
+    {
+      "category": "pub",
+      "id": "Kompox-Pub-202603-CNK",
+      "language": "ja",
+      "references": [
+        "CloudNative Days Winter 2025",
+        "Kubernetes Novice Tokyo #38"
+      ],
+      "relPath": "design/pub/Kompox-Pub-CNK2026.ja.md",
+      "status": "draft",
+      "title": "Cloud Native Kaigi",
+      "updated": "2026-03-02T12:30:47Z",
+      "version": ""
     },
     {
       "category": "pub",

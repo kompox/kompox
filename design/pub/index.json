@@ -1,8 +1,22 @@
 {
   "category": "pub",
-  "updated": "2025-10-01T00:00:00Z",
-  "docCount": 2,
+  "updated": "2026-03-02T12:30:47Z",
+  "docCount": 3,
   "docs": [
+    {
+      "category": "pub",
+      "id": "Kompox-Pub-202603-CNK",
+      "language": "ja",
+      "references": [
+        "CloudNative Days Winter 2025",
+        "Kubernetes Novice Tokyo #38"
+      ],
+      "relPath": "design/pub/Kompox-Pub-CNK2026.ja.md",
+      "status": "draft",
+      "title": "Cloud Native Kaigi",
+      "updated": "2026-03-02T12:30:47Z",
+      "version": ""
+    },
     {
       "category": "pub",
       "id": "Kompox-Pub-CNDW2025",
