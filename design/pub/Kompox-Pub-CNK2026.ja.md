@@ -1,8 +1,8 @@
 ---
 id: Kompox-Pub-202603-CNK
 title: Cloud Native Kaigi
-status: draft
-updated: 2026-03-02T12:30:47Z
+status: scheduled
+updated: 2026-05-13T22:27:18Z
 language: ja
 ---
 
@@ -15,6 +15,50 @@ language: ja
 - 場所: 中日ホール & カンファレンス (名古屋)
 - CFP締切: 2026年3月1日 25:59 JST
 - URL: https://kaigi.cloudnativedays.jp/
+
+## 登壇情報
+
+### セッション情報
+
+- URL: https://kaigi.cloudnativedays.jp/sessions/3030
+- 日時: 2026年5月14日(木) 17:00 - 17:30
+- トラック: Cloud Native Track A
+- カテゴリ: Cloud Native
+- レベル: 中級者
+- 配信: オンライン視聴あり (要参加登録)
+
+### タイトル
+
+Pets on Kubernetes ― RWOボリュームで「飼う」ステートフルアプリ設計の現実解
+
+### セッション概要
+
+「Cattle, not Pets」は Kubernetes アプリ設計の常識ですが、その前提となる高可用性サービスに頼れないステートフルアプリ (Git/P4、CI・開発環境、レガシー等) は多くの組織に残っており、それらを VM から脱却させるには K8s の ReadWriteOnce (RWO) PV + シングルレプリカ Pod で「飼う」しかないケースがあります。
+
+本講演ではこのトピックを掘り下げた次の内容をお話します。
+
+- Kompox の紹介: マルチクラウド K8s アプリ運用ツール https://docs.kompox.dev/edge/ja/
+- K8s の宣言的管理・自動復旧・API 駆動インフラを活用した compose.yml 中心のアプリ開発ワークフロー
+- HPA やローリングアップデートと無縁な RPO≈0・SLO 99.9% の割り切った可用性設計
+- AKS における RWO の AZ 制約・デタッチ・スナップショット挙動の現実
+- CRD / Operator 化と PaaS 展開構想
+
+K8s の能力をあえて使わないことがステートフルアプリ設計の現実解になり得ることを、汎用的な設計パターンとして持ち帰りいただけます。
+
+### スピーカー
+
+- 名前: Takeshi Yaegashi
+- 所属: 株式会社バンダイナムコスタジオ テクニカルディレクター
+- GitHub: https://github.com/yaegashi
+- X: https://x.com/hogegashi
+
+Linux・Unix・OSS・Go 言語など低レイヤ技術好きのエンジニア。組み込みやゲームサーバ開発を経て、社内 IT 環境の改善やクラウド移行支援に従事。
+
+クラウド VM と Docker Compose で多数の社内向けステートフルアプリを運用してきた経験から、現在はそのクラウドネイティブ化に取り組み、マルチクラウド K8s アプリ運用ツール Kompox を開発しています。Kompox の開発の経緯とロードマップについては https://docs.kompox.dev/edge/ja/stories/ を参照してください。
+
+Microsoft MVP for Microsoft Azure (2023-2025)
+
+---
 
 ## セッション募集要項
 
