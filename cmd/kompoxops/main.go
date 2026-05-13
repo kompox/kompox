@@ -22,9 +22,10 @@ import (
 type contextKey string
 
 const (
-	kompoxEnvKey     contextKey = "kompox-env"
-	logFilePathKey   contextKey = "log-file-path"
-	logFileCloserKey contextKey = "log-file-closer"
+	kompoxEnvKey          contextKey = "kompox-env"
+	cmdStartLogEmittedKey contextKey = "cmd-start-log-emitted"
+	logFilePathKey        contextKey = "log-file-path"
+	logFileCloserKey      contextKey = "log-file-closer"
 )
 
 // ExitCodeError is an error that carries an exit code.
@@ -51,6 +52,11 @@ func getLogFilePath(ctx context.Context) string {
 		return path
 	}
 	return ""
+}
+
+func hasEmittedCMDStartLog(ctx context.Context) bool {
+	emitted, _ := ctx.Value(cmdStartLogEmittedKey).(bool)
+	return emitted
 }
 
 func newRootCmd() *cobra.Command {
@@ -182,7 +188,8 @@ func newRootCmd() *cobra.Command {
 		// Emit CMD start log
 		l.Info(ctx, "CMD", "args", os.Args)
 
-		// Store log file path and closer in context
+		// Store CMD-start marker, log file state, and logger in context.
+		ctx = context.WithValue(ctx, cmdStartLogEmittedKey, true)
 		ctx = context.WithValue(ctx, logFilePathKey, logFile.Path)
 		ctx = context.WithValue(ctx, logFileCloserKey, logFile)
 		ctx = logging.WithLogger(ctx, l)
@@ -281,7 +288,9 @@ func main() {
 	}
 
 	// Emit CMD exit log
-	logging.FromContext(ctx).Info(ctx, "CMD", "exitCode", exitCode)
+	if hasEmittedCMDStartLog(ctx) {
+		logging.FromContext(ctx).Info(ctx, "CMD", "exitCode", exitCode)
+	}
 
 	// Close log file if opened
 	if closer, ok := ctx.Value(logFileCloserKey).(*logging.LogFile); ok && closer != nil {
