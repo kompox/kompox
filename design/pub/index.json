@@ -1,6 +1,6 @@
 {
   "category": "pub",
-  "updated": "2026-03-02T12:30:47Z",
+  "updated": "2026-05-13T22:27:18Z",
   "docCount": 3,
   "docs": [
     {
@@ -12,9 +12,9 @@
         "Kubernetes Novice Tokyo #38"
       ],
       "relPath": "design/pub/Kompox-Pub-CNK2026.ja.md",
-      "status": "draft",
+      "status": "scheduled",
       "title": "Cloud Native Kaigi",
-      "updated": "2026-03-02T12:30:47Z",
+      "updated": "2026-05-13T22:27:18Z",
       "version": ""
     },
     {

@@ -1,5 +1,5 @@
 {
-  "updated": "2026-03-02T12:30:47Z",
+  "updated": "2026-05-13T22:27:18Z",
   "docCount": 81,
   "categories": [
     {
@@ -16,7 +16,7 @@
     },
     {
       "category": "pub",
-      "updated": "2026-03-02T12:30:47Z",
+      "updated": "2026-05-13T22:27:18Z",
       "docCount": 3,
       "indexPath": "design/pub/index.json"
     },
@@ -28,7 +28,7 @@
     },
     {
       "category": "v1",
-      "updated": "2026-02-18T12:26:37Z",
+      "updated": "2026-05-13T00:00:00Z",
       "docCount": 12,
       "indexPath": "design/v1/index.json"
     },
@@ -544,9 +544,9 @@
         "Kubernetes Novice Tokyo #38"
       ],
       "relPath": "design/pub/Kompox-Pub-CNK2026.ja.md",
-      "status": "draft",
+      "status": "scheduled",
       "title": "Cloud Native Kaigi",
-      "updated": "2026-03-02T12:30:47Z",
+      "updated": "2026-05-13T22:27:18Z",
       "version": ""
     },
     {
@@ -1048,7 +1048,7 @@
       "relPath": "design/v1/Kompox-Logging.ja.md",
       "status": "synced",
       "title": "Kompox ロギング仕様",
-      "updated": "2025-12-13T00:00:00Z",
+      "updated": "2026-05-13T00:00:00Z",
       "version": "v1"
     },
     {
